@@ -1,0 +1,28 @@
+{
+  "apps": 300,
+  "libs": 100,
+  "targets": [
+    {
+      "label": "ext4",
+      "root": "/tmp",
+      "fstype": "ext4",
+      "relinkMs": 2965,
+      "importMethod": "hardlink (link count 2)",
+      "apparentBytes": 337852175,
+      "duActualBytes": 385978368,
+      "btrfsExclusiveBytes": null,
+      "storeBytes": 338262013
+    },
+    {
+      "label": "btrfs",
+      "root": "/mnt/fcvm-btrfs",
+      "fstype": "btrfs",
+      "relinkMs": 3161,
+      "importMethod": "reflink (CoW; 0.4MB exclusive of 340MB apparent → shared with store)",
+      "apparentBytes": 340083577,
+      "duActualBytes": 387653632,
+      "btrfsExclusiveBytes": 368640,
+      "storeBytes": 338262013
+    }
+  ]
+}

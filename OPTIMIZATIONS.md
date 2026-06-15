@@ -33,7 +33,7 @@ nodeLinker: isolated   # default — strict, deduped, symlink farm
 - Use **`pnp`** (+ `symlink: false`) to kill the symlink farm entirely when your toolchain tolerates Plug'n'Play.
 
 ### 1.2 `package-import-method` on copy-on-write filesystems
-How files land in `node_modules`. The default `auto` already tries reflink clone → hardlink → copy, so on a CoW filesystem (APFS/Btrfs/XFS) you get clones with no configuration; forcing `clone` only matters if detection is wrong. The benchmark host is ext4 (no reflink), so this is not exercised here.
+How files land in `node_modules`. The default `auto` tries reflink clone → hardlink → copy. Measured here on both filesystems (`scripts/fs-bench.mjs`, `bench/fs-bench.json`; 300 apps / 100 libs, warm store): on **ext4** pnpm **hardlinks** into `node_modules` (shared inode with the store); on **btrfs** it **reflinks** (CoW clone) — confirmed by `btrfs filesystem du`, which shows the `node_modules` trees holding only **0.4 MB exclusive of 340 MB apparent** (≈100% shared extents with the store). Warm-store relink time was equal within noise (ext4 3.0s vs btrfs 3.2s), so the CoW path costs nothing extra and buys independent inodes — editing a file in `node_modules` can't corrupt the store, unlike a hardlink. No configuration needed; forcing `clone` only matters if detection is wrong.
 ```yaml
 # pnpm-workspace.yaml
 packageImportMethod: auto   # clone (CoW) -> hardlink -> copy; clone is the fast path on CoW filesystems
