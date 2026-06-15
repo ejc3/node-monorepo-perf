@@ -145,7 +145,7 @@ admin → alpha → widget
     return pkg;
   } } };
   ```
-- **Per-app isolation** is the only clean way to make one app differ on a transitive dep: give `web` its own install and lockfile (`pnpm install --ignore-workspace` in `apps/web`, or a separate root). Its lockfile can pin local `workspace:*` while the workspace lockfile keeps the registry version for `admin` and everyone else.
+- **Per-app isolation** is the only clean way to make one app differ on a transitive dep: resolve `web` outside the shared graph. Either move it to its own workspace root (its own `pnpm-workspace.yaml` + lockfile, where `workspace:*` can link the local `widget`), or install it standalone with `pnpm install --ignore-workspace` and point at the local copy with a `link:`/`file:` dependency — note `--ignore-workspace` turns *off* workspace resolution, so `workspace:*` no longer applies there. Either way `web` gets its own lockfile while the main workspace lockfile keeps the registry version for `admin` and everyone else.
 
 **Why this needs a separate install (transitive dep only — a direct dep never does):** a pnpm workspace is resolved as a *single* dependency graph into a *single* lockfile, and an override is a property of that one root resolution — there is no "apply this override only when the dep is reached from `web`" scope. (Edge-scoped overrides scope by graph *edge*; the `.pnpmfile` hook runs for the *whole* install — neither scopes to a consuming app.) So any override changes the resolution for every app that touches that edge. To give `web` a different resolution of a shared or transitive dep, you have to take it out of the shared graph and resolve it on its own. For a *direct* dep you don't need any of this: the app's own spec already resolves per-app.
 

@@ -1,0 +1,31 @@
+{
+  "apps": 80,
+  "libs": 25,
+  "target": "@demo/app-40",
+  "pnpm": "10.29.1",
+  "turbo": "2.9.18",
+  "closurePackages": 15,
+  "filteredInstall": {
+    "totalApps": 80,
+    "totalLibs": 25,
+    "fullInstall": {
+      "appsWithNodeModules": 80,
+      "libsWithNodeModules": 25
+    },
+    "filteredInstall": {
+      "appsWithNodeModules": 1,
+      "libsWithNodeModules": 14
+    },
+    "scopedToClosure": true
+  },
+  "prune": {
+    "closurePackages": 15,
+    "missingFromPrune": [],
+    "internalDepsComplete": true,
+    "fullLockfileLines": 3969,
+    "prunedLockfileLines": 876,
+    "prunedHasBaseTsconfig": false,
+    "dockerFlowBuildOk": true,
+    "buildError": null
+  }
+}

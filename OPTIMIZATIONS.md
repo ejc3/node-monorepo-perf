@@ -51,7 +51,7 @@ catalog:
 ```
 
 ### 1.4 Focused install — prefer `pnpm deploy` / `turbo prune` over `install --filter`
-`pnpm install --filter <app>...` **looks** like "install just this app," but with a *shared workspace lockfile* it has historically resolved/installed the **entire** workspace anyway (pnpm issues [#8318](https://github.com/pnpm/pnpm/issues/8318), [#7242](https://github.com/pnpm/pnpm/issues/7242)). The structural reason: one lockfile describes the whole workspace. **Verify on your pnpm version** — and for a *reliable* per-app environment use:
+`pnpm install --filter <app>...` still resolves the whole-workspace lockfile — there is only one — but on **pnpm 10.29 it scopes what it materializes**. Measured (`scripts/focus-install-bench.mjs`, 80 apps / 25 libs): a filtered install linked `node_modules` for only **1 of 80 apps** (the target plus its 14-package closure), versus **80/80** for a full install. The older reports of `--filter` installing the entire workspace (pnpm [#8318](https://github.com/pnpm/pnpm/issues/8318), [#7242](https://github.com/pnpm/pnpm/issues/7242)) do not reproduce here. So the lockfile stays O(repo), but the per-app **materialization** is scoped. For a self-contained per-app environment (its own pruned lockfile) use:
 ```bash
 # pnpm 10+: deploy requires inject-workspace-packages=true (or --legacy),
 # else ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE
@@ -159,7 +159,7 @@ FROM install AS build
 COPY --from=prune /app/out/full/ .
 RUN turbo run build --filter=@demo/app-05000
 ```
-Caveat: prune has historically had bugs omitting some internal deps ([#7732](https://github.com/vercel/turborepo/issues/7732)) — confirm `out/` builds before trusting it.
+Verified here (turbo 2.9.18, `scripts/focus-install-bench.mjs`): prune included **all 15** of the target's closure packages (0 missing) and the docker-flow build succeeded — but only after copying `tsconfig.base.json`, which prune does **not** include (apps extend it). So #7732's internal-dep omission did not reproduce; the gap to handle is root configs, which `deploy-vercel.mjs` copies.
 
 ### 4.2 CI baseline
 ```bash
@@ -184,9 +184,13 @@ Internal packages are normally versioned independently and consumed by plain sem
 
 ---
 
-## 5. Sharp edges to verify live (don't trust the docs blindly)
-1. **`pnpm install --filter app...` may install the whole workspace** with a shared lockfile (§1.4). Prefer `pnpm deploy` / `turbo prune`.
-2. **`turbo prune` can omit internal deps** in some versions ([#7732](https://github.com/vercel/turborepo/issues/7732)) — build the pruned output before relying on it.
+## 5. Sharp edges — verified live on this stack (pnpm 10.29, turbo 2.9.18)
+
+Verified here (`scripts/focus-install-bench.mjs`):
+1. **`pnpm install --filter app...` scopes materialization** despite the shared lockfile: 1/80 app `node_modules` under `--filter=app...` vs 80/80 for a full install (§1.4). The older "installs everything" reports ([#8318](https://github.com/pnpm/pnpm/issues/8318)) don't reproduce; the lockfile is still O(repo), so for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
+2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). #7732's internal-dep omission did not reproduce (§4.1).
+
+Still to confirm on your own stack:
 3. **Turbopack production builds** can regress bundle size even while speeding the build — measure both.
 4. **Inode/symlink count** from the `isolated` linker can dominate install on 10k packages — watch `df -i` and consider `hoisted`/`pnp`/`clone`.
 
