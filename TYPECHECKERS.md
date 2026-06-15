@@ -4,15 +4,15 @@ Each package runs `tsc --noEmit`, fanned out and cached by Turborepo. Whole-repo
 
 ## Measured: tsc vs tsgo
 
-`scripts/typecheck-bench.mjs` generates N cross-referencing modules in one program and times `--noEmit` for tsc and for tsgo (the TypeScript native Go port, shipped as `@typescript/native-preview`).
+`scripts/typecheck-bench.mjs` generates N cross-referencing modules in one program and times `--noEmit` for tsc and for tsgo (the TypeScript native Go port, shipped as `@typescript/native-preview`); each number is the median of 5 timed runs after a discarded warmup.
 
 | modules | tsc | tsgo | speedup |
 |---|---|---|---|
-| 3,000 | 3,116ms | 257ms | 12.1x |
+| 3,000 | 3,101ms | 255ms | 12.2x |
 
 Consistent with Microsoft's ~10x claim. tsgo is a drop-in `tsgo --noEmit` and fits the existing per-package Turborepo task.
 
-Caveat: as of 2026-06 tsgo is beta (only `7.0.0-dev.*` nightlies, no GA). TypeScript 7.0 removes `baseUrl`, `moduleResolution: node10`, and `target: es5`, and has no compiler/LSP plugin API yet. Pin a nightly and keep tsc as a CI fallback.
+tsgo is beta as of 2026-06 — only `7.0.0-dev.*` nightlies, no GA — and TypeScript 7.0 removes `baseUrl`, `moduleResolution: node10`, and `target: es5` and has no compiler/LSP plugin API yet. Pin a nightly and keep tsc as the CI fallback.
 
 ## Ranked levers
 

@@ -2,28 +2,32 @@
 
 ## Install: bun vs pnpm (`scripts/install-bench.mjs`)
 
-64-core machine. pnpm-isolated is pnpm's default; pnpm-hoisted matches bun's flat `node_modules`, so the manager is compared at the same layout. cold = no lockfile (resolve); warm = lockfile present, `node_modules` removed (relink). Every install is verified complete (a sample app must resolve all its declared deps). CPU% and peak RSS are from `/usr/bin/time -v`.
+Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated is pnpm's default; pnpm-hoisted matches bun's flat `node_modules`, so the manager is compared at the same layout. cold = no lockfile present (full resolve + link against the warm content store, no network); warm = lockfile present, `node_modules` removed (relink); the truly-cold pass below is the network-cold case. Each scale is generated fresh; the whole `node_modules` tree (root + every per-package dir) and the lockfile are removed before each measurement, and the store is pre-warmed once so a "cold" install is warm-store rather than a cache-order artifact. Every install is verified complete: every app and lib must resolve all its declared dependencies and devDependencies or the bench throws. CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full-tree `node_modules` footprint (root virtual store + every per-package tree).
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
-| 300 / 100 | pnpm isolated | 84.2s | 5.3s | 111% | 828 MB | 11,460 |
-| | pnpm hoisted | 84.8s | 3.1s | 110% | 953 MB | 10,915 |
-| | bun | 1.5s | 0.10s | 165% | 587 MB | 11,078 |
-| 1500 / 300 | pnpm isolated | 447.5s | 14.6s | 108% | 963 MB | 12,860 |
-| | pnpm hoisted | 419.7s | 6.5s | 115% | 1268 MB | 10,915 |
-| | bun | 3.1s | 0.68s | 69% | 88 MB | 11,078 |
+| 200 / 100 | pnpm isolated | 48.8s | 2.3s | 131% | 825 MB | 15,691 |
+| | pnpm hoisted | 47.1s | 1.4s | 132% | 907 MB | 12,246 |
+| | bun | 0.11s | 0.12s | 230% | 42 MB | 15,409 |
+| 1,000 / 200 | pnpm isolated | 232.4s | 7.4s | 134% | 907 MB | 31,123 |
+| | pnpm hoisted | 227.1s | 3.0s | 134% | 933 MB | 16,578 |
+| | bun | 2.3s | 2.5s | 43% | 72 MB | 29,941 |
+| 2,000 / 300 | pnpm isolated | 476.8s | 15.6s | 141% | 1,011 MB | 50,159 |
+| | pnpm hoisted | 453.6s | 4.7s | 142% | 1,157 MB | 21,914 |
+| | bun | 8.3s | 10.1s | 23% | 98 MB | 47,877 |
 
-Truly-cold (cleared pnpm store + bun cache, network) at 300/100: pnpm-hoisted 74.0s, bun 1.7s.
+Truly-cold (fresh pnpm store + cleared bun cache, network) at 200/100: pnpm-hoisted 48.9s, bun 1.2s.
 
 Reading it:
-- pnpm cold install is ~linear in package count (84s → 447s for 5x apps); bun is sub-linear with a much smaller constant (1.5s → 3.1s). bun is ~140x faster cold at 1500, ~22x warm, ~43x even truly-cold, so the gap is not just a warm cache.
-- pnpm isolated vs hoisted is about the same (within noise), so the isolated symlink layout is not pnpm's install bottleneck; resolution/linking is.
-- Install is largely serial (~1.1 cores for pnpm). bun uses far less memory (88 MB vs ~1.3 GB at 1500).
+- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) and dominates cold by ~50–100×. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
+- Warm flips at scale: pnpm-hoisted's warm relink (4.7s at 2,000) beats bun's (10.1s). bun's sub-10s installs are within run-to-run noise of each other, while pnpm's warm relink is genuinely fast once the lockfile exists.
+- pnpm isolated vs hoisted is within noise on *time* (resolution-bound), but hoisted's `node_modules` is far smaller (21,914 vs 50,159 entries at 2,000) — the isolated symlink layout is the inode cost, not a time cost.
+- pnpm uses ~1.1–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB.
 
-Fairness/caveats:
-- bun ignores `pnpm-workspace.yaml` and the `catalog:` protocol, so the bench runs a decataloged copy with a `package.json` `"workspaces"` field both tools read — a like-for-like dependency set, not the repo's catalog setup.
-- bun's `node_modules` is hoisted (flat); pnpm-isolated is a symlinked virtual store that prevents phantom dependencies. The speed numbers are real; the guarantees differ.
-- This is install only; Next/Vite/tsc still run on Node.
+Methodology:
+- bun ignores `pnpm-workspace.yaml` and the `catalog:` protocol, so the bench runs a decataloged copy with a `package.json` `"workspaces"` field both tools read — a like-for-like dependency set.
+- bun's `node_modules` is hoisted (flat); pnpm-isolated is a symlinked virtual store that prevents phantom dependencies. The speed comparison is like-for-like at matched layout (pnpm-hoisted vs bun); the strictness guarantees differ.
+- Install only; Next/Vite/tsc run on Node either way.
 
 ### Specifier form and node-linker (`scripts/perf-matrix.mjs`)
 
@@ -31,11 +35,11 @@ Does the `workspace:` spec form or the linker mode change install perf? Cold ins
 
 | variant | install | nm entries | symlinks |
 |---|---|---|---|
-| `workspace:*`, isolated (baseline) | 70.3s | 11,983 | 461 |
-| `workspace:^x.y.z`, isolated | 71.2s (+1.3%) | 11,983 | 461 |
-| `workspace:*`, hoisted | 69.2s (−1.5%) | 11,412 | 9 |
+| `workspace:*`, isolated (baseline) | 71.4s | 18,081 | 4,211 |
+| `workspace:^x.y.z`, isolated | 71.8s (+0.5%) | 18,081 | 4,211 |
+| `workspace:*`, hoisted | 69.0s (−3.4%) | 13,304 | 1,459 |
 
-The specifier form is install-neutral (+1.3% is noise; identical lockfile and `node_modules`). node-linker barely changes install *time* here (resolution-bound), but the isolated layout has ~50x more symlinks (461 vs 9) — the inode cost that grows with package count. So choose the form for publish semantics and the linker for strictness/footprint, not for install speed.
+The specifier form is install-neutral (+0.5% is noise; identical lockfile and `node_modules`). node-linker barely changes install *time* here (resolution-bound), but the isolated layout has ~3× more symlinks (4,211 vs 1,459, full-tree) and ~36% more `node_modules` entries — the inode cost that grows with package count. So choose the form for publish semantics and the linker for strictness/footprint, not for install speed.
 
 ## Build: Next vs Vite (`scripts/build-bench.mjs`)
 
@@ -43,8 +47,8 @@ Full `turbo run build` of 40 apps + 24 libs, concurrency 12, 64-core machine. Ne
 
 | framework | build (all 40 apps) | CPU | peak RSS | total output |
 |---|---|---|---|---|
-| Next (App Router) | 17.1s | 2886% (~29 cores) | 743 MB | 156.8 MB (`.next`) |
-| Vite (SPA) | 7.5s | 1168% (~12 cores) | 192 MB | 7.7 MB (`dist`) |
+| Next (App Router) | 17.2s | 2798% (~28 cores) | 741 MB | 156.8 MB (`.next`) |
+| Vite (SPA) | 7.6s | 1187% (~12 cores) | 193 MB | 7.7 MB (`dist`) |
 
 Vite builds ~2.3x faster and emits ~20x less output for these tiny apps. That is expected: `.next` includes server/RSC bundles and per-route artifacts, while Vite emits a static client bundle; Next also parallelizes across more cores. If you need SSR/RSC/server actions you pick Next regardless. At thousands of apps the framework's per-build time matters less than not building unchanged apps — the affected-closure rule applies the same way to both.
 
