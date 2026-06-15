@@ -1,0 +1,68 @@
+[
+  {
+    "apps": 200,
+    "libs": 100,
+    "axis": "corner",
+    "totalTasks": 300,
+    "focusClosure": 75,
+    "installMs": 48071,
+    "tcColdMs": 18728,
+    "focusMs": 11452,
+    "pruneMs": 844
+  },
+  {
+    "apps": 500,
+    "libs": 100,
+    "axis": "apps",
+    "totalTasks": 600,
+    "focusClosure": 27,
+    "installMs": 117792,
+    "tcColdMs": 34826,
+    "focusMs": 7664,
+    "pruneMs": 1216
+  },
+  {
+    "apps": 1000,
+    "libs": 100,
+    "axis": "apps",
+    "totalTasks": 1100,
+    "focusClosure": 75,
+    "installMs": 228447,
+    "tcColdMs": 61764,
+    "focusMs": 12711,
+    "pruneMs": 3039
+  },
+  {
+    "apps": 200,
+    "libs": 50,
+    "axis": "libs",
+    "totalTasks": 250,
+    "focusClosure": 43,
+    "installMs": 47426,
+    "tcColdMs": 15949,
+    "focusMs": 10689,
+    "pruneMs": 743
+  },
+  {
+    "apps": 200,
+    "libs": 150,
+    "axis": "libs",
+    "totalTasks": 350,
+    "focusClosure": 81,
+    "installMs": 48512,
+    "tcColdMs": 23124,
+    "focusMs": 11589,
+    "pruneMs": 1004
+  },
+  {
+    "apps": 200,
+    "libs": 300,
+    "axis": "libs",
+    "totalTasks": 500,
+    "focusClosure": 100,
+    "installMs": 49978,
+    "tcColdMs": 32723,
+    "focusMs": 12076,
+    "pruneMs": 1341
+  }
+]
