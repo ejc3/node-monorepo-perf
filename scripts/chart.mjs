@@ -210,9 +210,32 @@ if (lk.length >= 2) {
   );
 }
 
-// remove stale chart SVGs no longer generated (renamed/removed/confounded charts)
+// Charts the docs link must never be deleted just because a confounded/short
+// dataset skipped one this run — that would 404 the committed docs. Derive the
+// protected set from the docs themselves (matching `charts/<name>.svg`) so it
+// stays in sync automatically: a newly doc-linked chart is protected, a retired
+// one stops being protected.
+const canonical = new Set();
+for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]) {
+  if (!existsSync(doc)) continue;
+  for (const m of readFileSync(doc, "utf8").matchAll(/charts\/([A-Za-z0-9_-]+\.svg)/g)) {
+    canonical.add(m[1]);
+  }
+}
+for (const f of canonical) {
+  if (!made.includes(f)) {
+    console.warn(
+      `[chart] WARNING: ${f} was not regenerated this run (insufficient/confounded data); ` +
+        `keeping the existing file, which may be STALE and is still linked by the docs.`,
+    );
+  }
+}
+
+// remove only genuinely orphaned SVGs (renamed/removed charts) — never doc-linked ones
 for (const f of readdirSync(chartsDir)) {
-  if (f.endsWith(".svg") && !made.includes(f)) rmSync(join(chartsDir, f));
+  if (f.endsWith(".svg") && !made.includes(f) && !canonical.has(f)) {
+    rmSync(join(chartsDir, f));
+  }
 }
 
 // ---- markdown summary ----

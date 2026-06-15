@@ -17,6 +17,7 @@ import {
   rmSync,
   writeFileSync,
   readFileSync,
+  readdirSync,
   existsSync,
   openSync,
   closeSync,
@@ -81,6 +82,46 @@ const dry = (filter) => {
   return j.packages?.length ?? null;
 };
 
+// Walk up from a package dir resolving a dependency, stopping at the repo root —
+// the workspace-root node_modules is the last valid hop.
+function resolvesFrom(dir, dep) {
+  let d = dir;
+  for (;;) {
+    if (existsSync(join(d, "node_modules", dep, "package.json"))) return true;
+    if (d === REPO) return false;
+    const u = dirname(d);
+    if (u === d) return false;
+    d = u;
+  }
+}
+// Fail loud on a silently-partial install: every package under apps/* and
+// packages/* must resolve all its deps (incl. devDependencies). Otherwise turbo
+// would treat missing packages as no-ops/cache-hits and record an artificially
+// low scaling point.
+function verifyComplete() {
+  const missing = [];
+  for (const group of ["apps", "packages"]) {
+    const groupDir = join(REPO, group);
+    if (!existsSync(groupDir)) continue;
+    for (const name of readdirSync(groupDir)) {
+      const pkgDir = join(groupDir, name);
+      const pj = join(pkgDir, "package.json");
+      if (!existsSync(pj)) continue;
+      const pkg = JSON.parse(readFileSync(pj, "utf8"));
+      const deps = [
+        ...Object.keys(pkg.dependencies || {}),
+        ...Object.keys(pkg.devDependencies || {}),
+      ];
+      for (const dep of deps) {
+        if (!resolvesFrom(pkgDir, dep) && missing.length < 20) missing.push(`${pkgDir} -> ${dep}`);
+      }
+    }
+  }
+  if (missing.length) {
+    throw new Error(`INCOMPLETE install, unresolved deps:\n${missing.slice(0, 10).join("\n")}`);
+  }
+}
+
 // pre-warm the global store so every measured install is warm-store (no network),
 // not a cache-order artifact of whichever point ran first.
 sh("node", [
@@ -119,6 +160,7 @@ for (const { apps, libs, axis } of POINTS) {
   rmSync(join(REPO, "node_modules"), { recursive: true, force: true });
   rmSync(join(REPO, "pnpm-lock.yaml"), { force: true });
   const installMs = timed("pnpm", ["install", "--config.confirm-modules-purge=false"]);
+  verifyComplete(); // abort if the install silently dropped packages (not counted in installMs)
 
   const totalTasks = dry(null);
   const focusClosure = dry(`${mid}...`);

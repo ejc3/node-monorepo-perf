@@ -13,10 +13,48 @@
 // the original back; it also restores on SIGINT/SIGTERM and self-heals a prior
 // interrupted run. Call restore() in a finally.
 
-import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const isSourceIgnore = (line) => /^\/?(apps|packages)\/?$/.test(line.trim());
+
+// Representative paths that are git-ignored iff the generated source is hidden.
+// Prefer a REAL generated package.json so the check matches whatever path form
+// the .gitignore actually uses (`/apps/`, `apps/**`, `/apps/app-*/`, `/apps/*/`,
+// …); fall back to a synthetic path when the dir hasn't been generated yet.
+function sourceProbes(root) {
+  return ["apps", "packages"].map((group) => {
+    const gd = join(root, group);
+    if (existsSync(gd)) {
+      const name = readdirSync(gd).find((n) => existsSync(join(gd, n, "package.json")));
+      if (name) return `${group}/${name}/package.json`;
+    }
+    return `${group}/__srcvis_probe__`;
+  });
+}
+
+// Whether git currently ignores the generated source.
+function sourceIgnored(root) {
+  for (const probe of sourceProbes(root)) {
+    try {
+      // execFileSync (no shell) + `--` so a probe path is never interpreted as a
+      // shell command or a git flag.
+      execFileSync("git", ["check-ignore", "-q", "--", probe], { cwd: root, stdio: "ignore" });
+      return true; // exit 0 = ignored
+    } catch (e) {
+      // exit 1 = not ignored (the normal "no" answer); any other status (128 =
+      // not a git repo, or git missing) is a real failure — surface it rather
+      // than silently treating source as visible and measuring false cache hits.
+      if (e.status === 1) continue;
+      throw new Error(
+        `enterSourceVisible: \`git check-ignore\` failed (status ${e.status ?? "?"}); ` +
+          `cannot determine whether generated source is visible to Turbo.`,
+      );
+    }
+  }
+  return false;
+}
 
 export function enterSourceVisible(root) {
   const gi = join(root, ".gitignore");
@@ -28,7 +66,16 @@ export function enterSourceVisible(root) {
     writeFileSync(gi, readFileSync(bak, "utf8"));
     rmSync(bak, { force: true });
   }
-  if (!existsSync(gi)) return () => {};
+
+  // If the generated source isn't git-ignored, it's already visible to Turbo's
+  // hashing — nothing to do.
+  if (!sourceIgnored(root)) return () => {};
+  if (!existsSync(gi)) {
+    throw new Error(
+      `enterSourceVisible: generated source is git-ignored but ${gi} is missing; ` +
+        `cannot make it visible to Turbo.`,
+    );
+  }
 
   const original = readFileSync(gi, "utf8");
   writeFileSync(bak, original);
@@ -37,6 +84,19 @@ export function enterSourceVisible(root) {
     .filter((line) => !isSourceIgnore(line))
     .join("\n");
   writeFileSync(gi, filtered);
+
+  // Post-condition: source must now be visible. If it's STILL ignored (e.g. the
+  // .gitignore expresses the source ignore in a form `isSourceIgnore` doesn't
+  // recognize, like `apps/**`), our filter silently did nothing — fail loud
+  // rather than let every warm-cache/edit measurement become a false cache hit.
+  if (sourceIgnored(root)) {
+    writeFileSync(gi, original);
+    rmSync(bak, { force: true });
+    throw new Error(
+      `enterSourceVisible: ${gi} still ignores generated source after filtering ` +
+        `(unrecognized ignore form?); refusing to run with source hidden from Turbo.`,
+    );
+  }
 
   let restored = false;
   const restore = () => {
