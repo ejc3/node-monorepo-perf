@@ -1,0 +1,194 @@
+[
+  {
+    "label": "200x100",
+    "apps": 200,
+    "libs": 100,
+    "modules": 16,
+    "phases": {
+      "gen": {
+        "ms": 116,
+        "approxFiles": 3100,
+        "generateMs": 90
+      },
+      "install": {
+        "ms": 47150,
+        "ok": true,
+        "lockfileBytes": 271232,
+        "lockfileLines": 9807,
+        "nmEntries": 11434,
+        "nmSymlinks": 404,
+        "nmApparentBytes": 371778981,
+        "nmDiskBytes": 371778981
+      },
+      "graph": {
+        "totalBuildTasks": 300,
+        "focusTasks": 75,
+        "focusPackages": 75,
+        "sampleApp": "@demo/app-100"
+      },
+      "typecheck": {
+        "coldMs": 18852,
+        "warmMs": 1231,
+        "coldOk": true,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 11396,
+        "ok": true,
+        "app": "@demo/app-100"
+      },
+      "prune": {
+        "ms": 774,
+        "ok": true,
+        "app": "@demo/app-100",
+        "outApparentBytes": 151282,
+        "outPackages": 76,
+        "outFiles": 5
+      }
+    }
+  },
+  {
+    "label": "1kx200",
+    "apps": 1000,
+    "libs": 200,
+    "modules": 16,
+    "phases": {
+      "gen": {
+        "ms": 583,
+        "approxFiles": 9800,
+        "generateMs": 557
+      },
+      "install": {
+        "ms": 228830,
+        "ok": true,
+        "lockfileBytes": 1146989,
+        "lockfileLines": 41137,
+        "nmEntries": 12534,
+        "nmSymlinks": 1504,
+        "nmApparentBytes": 372782138,
+        "nmDiskBytes": 372782138
+      },
+      "graph": {
+        "totalBuildTasks": 1200,
+        "focusTasks": 124,
+        "focusPackages": 124,
+        "sampleApp": "@demo/app-0500"
+      },
+      "typecheck": {
+        "coldMs": 69722,
+        "warmMs": 4405,
+        "coldOk": true,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 13828,
+        "ok": true,
+        "app": "@demo/app-0500"
+      },
+      "prune": {
+        "ms": 2080,
+        "ok": true,
+        "app": "@demo/app-0500",
+        "outApparentBytes": 214355,
+        "outPackages": 125,
+        "outFiles": 5
+      }
+    }
+  },
+  {
+    "label": "2kx300",
+    "apps": 2000,
+    "libs": 300,
+    "modules": 16,
+    "phases": {
+      "gen": {
+        "ms": 1485,
+        "approxFiles": 17700,
+        "generateMs": 1459
+      },
+      "install": {
+        "ms": 242731,
+        "ok": true,
+        "lockfileBytes": 2231225,
+        "lockfileLines": 79877,
+        "nmEntries": 12534,
+        "nmSymlinks": 1504,
+        "nmApparentBytes": 373987529,
+        "nmDiskBytes": 373987529
+      },
+      "graph": {
+        "totalBuildTasks": 2300,
+        "focusTasks": 100,
+        "focusPackages": 100,
+        "sampleApp": "@demo/app-1000"
+      },
+      "typecheck": {
+        "coldMs": 126759,
+        "warmMs": 8642,
+        "coldOk": true,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 15000,
+        "ok": true,
+        "app": "@demo/app-1000"
+      },
+      "prune": {
+        "ms": 4836,
+        "ok": true,
+        "app": "@demo/app-1000",
+        "outApparentBytes": 174607,
+        "outPackages": 101,
+        "outFiles": 5
+      }
+    }
+  },
+  {
+    "label": "5kx300",
+    "apps": 5000,
+    "libs": 300,
+    "modules": 16,
+    "phases": {
+      "gen": {
+        "ms": 3299,
+        "approxFiles": 35700,
+        "generateMs": 3272
+      },
+      "install": {
+        "ms": 792460,
+        "ok": true,
+        "lockfileBytes": 5357225,
+        "lockfileLines": 190877,
+        "nmEntries": 12534,
+        "nmSymlinks": 1504,
+        "nmApparentBytes": 377443529,
+        "nmDiskBytes": 377443529
+      },
+      "graph": {
+        "totalBuildTasks": 5300,
+        "focusTasks": 100,
+        "focusPackages": 100,
+        "sampleApp": "@demo/app-2500"
+      },
+      "typecheck": {
+        "coldMs": 286768,
+        "warmMs": 18989,
+        "coldOk": true,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 22579,
+        "ok": true,
+        "app": "@demo/app-2500"
+      },
+      "prune": {
+        "ms": 12446,
+        "ok": true,
+        "app": "@demo/app-2500",
+        "outApparentBytes": 174748,
+        "outPackages": 101,
+        "outFiles": 5
+      }
+    }
+  }
+]

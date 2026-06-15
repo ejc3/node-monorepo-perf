@@ -13,6 +13,7 @@
     "graph": "turbo run build --dry=json"
   },
   "devDependencies": {
+    "@typescript/native-preview": "7.0.0-dev.20260614.1",
     "turbo": "2.9.18",
     "typescript": "^5.9.0"
   },

@@ -1,0 +1,19 @@
+{
+  "apps": 40,
+  "libs": 24,
+  "concurrency": "12",
+  "next": {
+    "framework": "next",
+    "ms": 17061,
+    "cpuPct": 2886,
+    "rssMB": 743,
+    "outputBytes": 156800852
+  },
+  "vite": {
+    "framework": "vite",
+    "ms": 7474,
+    "cpuPct": 1168,
+    "rssMB": 192,
+    "outputBytes": 7698238
+  }
+}

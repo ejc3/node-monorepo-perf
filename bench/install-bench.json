@@ -1,0 +1,63 @@
+{
+  "hostCores": 64,
+  "scales": [
+    {
+      "apps": 300,
+      "libs": 100,
+      "sampleAppDeps": 7,
+      "pnpmIsolated": {
+        "coldMs": 84159,
+        "coldCpuPct": 111,
+        "coldRssMB": 828,
+        "warmMs": 5307,
+        "nmEntries": 11460
+      },
+      "pnpmHoisted": {
+        "coldMs": 84761,
+        "coldCpuPct": 110,
+        "coldRssMB": 953,
+        "warmMs": 3146,
+        "nmEntries": 10915
+      },
+      "bun": {
+        "coldMs": 1488,
+        "coldCpuPct": 165,
+        "coldRssMB": 587,
+        "warmMs": 103,
+        "nmEntries": 11078
+      }
+    },
+    {
+      "apps": 1500,
+      "libs": 300,
+      "sampleAppDeps": 7,
+      "pnpmIsolated": {
+        "coldMs": 447486,
+        "coldCpuPct": 108,
+        "coldRssMB": 963,
+        "warmMs": 14637,
+        "nmEntries": 12860
+      },
+      "pnpmHoisted": {
+        "coldMs": 419680,
+        "coldCpuPct": 115,
+        "coldRssMB": 1268,
+        "warmMs": 6450,
+        "nmEntries": 10915
+      },
+      "bun": {
+        "coldMs": 3147,
+        "coldCpuPct": 69,
+        "coldRssMB": 88,
+        "warmMs": 681,
+        "nmEntries": 11078
+      }
+    }
+  ],
+  "trulyCold": {
+    "apps": 300,
+    "libs": 100,
+    "pnpmHoistedMs": 73965,
+    "bunMs": 1695
+  }
+}

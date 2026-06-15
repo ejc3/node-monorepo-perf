@@ -79,8 +79,12 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
     svg += `<text x="${sx(x)}" y="${padT + plotH + 22}" fill="#9da7b3" font-size="12" text-anchor="middle">${fmtNum(x)}</text>`;
   });
   series.forEach((s) => {
-    const pts = s.points.map((y, i) => (y == null ? null : `${sx(xs[i])},${sy(y)}`)).filter(Boolean);
-    svg += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+    // break the line at missing points instead of joining straight across the gap
+    const coords = s.points.map((y, i) => (y == null ? null : `${sx(xs[i])},${sy(y)}`));
+    let seg = [];
+    const flush = () => { if (seg.length) svg += `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`; seg = []; };
+    for (const c of coords) { if (c) seg.push(c); else flush(); }
+    flush();
     s.points.forEach((y, i) => {
       if (y == null) return;
       svg += `<circle cx="${sx(xs[i])}" cy="${sy(y)}" r="4" fill="${s.color}"/>`;
@@ -123,7 +127,8 @@ if (big?.phases?.focus && big?.phases?.graph) {
   const focusMs = big.phases.focus.ms;
   const g = big.phases.graph;
   // crude full estimate: focus ms scaled by total/focus task ratio (lower bound, ignores parallelism gains)
-  const ratio = g.totalBuildTasks && g.focusPackages ? g.totalBuildTasks / g.focusPackages : null;
+  const denom = g.focusTasks || g.focusPackages; // task ratio; focusTasks is the matching unit for totalBuildTasks
+  const ratio = g.totalBuildTasks && denom ? g.totalBuildTasks / denom : null;
   const est = ratio ? Math.round(focusMs * ratio) : null;
   made.push(barChart({
     file: "focus-vs-full.svg",
@@ -137,7 +142,7 @@ if (big?.phases?.focus && big?.phases?.graph) {
 }
 
 // Chart 3: install time vs scale
-const scaled = all.filter((r) => r.phases?.install?.ms != null);
+const scaled = all.filter((r) => r.phases?.install?.ms != null && r.phases.install.ok !== false);
 if (scaled.length >= 2) {
   made.push(lineChart({
     file: "install-vs-scale.svg",
@@ -149,7 +154,7 @@ if (scaled.length >= 2) {
 }
 
 // Chart 4: footprint (node_modules entries + lockfile lines) vs scale
-const fs = all.filter((r) => r.phases?.install?.nmEntries != null);
+const fs = all.filter((r) => r.phases?.install?.nmEntries != null && r.phases.install.ok !== false);
 if (fs.length >= 2) {
   made.push(lineChart({
     file: "footprint-vs-scale.svg",
@@ -172,15 +177,15 @@ for (const r of all) {
   const p = r.phases;
   md += `| **${fmtNum(r.apps)} apps / ${fmtNum(r.libs)} libs** `;
   md += `| ${fmtMs(p.gen?.ms)} `;
-  md += `| ${fmtMs(p.install?.ms)} `;
+  md += `| ${p.install?.ok === false ? "fail" : fmtMs(p.install?.ms)} `;
   md += `| ${p.install?.lockfileLines ? fmtNum(p.install.lockfileLines) + " lines / " + fmtBytes(p.install.lockfileBytes) : "—"} `;
   md += `| ${p.install?.nmEntries ? fmtNum(p.install.nmEntries) + " entries / " + fmtBytes(p.install.nmDiskBytes) : "—"} `;
-  md += `| ${fmtMs(p.typecheck?.coldMs)} `;
-  md += `| ${fmtMs(p.typecheck?.warmMs)} `;
-  md += `| ${fmtMs(p.focus?.ms)} `;
+  md += `| ${p.typecheck?.coldOk === false ? "fail" : fmtMs(p.typecheck?.coldMs)} `;
+  md += `| ${p.typecheck?.warmOk === false ? "fail" : fmtMs(p.typecheck?.warmMs)} `;
+  md += `| ${p.focus?.ok === false ? "fail" : fmtMs(p.focus?.ms)} `;
   md += `| ${fmtNum(p.graph?.totalBuildTasks)} `;
   md += `| ${fmtNum(p.graph?.focusPackages)} `;
-  md += `| ${fmtMs(p.prune?.ms)} |\n`;
+  md += `| ${p.prune?.ok === false ? "fail" : fmtMs(p.prune?.ms)} |\n`;
 }
 md += `\n## Charts\n\n` + made.map((f) => `![${f}](charts/${f})`).join("\n\n") + "\n";
 writeFileSync(join(ROOT, "bench", "summary.md"), md);

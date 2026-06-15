@@ -34,6 +34,8 @@ const LIBS = parseInt(opt("libs", "50"), 10);
 const MODULES = opt("modules", "16");
 const PHASES = opt("phases", "gen,install,graph,typecheck,focus,prune").split(",");
 const CONC = opt("concurrency", "100%"); // use all cores by default (turbo defaults to 10)
+const FRAMEWORK = opt("framework", "next"); // forwarded to generate.mjs
+const VERSIONED = flag("versioned"); // forwarded to generate.mjs
 const FS_STATS = flag("fs-stats");
 const ROOT = process.cwd();
 
@@ -67,12 +69,12 @@ function tryShOut(cmd) {
   try { return shOut(cmd); } catch (e) { return (e.stdout?.toString() || "") + (e.stderr?.toString() || ""); }
 }
 
-const rec = { label: LABEL, apps: APPS, libs: LIBS, modules: Number(MODULES), phases: {} };
+const rec = { label: LABEL, apps: APPS, libs: LIBS, modules: Number(MODULES), framework: FRAMEWORK, versioned: VERSIONED, phases: {} };
 
 // ---- gen ----
 if (PHASES.includes("gen")) {
   const r = timed("gen", () =>
-    shOut(`node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --clean`)
+    shOut(`node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --framework ${FRAMEWORK} ${VERSIONED ? "--versioned" : ""} --clean`)
   );
   rec.phases.gen = { ms: r.ms };
   try {
@@ -106,7 +108,7 @@ if (PHASES.includes("install")) {
 if (PHASES.includes("graph")) {
   timed("graph", () => {
     const all = JSON.parse(tryShOut(`pnpm exec turbo run build --dry=json 2>/dev/null`));
-    rec.phases.graph = { totalBuildTasks: all.tasks?.length ?? all.packages?.length };
+    rec.phases.graph = { totalBuildTasks: all.tasks ? all.tasks.length : (all.packages?.length ?? 0) };
     const focus = JSON.parse(tryShOut(`pnpm exec turbo run build --filter=${sampleApp}... --dry=json 2>/dev/null`));
     rec.phases.graph.focusTasks = focus.tasks?.length;
     rec.phases.graph.focusPackages = focus.packages?.length;
@@ -136,7 +138,7 @@ if (PHASES.includes("focus")) {
 // ---- prune (artifact-time focus) ----
 if (PHASES.includes("prune")) {
   rmSync(join(ROOT, "out"), { recursive: true, force: true });
-  const r = timed(`prune ${sampleApp}`, () => sh(`pnpm exec turbo prune ${sampleApp} --docker`));
+  const r = timed(`prune ${sampleApp}`, () => sh(`pnpm exec turbo prune ${sampleApp} --docker --use-gitignore=false`));
   rec.phases.prune = { ms: r.ms, ok: r.ok, app: sampleApp };
   if (existsSync(join(ROOT, "out"))) {
     rec.phases.prune.outApparentBytes = parseInt(tryShOut(`du -sb --apparent-size out 2>/dev/null | cut -f1`).trim() || "0", 10);

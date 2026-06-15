@@ -7,8 +7,9 @@ APPS ?= 200
 LIBS ?= 100
 MODULES ?= 16
 APP ?= @demo/app-00100
+SCALES ?= 300:100 1500:300
 
-.PHONY: help gen install graph build typecheck typecheck-warm focus prune bench chart clean
+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart deploy-vercel diamond install-bench build-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -43,5 +44,23 @@ bench: ## Run the full benchmark at APPS/LIBS
 chart: ## Render charts from bench/results.json
 	node scripts/chart.mjs
 
+gen-versioned: ## Generate with semver versions + workspace:^x.y.z specifiers
+	node scripts/generate.mjs --apps $(APPS) --libs $(LIBS) --modules $(MODULES) --versioned --clean
+
+sweep: ## Run the full scaling sweep (200 -> 20k) -> bench/results.json
+	node scripts/sweep.mjs
+
+deploy-vercel: ## Deploy APP to Vercel (pruned subtree, cloud build) + time it
+	node scripts/deploy-vercel.mjs --app $(APP) --prod
+
+diamond: ## Publish to CodeArtifact + show diamond deps + workspace override collapse
+	bash scripts/diamond-demo.sh
+
+install-bench: ## pnpm (isolated+hoisted) vs bun install across SCALES
+	node scripts/install-bench.mjs "$(SCALES)"
+
+build-bench: ## full Next vs Vite build at APPS/LIBS
+	node scripts/build-bench.mjs $(APPS) $(LIBS)
+
 clean: ## Remove generated workspace + caches
-	rm -rf apps packages out .turbo node_modules/.cache/turbo
+	rm -rf apps packages out .turbo node_modules/.cache/turbo examples/diamond

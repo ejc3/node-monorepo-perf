@@ -1,0 +1,9 @@
+{
+  "app": "@demo/app-10",
+  "project": "nextjs-monorepo-scale-demo",
+  "scope": "ejc3-7031s-projects",
+  "prod": true,
+  "rootDirectory": "apps/app-10",
+  "url": "https://nextjs-monorepo-scale-demo-dj974732r-ejc3-7031s-projects.vercel.app",
+  "wallSeconds": 22
+}

@@ -1,0 +1,44 @@
+[
+  {
+    "label": "baseline",
+    "note": "workspace:* · isolated",
+    "apps": 300,
+    "libs": 100,
+    "linker": "isolated",
+    "versioned": false,
+    "installMs": 70255,
+    "lockfileBytes": 378608,
+    "lockfileLines": 13588,
+    "nmEntries": 11983,
+    "nmSymlinks": 461,
+    "nmDiskBytes": 402334745
+  },
+  {
+    "label": "versioned",
+    "note": "workspace:^x.y.z · isolated",
+    "apps": 300,
+    "libs": 100,
+    "linker": "isolated",
+    "versioned": true,
+    "installMs": 71165,
+    "lockfileBytes": 387179,
+    "lockfileLines": 13588,
+    "nmEntries": 11983,
+    "nmSymlinks": 461,
+    "nmDiskBytes": 402343408
+  },
+  {
+    "label": "hoisted",
+    "note": "workspace:* · hoisted",
+    "apps": 300,
+    "libs": 100,
+    "linker": "hoisted",
+    "versioned": false,
+    "installMs": 69168,
+    "lockfileBytes": 378608,
+    "lockfileLines": 13588,
+    "nmEntries": 11412,
+    "nmSymlinks": 9,
+    "nmDiskBytes": 402298143
+  }
+]

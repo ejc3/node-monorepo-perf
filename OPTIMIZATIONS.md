@@ -1,8 +1,8 @@
 # Optimization Playbook — pnpm + Turborepo + Next.js at 10k-app scale
 
-> The governing principle: **at 10,000 apps, every operation that touches all 10,000 things is the bug.** Almost every technique below is a way to *not* do that — to scope work to the subset that actually changed, cache the rest, and never materialize the whole tree when you don't have to.
+Principle: any operation that touches all packages scales with repo size. The techniques below scope work to the changed subset, cache the rest, and avoid materializing the whole tree.
 
-This is organized by the lifecycle stage where the cost shows up: **install → graph/tasks → Next.js build → CI/deploy**. Each item says *what*, *why*, and *the command*.
+Organized by where the cost shows up: install, graph/tasks, Next.js build, CI/deploy. Each item gives what, why, and the command.
 
 ---
 
@@ -20,8 +20,8 @@ They **compose**: prune to a subtree (artifact), install only that subtree (inst
 
 ## 1. Install-time (pnpm)
 
-### 1.1 `node-linker` mode — the single biggest install lever at 10k packages
-pnpm's default `isolated` linker builds a **symlink farm**: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It's the strictest, most disk-efficient layout — but the **count** of symlinks + inodes scales with `packages × deps`, and that count is what stresses the filesystem and slows anything that walks the tree.
+### 1.1 `node-linker` mode (footprint and strictness, not install speed)
+pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within noise), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~50x more symlinks (461 vs 9 at 300 apps). See [TOOLING.md](TOOLING.md).
 
 ```yaml
 # pnpm-workspace.yaml
@@ -78,10 +78,10 @@ turbo run build --filter='./apps/app-0[0-4]*'   # path globs
 ```bash
 turbo run build typecheck --affected            # diff main→HEAD, pick changed pkgs (+ dependents)
 ```
-Auto-detects GitHub Actions and diffs PR base→head; override the base with `TURBO_SCM_BASE`. This is the **single biggest CI win** at 10k apps — a one-file PR builds a handful of packages, not 10,000.
+Auto-detects GitHub Actions and diffs PR base to head; override the base with `TURBO_SCM_BASE`. A one-file PR builds the changed packages and their dependents, not all of them.
 
 ### 2.3 Caching — local, then remote
-Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). The demo shows whole-workspace typecheck going from tens of seconds **cold** to **~150ms warm**. **Remote Caching** shares those artifacts across teammates + CI, turning "rebuild the world" into "download the world."
+Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). In the sweep, whole-workspace typecheck warm ran 1.2s (200 apps) to 8.6s (2,000 apps), versus 19–127s cold. Remote Caching restores matching task outputs across machines instead of re-running them.
 ```bash
 turbo run build --cache=local:rw,remote:r       # fine-grained cache source control
 npx turbo login && npx turbo link                # enable Vercel remote cache
@@ -101,26 +101,26 @@ turbo run typecheck --concurrency=100%          # = number of cores; or an integ
 
 ## 3. Next.js build cost
 
-The key insight: at 10k *tiny* apps the aggregate cost is **per-build cold-start overhead × N**, not any single build being slow. So the leverage is **skipping unchanged builds** (§2.2/§2.3) far more than shaving one build. Beyond that:
+In this benchmark, aggregate build cost is dominated by per-app build startup times the app count, not any single build. The main lever is skipping unchanged builds (§2.2/§2.3) more than speeding one build. Beyond that:
 
 ### 3.1 Turbopack for builds (Next 16)
 ```bash
 next build --turbopack       # Rust bundler; big dev/HMR wins, faster cold start on large codebases
 ```
-Turbopack wins dev/HMR decisively (~50ms updates vs webpack's 500ms–1.6s). For **production builds**, measure both **build time and output bundle size** when switching — real-world reports show faster builds but occasional bundle-size regressions. Treat it as "verify per app," not "always on."
+Turbopack supports Fast Refresh and incremental bundling and is generally faster for dev. For production builds, measure both build time and output bundle size when switching; results vary by app.
 
 ### 3.2 `output: 'standalone'` — tiny deploy artifacts
 ```js
 // next.config.mjs
 export default { output: 'standalone' };
 ```
-Emits a self-contained `.next/standalone` with only the traced runtime deps. Combined with `turbo prune`, the per-app deploy/Docker image shrinks dramatically.
+Emits a self-contained `.next/standalone` with only the traced runtime deps. Combined with `turbo prune`, this can reduce the per-app deploy/Docker image size.
 
 ### 3.3 `optimizePackageImports` — cheaper imports from big libs
 ```js
 export default { experimental: { optimizePackageImports: ['@demo/lib-0001'] } };
 ```
-Turns barrel `index.ts` re-exports (exactly what our libraries use) into direct imports, so an app only pulls the symbols it uses — less work per build and smaller bundles.
+Can reduce work for large barrel-export packages by importing only the used symbols. It is experimental; benchmark before relying on it in production.
 
 ### 3.4 Build-time safety valves you already want at scale
 ```js
@@ -132,7 +132,7 @@ export default {
 Run `typecheck` and `lint` as **separate Turbo tasks** (cached, filterable) instead of paying for them inside every `next build`.
 
 ### 3.5 Share one config, not 10k bespoke ones
-Centralize a base `next.config` and `tsconfig` in a shared package and extend per app. Identical config → identical hashes → cache hits (and one place to change a flag for all 10k apps).
+Centralize a base `next.config` and `tsconfig` in a shared package and extend per app. Shared config removes one source of hash divergence (source, lockfile, env, and task inputs still determine cache hits) and gives one place to change a flag.
 
 ---
 
@@ -159,16 +159,26 @@ RUN turbo run build --filter=@demo/app-05000
 ```
 Caveat: prune has historically had bugs omitting some internal deps ([#7732](https://github.com/vercel/turborepo/issues/7732)) — confirm `out/` builds before trusting it.
 
-### 4.2 The winning CI recipe
+### 4.2 CI baseline
 ```bash
 turbo run lint typecheck build --affected --cache=local:rw,remote:rw --concurrency=100%
 ```
-Only-changed packages × remote cache × full core utilization. Reports of 20min→8min CI, 50% lower task durations, and tens of hours/month saved via remote caching are common at this scale.
+Changed packages only, with remote cache and full core utilization.
 
 ### 4.3 Deploying one app to Vercel from the monorepo
-Two viable paths (this repo demonstrates and times one):
-- **Pruned subtree:** `turbo prune <app>` → deploy `out/` with build command `turbo run build --filter=<app>`. Smallest upload; canonical monorepo pattern.
-- **Monorepo root + Root Directory:** point the Vercel project at `apps/<app>`; Vercel's Turborepo integration builds only that app and reuses remote cache.
+
+Verdict: cloud build, not `--prebuilt`. For a Turborepo monorepo, Vercel's documented default is a cloud build: set the project's Root Directory to `apps/<app>`, keep "Include source files outside of the Root Directory" enabled (default for projects created after 2020-08), and let Vercel install and build with Turborepo and Remote Caching. `vercel deploy --prebuilt` deploys a prior `vercel build` output and only works if `vercel build` can produce a complete `.vercel/output` from the chosen build context. The Root Directory sandbox cannot read files outside it (the docs note `..` cannot move up a level), so an app importing `../../packages/*` fails under `vercel build` unless the include-outside-files option is on. In this repo's prebuilt attempt, `next build` under `vercel build` failed for that reason.
+
+This repo automates and times the cloud-build path in `scripts/deploy-vercel.mjs`:
+1. `turbo prune <app>` → tiny self-contained subtree (**bypass `.gitignore`** first — prune respects it, and generated `apps/`+`packages/` are ignored, so it would skip the source).
+2. Materialize protocols (`scripts/rewrite-protocols.mjs`): rewrite `catalog:` to concrete versions (Vercel reported *No Next.js version detected* until this was done); keep `workspace:*` so it resolves to the local subtree.
+3. Copy root configs prune omits, e.g. `tsconfig.base.json` (else `TS5083: Cannot read file`).
+4. Configure project: Root Directory = `apps/<app>`, install + build at repo root via `turbo run build --filter=<app>`.
+
+Measured (`@demo/app-10`, 9-lib closure, iad1, 4-core builder): **cold 34s → warm 22s** (Turborepo Remote Cache enabled automatically). The cloud build linked the libs from the subtree via `workspace:*` and built `@demo/lib-01@0.0.0` etc. — i.e. **`workspace:*` deploys the in-tree source at its local version, never a registry version** (the exact-version rewrite only happens on `pnpm publish`). To deploy a *specific published* version, consume the lib by plain semver from a registry instead — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+
+### 4.4 Publishing internal packages (AWS CodeArtifact)
+Internal packages are normally versioned independently and consumed by plain semver from a private registry. Auth goes in a scoped `.npmrc`, not the global one, or it hijacks the main workspace install; npm needs `--userconfig` since it does not walk ancestor `.npmrc` files; `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` publishes four packages to CodeArtifact (~0.7–0.9s each) and demonstrates diamond resolution and the `workspace:` override collapse.
 
 ---
 

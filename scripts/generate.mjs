@@ -29,6 +29,9 @@ const MODULES = parseInt(opt("modules", "16"), 10); // modules per library
 const APP_DEPS = parseInt(opt("app-deps", "4"), 10); // lib deps per app
 const LIB_DEPS = parseInt(opt("lib-deps", "3"), 10); // lib->lib deps
 const LAYERS = parseInt(opt("layers", "6"), 10); // dependency layers
+const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
+const FRAMEWORK = opt("framework", "next"); // "next" | "vite"
+if (!["next", "vite"].includes(FRAMEWORK)) { console.error(`unknown --framework "${FRAMEWORK}" (use next|vite)`); process.exit(1); }
 const CLEAN = flag("clean");
 
 const ROOT = process.cwd();
@@ -48,6 +51,13 @@ const appPkg = (i) => `@demo/app-${pad(i, appW)}`;
 // ---- dependency graph ----------------------------------------------------
 const layerSize = Math.ceil(LIBS / LAYERS);
 const layerOf = (i) => Math.floor((i - 1) / layerSize); // 0-based layer
+
+// Optional semver mode: stamp real versions and reference internal deps with a
+// semver-flavored workspace specifier (`workspace:^1.2.3`). pnpm links the local
+// package during dev and rewrites the spec to `^1.2.3` on publish — the
+// independently-versioned-internal-packages convention.
+const libVersion = (i) => (VERSIONED ? `1.${layerOf(i)}.${i}` : "0.0.0");
+const wsSpec = (d) => (VERSIONED ? `workspace:^${libVersion(d)}` : "workspace:*");
 
 // Lib i depends on LIB_DEPS libs from the layer below (deterministic spread),
 // so closures are bounded by the number of layers but overlap heavily
@@ -130,11 +140,11 @@ export function ${libSym(i)}(seed: number): number {
 
 function libPackageJson(i) {
   const deps = libDeps(i);
-  const dependencies = Object.fromEntries(deps.map((d) => [libPkg(d), "workspace:*"]));
+  const dependencies = Object.fromEntries(deps.map((d) => [libPkg(d), wsSpec(d)]));
   return JSON.stringify(
     {
       name: libPkg(i),
-      version: "0.0.0",
+      version: libVersion(i),
       private: true,
       type: "module",
       main: "./dist/index.js",
@@ -174,31 +184,23 @@ const LIB_TSCONFIG = JSON.stringify(
 
 function appPackageJson(i) {
   const deps = appDeps(i);
-  const dependencies = {
-    next: "catalog:",
-    react: "catalog:",
-    "react-dom": "catalog:",
-    ...Object.fromEntries(deps.map((d) => [libPkg(d), "workspace:*"]))
-  };
+  const libDepsObj = Object.fromEntries(deps.map((d) => [libPkg(d), wsSpec(d)]));
+  const vite = FRAMEWORK === "vite";
   return JSON.stringify(
     {
       name: appPkg(i),
-      version: "0.0.0",
+      version: VERSIONED ? "1.0.0" : "0.0.0",
       private: true,
       type: "module",
-      scripts: {
-        build: "next build",
-        dev: "next dev",
-        start: "next start",
-        typecheck: "tsc --noEmit"
-      },
-      dependencies,
-      devDependencies: {
-        typescript: "catalog:",
-        "@types/node": "catalog:",
-        "@types/react": "catalog:",
-        "@types/react-dom": "catalog:"
-      }
+      scripts: vite
+        ? { build: "vite build", dev: "vite", preview: "vite preview", typecheck: "tsc --noEmit" }
+        : { build: "next build", dev: "next dev", start: "next start", typecheck: "tsc --noEmit" },
+      dependencies: vite
+        ? { react: "catalog:", "react-dom": "catalog:", ...libDepsObj }
+        : { next: "catalog:", react: "catalog:", "react-dom": "catalog:", ...libDepsObj },
+      devDependencies: vite
+        ? { vite: "catalog:", "@vitejs/plugin-react": "catalog:", typescript: "catalog:", "@types/node": "catalog:", "@types/react": "catalog:", "@types/react-dom": "catalog:" }
+        : { typescript: "catalog:", "@types/node": "catalog:", "@types/react": "catalog:", "@types/react-dom": "catalog:" }
     },
     null,
     2
@@ -227,7 +229,7 @@ const APP_TSCONFIG = JSON.stringify(
 const APP_NEXT_CONFIG = `/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  eslint: { ignoreDuringBuilds: true },
+  // Typecheck is a dedicated Turbo task, not paid for inside every next build.
   typescript: { ignoreBuildErrors: true }
 };
 export default nextConfig;
@@ -279,16 +281,72 @@ function writeLib(i) {
   writeFileSync(join(dir, "tsconfig.json"), LIB_TSCONFIG);
 }
 
+const VITE_CONFIG = `import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+export default defineConfig({ plugins: [react()], build: { outDir: "dist" } });
+`;
+const VITE_MAIN = `import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+`;
+const VITE_APP_TSCONFIG = JSON.stringify(
+  {
+    extends: "../../tsconfig.base.json",
+    compilerOptions: { module: "esnext", moduleResolution: "bundler", jsx: "react-jsx", noEmit: true, lib: ["ES2022", "DOM", "DOM.Iterable"] },
+    include: ["src", "vite.config.ts"]
+  },
+  null,
+  2
+);
+const viteHtml = (i) => `<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>${appPkg(i)}</title></head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+`;
+function viteAppSource(i) {
+  const deps = appDeps(i);
+  const imports = deps.map((d) => `import { ${libSym(d)} } from "${libPkg(d)}";`).join("\n");
+  const sum = deps.map((d, k) => `${libSym(d)}(${k + 1})`).join(" + ");
+  return `${imports}
+
+export function App() {
+  const total = ${sum || "0"};
+  return (
+    <main>
+      <h1>${appPkg(i)}</h1>
+      <p>total: {total}</p>
+    </main>
+  );
+}
+`;
+}
+
 function writeApp(i) {
   const dir = join(APPS_DIR, appDir(i));
-  const app = join(dir, "app");
-  mkdirSync(app, { recursive: true });
+  mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), appPackageJson(i));
-  writeFileSync(join(dir, "tsconfig.json"), APP_TSCONFIG);
-  writeFileSync(join(dir, "next.config.mjs"), APP_NEXT_CONFIG);
-  writeFileSync(join(dir, "next-env.d.ts"), APP_NEXT_ENV);
-  writeFileSync(join(app, "layout.tsx"), APP_LAYOUT);
-  writeFileSync(join(app, "page.tsx"), appPageSource(i));
+  if (FRAMEWORK === "vite") {
+    const src = join(dir, "src");
+    mkdirSync(src, { recursive: true });
+    writeFileSync(join(dir, "index.html"), viteHtml(i));
+    writeFileSync(join(dir, "vite.config.ts"), VITE_CONFIG);
+    writeFileSync(join(dir, "tsconfig.json"), VITE_APP_TSCONFIG);
+    writeFileSync(join(src, "main.tsx"), VITE_MAIN);
+    writeFileSync(join(src, "App.tsx"), viteAppSource(i));
+  } else {
+    const app = join(dir, "app");
+    mkdirSync(app, { recursive: true });
+    writeFileSync(join(dir, "tsconfig.json"), APP_TSCONFIG);
+    writeFileSync(join(dir, "next.config.mjs"), APP_NEXT_CONFIG);
+    writeFileSync(join(dir, "next-env.d.ts"), APP_NEXT_ENV);
+    writeFileSync(join(app, "layout.tsx"), APP_LAYOUT);
+    writeFileSync(join(app, "page.tsx"), appPageSource(i));
+  }
 }
 
 function main() {
@@ -323,6 +381,8 @@ function main() {
       appDeps: APP_DEPS,
       libDeps: LIB_DEPS,
       layers: LAYERS,
+      framework: FRAMEWORK,
+      versioned: VERSIONED,
       approxFiles: fileCount,
       generateMs: Math.round(ms)
     })
