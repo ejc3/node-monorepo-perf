@@ -84,7 +84,7 @@ for (const v of VARIANTS) {
     versioned: v.versioned,
     installMs,
     lockfileBytes: lock.length,
-    lockfileLines: lock.toString().split("\n").length,
+    lockfileLines: (lock.toString().match(/\n/g) || []).length,
     nmEntries: num(`find . -path '*/node_modules/*' -printf '.' | wc -c`),
     nmSymlinks: num(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`),
     nmApparentBytes: num(

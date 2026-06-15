@@ -158,7 +158,7 @@ if (!abort && PHASES.includes("install")) {
   if (r.ok && existsSync(join(ROOT, "pnpm-lock.yaml"))) {
     const buf = readFileSync(join(ROOT, "pnpm-lock.yaml"));
     rec.phases.install.lockfileBytes = buf.length;
-    rec.phases.install.lockfileLines = buf.toString().split("\n").length;
+    rec.phases.install.lockfileLines = (buf.toString().match(/\n/g) || []).length;
   }
   if (r.ok && FS_STATS) {
     // full-tree footprint via strict statInt. du -sb is apparent size (sum of

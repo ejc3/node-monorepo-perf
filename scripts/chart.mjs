@@ -195,8 +195,9 @@ if (lk.length >= 2) {
     lineChart({
       file: "lockfile-vs-scale.svg",
       title: "Lockfile size vs workspace size",
-      subtitle: "pnpm-lock.yaml lines (one importer per workspace package) — O(repo)",
-      xs: lk.map((r) => r.apps),
+      subtitle:
+        "pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)",
+      xs: lk.map((r) => r.apps + r.libs),
       yFmt: fmtNum,
       series: [
         {

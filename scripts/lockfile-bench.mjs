@@ -58,7 +58,7 @@ function lockSize(file) {
   const p = join(DIR, file);
   if (!existsSync(p)) return { lines: null, bytes: null };
   const b = readFileSync(p);
-  return { lines: b.toString().split("\n").length, bytes: b.length };
+  return { lines: (b.toString().match(/\n/g) || []).length, bytes: b.length };
 }
 function setup(apps, libs) {
   rmSync(DIR, { recursive: true, force: true });
