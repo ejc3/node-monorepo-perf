@@ -106,14 +106,38 @@ SyntaxError: The requested module '@ejc3/widget' does not provide an export name
 
 `alpha` was built against widget v1's `render()`; the override put it on local v2, which removed `render()`. Collapsing a diamond to one local version breaks whichever dependent was written against the other major. A local v1 would break `beta` instead. Revert: delete `node_modules`, `git checkout pnpm-lock.yaml`, reinstall.
 
-## 5. Switching for one app only
+## 5. Switching one app without changing the others
 
-Not cleanly, with one shared lockfile:
+**The example.** Take the §3 diamond and make it concrete with two apps. Both `web` and `admin` depend on `@ejc3/alpha`, and `alpha` depends on `@ejc3/widget`. Neither app lists `widget` in its own `package.json` — each pulls it in *transitively* over the `alpha → widget` edge:
 
-- Root `pnpm.overrides` is workspace-wide, so you cannot make `alpha->widget` link locally for app A but resolve from the registry for app B in one install.
-- Edge-scoped override: `"@ejc3/alpha>@ejc3/widget": "workspace:*"` overrides widget only under alpha. Per-edge, still root-level.
-- Per-app isolation: give the app its own install/lockfile (`pnpm install --ignore-workspace` in the app dir, or a separate root).
-- Without a tracked file: a `.pnpmfile.cjs` `readPackage` hook rewrites the spec during resolution:
+```
+web   → alpha → widget
+admin → alpha → widget
+```
+
+```jsonc
+// apps/web/package.json   and   apps/admin/package.json  (identical)
+{ "dependencies": { "@ejc3/alpha": "^1.0.0" } }
+// packages/alpha/package.json
+{ "name": "@ejc3/alpha", "dependencies": { "@ejc3/widget": "^1.0.0" } }
+```
+
+**The goal:** make `web` link the local `workspace:` copy of `widget` while `admin` keeps resolving `widget` from the registry. How hard that is depends on whether `widget` is a **direct** or a **transitive** dependency of the app.
+
+**Direct dependency — trivial, and already per-app.** If `web` listed `widget` directly (`web → widget` in its own `package.json`), there is nothing to coordinate: each app's manifest controls how it resolves its own direct deps. With `link-workspace-packages=false` (§1) only the `workspace:` protocol forces local linking, so flipping just `web`'s spec switches that one app and leaves `admin` on its registry semver — one shared lockfile, one app changed:
+
+```jsonc
+// apps/web/package.json — only this app links local
+{ "dependencies": { "@ejc3/widget": "workspace:*" } }
+// apps/admin/package.json — unchanged, still resolves from the registry
+{ "dependencies": { "@ejc3/widget": "^1.0.0" } }
+```
+
+**Transitive dependency — not cleanly per-app.** This is the example above: `web` pulls `widget` in *through* `alpha`, so `web` never names `widget` and there is nothing in its manifest to flip. Every mechanism that can reach a transitive edge is declared at the **root** and applies workspace-wide, and one lockfile records one resolution per edge:
+
+- **Root `pnpm.overrides`** force *every* consumer onto the override — that's the §4 diamond collapse (both `web` and `admin` move), not a per-app switch.
+- **Edge-scoped override** `"@ejc3/alpha>@ejc3/widget": "workspace:*"` narrows to one dependency *edge* (widget only under alpha), but it is still root-level: it affects every app whose graph contains `alpha → widget` — here both `web` and `admin` — not the single app you picked.
+- **`.pnpmfile.cjs` `readPackage` hook** rewrites the spec during resolution with nothing committed to any `package.json`, but it runs for the *whole* install and resolves into the one shared lockfile — you can gate it (e.g. behind an env var) but cannot produce two different `widget` resolutions for `web` and `admin` at once:
   ```js
   // .pnpmfile.cjs
   module.exports = { hooks: { readPackage(pkg) {
@@ -121,6 +145,11 @@ Not cleanly, with one shared lockfile:
     return pkg;
   } } };
   ```
+- **Per-app isolation** is the only clean way to make one app differ on a transitive dep: give `web` its own install and lockfile (`pnpm install --ignore-workspace` in `apps/web`, or a separate root). Its lockfile can pin local `workspace:*` while the workspace lockfile keeps the registry version for `admin` and everyone else.
+
+**Why this needs a separate install (transitive dep only — a direct dep never does):** a pnpm workspace is resolved as a *single* dependency graph into a *single* lockfile, and an override is a property of that one root resolution — there is no "apply this override only when the dep is reached from `web`" scope. (Edge-scoped overrides scope by graph *edge*; the `.pnpmfile` hook runs for the *whole* install — neither scopes to a consuming app.) So any override changes the resolution for every app that touches that edge. To give `web` a different resolution of a shared or transitive dep, you have to take it out of the shared graph and resolve it on its own. For a *direct* dep you don't need any of this: the app's own spec already resolves per-app.
+
+**This is the install-time mirror of task-time focus.** `turbo run build --filter=<app>...` scopes a *task* to one app and its closure trivially (OPTIMIZATIONS.md §2.1) — tasks are per-app. Dependency *resolution* is not: the whole workspace shares one lockfile, so there is no `--filter` for overrides. Task-time focus is per-app and cheap; install-time resolution is workspace-wide and shared — which is the whole reason per-app divergence needs a separate install.
 
 ## 6. Next.js
 

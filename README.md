@@ -173,9 +173,12 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 - [OPTIMIZATIONS.md](OPTIMIZATIONS.md) — pnpm / Turborepo / Next.js / Vercel optimization playbook.
 - [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) — semver vs `workspace:`, overrides, diamond dependencies.
 - [TYPECHECKERS.md](TYPECHECKERS.md) — tsc vs tsgo and the faster type-checking levers.
+- [LIMITS.md](LIMITS.md) — what breaks at 20k that focus/cache can't fix, gotchas, and what's left to quantify.
+
+### Internal / dev
+
 - [TOOLING.md](TOOLING.md) — bun vs pnpm install, Vite vs Next build.
 - [REVIEW.md](REVIEW.md) — the quality pipeline: static checks, type-checking, and the review workflows.
-- [LIMITS.md](LIMITS.md) — what breaks at 20k that focus/cache can't fix, gotchas, and what's left to quantify.
 
 ## License
 
