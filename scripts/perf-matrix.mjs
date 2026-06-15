@@ -70,8 +70,8 @@ for (const v of VARIANTS) {
     installMs,
     lockfileBytes: lock.length,
     lockfileLines: lock.toString().split("\n").length,
-    nmEntries: num(`find node_modules -printf '.' 2>/dev/null | wc -c`),
-    nmSymlinks: num(`find node_modules -type l -printf '.' 2>/dev/null | wc -c`),
+    nmEntries: num(`find . -path '*/node_modules/*' -printf '.' 2>/dev/null | wc -c`),
+    nmSymlinks: num(`find . -path '*/node_modules/*' -type l -printf '.' 2>/dev/null | wc -c`),
     nmDiskBytes: num(`du -sb node_modules 2>/dev/null | cut -f1`),
   };
   console.log(

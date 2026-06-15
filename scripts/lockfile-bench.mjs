@@ -95,7 +95,21 @@ function setup(apps, libs) {
   );
 }
 const rmAll = () => {
-  rmSync(join(DIR, "node_modules"), { recursive: true, force: true });
+  // full-tree cleanup (root + every per-package node_modules) so pnpm's per-app
+  // trees can't contaminate the next (bun) install's timing; throw on failure.
+  const r = spawnSync(
+    "bash",
+    ["-c", "find . -name node_modules -type d -prune -exec rm -rf {} +"],
+    {
+      cwd: DIR,
+      encoding: "utf8",
+    },
+  );
+  if (r.error || r.status !== 0) {
+    throw new Error(
+      `node_modules cleanup failed (a stale tree would let the next install time a no-op): ${r.error?.message || r.stderr || `status ${r.status}`}`,
+    );
+  }
   for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb"])
     rmSync(join(DIR, f), { force: true });
 };

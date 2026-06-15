@@ -138,11 +138,13 @@ if (PHASES.includes("install")) {
   if (r.ok && FS_STATS) {
     timed("fs-stats", () => {
       rec.phases.install.nmEntries = parseInt(
-        tryShOut(`find node_modules -printf '.' 2>/dev/null | wc -c`).trim() || "0",
+        tryShOut(`find . -path '*/node_modules/*' -printf '.' 2>/dev/null | wc -c`).trim() || "0",
         10,
       );
       rec.phases.install.nmSymlinks = parseInt(
-        tryShOut(`find node_modules -type l -printf '.' 2>/dev/null | wc -c`).trim() || "0",
+        tryShOut(
+          `find . -path '*/node_modules/*' -type l -printf '.' 2>/dev/null | wc -c`,
+        ).trim() || "0",
         10,
       );
       rec.phases.install.nmApparentBytes = parseInt(
