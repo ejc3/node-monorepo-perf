@@ -257,6 +257,22 @@ if (!abort && PHASES.includes("focus")) {
 
 // ---- prune (artifact-time focus) ----
 if (!abort && PHASES.includes("prune")) {
+  // remove build outputs (.next/dist) so prune copies SOURCE only — with
+  // --use-gitignore=false these normally-gitignored dirs would otherwise be
+  // swept into out/full, inflating pruneMs and the artifact-size stats.
+  const cleanOut = spawnSync(
+    "bash",
+    [
+      "-c",
+      "find apps packages -mindepth 2 -maxdepth 2 -type d \\( -name .next -o -name dist \\) -exec rm -rf {} +",
+    ],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+  if (cleanOut.status !== 0) {
+    throw new Error(
+      `prune prep failed to remove build outputs: ${cleanOut.stderr || cleanOut.status}`,
+    );
+  }
   rmSync(join(ROOT, "out"), { recursive: true, force: true });
   const r = timed(`prune ${sampleApp}`, () =>
     sh(`pnpm exec turbo prune ${sampleApp} --docker --use-gitignore=false`),

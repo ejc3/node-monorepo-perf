@@ -129,6 +129,12 @@ for (const { apps, libs, axis } of POINTS) {
     "--concurrency=100%",
     "--output-logs=errors-only",
   ]);
+  // remove build outputs so prune copies SOURCE only (--use-gitignore=false would
+  // otherwise sweep the focus build's .next/dist into out/full).
+  sh("bash", [
+    "-c",
+    "find apps packages -mindepth 2 -maxdepth 2 -type d \\( -name .next -o -name dist \\) -exec rm -rf {} +",
+  ]);
   rmSync(join(REPO, "out"), { recursive: true, force: true });
   const pruneMs = timed("pnpm", [
     "exec",
