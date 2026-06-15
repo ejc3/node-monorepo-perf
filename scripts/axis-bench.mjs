@@ -23,6 +23,7 @@ import {
   mkdirSync,
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { enterSourceVisible } from "./_source-visible.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const LOGFILE = "/tmp/axis-bench.log";
@@ -88,6 +89,10 @@ rmSync(join(REPO, "node_modules"), { recursive: true, force: true });
 rmSync(join(REPO, "pnpm-lock.yaml"), { force: true });
 sh("pnpm", ["install", "--config.confirm-modules-purge=false"]);
 
+// make generated source visible to Turbo (tracked source, ignored build outputs)
+// so warm-cache/graph numbers reflect real per-file hashing. Restored on exit.
+enterSourceVisible(REPO);
+
 const out = [];
 for (const { apps, libs, axis } of POINTS) {
   const appW = String(apps).length;
@@ -129,21 +134,11 @@ for (const { apps, libs, axis } of POINTS) {
     "--concurrency=100%",
     "--output-logs=errors-only",
   ]);
-  // remove build outputs so prune copies SOURCE only (--use-gitignore=false would
-  // otherwise sweep the focus build's .next/dist into out/full).
-  sh("bash", [
-    "-c",
-    "find apps packages -mindepth 2 -maxdepth 2 -type d \\( -name .next -o -name dist \\) -exec rm -rf {} +",
-  ]);
+  // Source is visible to git (enterSourceVisible) while build outputs stay
+  // ignored, so plain prune (respecting .gitignore) copies the source subtree and
+  // skips .next/dist/node_modules.
   rmSync(join(REPO, "out"), { recursive: true, force: true });
-  const pruneMs = timed("pnpm", [
-    "exec",
-    "turbo",
-    "prune",
-    mid,
-    "--docker",
-    "--use-gitignore=false",
-  ]);
+  const pruneMs = timed("pnpm", ["exec", "turbo", "prune", mid, "--docker"]);
 
   const rec = { apps, libs, axis, totalTasks, focusClosure, installMs, tcColdMs, focusMs, pruneMs };
   out.push(rec);

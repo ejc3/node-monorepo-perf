@@ -17,8 +17,9 @@
 // track their source). Restored in finally and on signals.
 
 import { execSync } from "node:child_process";
-import { appendFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
+import { appendFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { enterSourceVisible } from "./_source-visible.mjs";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => {
@@ -117,24 +118,10 @@ run(`node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules 16 --clea
 run(`pnpm install --config.confirm-modules-purge=false`);
 execSync("rm -rf .turbo node_modules/.cache/turbo", { cwd: ROOT });
 
-const giPath = join(ROOT, ".gitignore"),
-  giBak = join(ROOT, ".gitignore.devsim.bak");
-if (!existsSync(giPath) && existsSync(giBak)) renameSync(giBak, giPath);
-const hadGi = existsSync(giPath);
-const restoreGi = () => {
-  try {
-    if (existsSync(giBak)) renameSync(giBak, giPath);
-  } catch {}
-};
-if (hadGi) renameSync(giPath, giBak);
-process.on("SIGINT", () => {
-  restoreGi();
-  process.exit(130);
-});
-process.on("SIGTERM", () => {
-  restoreGi();
-  process.exit(143);
-});
+// Make generated source visible to Turbo's hashing (tracked source, ignored build
+// outputs) like a real monorepo — so edits cause real rebuilds and .next/dist
+// don't self-invalidate. Restored in finally and on signals/exit.
+const restoreGi = enterSourceVisible(ROOT);
 
 const result = {
   apps: APPS,

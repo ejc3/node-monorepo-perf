@@ -81,6 +81,11 @@ console.log(
 rmSync(OUT, { recursive: true, force: true });
 // turbo prune respects .gitignore by default; our generated apps/+packages/ are
 // gitignored, so without this flag prune copies manifests but skips the source.
+// --use-gitignore=false also unignores build outputs, so strip a prior local
+// build's .next/dist first — otherwise prune sweeps them into the deploy artifact.
+sh(
+  `find apps packages -mindepth 2 -maxdepth 2 -type d \\( -name .next -o -name dist \\) -exec rm -rf {} + || true`,
+);
 sh(`pnpm exec turbo prune ${APP} --use-gitignore=false`);
 
 console.log("▶ materialize catalog:/workspace: protocols in the artifact");
@@ -89,7 +94,7 @@ sh(`node scripts/rewrite-protocols.mjs --dir out`);
 console.log("▶ copy root configs that prune omits (tsconfig.base.json)");
 cpSync(join(ROOT, "tsconfig.base.json"), join(OUT, "tsconfig.base.json"));
 rmSync(join(OUT, ".gitignore"), { force: true });
-writeFileSync(join(OUT, ".vercelignore"), "node_modules\n.turbo\ndist\n");
+writeFileSync(join(OUT, ".vercelignore"), "node_modules\n.turbo\ndist\n.next\n");
 
 console.log(`▶ link out/ to project ${PROJECT} (scope ${SCOPE})`);
 mkdirSync(join(OUT, ".vercel"), { recursive: true });

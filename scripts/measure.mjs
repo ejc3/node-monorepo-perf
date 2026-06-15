@@ -20,6 +20,7 @@
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, statSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { enterSourceVisible } from "./_source-visible.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
@@ -116,6 +117,12 @@ const rec = {
 // Prerequisite gate: a failed gen or install means later phases would measure a
 // stale/broken workspace, so they are skipped (rendered "—") rather than timed.
 let abort = false;
+
+// Turbo respects .gitignore for input hashing, and this repo gitignores the
+// GENERATED apps/+packages/. A real monorepo tracks its source, so make it
+// visible to Turbo (build outputs stay ignored) — otherwise warm-cache and
+// graph-load numbers understate the real per-file hashing cost. Restored on exit.
+enterSourceVisible(ROOT);
 
 // ---- gen ----
 if (PHASES.includes("gen")) {
@@ -257,26 +264,11 @@ if (!abort && PHASES.includes("focus")) {
 
 // ---- prune (artifact-time focus) ----
 if (!abort && PHASES.includes("prune")) {
-  // remove build outputs (.next/dist) so prune copies SOURCE only — with
-  // --use-gitignore=false these normally-gitignored dirs would otherwise be
-  // swept into out/full, inflating pruneMs and the artifact-size stats.
-  const cleanOut = spawnSync(
-    "bash",
-    [
-      "-c",
-      "find apps packages -mindepth 2 -maxdepth 2 -type d \\( -name .next -o -name dist \\) -exec rm -rf {} +",
-    ],
-    { cwd: ROOT, encoding: "utf8" },
-  );
-  if (cleanOut.status !== 0) {
-    throw new Error(
-      `prune prep failed to remove build outputs: ${cleanOut.stderr || cleanOut.status}`,
-    );
-  }
+  // Source is visible to git (enterSourceVisible) while build outputs stay
+  // ignored, so plain prune (respecting .gitignore) copies the source subtree and
+  // skips .next/dist/node_modules — no --use-gitignore=false, no manual strip.
   rmSync(join(ROOT, "out"), { recursive: true, force: true });
-  const r = timed(`prune ${sampleApp}`, () =>
-    sh(`pnpm exec turbo prune ${sampleApp} --docker --use-gitignore=false`),
-  );
+  const r = timed(`prune ${sampleApp}`, () => sh(`pnpm exec turbo prune ${sampleApp} --docker`));
   rec.phases.prune = { ms: r.ms, ok: r.ok, app: sampleApp };
   // a "successful" prune must produce out/json and out/full; missing artifacts
   // mean it didn't really work, so don't record clean zeroes.
