@@ -10,10 +10,13 @@
     "chart": "node scripts/chart.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "graph": "turbo run build --dry=json"
+    "graph": "turbo run build --dry=json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@typescript/native-preview": "7.0.0-dev.20260614.1",
+    "prettier": "^3.8.4",
     "turbo": "2.9.18",
     "typescript": "^5.9.0"
   },

@@ -8,7 +8,13 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import { cpus, totalmem, platform, release, arch, homedir } from "node:os";
 import { join } from "node:path";
 
-const sh = (c) => { try { return execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return null; } };
+const sh = (c) => {
+  try {
+    return execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+};
 const cpuModel = (() => {
   const m = sh("lscpu | grep -i 'model name'");
   if (m) return m.split(":").slice(1).join(":").trim();

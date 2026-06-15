@@ -44,7 +44,10 @@ const LIB_DEPS = intOpt("lib-deps", "3", 0); // lib->lib deps
 const LAYERS = intOpt("layers", "6", 1); // dependency layers (layerSize divides by it)
 const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
 const FRAMEWORK = opt("framework", "next"); // "next" | "vite"
-if (!["next", "vite"].includes(FRAMEWORK)) { console.error(`unknown --framework "${FRAMEWORK}" (use next|vite)`); process.exit(1); }
+if (!["next", "vite"].includes(FRAMEWORK)) {
+  console.error(`unknown --framework "${FRAMEWORK}" (use next|vite)`);
+  process.exit(1);
+}
 const CLEAN = flag("clean");
 
 const ROOT = process.cwd();
@@ -132,12 +135,13 @@ export const SEED_${tag} = ${libIdx * 1000 + modIdx};
 
 function libIndexSource(i) {
   const deps = libDeps(i);
-  const reexports = Array.from({ length: MODULES }, (_, m) => `export * from "./mod-${pad(m + 1, 2)}.js";`).join("\n");
+  const reexports = Array.from(
+    { length: MODULES },
+    (_, m) => `export * from "./mod-${pad(m + 1, 2)}.js";`,
+  ).join("\n");
   const depImports = deps.map((d) => `import { ${libSym(d)} } from "${libPkg(d)}";`).join("\n");
   const firstMod = `import { fold_${pad(i, libW)}_01, SEED_${pad(i, libW)}_01 } from "./mod-01.js";`;
-  const depCalls = deps.length
-    ? deps.map((d) => `${libSym(d)}(seed)`).join(" + ")
-    : "0";
+  const depCalls = deps.length ? deps.map((d) => `${libSym(d)}(seed)`).join(" + ") : "0";
   return `${reexports}
 ${firstMod}
 ${depImports}
@@ -165,16 +169,16 @@ function libPackageJson(i) {
       exports: { ".": { types: "./dist/index.d.ts", default: "./dist/index.js" } },
       scripts: {
         build: "tsc -p tsconfig.json",
-        typecheck: "tsc --noEmit -p tsconfig.json"
+        typecheck: "tsc --noEmit -p tsconfig.json",
       },
       dependencies,
       devDependencies: {
         typescript: "catalog:",
-        "@types/node": "catalog:"
-      }
+        "@types/node": "catalog:",
+      },
     },
     null,
-    2
+    2,
   );
 }
 
@@ -187,12 +191,12 @@ const LIB_TSCONFIG = JSON.stringify(
       outDir: "dist",
       rootDir: "src",
       noEmit: false,
-      composite: false
+      composite: false,
     },
-    include: ["src"]
+    include: ["src"],
   },
   null,
-  2
+  2,
 );
 
 function appPackageJson(i) {
@@ -212,11 +216,23 @@ function appPackageJson(i) {
         ? { react: "catalog:", "react-dom": "catalog:", ...libDepsObj }
         : { next: "catalog:", react: "catalog:", "react-dom": "catalog:", ...libDepsObj },
       devDependencies: vite
-        ? { vite: "catalog:", "@vitejs/plugin-react": "catalog:", typescript: "catalog:", "@types/node": "catalog:", "@types/react": "catalog:", "@types/react-dom": "catalog:" }
-        : { typescript: "catalog:", "@types/node": "catalog:", "@types/react": "catalog:", "@types/react-dom": "catalog:" }
+        ? {
+            vite: "catalog:",
+            "@vitejs/plugin-react": "catalog:",
+            typescript: "catalog:",
+            "@types/node": "catalog:",
+            "@types/react": "catalog:",
+            "@types/react-dom": "catalog:",
+          }
+        : {
+            typescript: "catalog:",
+            "@types/node": "catalog:",
+            "@types/react": "catalog:",
+            "@types/react-dom": "catalog:",
+          },
     },
     null,
-    2
+    2,
   );
 }
 
@@ -230,13 +246,13 @@ const APP_TSCONFIG = JSON.stringify(
       noEmit: true,
       allowJs: true,
       incremental: true,
-      plugins: [{ name: "next" }]
+      plugins: [{ name: "next" }],
     },
     include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-    exclude: ["node_modules"]
+    exclude: ["node_modules"],
   },
   null,
-  2
+  2,
 );
 
 const APP_NEXT_CONFIG = `/** @type {import('next').NextConfig} */
@@ -306,11 +322,17 @@ createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictM
 const VITE_APP_TSCONFIG = JSON.stringify(
   {
     extends: "../../tsconfig.base.json",
-    compilerOptions: { module: "esnext", moduleResolution: "bundler", jsx: "react-jsx", noEmit: true, lib: ["ES2022", "DOM", "DOM.Iterable"] },
-    include: ["src", "vite.config.ts"]
+    compilerOptions: {
+      module: "esnext",
+      moduleResolution: "bundler",
+      jsx: "react-jsx",
+      noEmit: true,
+      lib: ["ES2022", "DOM", "DOM.Iterable"],
+    },
+    include: ["src", "vite.config.ts"],
   },
   null,
-  2
+  2,
 );
 const viteHtml = (i) => `<!doctype html>
 <html lang="en">
@@ -397,8 +419,8 @@ function main() {
       framework: FRAMEWORK,
       versioned: VERSIONED,
       approxFiles: fileCount,
-      generateMs: Math.round(ms)
-    })
+      generateMs: Math.round(ms),
+    }),
   );
 }
 

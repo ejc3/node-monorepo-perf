@@ -14,12 +14,24 @@
 //     --project nextjs-monorepo-scale-demo --scope ejc3-7031s-projects --prod
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, renameSync, readdirSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  cpSync,
+  rmSync,
+  renameSync,
+  readdirSync,
+} from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
 const argv = process.argv.slice(2);
-const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : d; };
+const opt = (n, d) => {
+  const i = argv.indexOf(`--${n}`);
+  return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : d;
+};
 const flag = (n) => argv.includes(`--${n}`);
 
 const APP = opt("app", "@demo/app-10");
@@ -45,14 +57,27 @@ const appShort = readdirSync(appsRoot).find((dir) => {
   }
 });
 if (!appShort) throw new Error(`no apps/*/package.json with name "${APP}" found under ${appsRoot}`);
-const appDir = `apps/${appShort}`;               // e.g. apps/app-010 (Root Directory)
+const appDir = `apps/${appShort}`; // e.g. apps/app-010 (Root Directory)
 const authPath = join(homedir(), ".local/share/com.vercel.cli/auth.json");
-const TOKEN = process.env.VERCEL_TOKEN || (existsSync(authPath) ? JSON.parse(readFileSync(authPath, "utf8")).token : null);
-if (!TOKEN) throw new Error(`no Vercel token: set VERCEL_TOKEN or run \`vercel login\` so ${authPath} exists`);
+const TOKEN =
+  process.env.VERCEL_TOKEN ||
+  (existsSync(authPath) ? JSON.parse(readFileSync(authPath, "utf8")).token : null);
+if (!TOKEN)
+  throw new Error(
+    `no Vercel token: set VERCEL_TOKEN or run \`vercel login\` so ${authPath} exists`,
+  );
 
-const sh = (cmd, cwd = ROOT) => execSync(cmd, { cwd, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 30, env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", VERCEL_TELEMETRY_DISABLED: "1" } }).toString();
+const sh = (cmd, cwd = ROOT) =>
+  execSync(cmd, {
+    cwd,
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 1 << 30,
+    env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", VERCEL_TELEMETRY_DISABLED: "1" },
+  }).toString();
 
-console.log(`▶ prune ${APP} → out/ (--use-gitignore=false so generated, gitignored source is copied)`);
+console.log(
+  `▶ prune ${APP} → out/ (--use-gitignore=false so generated, gitignored source is copied)`,
+);
 rmSync(OUT, { recursive: true, force: true });
 // turbo prune respects .gitignore by default; our generated apps/+packages/ are
 // gitignored, so without this flag prune copies manifests but skips the source.
@@ -78,37 +103,56 @@ if (existsSync(linkedPath)) {
   const p = JSON.parse(readFileSync(join(OUT, ".vercel", "project.json"), "utf8"));
   ({ projectId, orgId } = p);
 }
-writeFileSync(join(OUT, ".vercel", "project.json"), JSON.stringify({ projectId, orgId, projectName: PROJECT }, null, 2));
+writeFileSync(
+  join(OUT, ".vercel", "project.json"),
+  JSON.stringify({ projectId, orgId, projectName: PROJECT }, null, 2),
+);
 // persist link in the app dir so subsequent runs reuse it (OUT is recreated each run)
 mkdirSync(join(ROOT, appDir, ".vercel"), { recursive: true });
 writeFileSync(linkedPath, JSON.stringify({ projectId, orgId, projectName: PROJECT }, null, 2));
 
-console.log("▶ configure project for monorepo cloud build (Root Directory + repo-root install/build)");
+console.log(
+  "▶ configure project for monorepo cloud build (Root Directory + repo-root install/build)",
+);
 const settings = {
   rootDirectory: appDir,
   framework: "nextjs",
   buildCommand: `cd ../.. && pnpm exec turbo run build --filter=${APP}`,
-  installCommand: "cd ../.. && pnpm install --no-frozen-lockfile"
+  installCommand: "cd ../.. && pnpm install --no-frozen-lockfile",
 };
 const res = await fetch(`https://api.vercel.com/v9/projects/${projectId}?teamId=${orgId}`, {
   method: "PATCH",
   headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-  body: JSON.stringify(settings)
+  body: JSON.stringify(settings),
 });
 if (!res.ok) throw new Error(`project PATCH failed: ${res.status} ${await res.text()}`);
 
 console.log(`▶ deploy${PROD ? " --prod" : ""} (timed)`);
 const t0 = process.hrtime.bigint();
 const out = execSync(`vercel deploy ${PROD ? "--prod " : ""}--yes --scope ${SCOPE}`, {
-  cwd: OUT, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 30,
-  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", VERCEL_TELEMETRY_DISABLED: "1" }
+  cwd: OUT,
+  stdio: ["ignore", "pipe", "pipe"],
+  maxBuffer: 1 << 30,
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", VERCEL_TELEMETRY_DISABLED: "1" },
 }).toString();
 const wallMs = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
 const wallSeconds = +(wallMs / 1000).toFixed(1);
 const url = (out.match(/https:\/\/[^\s]+\.vercel\.app/g) || []).pop();
-if (!url) { console.error(out); throw new Error("deploy produced no .vercel.app URL"); }
+if (!url) {
+  console.error(out);
+  throw new Error("deploy produced no .vercel.app URL");
+}
 
-const record = { app: APP, project: PROJECT, scope: SCOPE, prod: PROD, rootDirectory: appDir, url, wallMs, wallSeconds };
+const record = {
+  app: APP,
+  project: PROJECT,
+  scope: SCOPE,
+  prod: PROD,
+  rootDirectory: appDir,
+  url,
+  wallMs,
+  wallSeconds,
+};
 mkdirSync(join(ROOT, "bench"), { recursive: true });
 writeFileSync(join(ROOT, "bench", "deploy.json"), JSON.stringify(record, null, 2));
 console.log(`✓ deployed ${APP} → ${url}  (${wallSeconds}s wall)`);

@@ -14,12 +14,12 @@
 import { execSync } from "node:child_process";
 
 const MATRIX = [
-  { label: "200x100",  apps: 200,   libs: 100, phases: "gen,install,graph,typecheck,focus,prune" },
-  { label: "1kx200",   apps: 1000,  libs: 200, phases: "gen,install,graph,typecheck,focus,prune" },
-  { label: "2kx300",   apps: 2000,  libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
-  { label: "5kx300",   apps: 5000,  libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
-  { label: "10kx300",  apps: 10000, libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
-  { label: "20kx300",  apps: 20000, libs: 300, phases: "gen,install,graph,focus,prune" },
+  { label: "200x100", apps: 200, libs: 100, phases: "gen,install,graph,typecheck,focus,prune" },
+  { label: "1kx200", apps: 1000, libs: 200, phases: "gen,install,graph,typecheck,focus,prune" },
+  { label: "2kx300", apps: 2000, libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
+  { label: "5kx300", apps: 5000, libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
+  { label: "10kx300", apps: 10000, libs: 300, phases: "gen,install,graph,typecheck,focus,prune" },
+  { label: "20kx300", apps: 20000, libs: 300, phases: "gen,install,graph,focus,prune" },
 ];
 
 const argv = process.argv.slice(2);
@@ -43,7 +43,10 @@ for (const m of MATRIX.slice(fromIdx)) {
   console.log(`$ ${cmd}`);
   const t0 = Date.now();
   try {
-    execSync(cmd, { stdio: "inherit", env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" } });
+    execSync(cmd, {
+      stdio: "inherit",
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" },
+    });
   } catch (e) {
     console.error(`!! ${m.label} failed: ${e.message}`);
     failures.push(m.label);
@@ -51,4 +54,7 @@ for (const m of MATRIX.slice(fromIdx)) {
   console.log(`████████ ${m.label} done in ${Math.round((Date.now() - t0) / 1000)}s ████████`);
 }
 console.log("\nSWEEP COMPLETE → bench/results.json");
-if (failures.length) { console.error(`scales failed: ${failures.join(", ")}`); process.exit(1); }
+if (failures.length) {
+  console.error(`scales failed: ${failures.join(", ")}`);
+  process.exit(1);
+}

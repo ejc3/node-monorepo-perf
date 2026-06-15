@@ -1,0 +1,11 @@
+# Generated workspace + benchmark results/charts are not hand-formatted.
+# (apps/, packages/, node_modules/, pnpm-lock.yaml are already in .gitignore,
+# which Prettier honors.) Skip bench/ so generated JSON/SVG aren't reflowed.
+bench/
+
+# Prose docs are written and reviewed by hand — keep Prettier out of them.
+*.md
+
+# Parser-sensitive: scripts/rewrite-protocols.mjs reads this catalog with a
+# crude line-based regex, so don't let Prettier reflow it.
+pnpm-workspace.yaml

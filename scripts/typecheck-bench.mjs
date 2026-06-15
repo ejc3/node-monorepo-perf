@@ -26,36 +26,59 @@ mkdirSync(join(DIR, "src"), { recursive: true });
 
 for (let i = 0; i < N; i++) {
   const imports = [];
-  for (let k = 1; k <= 3; k++) { const j = i - k; if (j >= 0) imports.push(j); }
-  const importLines = imports.map((j) => `import { v${j}, type T${j} } from "./m${j}.js";`).join("\n");
+  for (let k = 1; k <= 3; k++) {
+    const j = i - k;
+    if (j >= 0) imports.push(j);
+  }
+  const importLines = imports
+    .map((j) => `import { v${j}, type T${j} } from "./m${j}.js";`)
+    .join("\n");
   const useSum = imports.map((j) => `v${j}`).join(" + ") || "0";
   const depsArr = imports.join(", ");
-  writeFileSync(join(DIR, "src", `m${i}.ts`),
-`${importLines}
+  writeFileSync(
+    join(DIR, "src", `m${i}.ts`),
+    `${importLines}
 export interface T${i} { id: number; tag: string; deps: readonly number[]; }
 export function make${i}(id: number): T${i} { return { id, tag: "m${i}", deps: [${depsArr}] }; }
 export function fold${i}(xs: readonly T${i}[]): number { return xs.reduce((a, b) => a + b.id, 0) + ${useSum}; }
 export const v${i}: number = ${i} + ${useSum};
-`);
+`,
+  );
 }
-writeFileSync(join(DIR, "tsconfig.json"), JSON.stringify({
-  compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "nodenext", strict: true, noEmit: true, skipLibCheck: true },
-  include: ["src"],
-}, null, 2));
+writeFileSync(
+  join(DIR, "tsconfig.json"),
+  JSON.stringify(
+    {
+      compilerOptions: {
+        target: "ES2022",
+        module: "NodeNext",
+        moduleResolution: "nodenext",
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+      },
+      include: ["src"],
+    },
+    null,
+    2,
+  ),
+);
 
 const tsc = join(ROOT, "node_modules", ".bin", "tsc");
 const tsgo = join(ROOT, "node_modules", ".bin", "tsgo");
 const cfg = join(DIR, "tsconfig.json");
-const run = (bin) => { const t = process.hrtime.bigint(); execSync(`${bin} --noEmit -p ${cfg}`, { stdio: "pipe" }); return Math.round(Number(process.hrtime.bigint() - t) / 1e6); };
+const run = (bin) => {
+  const t = process.hrtime.bigint();
+  execSync(`${bin} --noEmit -p ${cfg}`, { stdio: "pipe" });
+  return Math.round(Number(process.hrtime.bigint() - t) / 1e6);
+};
 
 // Median of a numeric array (sorted copy; averages the two middle values for
 // even-length inputs).
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
-  return sorted.length % 2 === 0
-    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-    : sorted[mid];
+  return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
 }
 
 // Benchmark one checker: one discarded warmup run to neutralize cold
