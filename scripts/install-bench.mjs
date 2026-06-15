@@ -217,7 +217,10 @@ console.log(`host: ${CORES} cores`);
 // artifact of whichever scale ran first. The truly-cold pass below uses its own
 // fresh --store-dir to measure the network-cold case.
 setup(SCALES[0].apps, SCALES[0].libs);
-timedInstall("pnpm", [...PI, "--config.node-linker=isolated"]); // discard timing
+timedInstall("pnpm", [...PI, "--config.node-linker=isolated"]); // warm pnpm store (discard)
+rmNM();
+rmLocks();
+timedInstall(BUN, ["install"]); // warm bun cache (discard)
 
 for (const { apps, libs } of SCALES) {
   setup(apps, libs);
