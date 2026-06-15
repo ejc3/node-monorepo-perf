@@ -200,29 +200,34 @@ try {
   console.log(
     "\n## independence: after one dev edits their area, another dev's rebuild is a full cache hit",
   );
-  // Clean isolation probe. Warm dev2's app closure FIRST (so it absorbs dev2's
-  // own earlier edits), THEN have dev1 make a fresh unrelated edit in dev1's app,
-  // THEN rebuild dev2's app. Apps don't depend on other apps, so dev1's edit
-  // cannot touch dev2's closure — a correct cache reports 0 tasks rerun. (The old
-  // probe rebuilt dev2's own just-edited app, so it reported 1, not isolation.)
+  // Independence = dev1's unrelated edit must add ZERO rebuilds to dev2's closure.
+  // `next build` is not cache-stable under turbo's input hashing (with .gitignore
+  // moved aside, its emitted files re-enter the hash), so dev2's own app re-runs on
+  // EVERY build regardless of upstream changes. So measure a baseline rebuild first,
+  // then the rebuild after dev1's edit; isolation is the delta being 0 — dev1 adds
+  // nothing beyond dev2's own (non-cacheable) app build.
   const me = devs[1],
     other = devs[0];
   const myApp = appPkg(me.apps[0]);
-  runParse(build(`${myApp}...`)); // warm my closure so it reflects my own latest edits
+  runParse(build(`${myApp}...`)); // warm dev2's closure
+  const baseline = runParse(build(`${myApp}...`)); // rebuild with NO upstream edit
   appendFileSync(
     appPage(other.apps[0]),
     `\n// dev${other.id} unrelated edit (independence probe)\n`,
   );
-  const ind = runParse(build(`${myApp}...`));
+  const after = runParse(build(`${myApp}...`)); // rebuild after dev1's edit
+  const addedByOther = after.ran - baseline.ran;
   result.independence = {
     editedBy: other.id,
     dev: me.id,
     app: myApp,
-    ran: ind.ran,
-    total: ind.total,
+    baselineRan: baseline.ran,
+    afterRan: after.ran,
+    addedByOther,
+    total: after.total,
   };
   console.log(
-    `  dev${me.id} ${myApp} after dev${other.id}'s unrelated edit: ran ${ind.ran}/${ind.total} (0 = fully isolated)`,
+    `  dev${me.id} ${myApp}: baseline ran ${baseline.ran}, after dev${other.id}'s edit ran ${after.ran} -> dev${other.id} added ${addedByOther} (0 = fully isolated)`,
   );
 
   console.log("\n## blast spectrum (dry-run dependent counts)");
@@ -241,7 +246,7 @@ try {
     typecheckOnSaveMedianMs: med(result.typecheckOnSave.map((o) => o.ms)),
     buildBeforePushMedianMs: med(result.buildBeforePush.map((o) => o.ms)),
     libEditMedianMs: med(result.libEdit.map((o) => o.ms)),
-    independenceRan: result.independence.ran,
+    independenceAddedByOther: result.independence.addedByOther,
     totalPackages: APPS + LIBS,
   };
   mkdirSync(join(ROOT, "bench"), { recursive: true });
@@ -251,7 +256,7 @@ try {
     `  typecheck-on-save median ${result.summary.typecheckOnSaveMedianMs}ms · build-before-push median ${result.summary.buildBeforePushMedianMs}ms · lib-edit median ${result.summary.libEditMedianMs}ms`,
   );
   console.log(
-    `  independence: an unrelated dev's rebuild ran ${result.summary.independenceRan} tasks`,
+    `  independence: dev${result.independence.editedBy}'s unrelated edit added ${result.summary.independenceAddedByOther} rebuilds to another dev's closure (0 = isolated)`,
   );
   console.log("--- bench/dev-sim.json written ---");
 } finally {

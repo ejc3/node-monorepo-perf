@@ -136,25 +136,29 @@ if (PHASES.includes("install")) {
     rec.phases.install.lockfileLines = buf.toString().split("\n").length;
   }
   if (r.ok && FS_STATS) {
+    // strict full-tree stats: pipefail + reject non-numeric so a failed find/du
+    // surfaces (via timed -> ok:false) instead of silently becoming 0. Fields are
+    // assigned together, only if every stat succeeds.
+    const stat = (script) => {
+      const s = spawnSync("bash", ["-c", `set -o pipefail; ${script}`], {
+        cwd: ROOT,
+        encoding: "utf8",
+        maxBuffer: 1 << 28,
+      });
+      if (s.error || s.status !== 0) {
+        throw new Error(`fs-stat failed: ${s.error?.message || s.stderr || `status ${s.status}`}`);
+      }
+      const v = parseInt((s.stdout || "").trim(), 10);
+      if (!Number.isFinite(v)) throw new Error(`fs-stat non-numeric from: ${script}`);
+      return v;
+    };
     timed("fs-stats", () => {
-      rec.phases.install.nmEntries = parseInt(
-        tryShOut(`find . -path '*/node_modules/*' -printf '.' 2>/dev/null | wc -c`).trim() || "0",
-        10,
+      const nmEntries = stat(`find . -path '*/node_modules/*' -printf '.' | wc -c`);
+      const nmSymlinks = stat(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`);
+      const nmDiskBytes = stat(
+        `find . -name node_modules -type d -prune -exec du -sb {} + | awk '{s+=$1} END {print s+0}'`,
       );
-      rec.phases.install.nmSymlinks = parseInt(
-        tryShOut(
-          `find . -path '*/node_modules/*' -type l -printf '.' 2>/dev/null | wc -c`,
-        ).trim() || "0",
-        10,
-      );
-      rec.phases.install.nmApparentBytes = parseInt(
-        tryShOut(`du -sb --apparent-size node_modules 2>/dev/null | cut -f1`).trim() || "0",
-        10,
-      );
-      rec.phases.install.nmDiskBytes = parseInt(
-        tryShOut(`du -sb node_modules 2>/dev/null | cut -f1`).trim() || "0",
-        10,
-      );
+      Object.assign(rec.phases.install, { nmEntries, nmSymlinks, nmDiskBytes });
     });
   }
 }

@@ -134,10 +134,19 @@ const big = all[all.length - 1];
 
 const made = [];
 
-// Chart 1: typecheck cold vs warm for the largest scale. Only chart when the
-// daemon warmup is CONFIRMED (warmupOk === true); without it the cold number
-// includes daemon spin-up, and pre-warmup results lack the field entirely.
-if (big?.phases?.typecheck && big.phases.typecheck.warmupOk === true) {
+// Chart 1: typecheck cold vs warm for the largest scale. Only chart a fully
+// verified, warmup-isolated datapoint: cold+warm ran OK, the daemon warmup is
+// confirmed (warmupOk === true), and both timings are finite. Pre-warmup results
+// lack warmupOk and are confounded by daemon spin-up, so they're skipped.
+const tcBig = big?.phases?.typecheck;
+if (
+  tcBig &&
+  tcBig.coldOk === true &&
+  tcBig.warmOk === true &&
+  tcBig.warmupOk === true &&
+  Number.isFinite(tcBig.coldMs) &&
+  Number.isFinite(tcBig.warmMs)
+) {
   made.push(
     barChart({
       file: "typecheck-cold-vs-warm.svg",
@@ -208,15 +217,20 @@ for (const r of all) {
   const p = r.phases;
   md += `| **${fmtNum(r.apps)} apps / ${fmtNum(r.libs)} libs** `;
   md += `| ${fmtMs(p.gen?.ms)} `;
-  md += `| ${p.install?.ok === false ? "fail" : fmtMs(p.install?.ms)} `;
-  md += `| ${p.install?.lockfileLines ? fmtNum(p.install.lockfileLines) + " lines / " + fmtBytes(p.install.lockfileBytes) : "—"} `;
-  md += `| ${p.install?.nmEntries ? fmtNum(p.install.nmEntries) + " entries / " + fmtBytes(p.install.nmDiskBytes) : "—"} `;
-  md += `| ${p.typecheck?.coldOk === false ? "fail" : p.typecheck?.warmupOk !== true ? "confounded" : fmtMs(p.typecheck?.coldMs)} `;
-  md += `| ${p.typecheck?.warmOk === false ? "fail" : fmtMs(p.typecheck?.warmMs)} `;
-  md += `| ${p.focus?.ok === false ? "fail" : fmtMs(p.focus?.ms)} `;
-  md += `| ${fmtNum(p.graph?.totalBuildTasks)} `;
-  md += `| ${fmtNum(p.graph?.focusPackages)} `;
-  md += `| ${p.prune?.ok === false ? "fail" : fmtMs(p.prune?.ms)} |\n`;
+  const inst = p.install,
+    gr = p.graph,
+    tcr = p.typecheck;
+  const installOk = inst && inst.ok !== false;
+  const graphOk = gr && gr.ok !== false;
+  md += `| ${!inst ? "—" : inst.ok === false ? "fail" : fmtMs(inst.ms)} `;
+  md += `| ${installOk && inst.lockfileLines ? fmtNum(inst.lockfileLines) + " lines / " + fmtBytes(inst.lockfileBytes) : "—"} `;
+  md += `| ${installOk && inst.nmEntries ? fmtNum(inst.nmEntries) + " entries / " + fmtBytes(inst.nmDiskBytes) : "—"} `;
+  md += `| ${!tcr ? "—" : tcr.coldOk === false ? "fail" : tcr.warmupOk !== true ? "confounded" : fmtMs(tcr.coldMs)} `;
+  md += `| ${!tcr ? "—" : tcr.warmOk === false ? "fail" : fmtMs(tcr.warmMs)} `;
+  md += `| ${!p.focus ? "—" : p.focus.ok === false ? "fail" : fmtMs(p.focus.ms)} `;
+  md += `| ${graphOk ? fmtNum(gr.totalBuildTasks) : "—"} `;
+  md += `| ${graphOk ? fmtNum(gr.focusPackages) : "—"} `;
+  md += `| ${!p.prune ? "—" : p.prune.ok === false ? "fail" : fmtMs(p.prune.ms)} |\n`;
 }
 md += `\n## Charts\n\n` + made.map((f) => `![${f}](charts/${f})`).join("\n\n") + "\n";
 writeFileSync(join(ROOT, "bench", "summary.md"), md);

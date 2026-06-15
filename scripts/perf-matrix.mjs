@@ -10,7 +10,7 @@
 //   versioned  workspace:^x.y.z   · node-linker=isolated  (does the spec form / guard cost anything?)
 //   hoisted    workspace:*        · node-linker=hoisted   (does the linker matter?)
 
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
@@ -38,12 +38,20 @@ const sh = (cmd) =>
     maxBuffer: 1 << 30,
     env,
   }).toString();
-const num = (c) => {
-  try {
-    return parseInt(sh(c).trim() || "0", 10);
-  } catch {
-    return 0;
+const num = (script) => {
+  // strict full-tree stat: pipefail + reject non-numeric so a failed find/du
+  // surfaces instead of silently becoming 0.
+  const r = spawnSync("bash", ["-c", `set -o pipefail; ${script}`], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+  });
+  if (r.error || r.status !== 0) {
+    throw new Error(`stat failed: ${r.error?.message || r.stderr || `status ${r.status}`}`);
   }
+  const v = parseInt((r.stdout || "").trim(), 10);
+  if (!Number.isFinite(v)) throw new Error(`stat non-numeric from: ${script}`);
+  return v;
 };
 
 const results = [];
@@ -70,9 +78,11 @@ for (const v of VARIANTS) {
     installMs,
     lockfileBytes: lock.length,
     lockfileLines: lock.toString().split("\n").length,
-    nmEntries: num(`find . -path '*/node_modules/*' -printf '.' 2>/dev/null | wc -c`),
-    nmSymlinks: num(`find . -path '*/node_modules/*' -type l -printf '.' 2>/dev/null | wc -c`),
-    nmDiskBytes: num(`du -sb node_modules 2>/dev/null | cut -f1`),
+    nmEntries: num(`find . -path '*/node_modules/*' -printf '.' | wc -c`),
+    nmSymlinks: num(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`),
+    nmDiskBytes: num(
+      `find . -name node_modules -type d -prune -exec du -sb {} + | awk '{s+=$1} END {print s+0}'`,
+    ),
   };
   console.log(
     `  install ${installMs}ms · lockfile ${rec.lockfileLines} lines · nm ${rec.nmEntries} entries (${rec.nmSymlinks} symlinks)`,

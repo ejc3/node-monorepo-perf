@@ -86,19 +86,29 @@ function entries() {
   // full-tree node_modules footprint: the root virtual store (.pnpm) AND every
   // per-package node_modules. The isolated linker's per-app symlink trees live
   // under apps/*/node_modules, so counting only the root dir undercounts it.
+  // pipefail + strict parse so a failed find surfaces instead of becoming 0.
   const r = spawnSync(
     "bash",
-    ["-c", "find . -path '*/node_modules/*' -printf '.' 2>/dev/null | wc -c"],
+    ["-c", "set -o pipefail; find . -path '*/node_modules/*' -printf '.' | wc -c"],
     { cwd: DIR, encoding: "utf8", maxBuffer: 1 << 28 },
   );
-  return parseInt((r.stdout || "0").trim(), 10) || 0;
+  if (r.error || r.status !== 0) {
+    throw new Error(
+      `node_modules entry count failed: ${r.error?.message || r.stderr || `status ${r.status}`}`,
+    );
+  }
+  const n = parseInt((r.stdout || "").trim(), 10);
+  if (!Number.isFinite(n)) throw new Error(`node_modules entry count was non-numeric: ${r.stdout}`);
+  return n;
 }
-// Resolve `dep` from `dir` by walking node_modules upward to the filesystem
-// root, checking node_modules/<dep>/package.json at each level.
+// Resolve `dep` from `dir` by walking node_modules upward, STOPPING at the
+// benchmark workspace root (DIR) — an ambient /tmp/node_modules or parent
+// node_modules must not satisfy verification for an incomplete install.
 function resolvesFrom(dir, dep) {
   let d = dir;
   for (;;) {
     if (existsSync(join(d, "node_modules", dep, "package.json"))) return true;
+    if (d === DIR) return false;
     const u = dirname(d);
     if (u === d) return false;
     d = u;
