@@ -89,6 +89,21 @@ function tryShOut(cmd) {
   }
 }
 
+// strict shell stat: pipefail so a failed find/du surfaces; reject non-numeric.
+function statInt(script) {
+  const s = spawnSync("bash", ["-c", `set -o pipefail; ${script}`], {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 1 << 28,
+  });
+  if (s.error || s.status !== 0) {
+    throw new Error(`stat failed: ${s.error?.message || s.stderr || `status ${s.status}`}`);
+  }
+  const v = parseInt((s.stdout || "").trim(), 10);
+  if (!Number.isFinite(v)) throw new Error(`stat non-numeric from: ${script}`);
+  return v;
+}
+
 const rec = {
   label: LABEL,
   apps: APPS,
@@ -98,6 +113,9 @@ const rec = {
   versioned: VERSIONED,
   phases: {},
 };
+// Prerequisite gate: a failed gen or install means later phases would measure a
+// stale/broken workspace, so they are skipped (rendered "—") rather than timed.
+let abort = false;
 
 // ---- gen ----
 if (PHASES.includes("gen")) {
@@ -106,20 +124,26 @@ if (PHASES.includes("gen")) {
       `node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --framework ${FRAMEWORK} ${VERSIONED ? "--versioned" : ""} --clean`,
     ),
   );
-  rec.phases.gen = { ms: r.ms };
-  try {
-    const j = JSON.parse(String(r.out).trim().split("\n").pop());
-    rec.phases.gen.approxFiles = j.approxFiles;
-    rec.phases.gen.generateMs = j.generateMs;
-  } catch (e) {
-    console.warn(
-      `[${LABEL}] gen: failed to parse generator JSON output (approxFiles/generateMs dropped): ${e.message}`,
-    );
+  rec.phases.gen = { ms: r.ms, ok: r.ok };
+  if (r.ok) {
+    try {
+      const j = JSON.parse(String(r.out).trim().split("\n").pop());
+      rec.phases.gen.approxFiles = j.approxFiles;
+      rec.phases.gen.generateMs = j.generateMs;
+    } catch (e) {
+      console.warn(
+        `[${LABEL}] gen: failed to parse generator JSON output (approxFiles/generateMs dropped): ${e.message}`,
+      );
+    }
+  } else {
+    rec.phases.gen.error = String(r.out?.message || r.out).split("\n")[0];
+    console.warn(`[${LABEL}] gen FAILED; skipping dependent phases: ${rec.phases.gen.error}`);
+    abort = true;
   }
 }
 
 // ---- install ----
-if (PHASES.includes("install")) {
+if (!abort && PHASES.includes("install")) {
   // clean install so each scale is measured independently (no carry-over from a
   // prior scale). Remove the WHOLE node_modules tree (root + per-package) — a
   // stale apps/*/node_modules lets pnpm time a partial no-op. Global store stays warm.
@@ -128,6 +152,7 @@ if (PHASES.includes("install")) {
   rmSync(join(ROOT, "pnpm-lock.yaml"), { force: true });
   const r = timed("install", () => sh("pnpm install"));
   rec.phases.install = { ms: r.ms, ok: r.ok };
+  if (!r.ok) abort = true;
   // lockfile size — only from a SUCCESSFUL install (a failed/partial install must
   // not become a clean lockfile-size datapoint).
   if (r.ok && existsSync(join(ROOT, "pnpm-lock.yaml"))) {
@@ -136,35 +161,21 @@ if (PHASES.includes("install")) {
     rec.phases.install.lockfileLines = buf.toString().split("\n").length;
   }
   if (r.ok && FS_STATS) {
-    // strict full-tree stats: pipefail + reject non-numeric so a failed find/du
-    // surfaces (via timed -> ok:false) instead of silently becoming 0. Fields are
-    // assigned together, only if every stat succeeds.
-    const stat = (script) => {
-      const s = spawnSync("bash", ["-c", `set -o pipefail; ${script}`], {
-        cwd: ROOT,
-        encoding: "utf8",
-        maxBuffer: 1 << 28,
-      });
-      if (s.error || s.status !== 0) {
-        throw new Error(`fs-stat failed: ${s.error?.message || s.stderr || `status ${s.status}`}`);
-      }
-      const v = parseInt((s.stdout || "").trim(), 10);
-      if (!Number.isFinite(v)) throw new Error(`fs-stat non-numeric from: ${script}`);
-      return v;
-    };
+    // full-tree footprint via strict statInt. du -sb is apparent size (sum of
+    // file sizes), so name it apparentBytes rather than claiming on-disk blocks.
     timed("fs-stats", () => {
-      const nmEntries = stat(`find . -path '*/node_modules/*' -printf '.' | wc -c`);
-      const nmSymlinks = stat(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`);
-      const nmDiskBytes = stat(
+      const nmEntries = statInt(`find . -path '*/node_modules/*' -printf '.' | wc -c`);
+      const nmSymlinks = statInt(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`);
+      const nmApparentBytes = statInt(
         `find . -name node_modules -type d -prune -exec du -sb {} + | awk '{s+=$1} END {print s+0}'`,
       );
-      Object.assign(rec.phases.install, { nmEntries, nmSymlinks, nmDiskBytes });
+      Object.assign(rec.phases.install, { nmEntries, nmSymlinks, nmApparentBytes });
     });
   }
 }
 
 // ---- graph ----
-if (PHASES.includes("graph")) {
+if (!abort && PHASES.includes("graph")) {
   // Run the dry-run graph queries with shOut so a non-zero turbo exit THROWS
   // (instead of tryShOut returning combined stdout+stderr text that JSON.parse
   // would choke on). The throw is captured by timed() as ok=false, letting us
@@ -192,7 +203,7 @@ if (PHASES.includes("graph")) {
 }
 
 // ---- typecheck (cold then warm) ----
-if (PHASES.includes("typecheck")) {
+if (!abort && PHASES.includes("typecheck")) {
   rmSync(join(ROOT, "node_modules", ".cache", "turbo"), { recursive: true, force: true });
   tryShOut(`pnpm exec turbo daemon clean 2>/dev/null`);
   rmSync(join(ROOT, ".turbo"), { recursive: true, force: true });
@@ -231,7 +242,7 @@ if (PHASES.includes("typecheck")) {
 }
 
 // ---- focus build (one app + its lib closure) ----
-if (PHASES.includes("focus")) {
+if (!abort && PHASES.includes("focus")) {
   rmSync(join(ROOT, ".turbo"), { recursive: true, force: true });
   const r = timed(`focus build ${sampleApp}...`, () =>
     sh(
@@ -242,25 +253,24 @@ if (PHASES.includes("focus")) {
 }
 
 // ---- prune (artifact-time focus) ----
-if (PHASES.includes("prune")) {
+if (!abort && PHASES.includes("prune")) {
   rmSync(join(ROOT, "out"), { recursive: true, force: true });
   const r = timed(`prune ${sampleApp}`, () =>
     sh(`pnpm exec turbo prune ${sampleApp} --docker --use-gitignore=false`),
   );
   rec.phases.prune = { ms: r.ms, ok: r.ok, app: sampleApp };
-  if (existsSync(join(ROOT, "out"))) {
-    rec.phases.prune.outApparentBytes = parseInt(
-      tryShOut(`du -sb --apparent-size out 2>/dev/null | cut -f1`).trim() || "0",
-      10,
-    );
-    rec.phases.prune.outPackages = parseInt(
-      tryShOut(`find out/json -name package.json 2>/dev/null | wc -l`).trim() || "0",
-      10,
-    );
-    rec.phases.prune.outFiles = parseInt(
-      tryShOut(`find out/full -type f 2>/dev/null | wc -l`).trim() || "0",
-      10,
-    );
+  // a "successful" prune must produce out/json and out/full; missing artifacts
+  // mean it didn't really work, so don't record clean zeroes.
+  if (r.ok) {
+    if (!existsSync(join(ROOT, "out", "json")) || !existsSync(join(ROOT, "out", "full"))) {
+      rec.phases.prune.ok = false;
+      rec.phases.prune.error = "prune produced no out/json or out/full";
+      console.warn(`[${LABEL}] prune: missing out/json or out/full after a 0-exit prune`);
+    } else {
+      rec.phases.prune.outApparentBytes = statInt(`du -sb --apparent-size out | cut -f1`);
+      rec.phases.prune.outPackages = statInt(`find out/json -name package.json | wc -l`);
+      rec.phases.prune.outFiles = statInt(`find out/full -type f | wc -l`);
+    }
   }
 }
 

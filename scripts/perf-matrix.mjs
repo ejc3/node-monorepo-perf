@@ -80,7 +80,7 @@ for (const v of VARIANTS) {
     lockfileLines: lock.toString().split("\n").length,
     nmEntries: num(`find . -path '*/node_modules/*' -printf '.' | wc -c`),
     nmSymlinks: num(`find . -path '*/node_modules/*' -type l -printf '.' | wc -c`),
-    nmDiskBytes: num(
+    nmApparentBytes: num(
       `find . -name node_modules -type d -prune -exec du -sb {} + | awk '{s+=$1} END {print s+0}'`,
     ),
   };
