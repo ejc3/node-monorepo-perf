@@ -239,7 +239,10 @@ try {
 
   const med = (xs) => {
     const s = xs.filter((x) => x != null).sort((a, b) => a - b);
-    return s.length ? s[Math.floor(s.length / 2)] : null;
+    if (!s.length) return null;
+    const mid = Math.floor(s.length / 2);
+    // true median: average the two middle samples for an even count
+    return s.length % 2 === 0 ? Math.round((s[mid - 1] + s[mid]) / 2) : s[mid];
   };
   result.summary = {
     onboardingMedianMs: med(result.onboarding.map((o) => o.ms)),
