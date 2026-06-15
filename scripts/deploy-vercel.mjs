@@ -14,7 +14,7 @@
 //     --project nextjs-monorepo-scale-demo --scope ejc3-7031s-projects --prod
 
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, renameSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, rmSync, renameSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
@@ -29,8 +29,23 @@ const PROD = flag("prod");
 const ROOT = process.cwd();
 const OUT = join(ROOT, "out");
 
-const appShort = APP.split("/").pop();           // app-10
-const appDir = `apps/${appShort}`;               // apps/app-10 (Root Directory)
+// Resolve the on-disk app directory by scanning apps/* and matching each
+// package.json "name" to APP. Generated app dirs are zero-padded to the app
+// count (e.g. apps/app-010 at 200 apps), so we can't derive the dir name from
+// APP by string-splitting — we must read the manifests to find the real dir.
+const appsRoot = join(ROOT, "apps");
+if (!existsSync(appsRoot)) throw new Error(`no apps/ directory at ${appsRoot}`);
+const appShort = readdirSync(appsRoot).find((dir) => {
+  const pkgPath = join(appsRoot, dir, "package.json");
+  if (!existsSync(pkgPath)) return false;
+  try {
+    return JSON.parse(readFileSync(pkgPath, "utf8")).name === APP;
+  } catch {
+    return false;
+  }
+});
+if (!appShort) throw new Error(`no apps/*/package.json with name "${APP}" found under ${appsRoot}`);
+const appDir = `apps/${appShort}`;               // e.g. apps/app-010 (Root Directory)
 const authPath = join(homedir(), ".local/share/com.vercel.cli/auth.json");
 const TOKEN = process.env.VERCEL_TOKEN || (existsSync(authPath) ? JSON.parse(readFileSync(authPath, "utf8")).token : null);
 if (!TOKEN) throw new Error(`no Vercel token: set VERCEL_TOKEN or run \`vercel login\` so ${authPath} exists`);

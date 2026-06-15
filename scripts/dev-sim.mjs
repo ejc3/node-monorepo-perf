@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Simulate practical day-to-day development: D developers, each owning distinct
-// apps, working independently. Measures what a dev actually pays, scoped with
-// `turbo --filter` (turbo's content-hash cache reruns only what changed — the
-// same set `--affected` selects from a git diff in CI).
+// Realistic day-to-day developer simulation. D developers each own a small
+// feature area (2 apps + 1 lib) and work independently. After a one-time
+// onboarding, it measures the operations a dev actually runs, scoped with
+// `turbo --filter` (the same set `--affected` selects from a git diff in CI):
 //
-//   node scripts/dev-sim.mjs --apps 1000 --libs 200 --devs 5 --rounds 2
+//   typecheck-on-save   edit an app -> `turbo run typecheck --filter=<app>`   (the constant fast loop)
+//   build-before-push   edit an app -> `turbo run build --filter=<app>...`    (heavier, pre-push/CI)
+//   lib-edit            edit your lib -> `turbo run build --filter=...<lib>`  (rebuild the lib + its dependents)
+//   independence        another dev rebuilds after your unrelated edit        (must be a full cache hit)
+//   blast spectrum      dry-run dependent counts for a low- vs high-layer lib
 //
-// NOTE: Turbo's input hashing respects .gitignore, and this repo gitignores the
-// GENERATED apps/+packages/. A real monorepo tracks its source, so we move
-// .gitignore aside for the run (restored in finally) — otherwise Turbo can't see
-// edits and every rebuild is a false cache hit.
+//   node scripts/dev-sim.mjs --apps 1000 --libs 200 --devs 4
 //
-// Reports:
-//   onboarding   - first build of a dev's app closure (O(closure), once)
-//   daily loop   - edit your app -> scoped typecheck+build (deps cached) -> ran ~= your app
-//   blast radius - editing a shared lib forces its dependents to rebuild (O(dependents))
+// Turbo's input hashing respects .gitignore and the generated workspace is
+// gitignored, so the sim moves .gitignore aside for the run (real monorepos
+// track their source). Restored in finally and on signals.
 
 import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
@@ -22,8 +22,11 @@ import { join } from "node:path";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[i + 1] : d; };
-const APPS = +opt("apps", "1000"), LIBS = +opt("libs", "200");
-const DEVS = +opt("devs", "5"), ROUNDS = +opt("rounds", "2");
+const APPS = +opt("apps", "1000"), LIBS = +opt("libs", "200"), DEVS = +opt("devs", "4");
+if (!(DEVS >= 2)) {
+  console.error(`--devs must be an integer >= 2 (the sim measures independent developers); got "${opt("devs", "4")}"`);
+  process.exit(1);
+}
 const ROOT = process.cwd();
 const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" };
 
@@ -32,81 +35,131 @@ const pad = (n, w) => String(n).padStart(w, "0");
 const appPkg = (i) => `@demo/app-${pad(i, appW)}`;
 const libPkg = (i) => `@demo/lib-${pad(i, libW)}`;
 const appPage = (i) => join(ROOT, "apps", `app-${pad(i, appW)}`, "app", "page.tsx");
+const libSrc = (i) => join(ROOT, "packages", `lib-${pad(i, libW)}`, "src", "index.ts");
 
-function run(cmd) { const t0 = process.hrtime.bigint(); const out = execSync(cmd, { cwd: ROOT, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28 }); return { ms: Math.round(Number(process.hrtime.bigint() - t0) / 1e6), out }; }
-function tryRun(cmd) { try { return run(cmd); } catch (e) { return { ms: 0, out: (e.stdout || "") + (e.stderr || "") }; } }
-function parse(out) {
-  const tasks = out.match(/Tasks:\s+(\d+) successful, (\d+) total/);
-  const cached = out.match(/Cached:\s+(\d+) cached/);
-  const total = tasks ? +tasks[2] : null;
-  const c = cached ? +cached[1] : 0;
-  return { total, cached: c, ran: total != null ? total - c : null };
+function run(cmd) { const t0 = process.hrtime.bigint(); execSync(cmd, { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28 }); return Math.round(Number(process.hrtime.bigint() - t0) / 1e6); }
+function runParse(cmd) {
+  let out = "";
+  const t0 = process.hrtime.bigint();
+  try {
+    out = execSync(cmd, { cwd: ROOT, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28 });
+  } catch (e) {
+    throw new Error(`turbo failed (a dev-loop edit must build cleanly): ${cmd}\n${((e.stdout || "") + (e.stderr || "")).slice(-1500)}`);
+  }
+  const ms = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
+  // turbo succeeded; if we can't read its summary, that's a parse failure to
+  // surface, not a measurement to silently record as null.
+  const t = out.match(/Tasks:\s+(\d+) successful, (\d+) total/);
+  if (!t) throw new Error(`could not parse turbo summary (no "Tasks:" line) from: ${cmd}\n${out.slice(-1500)}`);
+  const c = out.match(/Cached:\s+(\d+) cached/);
+  const total = +t[2];
+  const cached = c ? +c[1] : 0;
+  return { ms, total, ran: total - cached };
 }
-const turbo = (filter, tasks = "build typecheck") => `pnpm exec turbo run ${tasks} --filter=${filter} --concurrency=100% --output-logs=errors-only`;
-const dryCount = (filter) => { const j = JSON.parse(tryRun(`pnpm exec turbo run build --filter=${filter} --dry=json`).out || "{}"); return j.packages?.length ?? null; };
+const tc = (f) => `pnpm exec turbo run typecheck --filter=${f} --concurrency=100% --output-logs=errors-only`;
+const build = (f) => `pnpm exec turbo run build --filter=${f} --concurrency=100% --output-logs=errors-only`;
+const dryCount = (f) => {
+  let out;
+  try {
+    out = execSync(`pnpm exec turbo run build --filter=${f} --dry=json`, { cwd: ROOT, env, encoding: "utf8", maxBuffer: 1 << 28 });
+  } catch (e) {
+    throw new Error(`dry-run dependent count failed for ${f}: ${((e.stdout || "") + (e.stderr || "")).slice(-800)}`);
+  }
+  const pkgs = JSON.parse(out).packages;
+  if (!Array.isArray(pkgs)) throw new Error(`turbo --dry=json for ${f} returned no packages[] array`);
+  return pkgs.length;
+};
 
-console.log(`# dev simulation: ${APPS} apps / ${LIBS} libs, ${DEVS} devs, ${ROUNDS} rounds`);
-console.log("setup: generate + install (one-time, O(repo))");
+// each dev owns 2 apps (spread) + 1 top-layer lib (few dependents, so lib-edit is measurable)
+const devs = Array.from({ length: DEVS }, (_, d) => ({
+  id: d + 1,
+  apps: [1 + Math.floor(((d + 0.25) / DEVS) * APPS), 1 + Math.floor(((d + 0.75) / DEVS) * APPS)],
+  lib: Math.max(1, LIBS - d * 2),
+}));
+
+console.log(`# realistic dev simulation: ${APPS} apps / ${LIBS} libs, ${DEVS} devs (2 apps + 1 lib each)`);
 run(`node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules 16 --clean`);
 run(`pnpm install --config.confirm-modules-purge=false`);
 execSync("rm -rf .turbo node_modules/.cache/turbo", { cwd: ROOT });
 
-// Move .gitignore aside so Turbo's input hashing sees the generated source
-// (simulating a real, source-tracked monorepo). Restored in finally and on signals.
-const giPath = join(ROOT, ".gitignore");
-const giBak = join(ROOT, ".gitignore.devsim.bak");
-if (!existsSync(giPath) && existsSync(giBak)) renameSync(giBak, giPath); // self-heal a prior interrupted run
+const giPath = join(ROOT, ".gitignore"), giBak = join(ROOT, ".gitignore.devsim.bak");
+if (!existsSync(giPath) && existsSync(giBak)) renameSync(giBak, giPath);
 const hadGi = existsSync(giPath);
 const restoreGi = () => { try { if (existsSync(giBak)) renameSync(giBak, giPath); } catch {} };
 if (hadGi) renameSync(giPath, giBak);
 process.on("SIGINT", () => { restoreGi(); process.exit(130); });
 process.on("SIGTERM", () => { restoreGi(); process.exit(143); });
 
-const devApps = Array.from({ length: DEVS }, (_, d) => 1 + Math.floor(((d + 0.5) / DEVS) * APPS));
-const result = { apps: APPS, libs: LIBS, devs: DEVS, rounds: ROUNDS, onboarding: [], dailyLoop: [], blast: [] };
-
+const result = { apps: APPS, libs: LIBS, devs: DEVS, onboarding: [], typecheckOnSave: [], buildBeforePush: [], libEdit: [], independence: null, blast: [] };
 try {
-  console.log("\n## onboarding: each dev's first build of their app closure");
-  for (let d = 0; d < DEVS; d++) {
-    const i = devApps[d];
-    const r = run(turbo(appPkg(i)));
-    const p = parse(r.out);
-    result.onboarding.push({ dev: d + 1, app: appPkg(i), ms: r.ms, ran: p.ran, total: p.total, cached: p.cached });
-    console.log(`  dev${d + 1} ${appPkg(i)}: ${r.ms}ms  ran ${p.ran}/${p.total} (cached ${p.cached})`);
+  console.log("\n## onboarding: each dev builds their feature area (apps + closure)");
+  for (const dev of devs) {
+    const filter = dev.apps.map((a) => `--filter=${appPkg(a)}...`).join(" ");
+    const r = runParse(`pnpm exec turbo run build typecheck ${filter} --concurrency=100% --output-logs=errors-only`);
+    result.onboarding.push({ dev: dev.id, apps: dev.apps.map(appPkg), ms: r.ms, ran: r.ran, total: r.total });
+    console.log(`  dev${dev.id} ${dev.apps.map(appPkg).join(",")}: ${r.ms}ms ran ${r.ran}/${r.total}`);
   }
 
-  console.log("\n## daily loop: each dev edits their app, reruns scoped typecheck+build");
-  for (let round = 1; round <= ROUNDS; round++) {
-    for (let d = 0; d < DEVS; d++) {
-      const i = devApps[d];
-      appendFileSync(appPage(i), `\n// dev${d + 1} edit round ${round}\n`);
-      const r = run(turbo(appPkg(i)));
-      const p = parse(r.out);
-      result.dailyLoop.push({ dev: d + 1, app: appPkg(i), round, ms: r.ms, ran: p.ran, total: p.total });
-      console.log(`  round${round} dev${d + 1} ${appPkg(i)}: ${r.ms}ms  ran ${p.ran}/${p.total}`);
-    }
+  console.log("\n## typecheck-on-save (edit an app, typecheck it)");
+  for (const dev of devs) {
+    appendFileSync(appPage(dev.apps[0]), `\n// dev${dev.id} save\n`);
+    const r = runParse(tc(appPkg(dev.apps[0])));
+    result.typecheckOnSave.push({ dev: dev.id, app: appPkg(dev.apps[0]), ms: r.ms, ran: r.ran });
+    console.log(`  dev${dev.id} ${appPkg(dev.apps[0])}: ${r.ms}ms ran ${r.ran}`);
   }
 
-  console.log("\n## blast radius: editing a shared lib (dependents must rebuild)");
-  for (const li of [3, Math.max(1, LIBS - 3)]) { // low layer = many dependents, high layer = few
-    const dependents = dryCount(`...${libPkg(li)}`);
-    result.blast.push({ lib: libPkg(li), dependentsClosure: dependents });
-    console.log(`  edit ${libPkg(li)} -> ${dependents} packages would rebuild (lib + dependents)`);
+  console.log("\n## build-before-push (edit an app, build it + closure)");
+  for (const dev of devs) {
+    appendFileSync(appPage(dev.apps[1]), `\n// dev${dev.id} prepush\n`);
+    const r = runParse(build(`${appPkg(dev.apps[1])}...`));
+    result.buildBeforePush.push({ dev: dev.id, app: appPkg(dev.apps[1]), ms: r.ms, ran: r.ran });
+    console.log(`  dev${dev.id} ${appPkg(dev.apps[1])}: ${r.ms}ms ran ${r.ran}`);
   }
 
-  const med = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
+  console.log("\n## lib-edit (edit your owned lib, rebuild lib + dependents)");
+  for (const dev of devs) {
+    const deps = dryCount(`...${libPkg(dev.lib)}`);
+    appendFileSync(libSrc(dev.lib), `\nexport const _dev${dev.id} = ${dev.id};\n`);
+    const r = runParse(build(`...${libPkg(dev.lib)}`));
+    result.libEdit.push({ dev: dev.id, lib: libPkg(dev.lib), dependents: deps, ms: r.ms, ran: r.ran });
+    console.log(`  dev${dev.id} ${libPkg(dev.lib)} (${deps} dependents): ${r.ms}ms ran ${r.ran}`);
+  }
+
+  console.log("\n## independence: after one dev edits their area, another dev's rebuild is a full cache hit");
+  // Clean isolation probe. Warm dev2's app closure FIRST (so it absorbs dev2's
+  // own earlier edits), THEN have dev1 make a fresh unrelated edit in dev1's app,
+  // THEN rebuild dev2's app. Apps don't depend on other apps, so dev1's edit
+  // cannot touch dev2's closure — a correct cache reports 0 tasks rerun. (The old
+  // probe rebuilt dev2's own just-edited app, so it reported 1, not isolation.)
+  const me = devs[1], other = devs[0];
+  const myApp = appPkg(me.apps[0]);
+  runParse(build(`${myApp}...`)); // warm my closure so it reflects my own latest edits
+  appendFileSync(appPage(other.apps[0]), `\n// dev${other.id} unrelated edit (independence probe)\n`);
+  const ind = runParse(build(`${myApp}...`));
+  result.independence = { editedBy: other.id, dev: me.id, app: myApp, ran: ind.ran, total: ind.total };
+  console.log(`  dev${me.id} ${myApp} after dev${other.id}'s unrelated edit: ran ${ind.ran}/${ind.total} (0 = fully isolated)`);
+
+  console.log("\n## blast spectrum (dry-run dependent counts)");
+  for (const li of [3, Math.max(1, LIBS - 3)]) {
+    const deps = dryCount(`...${libPkg(li)}`);
+    result.blast.push({ lib: libPkg(li), dependentsClosure: deps });
+    console.log(`  ${libPkg(li)} -> ${deps} packages would rebuild`);
+  }
+
+  const med = (xs) => { const s = xs.filter((x) => x != null).sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
   result.summary = {
     onboardingMedianMs: med(result.onboarding.map((o) => o.ms)),
-    dailyLoopMedianMs: med(result.dailyLoop.map((o) => o.ms)),
-    dailyLoopMedianRan: med(result.dailyLoop.map((o) => o.ran)),
+    typecheckOnSaveMedianMs: med(result.typecheckOnSave.map((o) => o.ms)),
+    buildBeforePushMedianMs: med(result.buildBeforePush.map((o) => o.ms)),
+    libEditMedianMs: med(result.libEdit.map((o) => o.ms)),
+    independenceRan: result.independence.ran,
     totalPackages: APPS + LIBS,
   };
   mkdirSync(join(ROOT, "bench"), { recursive: true });
-  writeFileSync(join(ROOT, "bench", "dev-sim.json"), JSON.stringify(result, null, 2));
-  console.log(`\n## summary`);
-  console.log(`  onboarding median: ${result.summary.onboardingMedianMs}ms (first app-closure build)`);
-  console.log(`  daily loop median: ${result.summary.dailyLoopMedianMs}ms, ran ${result.summary.dailyLoopMedianRan} tasks (repo has ${result.summary.totalPackages} packages)`);
-  console.log(`  -> daily cost tracks the edited closure, not the ${result.summary.totalPackages}-package repo`);
+  writeFileSync(join(ROOT, "bench/dev-sim.json"), JSON.stringify(result, null, 2));
+  console.log(`\n## summary (repo has ${result.summary.totalPackages} packages)`);
+  console.log(`  typecheck-on-save median ${result.summary.typecheckOnSaveMedianMs}ms · build-before-push median ${result.summary.buildBeforePushMedianMs}ms · lib-edit median ${result.summary.libEditMedianMs}ms`);
+  console.log(`  independence: an unrelated dev's rebuild ran ${result.summary.independenceRan} tasks`);
   console.log("--- bench/dev-sim.json written ---");
 } finally {
   restoreGi();

@@ -9,7 +9,8 @@
 //   gen        regenerate the workspace (clean) at --apps/--libs/--modules
 //   install    pnpm install (cold or warm depending on store/lockfile state)
 //   graph      turbo task-graph size + focused-closure size for a sample app
-//   typecheck  turbo run typecheck: cold (cache cleared) then warm (cache hit)
+//   typecheck  turbo run typecheck: warm up the daemon/graph (no tasks run),
+//              then cold (cache cleared) then warm (cache hit)
 //   focus      turbo run build --filter=<one app>...  (task-time focus)
 //   prune      turbo prune <one app> --docker  (artifact-time focus)
 //
@@ -81,20 +82,28 @@ if (PHASES.includes("gen")) {
     const j = JSON.parse(String(r.out).trim().split("\n").pop());
     rec.phases.gen.approxFiles = j.approxFiles;
     rec.phases.gen.generateMs = j.generateMs;
-  } catch {}
+  } catch (e) {
+    console.warn(`[${LABEL}] gen: failed to parse generator JSON output (approxFiles/generateMs dropped): ${e.message}`);
+  }
 }
 
 // ---- install ----
 if (PHASES.includes("install")) {
+  // clean install so each scale is measured independently (no carry-over from a
+  // prior scale). Remove the WHOLE node_modules tree (root + per-package) — a
+  // stale apps/*/node_modules lets pnpm time a partial no-op. Global store stays warm.
+  try { execSync(`find . -name node_modules -type d -prune -exec rm -rf {} + 2>/dev/null`, { cwd: ROOT }); } catch {}
+  rmSync(join(ROOT, "pnpm-lock.yaml"), { force: true });
   const r = timed("install", () => sh("pnpm install"));
   rec.phases.install = { ms: r.ms, ok: r.ok };
-  // lockfile size
-  if (existsSync(join(ROOT, "pnpm-lock.yaml"))) {
+  // lockfile size — only from a SUCCESSFUL install (a failed/partial install must
+  // not become a clean lockfile-size datapoint).
+  if (r.ok && existsSync(join(ROOT, "pnpm-lock.yaml"))) {
     const buf = readFileSync(join(ROOT, "pnpm-lock.yaml"));
     rec.phases.install.lockfileBytes = buf.length;
     rec.phases.install.lockfileLines = buf.toString().split("\n").length;
   }
-  if (FS_STATS) {
+  if (r.ok && FS_STATS) {
     timed("fs-stats", () => {
       rec.phases.install.nmEntries = parseInt(tryShOut(`find node_modules -printf '.' 2>/dev/null | wc -c`).trim() || "0", 10);
       rec.phases.install.nmSymlinks = parseInt(tryShOut(`find node_modules -type l -printf '.' 2>/dev/null | wc -c`).trim() || "0", 10);
@@ -106,14 +115,26 @@ if (PHASES.includes("install")) {
 
 // ---- graph ----
 if (PHASES.includes("graph")) {
-  timed("graph", () => {
-    const all = JSON.parse(tryShOut(`pnpm exec turbo run build --dry=json 2>/dev/null`));
+  // Run the dry-run graph queries with shOut so a non-zero turbo exit THROWS
+  // (instead of tryShOut returning combined stdout+stderr text that JSON.parse
+  // would choke on). The throw is captured by timed() as ok=false, letting us
+  // record the failure rather than silently leaving rec.phases.graph undefined.
+  const r = timed("graph", () => {
+    const all = JSON.parse(shOut(`pnpm exec turbo run build --dry=json`));
+    const focus = JSON.parse(shOut(`pnpm exec turbo run build --filter=${sampleApp}... --dry=json`));
+    return { all, focus };
+  });
+  if (r.ok) {
+    const { all, focus } = r.out;
     rec.phases.graph = { totalBuildTasks: all.tasks ? all.tasks.length : (all.packages?.length ?? 0) };
-    const focus = JSON.parse(tryShOut(`pnpm exec turbo run build --filter=${sampleApp}... --dry=json 2>/dev/null`));
     rec.phases.graph.focusTasks = focus.tasks?.length;
     rec.phases.graph.focusPackages = focus.packages?.length;
     rec.phases.graph.sampleApp = sampleApp;
-  });
+  } else {
+    const error = r.out?.message ? String(r.out.message).split("\n")[0] : String(r.out);
+    rec.phases.graph = { ok: false, error };
+    console.warn(`[${LABEL}] graph: failed to build task graph: ${error}`);
+  }
 }
 
 // ---- typecheck (cold then warm) ----
@@ -121,9 +142,24 @@ if (PHASES.includes("typecheck")) {
   rmSync(join(ROOT, "node_modules", ".cache", "turbo"), { recursive: true, force: true });
   tryShOut(`pnpm exec turbo daemon clean 2>/dev/null`);
   rmSync(join(ROOT, ".turbo"), { recursive: true, force: true });
+  // Daemon + graph warmup that EXECUTES NOTHING: --dry=json builds the task
+  // graph and spins up the daemon but runs no tasks, so the cache stays empty.
+  // Without this, the cold run would pay daemon spin-up while the warm run does
+  // not, inflating the cold/warm delta beyond the actual cache effect. After
+  // this, both runs hit an already-warm daemon and the delta is the cache effect.
+  // Surface a warmup failure instead of swallowing it — if this fails, the cold
+  // run silently pays daemon spin-up (the confound this step claims to remove),
+  // so record warmupOk so a confounded cold number is never presented as clean.
+  let warmupOk = true;
+  try {
+    shOut(`pnpm exec turbo run typecheck --dry=json`);
+  } catch (e) {
+    warmupOk = false;
+    console.warn(`[${LABEL}] typecheck: daemon/graph warmup failed; cold number may include daemon spin-up: ${String(e.message).split("\n")[0]}`);
+  }
   const cold = timed("typecheck:cold", () => sh(`pnpm exec turbo run typecheck --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`));
   const warm = timed("typecheck:warm", () => sh(`pnpm exec turbo run typecheck --concurrency=${CONC} --output-logs=errors-only`));
-  rec.phases.typecheck = { coldMs: cold.ms, warmMs: warm.ms, coldOk: cold.ok, warmOk: warm.ok };
+  rec.phases.typecheck = { coldMs: cold.ms, warmMs: warm.ms, coldOk: cold.ok, warmOk: warm.ok, warmupOk };
 }
 
 // ---- focus build (one app + its lib closure) ----

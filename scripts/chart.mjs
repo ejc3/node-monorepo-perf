@@ -122,50 +122,39 @@ if (big?.phases?.typecheck) {
   }));
 }
 
-// Chart 2: focus build vs (estimated) full build at largest scale
-if (big?.phases?.focus && big?.phases?.graph) {
-  const focusMs = big.phases.focus.ms;
-  const g = big.phases.graph;
-  // crude full estimate: focus ms scaled by total/focus task ratio (lower bound, ignores parallelism gains)
-  const denom = g.focusTasks || g.focusPackages; // task ratio; focusTasks is the matching unit for totalBuildTasks
-  const ratio = g.totalBuildTasks && denom ? g.totalBuildTasks / denom : null;
-  const est = ratio ? Math.round(focusMs * ratio) : null;
+// Chart 2: packages built — focused closure vs whole workspace (both measured counts)
+const g = big?.phases?.graph;
+if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g.totalBuildTasks)) {
   made.push(barChart({
     file: "focus-vs-full.svg",
-    title: "Task-time focus: build one app vs build everything",
-    subtitle: `focus = ${fmtNum(g.focusPackages)} pkgs (${g.sampleApp} + closure) vs ${fmtNum(g.totalBuildTasks)} total`,
+    title: "Packages built: focused closure vs whole workspace",
+    subtitle: `${g.sampleApp} + closure vs whole workspace — Turborepo --filter`,
+    valueFmt: fmtNum,
     bars: [
-      { label: `focus build\n(${fmtNum(g.focusPackages)} pkgs)`, value: focusMs, color: "#22c55e" },
-      { label: `full build\n(~est, ${fmtNum(g.totalBuildTasks)} pkgs)`, value: est, color: "#f59e0b" },
+      {
+        label: `focused closure\n(${g.sampleApp})`,
+        value: g.focusPackages,
+        color: "#22c55e",
+      },
+      {
+        label: "whole workspace",
+        value: g.totalBuildTasks,
+        color: "#f59e0b",
+      },
     ],
   }));
 }
 
-// Chart 3: install time vs scale
-const scaled = all.filter((r) => r.phases?.install?.ms != null && r.phases.install.ok !== false);
-if (scaled.length >= 2) {
+// Chart 3: lockfile size vs scale (valid regardless of install method: one importer per package)
+const lk = all.filter((r) => r.phases?.install?.ok !== false && r.phases?.install?.lockfileLines != null);
+if (lk.length >= 2) {
   made.push(lineChart({
-    file: "install-vs-scale.svg",
-    title: "pnpm install time vs workspace size",
-    subtitle: "wall-clock, warm store",
-    xs: scaled.map((r) => r.apps),
-    series: [{ name: "pnpm install", color: "#3b82f6", points: scaled.map((r) => r.phases.install.ms) }],
-  }));
-}
-
-// Chart 4: footprint (node_modules entries + lockfile lines) vs scale
-const fs = all.filter((r) => r.phases?.install?.nmEntries != null && r.phases.install.ok !== false);
-if (fs.length >= 2) {
-  made.push(lineChart({
-    file: "footprint-vs-scale.svg",
-    title: "Filesystem footprint vs workspace size",
-    subtitle: "node_modules entries (inodes) and lockfile lines",
-    xs: fs.map((r) => r.apps),
+    file: "lockfile-vs-scale.svg",
+    title: "Lockfile size vs workspace size",
+    subtitle: "pnpm-lock.yaml lines (one importer per workspace package) — O(repo)",
+    xs: lk.map((r) => r.apps),
     yFmt: fmtNum,
-    series: [
-      { name: "node_modules entries", color: "#a855f7", points: fs.map((r) => r.phases.install.nmEntries) },
-      { name: "lockfile lines", color: "#06b6d4", points: fs.map((r) => r.phases.install.lockfileLines) },
-    ],
+    series: [{ name: "lockfile lines", color: "#06b6d4", points: lk.map((r) => r.phases.install.lockfileLines) }],
   }));
 }
 

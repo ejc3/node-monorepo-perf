@@ -27,7 +27,13 @@ const fromIdx = (() => {
   const i = argv.indexOf("--from");
   if (i === -1) return 0;
   const at = MATRIX.findIndex((m) => m.label === argv[i + 1]);
-  return at === -1 ? 0 : at;
+  if (at === -1) {
+    console.error(
+      `Unknown --from label: ${argv[i + 1]}. Valid labels: ${MATRIX.map((m) => m.label).join(", ")}`,
+    );
+    process.exit(1);
+  }
+  return at;
 })();
 
 const failures = [];

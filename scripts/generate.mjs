@@ -23,12 +23,25 @@ const opt = (name, def) => {
   return env ?? def;
 };
 
-const APPS = parseInt(opt("apps", "50"), 10);
-const LIBS = parseInt(opt("libs", "50"), 10);
-const MODULES = parseInt(opt("modules", "16"), 10); // modules per library
-const APP_DEPS = parseInt(opt("app-deps", "4"), 10); // lib deps per app
-const LIB_DEPS = parseInt(opt("lib-deps", "3"), 10); // lib->lib deps
-const LAYERS = parseInt(opt("layers", "6"), 10); // dependency layers
+// Numeric options must be integers >= a sane minimum. parseInt silently accepts
+// junk ("abc" -> NaN) and negatives ("--apps -5" -> -5), either of which would
+// generate an empty workspace with no error; reject them up front.
+const intOpt = (name, def, min) => {
+  const raw = opt(name, def);
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < min) {
+    console.error(`--${name} must be an integer >= ${min} (got "${raw}")`);
+    process.exit(1);
+  }
+  return n;
+};
+
+const APPS = intOpt("apps", "50", 0); // 0 apps (libs only) is allowed
+const LIBS = intOpt("libs", "50", 1); // layer math divides by LIBS/LAYERS
+const MODULES = intOpt("modules", "16", 1); // modules per library (index imports mod-01)
+const APP_DEPS = intOpt("app-deps", "4", 0); // lib deps per app
+const LIB_DEPS = intOpt("lib-deps", "3", 0); // lib->lib deps
+const LAYERS = intOpt("layers", "6", 1); // dependency layers (layerSize divides by it)
 const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
 const FRAMEWORK = opt("framework", "next"); // "next" | "vite"
 if (!["next", "vite"].includes(FRAMEWORK)) { console.error(`unknown --framework "${FRAMEWORK}" (use next|vite)`); process.exit(1); }
