@@ -1,0 +1,19 @@
+node_modules/
+.next/
+dist/
+.turbo/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Lockfile is a function of the generated scale — regenerate with `pnpm gen`.
+pnpm-lock.yaml
+
+# Generated workspace members — regenerate with `pnpm gen`.
+/apps/
+/packages/
+
+# Benchmark scratch (committed results live in bench/results.json + bench/charts)
+/bench/raw/
+.DS_Store
+.vercel

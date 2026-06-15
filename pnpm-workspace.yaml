@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Catalogs give every one of the 10k apps + 300 libs a single source of
+# truth for shared dependency versions. This is the #1 lever for keeping the
+# lockfile small and the store deduplicated at scale.
+catalog:
+  next: 16.2.9
+  react: 19.2.7
+  react-dom: 19.2.7
+  typescript: ^5.9.0
+  "@types/node": ^25.0.0
+  "@types/react": 19.2.17
+  "@types/react-dom": ^19.0.0
