@@ -2,7 +2,7 @@
 
 Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries. It generates the workspace with a layered dependency graph and measures install, typecheck, build, and the scoped ("focus") operations. Tested to 2,000 apps / 300 libs.
 
-Result: whole-workspace operations (install, typecheck, and even a warm-cache `turbo run`) scale with package count. Scoped operations (`turbo --filter`, `turbo prune`, `pnpm deploy`) scale with one app's dependency closure and stay roughly constant as app count grows. The workflow avoids unscoped whole-repo commands. Numbers in [Results](#results-scaling-behavior).
+Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`, `pnpm deploy`) executes only one app's dependency closure and stays roughly constant as app count grows. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
 ---
 
@@ -113,8 +113,8 @@ Scaling factor, 200 → 2,000 apps (10× apps, ~7.7× packages):
 | operation | factor | class |
 |---|---|---|
 | typecheck cold | ×6.7 | O(repo); ~linear in package count |
-| typecheck warm | ×5.1 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
-| prune | ×5.9 | O(repo); reads the whole graph to compute the closure |
+| typecheck warm | ×5.0 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
+| prune | ×5.7 | O(repo); reads the whole graph to compute the closure |
 | focus build | ×1.3 | O(closure); its closure grew 75→100 packages while apps grew 10× |
 
 Whole-workspace operations scale ~linearly with package count; the focus build tracks one app's closure (75–124 packages here), not the app count. Extrapolating to 20,000 apps puts an unscoped cold typecheck in the tens of minutes and a full install proportionally large, while a focused build stays in the tens of seconds. The approach is to avoid unscoped whole-repo commands, not optimize them. What stays irreducibly O(repo) at that size — the lockfile, the Turbo graph-load, foundation-change blast radius — is in [LIMITS.md](LIMITS.md).
@@ -165,8 +165,8 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 
 ## Artifacts
 
-- One app deployed from this monorepo to Vercel (pruned subtree, cloud build): https://nextjs-monorepo-scale-demo.vercel.app (cold 34s, warm 22s).
-- Four packages published to AWS CodeArtifact for the diamond demo (~0.8s each).
+- One app deployed from this monorepo to Vercel (pruned subtree, cloud build): https://nextjs-monorepo-scale-demo.vercel.app (22s wall; `bench/deploy.json`).
+- Four packages published to AWS CodeArtifact for the diamond demo (`scripts/diamond-demo.sh`).
 
 ## Companion docs
 

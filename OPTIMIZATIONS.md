@@ -21,7 +21,7 @@ They **compose**: prune to a subtree (artifact), install only that subtree (inst
 ## 1. Install-time (pnpm)
 
 ### 1.1 `node-linker` mode (footprint and strictness, not install speed)
-pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within noise), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~3x more symlinks (4,211 vs 1,459 at 300/100, full-tree). See [TOOLING.md](TOOLING.md).
+pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within ~3% on this single run), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~3x more symlinks (4,211 vs 1,459 at 300/100, full-tree). See [TOOLING.md](TOOLING.md).
 
 ```yaml
 # pnpm-workspace.yaml
@@ -177,10 +177,10 @@ This repo automates and times the cloud-build path in `scripts/deploy-vercel.mjs
 3. Copy root configs prune omits, e.g. `tsconfig.base.json` (else `TS5083: Cannot read file`).
 4. Configure project: Root Directory = `apps/<app>`, install + build at repo root via `turbo run build --filter=<app>`.
 
-Measured (`@demo/app-10`, 9-lib closure, iad1, 4-core builder): **cold 34s → warm 22s** (Turborepo Remote Cache enabled automatically). The cloud build linked the libs from the subtree via `workspace:*` and built `@demo/lib-01@0.0.0` etc. — i.e. **`workspace:*` deploys the in-tree source at its local version, never a registry version** (the exact-version rewrite only happens on `pnpm publish`). To deploy a *specific published* version, consume the lib by plain semver from a registry instead — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+Measured (`@demo/app-10`): **22s wall** (`bench/deploy.json`). The cloud build linked the libs from the subtree via `workspace:*` and built `@demo/lib-01@0.0.0` etc. — i.e. **`workspace:*` deploys the in-tree source at its local version, never a registry version** (the exact-version rewrite only happens on `pnpm publish`). To deploy a *specific published* version, consume the lib by plain semver from a registry instead — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
 
 ### 4.4 Publishing internal packages (AWS CodeArtifact)
-Internal packages are normally versioned independently and consumed by plain semver from a private registry. Auth goes in a scoped `.npmrc`, not the global one, or it hijacks the main workspace install; npm needs `--userconfig` since it does not walk ancestor `.npmrc` files; `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` publishes four packages to CodeArtifact (~0.7–0.9s each) and demonstrates diamond resolution and the `workspace:` override collapse.
+Internal packages are normally versioned independently and consumed by plain semver from a private registry. Auth goes in a scoped `.npmrc`, not the global one, or it hijacks the main workspace install; npm needs `--userconfig` since it does not walk ancestor `.npmrc` files; `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` publishes four packages to CodeArtifact and demonstrates diamond resolution and the `workspace:` override collapse.
 
 ---
 

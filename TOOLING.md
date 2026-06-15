@@ -19,10 +19,10 @@ Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated i
 Truly-cold (fresh pnpm store + cleared bun cache, network) at 200/100: pnpm-hoisted 48.9s, bun 1.2s.
 
 Reading it:
-- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) and dominates cold by ~50–100×. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
-- Warm flips at scale: pnpm-hoisted's warm relink (4.7s at 2,000) beats bun's (10.1s). bun's sub-10s installs are within run-to-run noise of each other, while pnpm's warm relink is genuinely fast once the lockfile exists.
-- pnpm isolated vs hoisted is within noise on *time* (resolution-bound), but hoisted's `node_modules` is far smaller (21,914 vs 50,159 entries at 2,000) — the isolated symlink layout is the inode cost, not a time cost.
-- pnpm uses ~1.1–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB.
+- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 430× faster cold at 200/100, ~100× at 1,000, ~55× at 2,000. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
+- Warm relink (lockfile present) is where the linker shows up: pnpm-hoisted relinks in 4.7s at 2,000 vs pnpm-isolated's 15.6s — recreating the isolated symlink farm is a real warm-relink cost. bun's warm (10.1s) lands near its cold (8.3s) at 2,000.
+- Cold install time is within ~5% across isolated/hoisted (resolution-bound); the isolated layout's costs are footprint (50,159 vs 21,914 `node_modules` entries at 2,000) and that warm-relink time, not cold-install time.
+- pnpm uses ~1.3–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB. Each figure is a single measured run (large installs are measured once).
 
 Methodology:
 - bun ignores `pnpm-workspace.yaml` and the `catalog:` protocol, so the bench runs a decataloged copy with a `package.json` `"workspaces"` field both tools read — a like-for-like dependency set.
@@ -39,7 +39,7 @@ Does the `workspace:` spec form or the linker mode change install perf? Cold ins
 | `workspace:^x.y.z`, isolated | 71.8s (+0.5%) | 18,081 | 4,211 |
 | `workspace:*`, hoisted | 69.0s (−3.4%) | 13,304 | 1,459 |
 
-The specifier form is install-neutral (+0.5% is noise; identical lockfile and `node_modules`). node-linker barely changes install *time* here (resolution-bound), but the isolated layout has ~3× more symlinks (4,211 vs 1,459, full-tree) and ~36% more `node_modules` entries — the inode cost that grows with package count. So choose the form for publish semantics and the linker for strictness/footprint, not for install speed.
+The specifier form is install-neutral (a 0.5% single-run difference; identical `node_modules` and lockfile line count, the versioned variant's lockfile marginally larger in bytes from its explicit version strings). node-linker barely changes install *time* here (resolution-bound), but the isolated layout has ~3× more symlinks (4,211 vs 1,459, full-tree) and ~36% more `node_modules` entries — the inode cost that grows with package count. So choose the form for publish semantics and the linker for strictness/footprint, not for install speed.
 
 ## Build: Next vs Vite (`scripts/build-bench.mjs`)
 
