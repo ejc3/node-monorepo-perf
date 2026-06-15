@@ -134,8 +134,9 @@ const big = all[all.length - 1];
 
 const made = [];
 
-// Chart 1: typecheck cold vs warm for the largest scale
-if (big?.phases?.typecheck) {
+// Chart 1: typecheck cold vs warm for the largest scale (skip if the daemon
+// warmup failed — then the cold number is confounded by daemon spin-up)
+if (big?.phases?.typecheck && big.phases.typecheck.warmupOk !== false) {
   made.push(
     barChart({
       file: "typecheck-cold-vs-warm.svg",
@@ -209,7 +210,7 @@ for (const r of all) {
   md += `| ${p.install?.ok === false ? "fail" : fmtMs(p.install?.ms)} `;
   md += `| ${p.install?.lockfileLines ? fmtNum(p.install.lockfileLines) + " lines / " + fmtBytes(p.install.lockfileBytes) : "—"} `;
   md += `| ${p.install?.nmEntries ? fmtNum(p.install.nmEntries) + " entries / " + fmtBytes(p.install.nmDiskBytes) : "—"} `;
-  md += `| ${p.typecheck?.coldOk === false ? "fail" : fmtMs(p.typecheck?.coldMs)} `;
+  md += `| ${p.typecheck?.coldOk === false ? "fail" : p.typecheck?.warmupOk === false ? "confounded" : fmtMs(p.typecheck?.coldMs)} `;
   md += `| ${p.typecheck?.warmOk === false ? "fail" : fmtMs(p.typecheck?.warmMs)} `;
   md += `| ${p.focus?.ok === false ? "fail" : fmtMs(p.focus?.ms)} `;
   md += `| ${fmtNum(p.graph?.totalBuildTasks)} `;

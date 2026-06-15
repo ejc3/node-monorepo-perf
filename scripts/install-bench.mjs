@@ -176,10 +176,21 @@ function setup(apps, libs) {
 // linker symlinks apps/*/node_modules and packages/*/node_modules; leaving them
 // lets a later linker/manager reuse stale links and time a partial no-op (a warm
 // relink or cross-linker install would be measured too fast).
-const rmNM = () =>
-  spawnSync("bash", ["-c", "find . -name node_modules -type d -prune -exec rm -rf {} +"], {
-    cwd: DIR,
-  });
+const rmNM = () => {
+  const r = spawnSync(
+    "bash",
+    ["-c", "find . -name node_modules -type d -prune -exec rm -rf {} +"],
+    {
+      cwd: DIR,
+      encoding: "utf8",
+    },
+  );
+  if (r.error || r.status !== 0) {
+    throw new Error(
+      `node_modules cleanup failed (a stale tree would let the next install time a no-op): ${r.error?.message || r.stderr || `status ${r.status}`}`,
+    );
+  }
+};
 const rmLocks = () => {
   for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb"])
     rmSync(join(DIR, f), { force: true });

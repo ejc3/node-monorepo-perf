@@ -28,7 +28,7 @@ const opt = (n, d) => {
 const APPS = +opt("apps", "1000"),
   LIBS = +opt("libs", "200"),
   DEVS = +opt("devs", "4");
-if (!(DEVS >= 2)) {
+if (!(Number.isInteger(DEVS) && DEVS >= 2)) {
   console.error(
     `--devs must be an integer >= 2 (the sim measures independent developers); got "${opt("devs", "4")}"`,
   );

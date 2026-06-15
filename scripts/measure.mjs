@@ -123,11 +123,8 @@ if (PHASES.includes("install")) {
   // clean install so each scale is measured independently (no carry-over from a
   // prior scale). Remove the WHOLE node_modules tree (root + per-package) — a
   // stale apps/*/node_modules lets pnpm time a partial no-op. Global store stays warm.
-  try {
-    execSync(`find . -name node_modules -type d -prune -exec rm -rf {} + 2>/dev/null`, {
-      cwd: ROOT,
-    });
-  } catch {}
+  // cleanup must succeed — a stale tree would let pnpm time a no-op (don't swallow)
+  execSync(`find . -name node_modules -type d -prune -exec rm -rf {} +`, { cwd: ROOT });
   rmSync(join(ROOT, "pnpm-lock.yaml"), { force: true });
   const r = timed("install", () => sh("pnpm install"));
   rec.phases.install = { ms: r.ms, ok: r.ok };
