@@ -17,7 +17,15 @@ const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const APPS = +(process.argv[2] || 40);
 const LIBS = +(process.argv[3] || 24);
 const CONC = process.argv[4] || "12";
-const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" };
+// TURBO_CACHE_DIR pins Turbo's cache inside this working tree so the per-build
+// `rm -rf .turbo` actually clears it (in a git worktree Turbo would otherwise
+// cache in the primary worktree, making the "full build" a stale cache hit).
+const env = {
+  ...process.env,
+  NEXT_TELEMETRY_DISABLED: "1",
+  TURBO_TELEMETRY_DISABLED: "1",
+  TURBO_CACHE_DIR: join(REPO, ".turbo", "cache"),
+};
 const TIMEFILE = "/tmp/build-bench.time";
 const LOGFILE = "/tmp/build-bench.log";
 

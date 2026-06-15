@@ -27,7 +27,15 @@ import { enterSourceVisible } from "./_source-visible.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const LOGFILE = "/tmp/axis-bench.log";
-const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" };
+// TURBO_CACHE_DIR pins Turbo's cache inside this working tree so clearTurbo's
+// `rm -rf .turbo` actually clears it (in a git worktree Turbo would otherwise
+// cache in the primary worktree, making "cold" runs stale cache hits).
+const env = {
+  ...process.env,
+  NEXT_TELEMETRY_DISABLED: "1",
+  TURBO_TELEMETRY_DISABLED: "1",
+  TURBO_CACHE_DIR: join(REPO, ".turbo", "cache"),
+};
 
 // unique points; corner (200,100) is shared by both axes
 const POINTS = [

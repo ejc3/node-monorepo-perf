@@ -36,7 +36,15 @@ if (!(Number.isInteger(DEVS) && DEVS >= 2)) {
   process.exit(1);
 }
 const ROOT = process.cwd();
-const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" };
+// TURBO_CACHE_DIR pins Turbo's cache inside this working tree so the initial
+// `rm -rf .turbo` actually clears it (in a git worktree Turbo would otherwise
+// cache in the primary worktree, making onboarding a stale cache hit).
+const env = {
+  ...process.env,
+  NEXT_TELEMETRY_DISABLED: "1",
+  TURBO_TELEMETRY_DISABLED: "1",
+  TURBO_CACHE_DIR: join(ROOT, ".turbo", "cache"),
+};
 
 const appW = String(APPS).length,
   libW = String(LIBS).length;

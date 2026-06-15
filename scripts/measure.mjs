@@ -49,6 +49,10 @@ const env = {
   NEXT_TELEMETRY_DISABLED: "1",
   TURBO_TELEMETRY_DISABLED: "1",
   FORCE_COLOR: "0",
+  // Pin Turbo's cache inside THIS working tree. In a git worktree Turbo otherwise
+  // resolves the cache to the primary worktree, so `rm -rf .turbo` here wouldn't
+  // clear it and "cold" runs would be stale cache hits.
+  TURBO_CACHE_DIR: join(ROOT, ".turbo", "cache"),
 };
 
 function timed(label, fn) {
