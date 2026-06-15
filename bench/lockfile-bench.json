@@ -1,0 +1,59 @@
+[
+  {
+    "apps": 200,
+    "libs": 100,
+    "pnpm": {
+      "resolveMs": 47305,
+      "verifyMs": 641,
+      "fullMs": 47913,
+      "lockLines": 9714,
+      "lockBytes": 263077,
+      "resolveSharePct": 99
+    },
+    "bun": {
+      "resolveMs": 28,
+      "fullMs": 138,
+      "lockLines": 5741,
+      "lockBytes": 173557,
+      "resolveSharePct": 20
+    }
+  },
+  {
+    "apps": 1000,
+    "libs": 200,
+    "pnpm": {
+      "resolveMs": 228086,
+      "verifyMs": 1351,
+      "fullMs": 232883,
+      "lockLines": 41044,
+      "lockBytes": 1118134,
+      "resolveSharePct": 98
+    },
+    "bun": {
+      "resolveMs": 157,
+      "fullMs": 2356,
+      "lockLines": 23956,
+      "lockBytes": 699656,
+      "resolveSharePct": 7
+    }
+  },
+  {
+    "apps": 2000,
+    "libs": 300,
+    "pnpm": {
+      "resolveMs": 460545,
+      "verifyMs": 2157,
+      "fullMs": 471533,
+      "lockLines": 79784,
+      "lockBytes": 2176670,
+      "resolveSharePct": 98
+    },
+    "bun": {
+      "resolveMs": 284,
+      "fullMs": 9028,
+      "lockLines": 46376,
+      "lockBytes": 1346508,
+      "resolveSharePct": 3
+    }
+  }
+]

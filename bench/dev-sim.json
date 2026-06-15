@@ -1,132 +1,140 @@
 {
   "apps": 1000,
   "libs": 200,
-  "devs": 5,
-  "rounds": 2,
+  "devs": 4,
   "onboarding": [
     {
       "dev": 1,
-      "app": "@demo/app-0101",
-      "ms": 10282,
-      "ran": 57,
-      "total": 57,
-      "cached": 0
+      "apps": [
+        "@demo/app-0063",
+        "@demo/app-0188"
+      ],
+      "ms": 15242,
+      "ran": 196,
+      "total": 196
     },
     {
       "dev": 2,
-      "app": "@demo/app-0301",
-      "ms": 10562,
-      "ran": 57,
-      "total": 57,
-      "cached": 0
+      "apps": [
+        "@demo/app-0313",
+        "@demo/app-0438"
+      ],
+      "ms": 11651,
+      "ran": 88,
+      "total": 266
     },
     {
       "dev": 3,
-      "app": "@demo/app-0501",
-      "ms": 6736,
-      "ran": 2,
-      "total": 57,
-      "cached": 55
+      "apps": [
+        "@demo/app-0563",
+        "@demo/app-0688"
+      ],
+      "ms": 8150,
+      "ran": 8,
+      "total": 192
     },
     {
       "dev": 4,
-      "app": "@demo/app-0701",
-      "ms": 6715,
-      "ran": 2,
-      "total": 57,
-      "cached": 55
-    },
-    {
-      "dev": 5,
-      "app": "@demo/app-0901",
-      "ms": 5749,
-      "ran": 2,
-      "total": 57,
-      "cached": 55
+      "apps": [
+        "@demo/app-0813",
+        "@demo/app-0938"
+      ],
+      "ms": 9903,
+      "ran": 16,
+      "total": 248
     }
   ],
-  "dailyLoop": [
+  "typecheckOnSave": [
     {
       "dev": 1,
-      "app": "@demo/app-0101",
-      "round": 1,
-      "ms": 5583,
-      "ran": 2,
-      "total": 57
+      "app": "@demo/app-0063",
+      "ms": 4436,
+      "ran": 1
     },
     {
       "dev": 2,
-      "app": "@demo/app-0301",
-      "round": 1,
-      "ms": 5935,
-      "ran": 2,
-      "total": 57
+      "app": "@demo/app-0313",
+      "ms": 3694,
+      "ran": 1
     },
     {
       "dev": 3,
-      "app": "@demo/app-0501",
-      "round": 1,
-      "ms": 5932,
-      "ran": 2,
-      "total": 57
+      "app": "@demo/app-0563",
+      "ms": 4492,
+      "ran": 1
     },
     {
       "dev": 4,
-      "app": "@demo/app-0701",
-      "round": 1,
-      "ms": 6027,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 5,
-      "app": "@demo/app-0901",
-      "round": 1,
-      "ms": 6350,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 1,
-      "app": "@demo/app-0101",
-      "round": 2,
-      "ms": 5563,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 2,
-      "app": "@demo/app-0301",
-      "round": 2,
-      "ms": 5984,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 3,
-      "app": "@demo/app-0501",
-      "round": 2,
-      "ms": 6736,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 4,
-      "app": "@demo/app-0701",
-      "round": 2,
-      "ms": 5714,
-      "ran": 2,
-      "total": 57
-    },
-    {
-      "dev": 5,
-      "app": "@demo/app-0901",
-      "round": 2,
-      "ms": 6511,
-      "ran": 2,
-      "total": 57
+      "app": "@demo/app-0813",
+      "ms": 4162,
+      "ran": 1
     }
   ],
+  "buildBeforePush": [
+    {
+      "dev": 1,
+      "app": "@demo/app-0188",
+      "ms": 5531,
+      "ran": 1
+    },
+    {
+      "dev": 2,
+      "app": "@demo/app-0438",
+      "ms": 5936,
+      "ran": 1
+    },
+    {
+      "dev": 3,
+      "app": "@demo/app-0688",
+      "ms": 5876,
+      "ran": 1
+    },
+    {
+      "dev": 4,
+      "app": "@demo/app-0938",
+      "ms": 5812,
+      "ran": 1
+    }
+  ],
+  "libEdit": [
+    {
+      "dev": 1,
+      "lib": "@demo/lib-200",
+      "dependents": 21,
+      "ms": 12713,
+      "ran": 31
+    },
+    {
+      "dev": 2,
+      "lib": "@demo/lib-198",
+      "dependents": 21,
+      "ms": 10983,
+      "ran": 23
+    },
+    {
+      "dev": 3,
+      "lib": "@demo/lib-196",
+      "dependents": 21,
+      "ms": 12278,
+      "ran": 29
+    },
+    {
+      "dev": 4,
+      "lib": "@demo/lib-194",
+      "dependents": 21,
+      "ms": 10386,
+      "ran": 24
+    }
+  ],
+  "independence": {
+    "editedBy": 1,
+    "dev": 2,
+    "app": "@demo/app-0313",
+    "baselineRan": 0,
+    "afterRan": 0,
+    "addedByOther": 0,
+    "total": 109
+  },
   "blast": [
     {
       "lib": "@demo/lib-003",
@@ -138,9 +146,11 @@
     }
   ],
   "summary": {
-    "onboardingMedianMs": 6736,
-    "dailyLoopMedianMs": 5984,
-    "dailyLoopMedianRan": 2,
+    "onboardingMedianMs": 10777,
+    "typecheckOnSaveMedianMs": 4299,
+    "buildBeforePushMedianMs": 5844,
+    "libEditMedianMs": 11631,
+    "independenceAddedByOther": 0,
     "totalPackages": 1200
   }
 }

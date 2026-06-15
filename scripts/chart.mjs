@@ -2,7 +2,7 @@
 // Renders dependency-free SVG charts + a markdown summary from bench/results.json.
 //   node scripts/chart.mjs
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -15,25 +15,37 @@ const records = JSON.parse(readFileSync(resultsPath, "utf8")).sort((a, b) => a.a
 const chartsDir = join(ROOT, "bench", "charts");
 mkdirSync(chartsDir, { recursive: true });
 
-const fmtMs = (ms) => (ms == null ? "—" : ms >= 1000 ? (ms / 1000).toFixed(ms >= 10000 ? 0 : 1) + "s" : ms + "ms");
+const fmtMs = (ms) =>
+  ms == null ? "—" : ms >= 1000 ? (ms / 1000).toFixed(ms >= 10000 ? 0 : 1) + "s" : ms + "ms";
 const fmtBytes = (b) => {
   if (b == null) return "—";
   const u = ["B", "KB", "MB", "GB"];
-  let i = 0, n = b;
-  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  let i = 0,
+    n = b;
+  while (n >= 1024 && i < u.length - 1) {
+    n /= 1024;
+    i++;
+  }
   return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + u[i];
 };
 const fmtNum = (n) => (n == null ? "—" : n.toLocaleString("en-US"));
 
 // ---- generic vertical bar chart ----
 function barChart({ file, title, subtitle, bars, valueFmt = fmtMs, logScale = false }) {
-  const W = 760, H = 420, padL = 70, padR = 24, padT = 70, padB = 90;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const W = 760,
+    H = 420,
+    padL = 70,
+    padR = 24,
+    padT = 70,
+    padB = 90;
+  const plotW = W - padL - padR,
+    plotH = H - padT - padB;
   const vals = bars.map((b) => b.value ?? 0);
   const maxV = Math.max(1, ...vals);
   const scale = (v) => {
     if (!logScale) return (v / maxV) * plotH;
-    const lv = Math.log10(Math.max(1, v)), lm = Math.log10(Math.max(10, maxV));
+    const lv = Math.log10(Math.max(1, v)),
+      lm = Math.log10(Math.max(10, maxV));
     return (lv / lm) * plotH;
   };
   const n = bars.length;
@@ -62,8 +74,14 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
 
 // ---- line chart (metric vs scale) ----
 function lineChart({ file, title, subtitle, series, xs, yFmt = fmtMs }) {
-  const W = 760, H = 420, padL = 78, padR = 24, padT = 70, padB = 70;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const W = 760,
+    H = 420,
+    padL = 78,
+    padR = 24,
+    padT = 70,
+    padB = 70;
+  const plotW = W - padL - padR,
+    plotH = H - padT - padB;
   const allY = series.flatMap((s) => s.points.map((p) => p)).filter((v) => v != null);
   const maxY = Math.max(1, ...allY);
   const maxX = Math.max(...xs);
@@ -82,8 +100,15 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
     // break the line at missing points instead of joining straight across the gap
     const coords = s.points.map((y, i) => (y == null ? null : `${sx(xs[i])},${sy(y)}`));
     let seg = [];
-    const flush = () => { if (seg.length) svg += `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`; seg = []; };
-    for (const c of coords) { if (c) seg.push(c); else flush(); }
+    const flush = () => {
+      if (seg.length)
+        svg += `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+      seg = [];
+    };
+    for (const c of coords) {
+      if (c) seg.push(c);
+      else flush();
+    }
     flush();
     s.points.forEach((y, i) => {
       if (y == null) return;
@@ -93,7 +118,8 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
   });
   // legend
   series.forEach((s, i) => {
-    const lx = W - padR - 160, ly = padT + 6 + i * 20;
+    const lx = W - padR - 160,
+      ly = padT + 6 + i * 20;
     svg += `<rect x="${lx}" y="${ly - 10}" width="12" height="12" fill="${s.color}"/><text x="${lx + 18}" y="${ly}" fill="#c9d1d9" font-size="12">${s.name}</text>`;
   });
   svg += `</svg>`;
@@ -108,65 +134,108 @@ const big = all[all.length - 1];
 
 const made = [];
 
-// Chart 1: typecheck cold vs warm for the largest scale
-if (big?.phases?.typecheck) {
-  made.push(barChart({
-    file: "typecheck-cold-vs-warm.svg",
-    title: "Whole-workspace typecheck: cold vs warm cache",
-    subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache`,
-    logScale: true,
-    bars: [
-      { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: "#ef4444" },
-      { label: "warm\n(FULL TURBO)", value: big.phases.typecheck.warmMs, color: "#22c55e" },
-    ],
-  }));
+// Chart 1: typecheck cold vs warm for the largest scale. Only chart a fully
+// verified, warmup-isolated datapoint: cold+warm ran OK, the daemon warmup is
+// confirmed (warmupOk === true), and both timings are finite. Pre-warmup results
+// lack warmupOk and are confounded by daemon spin-up, so they're skipped.
+const tcBig = big?.phases?.typecheck;
+if (
+  tcBig &&
+  tcBig.coldOk === true &&
+  tcBig.warmOk === true &&
+  tcBig.warmupOk === true &&
+  Number.isFinite(tcBig.coldMs) &&
+  Number.isFinite(tcBig.warmMs)
+) {
+  made.push(
+    barChart({
+      file: "typecheck-cold-vs-warm.svg",
+      title: "Whole-workspace typecheck: cold vs warm cache",
+      subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache`,
+      logScale: true,
+      bars: [
+        { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: "#ef4444" },
+        { label: "warm\n(FULL TURBO)", value: big.phases.typecheck.warmMs, color: "#22c55e" },
+      ],
+    }),
+  );
 }
 
-// Chart 2: focus build vs (estimated) full build at largest scale
-if (big?.phases?.focus && big?.phases?.graph) {
-  const focusMs = big.phases.focus.ms;
-  const g = big.phases.graph;
-  // crude full estimate: focus ms scaled by total/focus task ratio (lower bound, ignores parallelism gains)
-  const denom = g.focusTasks || g.focusPackages; // task ratio; focusTasks is the matching unit for totalBuildTasks
-  const ratio = g.totalBuildTasks && denom ? g.totalBuildTasks / denom : null;
-  const est = ratio ? Math.round(focusMs * ratio) : null;
-  made.push(barChart({
-    file: "focus-vs-full.svg",
-    title: "Task-time focus: build one app vs build everything",
-    subtitle: `focus = ${fmtNum(g.focusPackages)} pkgs (${g.sampleApp} + closure) vs ${fmtNum(g.totalBuildTasks)} total`,
-    bars: [
-      { label: `focus build\n(${fmtNum(g.focusPackages)} pkgs)`, value: focusMs, color: "#22c55e" },
-      { label: `full build\n(~est, ${fmtNum(g.totalBuildTasks)} pkgs)`, value: est, color: "#f59e0b" },
-    ],
-  }));
+// Chart 2: packages built — focused closure vs whole workspace (both measured counts)
+const g = big?.phases?.graph;
+if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g.totalBuildTasks)) {
+  made.push(
+    barChart({
+      file: "focus-vs-full.svg",
+      title: "Packages built: focused closure vs whole workspace",
+      subtitle: `${g.sampleApp} + closure vs whole workspace — Turborepo --filter`,
+      valueFmt: fmtNum,
+      bars: [
+        {
+          label: `focused closure\n(${g.sampleApp})`,
+          value: g.focusPackages,
+          color: "#22c55e",
+        },
+        {
+          label: "whole workspace",
+          value: g.totalBuildTasks,
+          color: "#f59e0b",
+        },
+      ],
+    }),
+  );
 }
 
-// Chart 3: install time vs scale
-const scaled = all.filter((r) => r.phases?.install?.ms != null && r.phases.install.ok !== false);
-if (scaled.length >= 2) {
-  made.push(lineChart({
-    file: "install-vs-scale.svg",
-    title: "pnpm install time vs workspace size",
-    subtitle: "wall-clock, warm store",
-    xs: scaled.map((r) => r.apps),
-    series: [{ name: "pnpm install", color: "#3b82f6", points: scaled.map((r) => r.phases.install.ms) }],
-  }));
+// Chart 3: lockfile size vs scale (valid regardless of install method: one importer per package)
+const lk = all.filter(
+  (r) => r.phases?.install?.ok !== false && r.phases?.install?.lockfileLines != null,
+);
+if (lk.length >= 2) {
+  made.push(
+    lineChart({
+      file: "lockfile-vs-scale.svg",
+      title: "Lockfile size vs workspace size",
+      subtitle:
+        "pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)",
+      xs: lk.map((r) => r.apps + r.libs),
+      yFmt: fmtNum,
+      series: [
+        {
+          name: "lockfile lines",
+          color: "#06b6d4",
+          points: lk.map((r) => r.phases.install.lockfileLines),
+        },
+      ],
+    }),
+  );
 }
 
-// Chart 4: footprint (node_modules entries + lockfile lines) vs scale
-const fs = all.filter((r) => r.phases?.install?.nmEntries != null && r.phases.install.ok !== false);
-if (fs.length >= 2) {
-  made.push(lineChart({
-    file: "footprint-vs-scale.svg",
-    title: "Filesystem footprint vs workspace size",
-    subtitle: "node_modules entries (inodes) and lockfile lines",
-    xs: fs.map((r) => r.apps),
-    yFmt: fmtNum,
-    series: [
-      { name: "node_modules entries", color: "#a855f7", points: fs.map((r) => r.phases.install.nmEntries) },
-      { name: "lockfile lines", color: "#06b6d4", points: fs.map((r) => r.phases.install.lockfileLines) },
-    ],
-  }));
+// Charts the docs link must never be deleted just because a confounded/short
+// dataset skipped one this run — that would 404 the committed docs. Derive the
+// protected set from the docs themselves (matching `charts/<name>.svg`) so it
+// stays in sync automatically: a newly doc-linked chart is protected, a retired
+// one stops being protected.
+const canonical = new Set();
+for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]) {
+  if (!existsSync(doc)) continue;
+  for (const m of readFileSync(doc, "utf8").matchAll(/charts\/([A-Za-z0-9_-]+\.svg)/g)) {
+    canonical.add(m[1]);
+  }
+}
+for (const f of canonical) {
+  if (!made.includes(f)) {
+    console.warn(
+      `[chart] WARNING: ${f} was not regenerated this run (insufficient/confounded data); ` +
+        `keeping the existing file, which may be STALE and is still linked by the docs.`,
+    );
+  }
+}
+
+// remove only genuinely orphaned SVGs (renamed/removed charts) — never doc-linked ones
+for (const f of readdirSync(chartsDir)) {
+  if (f.endsWith(".svg") && !made.includes(f) && !canonical.has(f)) {
+    rmSync(join(chartsDir, f));
+  }
 }
 
 // ---- markdown summary ----
@@ -176,16 +245,21 @@ md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
 for (const r of all) {
   const p = r.phases;
   md += `| **${fmtNum(r.apps)} apps / ${fmtNum(r.libs)} libs** `;
-  md += `| ${fmtMs(p.gen?.ms)} `;
-  md += `| ${p.install?.ok === false ? "fail" : fmtMs(p.install?.ms)} `;
-  md += `| ${p.install?.lockfileLines ? fmtNum(p.install.lockfileLines) + " lines / " + fmtBytes(p.install.lockfileBytes) : "—"} `;
-  md += `| ${p.install?.nmEntries ? fmtNum(p.install.nmEntries) + " entries / " + fmtBytes(p.install.nmDiskBytes) : "—"} `;
-  md += `| ${p.typecheck?.coldOk === false ? "fail" : fmtMs(p.typecheck?.coldMs)} `;
-  md += `| ${p.typecheck?.warmOk === false ? "fail" : fmtMs(p.typecheck?.warmMs)} `;
-  md += `| ${p.focus?.ok === false ? "fail" : fmtMs(p.focus?.ms)} `;
-  md += `| ${fmtNum(p.graph?.totalBuildTasks)} `;
-  md += `| ${fmtNum(p.graph?.focusPackages)} `;
-  md += `| ${p.prune?.ok === false ? "fail" : fmtMs(p.prune?.ms)} |\n`;
+  md += `| ${!p.gen ? "—" : p.gen.ok === false ? "fail" : fmtMs(p.gen.ms)} `;
+  const inst = p.install,
+    gr = p.graph,
+    tcr = p.typecheck;
+  const installOk = inst && inst.ok !== false;
+  const graphOk = gr && gr.ok !== false;
+  md += `| ${!inst ? "—" : inst.ok === false ? "fail" : fmtMs(inst.ms)} `;
+  md += `| ${installOk && inst.lockfileLines ? fmtNum(inst.lockfileLines) + " lines / " + fmtBytes(inst.lockfileBytes) : "—"} `;
+  md += `| ${installOk && inst.nmEntries ? fmtNum(inst.nmEntries) + " entries / " + fmtBytes(inst.nmApparentBytes) : "—"} `;
+  md += `| ${!tcr ? "—" : tcr.coldOk === false ? "fail" : tcr.warmupOk !== true ? "confounded" : fmtMs(tcr.coldMs)} `;
+  md += `| ${!tcr || tcr.coldOk !== true ? "—" : tcr.warmOk === false ? "fail" : fmtMs(tcr.warmMs)} `;
+  md += `| ${!p.focus ? "—" : p.focus.ok === false ? "fail" : fmtMs(p.focus.ms)} `;
+  md += `| ${graphOk ? fmtNum(gr.totalBuildTasks) : "—"} `;
+  md += `| ${graphOk ? fmtNum(gr.focusPackages) : "—"} `;
+  md += `| ${!p.prune ? "—" : p.prune.ok === false ? "fail" : fmtMs(p.prune.ms)} |\n`;
 }
 md += `\n## Charts\n\n` + made.map((f) => `![${f}](charts/${f})`).join("\n\n") + "\n";
 writeFileSync(join(ROOT, "bench", "summary.md"), md);

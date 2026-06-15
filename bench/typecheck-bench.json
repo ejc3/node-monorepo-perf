@@ -1,6 +1,29 @@
 {
   "modules": 3000,
-  "tscMs": 3116,
-  "tsgoMs": 257,
-  "speedup": 12.12
+  "samples": 5,
+  "tscMs": 3101,
+  "tsgoMs": 255,
+  "tsc": {
+    "medianMs": 3101,
+    "minMs": 3094,
+    "samples": [
+      3147,
+      3098,
+      3101,
+      3126,
+      3094
+    ]
+  },
+  "tsgo": {
+    "medianMs": 255,
+    "minMs": 253,
+    "samples": [
+      255,
+      260,
+      253,
+      255,
+      253
+    ]
+  },
+  "speedup": 12.16
 }

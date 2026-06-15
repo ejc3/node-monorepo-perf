@@ -2,7 +2,7 @@
 
 Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries. It generates the workspace with a layered dependency graph and measures install, typecheck, build, and the scoped ("focus") operations. Tested to 2,000 apps / 300 libs.
 
-Result: whole-workspace operations (install, typecheck, and even a warm-cache `turbo run`) scale with package count. Scoped operations (`turbo --filter`, `turbo prune`, `pnpm deploy`) scale with one app's dependency closure and stay roughly constant as app count grows. The workflow avoids unscoped whole-repo commands. Numbers in [Results](#results-scaling-behavior).
+Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`, `pnpm deploy`) executes only one app's dependency closure and stays roughly constant as app count grows. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
 ---
 
@@ -98,32 +98,31 @@ Generating and installing tens of thousands of apps materializes a large `node_m
 
 ## Results: scaling behavior
 
-64-core machine, Node 22, pnpm 10.29, Turbo 2.9. Four scale points, 200 → 5,000 apps.
+Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Three scale points, 200 → 2,000 apps (10× apps, ~7.7× packages); larger scales extrapolate from this trend.
 
-| apps (libs) | `pnpm install`¹ | typecheck cold | typecheck warm | focus build² | prune | build tasks | focus closure |
-|---|---|---|---|---|---|---|---|
-| 200 (100) | 47s | 18.9s | 1.2s | 11.4s | 0.8s | 300 | 75 |
-| 1,000 (200) | 229s | 69.7s | 4.4s | 13.8s | 2.1s | 1,200 | 124 |
-| 2,000 (300) | 243s¹ | 126.8s | 8.6s | 15.0s | 4.8s | 2,300 | 100 |
-| 5,000 (300) | 792s | 286.8s | 19.0s | 22.6s | 12.4s | 5,300 | 100 |
+| apps (libs) | typecheck cold | typecheck warm | focus build¹ | prune | build tasks | focus closure |
+|---|---|---|---|---|---|---|
+| 200 (100) | 19.0s | 1.5s | 11.5s | 0.9s | 300 | 75 |
+| 1,000 (200) | 68.9s | 5.0s | 14.2s | 2.7s | 1,200 | 124 |
+| 2,000 (300) | 127.2s | 7.6s | 15.5s | 5.3s | 2,300 | 100 |
 
-¹ Install numbers are confounded: each scale reuses the prior `node_modules` and warm store (the 1k→2k step especially), so read them as "grows with package count", not cold-install times; dedicated cold numbers are in [TOOLING.md](TOOLING.md). ² `turbo run build --filter=<one app>...` (app + its library closure).
+¹ `turbo run build --filter=<one app>...` (app + its library closure). Turbo hashes the tracked source the way a real monorepo would: the generated workspace is made visible to Turbo for the run (build outputs stay ignored), so the warm-cache and graph-load numbers reflect real per-package hashing. Install is measured cleanly and separately, each scale from scratch, in [TOOLING.md](TOOLING.md).
 
-Scaling factor, 200 → 5,000 apps (25x apps, ~18x packages):
+Scaling factor, 200 → 2,000 apps (10× apps, ~7.7× packages):
 
 | operation | factor | class |
 |---|---|---|
-| typecheck cold | ×15.2 | O(repo); ~linear in package count |
-| typecheck warm | ×15.8 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
-| prune | ×15.5 | O(repo); reads the whole graph to compute the closure |
-| focus build | ×2.0 | O(closure); its closure grew 75→100 pkgs while apps grew 25x |
+| typecheck cold | ×6.7 | O(repo); ~linear in package count |
+| typecheck warm | ×5.0 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
+| prune | ×5.7 | O(repo); reads the whole graph to compute the closure |
+| focus build | ×1.3 | O(closure); its closure grew 75→100 packages while apps grew 10× |
 
-Whole-workspace operations scale ~linearly with package count; the focus build tracks one app's closure (75–124 packages here), not the app count. Extrapolating to 20,000 apps puts an unscoped typecheck on the order of 20+ minutes and a full install proportionally large, while a focused build stays in the tens of seconds. The approach is to avoid unscoped whole-repo commands, not optimize them. What stays irreducibly O(repo) at that size — the lockfile, the Turbo graph-load, foundation-change blast radius — is in [LIMITS.md](LIMITS.md).
+Whole-workspace operations scale ~linearly with package count; the focus build tracks one app's closure (75–124 packages here), not the app count. Extrapolating to 20,000 apps puts an unscoped cold typecheck in the tens of minutes and a full install proportionally large, while a focused build stays in the tens of seconds. The approach is to avoid unscoped whole-repo commands, not optimize them. What stays irreducibly O(repo) at that size — the lockfile, the Turbo graph-load, foundation-change blast radius — is in [LIMITS.md](LIMITS.md).
 
 ### Charts
 ![typecheck cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)
 ![focus vs full](bench/charts/focus-vs-full.svg)
-![install vs scale](bench/charts/install-vs-scale.svg)
+![lockfile size vs scale](bench/charts/lockfile-vs-scale.svg)
 
 ### Avoiding O(repo)
 - Dev install: `turbo prune <app> --use-gitignore=false` or `pnpm deploy`, not a full `pnpm install`.
@@ -136,16 +135,19 @@ Whole-workspace operations scale ~linearly with package count; the focus build t
 
 ## Day-to-day developer simulation
 
-`scripts/dev-sim.mjs` models D developers on distinct apps working independently in a 1,000-app / 200-lib workspace (1,200 packages). Each operation is scoped with `turbo --filter` (the set `--affected` selects in CI). Turbo's input hashing respects `.gitignore`, so the sim moves the generated workspace's `.gitignore` aside for the run (a real monorepo tracks its source).
+`scripts/dev-sim.mjs` models D developers, each owning a small feature area (2 apps + 1 lib), working independently in a 1,000-app / 200-lib workspace (1,200 packages). Each operation is scoped with `turbo --filter` (the set `--affected` selects in CI). Turbo's input hashing respects `.gitignore`, and the generated workspace is gitignored, so the sim makes the source visible to Turbo for the run while keeping build outputs ignored — the way a real, source-tracked monorepo behaves.
 
-| phase | cost |
+| operation | cost |
 |---|---|
-| onboarding — a dev's first app-closure build | ~6–10s; later devs reuse foundation libs (ran 2/57, 55 cached) |
-| daily loop — edit your app → scoped typecheck+build | median ~6.0s, **ran 2 tasks of 1,200 packages** |
+| onboarding — build a dev's feature area (apps + lib closure) | median 10.8s |
+| typecheck-on-save — edit an app, typecheck it | median 4.3s |
+| build-before-push — edit an app, build it + closure | median 5.8s |
+| lib-edit — edit your own lib, rebuild it + dependents (21 here) | median 11.6s |
+| independence — a teammate's unrelated edit | **adds 0 rebuilds** to your closure |
 | edit foundation lib (`lib-003`, low layer) | **1,080 of 1,200** packages would rebuild |
 | edit high-layer lib (`lib-197`) | 21 packages would rebuild |
 
-The daily inner loop is ~6s and touches 2 tasks regardless of the 1,200-package repo — O(closure), not O(repo). Independent devs don't invalidate each other (editing app-A leaves app-B cached), and later devs reuse the libs earlier devs already built. The one expensive action is editing a widely-used foundation lib: its blast radius is its dependents (~90% of the repo here), which is why shared-lib changes lean on remote cache + CI `--affected`, and why foundation libs change rarely.
+The inner loop (typecheck-on-save 4.3s, build-before-push 5.8s) touches only the edited app's closure regardless of the 1,200-package repo — O(closure), not O(repo). Independence: a teammate editing their own app adds **zero** rebuilds to yours — apps don't depend on each other, so an unrelated app is outside your `--filter` closure and Turbo never considers it, which confirms Turbo scopes work to the closure rather than the repo. (It's measured as a baseline-vs-after-edit delta to stay robust to `next build`'s own caching; here your closure was a full cache hit both before and after the edit, so the delta is 0.) The sharper case — does editing a *shared lib* rebuild only its real dependents? — is the blast-radius rows below. The one expensive action is editing a widely-used foundation lib: its blast radius is its dependents (~90% of the repo here), which is why shared-lib changes lean on remote cache + CI `--affected`, and why foundation libs change rarely.
 
 ---
 
@@ -163,8 +165,8 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 
 ## Artifacts
 
-- One app deployed from this monorepo to Vercel (pruned subtree, cloud build): https://nextjs-monorepo-scale-demo.vercel.app (cold 34s, warm 22s).
-- Four packages published to AWS CodeArtifact for the diamond demo (~0.8s each).
+- One app deployed from this monorepo to Vercel (pruned subtree, cloud build): https://nextjs-monorepo-scale-demo.vercel.app (22s wall; `bench/deploy.json`).
+- Four packages published to AWS CodeArtifact for the diamond demo (`scripts/diamond-demo.sh`).
 
 ## Companion docs
 

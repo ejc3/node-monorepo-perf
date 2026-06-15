@@ -2,62 +2,88 @@
   "hostCores": 64,
   "scales": [
     {
-      "apps": 300,
+      "apps": 200,
       "libs": 100,
-      "sampleAppDeps": 7,
+      "depEdgesVerified": 2649,
       "pnpmIsolated": {
-        "coldMs": 84159,
-        "coldCpuPct": 111,
-        "coldRssMB": 828,
-        "warmMs": 5307,
-        "nmEntries": 11460
+        "coldMs": 48776,
+        "coldCpuPct": 131,
+        "coldRssMB": 825,
+        "warmMs": 2329,
+        "nmEntries": 15691
       },
       "pnpmHoisted": {
-        "coldMs": 84761,
-        "coldCpuPct": 110,
-        "coldRssMB": 953,
-        "warmMs": 3146,
-        "nmEntries": 10915
+        "coldMs": 47103,
+        "coldCpuPct": 132,
+        "coldRssMB": 907,
+        "warmMs": 1450,
+        "nmEntries": 12246
       },
       "bun": {
-        "coldMs": 1488,
-        "coldCpuPct": 165,
-        "coldRssMB": 587,
-        "warmMs": 103,
-        "nmEntries": 11078
+        "coldMs": 111,
+        "coldCpuPct": 230,
+        "coldRssMB": 42,
+        "warmMs": 118,
+        "nmEntries": 15409
       }
     },
     {
-      "apps": 1500,
-      "libs": 300,
-      "sampleAppDeps": 7,
+      "apps": 1000,
+      "libs": 200,
+      "depEdgesVerified": 11898,
       "pnpmIsolated": {
-        "coldMs": 447486,
-        "coldCpuPct": 108,
-        "coldRssMB": 963,
-        "warmMs": 14637,
-        "nmEntries": 12860
+        "coldMs": 232393,
+        "coldCpuPct": 134,
+        "coldRssMB": 907,
+        "warmMs": 7434,
+        "nmEntries": 31123
       },
       "pnpmHoisted": {
-        "coldMs": 419680,
-        "coldCpuPct": 115,
-        "coldRssMB": 1268,
-        "warmMs": 6450,
-        "nmEntries": 10915
+        "coldMs": 227103,
+        "coldCpuPct": 134,
+        "coldRssMB": 933,
+        "warmMs": 2960,
+        "nmEntries": 16578
       },
       "bun": {
-        "coldMs": 3147,
-        "coldCpuPct": 69,
-        "coldRssMB": 88,
-        "warmMs": 681,
-        "nmEntries": 11078
+        "coldMs": 2260,
+        "coldCpuPct": 43,
+        "coldRssMB": 72,
+        "warmMs": 2463,
+        "nmEntries": 29941
+      }
+    },
+    {
+      "apps": 2000,
+      "libs": 300,
+      "depEdgesVerified": 23350,
+      "pnpmIsolated": {
+        "coldMs": 476798,
+        "coldCpuPct": 141,
+        "coldRssMB": 1011,
+        "warmMs": 15581,
+        "nmEntries": 50159
+      },
+      "pnpmHoisted": {
+        "coldMs": 453603,
+        "coldCpuPct": 142,
+        "coldRssMB": 1157,
+        "warmMs": 4716,
+        "nmEntries": 21914
+      },
+      "bun": {
+        "coldMs": 8266,
+        "coldCpuPct": 23,
+        "coldRssMB": 98,
+        "warmMs": 10107,
+        "nmEntries": 47877
       }
     }
   ],
   "trulyCold": {
-    "apps": 300,
+    "apps": 200,
     "libs": 100,
-    "pnpmHoistedMs": 73965,
-    "bunMs": 1695
+    "pnpmHoistedMs": 48937,
+    "bunMs": 1192
   }
 }

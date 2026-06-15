@@ -21,7 +21,7 @@ They **compose**: prune to a subtree (artifact), install only that subtree (inst
 ## 1. Install-time (pnpm)
 
 ### 1.1 `node-linker` mode (footprint and strictness, not install speed)
-pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within noise), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~50x more symlinks (461 vs 9 at 300 apps). See [TOOLING.md](TOOLING.md).
+pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within ~3% on this single run), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~3x more symlinks (4,211 vs 1,459 at 300/100, full-tree). See [TOOLING.md](TOOLING.md).
 
 ```yaml
 # pnpm-workspace.yaml
@@ -32,11 +32,11 @@ nodeLinker: isolated   # default — strict, deduped, symlink farm
 - Use **`hoisted`** for symlink-incompatible tooling (some bundlers, RN, certain serverless packagers).
 - Use **`pnp`** (+ `symlink: false`) to kill the symlink farm entirely when your toolchain tolerates Plug'n'Play.
 
-### 1.2 `package-import-method: clone` on copy-on-write filesystems
-How files land in `node_modules`. On APFS/Btrfs/XFS, **reflink clones** beat hard links for speed + safety.
+### 1.2 `package-import-method` on copy-on-write filesystems
+How files land in `node_modules`. The default `auto` already tries reflink clone → hardlink → copy, so on a CoW filesystem (APFS/Btrfs/XFS) you get clones with no configuration; forcing `clone` only matters if detection is wrong. The benchmark host is ext4 (no reflink), so this is not exercised here.
 ```yaml
 # pnpm-workspace.yaml
-packageImportMethod: clone   # auto → clone → hardlink → copy
+packageImportMethod: auto   # clone (CoW) -> hardlink -> copy; clone is the fast path on CoW filesystems
 ```
 
 ### 1.3 Catalogs (`catalog:`) — dedupe versions, shrink the lockfile, stabilize cache hashes
@@ -53,8 +53,10 @@ catalog:
 ### 1.4 Focused install — prefer `pnpm deploy` / `turbo prune` over `install --filter`
 `pnpm install --filter <app>...` **looks** like "install just this app," but with a *shared workspace lockfile* it has historically resolved/installed the **entire** workspace anyway (pnpm issues [#8318](https://github.com/pnpm/pnpm/issues/8318), [#7242](https://github.com/pnpm/pnpm/issues/7242)). The structural reason: one lockfile describes the whole workspace. **Verify on your pnpm version** — and for a *reliable* per-app environment use:
 ```bash
-pnpm --filter=<app> --prod deploy ./out-app    # self-contained, isolated node_modules
-# or
+# pnpm 10+: deploy requires inject-workspace-packages=true (or --legacy),
+# else ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE
+pnpm --config.inject-workspace-packages=true --filter=<app> --prod deploy ./out-app
+# or (what this repo uses for Vercel):
 turbo prune <app> --docker && (cd out && pnpm install --frozen-lockfile)
 ```
 
@@ -81,7 +83,7 @@ turbo run build typecheck --affected            # diff main→HEAD, pick changed
 Auto-detects GitHub Actions and diffs PR base to head; override the base with `TURBO_SCM_BASE`. A one-file PR builds the changed packages and their dependents, not all of them.
 
 ### 2.3 Caching — local, then remote
-Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). In the sweep, whole-workspace typecheck warm ran 1.2s (200 apps) to 8.6s (2,000 apps), versus 19–127s cold. Remote Caching restores matching task outputs across machines instead of re-running them.
+Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). In the sweep, whole-workspace typecheck warm ran 1.5s (200 apps) to 7.6s (2,000 apps), versus 19–127s cold. Remote Caching restores matching task outputs across machines instead of re-running them.
 ```bash
 turbo run build --cache=local:rw,remote:r       # fine-grained cache source control
 npx turbo login && npx turbo link                # enable Vercel remote cache
@@ -175,10 +177,10 @@ This repo automates and times the cloud-build path in `scripts/deploy-vercel.mjs
 3. Copy root configs prune omits, e.g. `tsconfig.base.json` (else `TS5083: Cannot read file`).
 4. Configure project: Root Directory = `apps/<app>`, install + build at repo root via `turbo run build --filter=<app>`.
 
-Measured (`@demo/app-10`, 9-lib closure, iad1, 4-core builder): **cold 34s → warm 22s** (Turborepo Remote Cache enabled automatically). The cloud build linked the libs from the subtree via `workspace:*` and built `@demo/lib-01@0.0.0` etc. — i.e. **`workspace:*` deploys the in-tree source at its local version, never a registry version** (the exact-version rewrite only happens on `pnpm publish`). To deploy a *specific published* version, consume the lib by plain semver from a registry instead — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+Measured (`@demo/app-10`): **22s wall** (`bench/deploy.json`). The cloud build linked the libs from the subtree via `workspace:*` and built `@demo/lib-01@0.0.0` etc. — i.e. **`workspace:*` deploys the in-tree source at its local version, never a registry version** (the exact-version rewrite only happens on `pnpm publish`). To deploy a *specific published* version, consume the lib by plain semver from a registry instead — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
 
 ### 4.4 Publishing internal packages (AWS CodeArtifact)
-Internal packages are normally versioned independently and consumed by plain semver from a private registry. Auth goes in a scoped `.npmrc`, not the global one, or it hijacks the main workspace install; npm needs `--userconfig` since it does not walk ancestor `.npmrc` files; `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` publishes four packages to CodeArtifact (~0.7–0.9s each) and demonstrates diamond resolution and the `workspace:` override collapse.
+Internal packages are normally versioned independently and consumed by plain semver from a private registry. Auth goes in a scoped `.npmrc`, not the global one, or it hijacks the main workspace install; npm needs `--userconfig` since it does not walk ancestor `.npmrc` files; `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` publishes four packages to CodeArtifact and demonstrates diamond resolution and the `workspace:` override collapse.
 
 ---
 
