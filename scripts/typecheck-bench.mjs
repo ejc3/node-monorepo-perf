@@ -66,6 +66,9 @@ writeFileSync(
 
 const tsc = join(ROOT, "node_modules", ".bin", "tsc");
 const tsgo = join(ROOT, "node_modules", ".bin", "tsgo");
+if (!existsSync(tsc)) {
+  throw new Error(`tsc not found at ${tsc} — run \`pnpm install\` at the repo root first`);
+}
 const cfg = join(DIR, "tsconfig.json");
 const run = (bin) => {
   const t = process.hrtime.bigint();
