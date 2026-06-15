@@ -122,6 +122,7 @@ for (const { apps, libs, axis } of POINTS) {
     "run",
     "typecheck",
     "--concurrency=100%",
+    "--cache=local:rw",
     "--output-logs=errors-only",
   ]);
   clearTurbo();
@@ -132,6 +133,7 @@ for (const { apps, libs, axis } of POINTS) {
     "build",
     `--filter=${mid}...`,
     "--concurrency=100%",
+    "--cache=local:rw",
     "--output-logs=errors-only",
   ]);
   // Source is visible to git (enterSourceVisible) while build outputs stay

@@ -41,6 +41,7 @@ function timedBuild() {
       "turbo",
       "run",
       "build",
+      "--cache=local:rw",
       `--concurrency=${CONC}`,
       "--output-logs=errors-only",
     ],

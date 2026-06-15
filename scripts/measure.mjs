@@ -240,7 +240,9 @@ if (!abort && PHASES.includes("typecheck")) {
   // warm measurement meaningful; otherwise don't run/record it.
   const warm = cold.ok
     ? timed("typecheck:warm", () =>
-        sh(`pnpm exec turbo run typecheck --concurrency=${CONC} --output-logs=errors-only`),
+        sh(
+          `pnpm exec turbo run typecheck --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,
+        ),
       )
     : null;
   rec.phases.typecheck = {
@@ -256,7 +258,7 @@ if (!abort && PHASES.includes("focus")) {
   rmSync(join(ROOT, ".turbo"), { recursive: true, force: true });
   const r = timed(`focus build ${sampleApp}...`, () =>
     sh(
-      `pnpm exec turbo run build --filter=${sampleApp}... --concurrency=${CONC} --output-logs=errors-only`,
+      `pnpm exec turbo run build --filter=${sampleApp}... --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,
     ),
   );
   rec.phases.focus = { ms: r.ms, ok: r.ok, app: sampleApp };

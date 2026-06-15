@@ -81,9 +81,9 @@ function runParse(cmd) {
   return { ms, total, ran: total - cached };
 }
 const tc = (f) =>
-  `pnpm exec turbo run typecheck --filter=${f} --concurrency=100% --output-logs=errors-only`;
+  `pnpm exec turbo run typecheck --filter=${f} --cache=local:rw --concurrency=100% --output-logs=errors-only`;
 const build = (f) =>
-  `pnpm exec turbo run build --filter=${f} --concurrency=100% --output-logs=errors-only`;
+  `pnpm exec turbo run build --filter=${f} --cache=local:rw --concurrency=100% --output-logs=errors-only`;
 const dryCount = (f) => {
   let out;
   try {
@@ -139,7 +139,7 @@ try {
   for (const dev of devs) {
     const filter = dev.apps.map((a) => `--filter=${appPkg(a)}...`).join(" ");
     const r = runParse(
-      `pnpm exec turbo run build typecheck ${filter} --concurrency=100% --output-logs=errors-only`,
+      `pnpm exec turbo run build typecheck ${filter} --cache=local:rw --concurrency=100% --output-logs=errors-only`,
     );
     result.onboarding.push({
       dev: dev.id,
