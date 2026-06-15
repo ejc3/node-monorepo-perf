@@ -115,6 +115,14 @@ const rmAll = () => {
 };
 const PI = "--config.confirm-modules-purge=false";
 
+// pre-warm pnpm + bun store/metadata so resolve and full both run against a warm
+// cache — otherwise resolve (run first) warms it for full and skews resolveSharePct.
+setup(SCALES[0].apps, SCALES[0].libs);
+rmAll();
+timed("pnpm", ["install", PI]);
+rmAll();
+timed(BUN, ["install"]);
+
 const out = [];
 for (const { apps, libs } of SCALES) {
   setup(apps, libs);

@@ -2,7 +2,7 @@
 // Renders dependency-free SVG charts + a markdown summary from bench/results.json.
 //   node scripts/chart.mjs
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -209,6 +209,11 @@ if (lk.length >= 2) {
   );
 }
 
+// remove stale chart SVGs no longer generated (renamed/removed/confounded charts)
+for (const f of readdirSync(chartsDir)) {
+  if (f.endsWith(".svg") && !made.includes(f)) rmSync(join(chartsDir, f));
+}
+
 // ---- markdown summary ----
 let md = `# Benchmark results\n\nMachine: ${process.platform}, generated from \`bench/results.json\`.\n\n`;
 md += `| scale | gen | install | lockfile | node_modules | typecheck cold | typecheck warm | focus build | full build tasks | focus pkgs | prune |\n`;
@@ -216,7 +221,7 @@ md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
 for (const r of all) {
   const p = r.phases;
   md += `| **${fmtNum(r.apps)} apps / ${fmtNum(r.libs)} libs** `;
-  md += `| ${fmtMs(p.gen?.ms)} `;
+  md += `| ${!p.gen ? "—" : p.gen.ok === false ? "fail" : fmtMs(p.gen.ms)} `;
   const inst = p.install,
     gr = p.graph,
     tcr = p.typecheck;
@@ -226,7 +231,7 @@ for (const r of all) {
   md += `| ${installOk && inst.lockfileLines ? fmtNum(inst.lockfileLines) + " lines / " + fmtBytes(inst.lockfileBytes) : "—"} `;
   md += `| ${installOk && inst.nmEntries ? fmtNum(inst.nmEntries) + " entries / " + fmtBytes(inst.nmApparentBytes) : "—"} `;
   md += `| ${!tcr ? "—" : tcr.coldOk === false ? "fail" : tcr.warmupOk !== true ? "confounded" : fmtMs(tcr.coldMs)} `;
-  md += `| ${!tcr ? "—" : tcr.warmOk === false ? "fail" : fmtMs(tcr.warmMs)} `;
+  md += `| ${!tcr || tcr.coldOk !== true ? "—" : tcr.warmOk === false ? "fail" : fmtMs(tcr.warmMs)} `;
   md += `| ${!p.focus ? "—" : p.focus.ok === false ? "fail" : fmtMs(p.focus.ms)} `;
   md += `| ${graphOk ? fmtNum(gr.totalBuildTasks) : "—"} `;
   md += `| ${graphOk ? fmtNum(gr.focusPackages) : "—"} `;

@@ -54,6 +54,13 @@ const num = (script) => {
   return v;
 };
 
+// pre-warm the global store so all variants install against the same warm store
+// (no network) — not a cache-order artifact of whichever variant ran first.
+sh(`node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --clean`);
+rmSync(join(ROOT, "node_modules"), { recursive: true, force: true });
+rmSync(join(ROOT, "pnpm-lock.yaml"), { force: true });
+sh(`pnpm install --config.confirm-modules-purge=false`);
+
 const results = [];
 for (const v of VARIANTS) {
   console.log(`\n=== ${v.label} (${v.note}) @ ${APPS} apps / ${LIBS} libs ===`);

@@ -212,6 +212,13 @@ const persist = () =>
   writeFileSync(join(REPO, "bench/install-bench.json"), JSON.stringify(out, null, 2));
 
 console.log(`host: ${CORES} cores`);
+// pre-warm the global content store so every per-scale "cold" (no lockfile) is a
+// genuine warm-store install (no network), as documented — not a cache-order
+// artifact of whichever scale ran first. The truly-cold pass below uses its own
+// fresh --store-dir to measure the network-cold case.
+setup(SCALES[0].apps, SCALES[0].libs);
+timedInstall("pnpm", [...PI, "--config.node-linker=isolated"]); // discard timing
+
 for (const { apps, libs } of SCALES) {
   setup(apps, libs);
 

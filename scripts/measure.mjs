@@ -229,15 +229,18 @@ if (!abort && PHASES.includes("typecheck")) {
       `pnpm exec turbo run typecheck --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,
     ),
   );
-  const warm = timed("typecheck:warm", () =>
-    sh(`pnpm exec turbo run typecheck --concurrency=${CONC} --output-logs=errors-only`),
-  );
+  // warm cache is populated BY the cold run, so only a successful cold makes the
+  // warm measurement meaningful; otherwise don't run/record it.
+  const warm = cold.ok
+    ? timed("typecheck:warm", () =>
+        sh(`pnpm exec turbo run typecheck --concurrency=${CONC} --output-logs=errors-only`),
+      )
+    : null;
   rec.phases.typecheck = {
     coldMs: cold.ms,
-    warmMs: warm.ms,
     coldOk: cold.ok,
-    warmOk: warm.ok,
     warmupOk,
+    ...(warm ? { warmMs: warm.ms, warmOk: warm.ok } : {}),
   };
 }
 

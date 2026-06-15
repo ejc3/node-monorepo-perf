@@ -72,6 +72,22 @@ const dry = (filter) => {
   return j.packages?.length ?? null;
 };
 
+// pre-warm the global store so every measured install is warm-store (no network),
+// not a cache-order artifact of whichever point ran first.
+sh("node", [
+  "scripts/generate.mjs",
+  "--apps",
+  "200",
+  "--libs",
+  "100",
+  "--modules",
+  "16",
+  "--clean",
+]);
+rmSync(join(REPO, "node_modules"), { recursive: true, force: true });
+rmSync(join(REPO, "pnpm-lock.yaml"), { force: true });
+sh("pnpm", ["install", "--config.confirm-modules-purge=false"]);
+
 const out = [];
 for (const { apps, libs, axis } of POINTS) {
   const appW = String(apps).length;
