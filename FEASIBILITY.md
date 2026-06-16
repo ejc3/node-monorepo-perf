@@ -8,7 +8,8 @@ polyrepo).
 
 Every benchmark number traces to a `bench/*.json` file produced by `scripts/`;
 external claims are linked to their source. Stack: pnpm 10.29, Turborepo 2.9.18,
-Next 16.2.9, Node 22, on a 64-core arm64 box (`bench/env.json`). Measured at 200,
+Node 22, on a 64-core arm64 box (`bench/env.json`); Next 16.2.9
+(`bench/turbopack-bench.json`). Measured at 200,
 1,000, 2,000, and 4,000 apps (300 / 1,200 / 2,300 / 4,300 packages); larger sizes
 are labeled extrapolation.
 
@@ -38,7 +39,7 @@ The whole-workspace operations grow ~linearly with package count (`results.json`
 
 | O(repo) operation | 200 apps | 2,000 apps | 4,000 apps | when it is paid |
 |---|---|---|---|---|
-| cold install (no lockfile: resolve + materialize) | 48s | 472s | 984s (16.4m) | first install / blown `node_modules` / cold CI |
+| cold install (no lockfile: resolve + materialize) | 48s | 472s | 984s (16.4m) | first install / deleted lockfile (a CI runner with the committed lockfile does a frozen install instead — ~9s, see install modes below) |
 | cold typecheck (no cache) | 19s | 127s | 233s | a cache-busting change |
 | warm typecheck (full cache hit) | 1.5s | 7.6s | 20.5s | every whole-repo `turbo` run |
 | lockfile size | 9,897 | 79,967 | 153,967 lines | written once, read by all |
@@ -50,7 +51,7 @@ amortizer:
 
 | O(repo) cost | paid on | amortizer |
 |---|---|---|
-| full resolve (98–99% of a cold install, `lockfile-bench.json`) | **no usable lockfile** (first install / cold CI). A *dependency change* with the lockfile present is incremental, not full — see below. | the committed lockfile: one machine resolves + commits; everyone else `--frozen-lockfile` reads it and skips the resolve |
+| full resolve (98–99% of a cold install, `lockfile-bench.json`) | **no usable lockfile** (first install / deleted lockfile). A *dependency change* with the lockfile present is incremental, not full — see below. | the committed lockfile: one machine resolves + commits; everyone else `--frozen-lockfile` reads it and skips the resolve |
 | materialize `node_modules` (the other 1–2%) | every fresh checkout | warm store (no re-download); `turbo prune` installs only one app's closure on CI |
 | cold typecheck | a cache-busting change | Remote Cache: a task runs once anywhere, others download the output (`FULL TURBO`); `--affected` only considers changed packages |
 | graph-load | every `turbo` command | inherent (compute the closure); Vercel reports an 11× cut, ~1,000 pkgs 8.1s→0.7s ([blog](https://vercel.com/blog/making-turborepo-ninety-six-percent-faster-with-agents-sandboxes-and-humans)) |
@@ -58,10 +59,12 @@ amortizer:
 
 ### "Paid once" means once per *change*, not once per *person or machine*
 
-- **Resolve once, reused via git.** The full resolve is paid by whoever changes a
-  dependency and committed to `pnpm-lock.yaml`. Every teammate, CI runner, and
-  deploy runs `pnpm install --frozen-lockfile`, which reads the lockfile and skips
-  the resolve — so the cost does not multiply with the number of people or runners.
+- **Resolve once, reused via git.** The resolve's result — the lockfile — is
+  committed to `pnpm-lock.yaml`. The full from-scratch resolve happens only when the
+  lockfile is first created; a later dependency change re-resolves just the delta
+  (incremental, see below). Either way, every teammate, CI runner, and deploy runs
+  `pnpm install --frozen-lockfile`, which reads the committed lockfile and skips
+  resolution — so the cost does not multiply with the number of people or runners.
 - **Build once, reused via cache.** A task with input-hash `H` runs once anywhere;
   others with the same `H` download the output. Cold typecheck 233s @4k → cached
   20.5s for everyone else (`results.json` warm typecheck).
@@ -77,13 +80,14 @@ amortization is automatic (the lockfile is in git).
 
 Each O(repo) cost is dormant until a specific trigger fires it:
 
-- **Cold install** bites on: a fresh clone with no `node_modules`; a deleted
-  `node_modules`; a CI runner with a cold cache. Not on a dev-server start, a
-  branch switch with an unchanged lockfile, or a warm re-install.
-- **The full from-scratch resolve** bites **only with no usable lockfile** (first
-  install, deleted/corrupt lockfile, `--no-lockfile`). A dependency change with the
-  lockfile present is incremental — pnpm reuses locked versions and re-resolves only
-  the delta (`install-modes-bench.json`, 1,000 apps, lockfile 41,069 lines):
+- **The full from-scratch resolve (16 min @4k) bites only when there is no usable
+  lockfile** — the first install, or a deleted/corrupt lockfile, or `--no-lockfile`.
+  It does **not** bite on a fresh clone, a cold CI runner, or a deleted
+  `node_modules` *as long as the committed lockfile is present* — those read the
+  lockfile and take the cheap path (link, plus a download if the store is cold). A
+  dependency change with the lockfile present is also incremental, not from-scratch —
+  pnpm reuses locked versions and re-resolves only the delta
+  (`install-modes-bench.json`, 1,000 apps, lockfile 41,069 lines):
 
   | install situation | time | % of cold |
   |---|---|---|
@@ -93,9 +97,10 @@ Each O(repo) cost is dormant until a specific trigger fires it:
   | frozen, warm store (returning machine / CI) | 7.3s | 3% |
   | frozen, cold store (new CI runner) | 8.9s | 4% |
 
-  So a one-dep change is ~10s, not minutes; `--frozen-lockfile` never resolves. The
-  exception is a **catalog bump** (51.8s): it re-resolves that shared dep across
-  every importer — cheap in *edits* (0 manifests), not in *time*.
+  So a one-dep change is ~10s and a fresh clone / cold CI runner is ~7–9s (frozen);
+  only the no-lockfile case is the 233s/16-min resolve. The exception is a **catalog
+  bump** (51.8s): it re-resolves that shared dep across every importer — cheap in
+  *edits* (0 manifests), not in *time*.
 - **Cold typecheck** bites when a change invalidates many packages' cache: a shared
   `tsconfig`/toolchain bump, a low-layer foundation-lib edit (rebuilds ~90% of the
   repo, `dev-sim.json` blast radius), or any cache miss with no remote cache. A PR
@@ -142,8 +147,9 @@ required**. The resolve dominates pnpm's install, and bun's install is much fast
 Both package managers can do the strict setup; the difference is install speed vs
 how long the strict toolchain has existed. bun 1.3+ has an isolated linker (default
 for workspaces, [docs](https://bun.com/docs/pm/isolated-installs)), catalogs and
-the `workspace:` protocol with pnpm-lockfile migration
-([docs](https://bun.com/docs/install/workspaces)). The isolated-installs + catalogs
+the `workspace:` protocol ([docs](https://bun.com/docs/pm/workspaces)) with
+pnpm-lockfile migration ([docs](https://bun.com/docs/pm/lockfile)). The
+isolated-installs + catalogs
 combination had critical bugs in bun 1.3
 ([oven-sh/bun#23615](https://github.com/oven-sh/bun/issues/23615)), with the
 documented workaround being the hoisted linker (which reintroduces phantom
@@ -185,11 +191,11 @@ Cells not benchmarked on bun are marked *(unverified)*.
 
 | capability your setup needs | pnpm 10 | bun 1.3 |
 |---|---|---|
-| catalogs (centralize shared) | yes (`pnpm-workspace.yaml`) | yes ([docs](https://bun.com/docs/install/workspaces)); isolated+catalog had bugs in 1.3 ([#23615](https://github.com/oven-sh/bun/issues/23615)) |
-| `workspace:` + publish-rewrite to npm | yes | `bun publish` rewrites `workspace:` *(not benchmarked here)* |
+| catalogs (centralize shared) | yes (`pnpm-workspace.yaml`) | yes ([docs](https://bun.com/docs/pm/workspaces)); isolated+catalog had bugs in 1.3 ([#23615](https://github.com/oven-sh/bun/issues/23615)) |
+| `workspace:` + publish-rewrite to npm | yes | `bun publish` rewrites `workspace:` ([docs](https://bun.com/docs/pm/workspaces)) *(not benchmarked here)* |
 | semver-internal resolves from registry | yes (`link-workspace-packages=false`) | `workspace:` → local; plain-semver local-vs-registry behavior *(verify on your bun)* |
 | isolated linker (no phantom deps) | yes (default) | yes (default for workspaces, [docs](https://bun.com/docs/pm/isolated-installs)) |
-| lockfile merge conflicts auto-resolved | yes, measured (253→0) | `bun.lock` ([docs](https://bun.com/docs/install/lockfile)) *(auto-resolve not benchmarked here)* |
+| lockfile merge conflicts auto-resolved | yes, measured (253→0) | `bun.lock` ([docs](https://bun.com/docs/pm/lockfile)) *(auto-resolve not benchmarked here)* |
 | whole-workspace cold install at scale | slow (16 min @4k); resolve-once, frozen elsewhere | 58–440× faster install (measured) |
 
 The two paths, side by side (no recommendation):
