@@ -98,24 +98,25 @@ Generating and installing tens of thousands of apps materializes a large `node_m
 
 ## Results: scaling behavior
 
-Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Three scale points, 200 → 2,000 apps (10× apps, ~7.7× packages); larger scales extrapolate from this trend. Produced by `make sweep` (`scripts/measure.mjs` per scale → `bench/results.json`).
+Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Four scale points, 200 → 4,000 apps (20× apps, ~14× packages); larger scales extrapolate from this trend. Produced by `make sweep` (`scripts/measure.mjs` per scale → `bench/results.json`).
 
 | apps (libs) | typecheck cold | typecheck warm | focus build¹ | prune | build tasks | focus closure |
 |---|---|---|---|---|---|---|
 | 200 (100) | 19.0s | 1.5s | 11.5s | 0.9s | 300 | 75 |
 | 1,000 (200) | 68.9s | 5.0s | 14.2s | 2.7s | 1,200 | 124 |
 | 2,000 (300) | 127.2s | 7.6s | 15.5s | 5.3s | 2,300 | 100 |
+| 4,000 (300) | 233.4s | 20.5s | 21.1s | 7.6s | 4,300 | 121 |
 
 ¹ `turbo run build --filter=<one app>...` (app + its library closure). Turbo hashes the tracked source the way a real monorepo would: the generated workspace is made visible to Turbo for the run (build outputs stay ignored), so the warm-cache and graph-load numbers reflect real per-package hashing. Install is measured cleanly and separately, each scale from scratch, in [TOOLING.md](TOOLING.md).
 
-Scaling factor (computed from the table above), 200 → 2,000 apps (10× apps, ~7.7× packages):
+Scaling factor (computed from the table above), 200 → 4,000 apps (20× apps, ~14× packages):
 
 | operation | factor | class |
 |---|---|---|
-| typecheck cold | ×6.7 | O(repo); ~linear in package count |
-| typecheck warm | ×5.0 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
-| prune | ×5.7 | O(repo); reads the whole graph to compute the closure |
-| focus build | ×1.3 | O(closure); its closure grew 75→100 packages while apps grew 10× |
+| typecheck cold | ×12.3 | O(repo); ~linear in package count (×14) |
+| typecheck warm | ×13.3 | O(repo); Turbo enumerates + hashes every package even on a full cache hit |
+| prune | ×8.3 | O(repo); reads the whole graph to compute the closure |
+| focus build | ×1.8 | O(closure); its closure grew 75→121 packages while apps grew 20× |
 
 Whole-workspace operations scale ~linearly with package count; the focus build tracks one app's closure (75–124 packages here), not the app count. Extrapolating to 20,000 apps puts an unscoped cold typecheck in the tens of minutes and a full install proportionally large, while a focused build stays in the tens of seconds. The approach is to avoid unscoped whole-repo commands, not optimize them. What stays irreducibly O(repo) at that size — the lockfile, the Turbo graph-load, foundation-change blast radius — is in [LIMITS.md](LIMITS.md).
 

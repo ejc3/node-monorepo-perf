@@ -151,5 +151,56 @@
         "outFiles": 1891
       }
     }
+  },
+  {
+    "label": "4000x300",
+    "apps": 4000,
+    "libs": 300,
+    "modules": 16,
+    "framework": "next",
+    "versioned": false,
+    "phases": {
+      "gen": {
+        "ms": 2048,
+        "ok": true,
+        "approxFiles": 29700,
+        "generateMs": 2021
+      },
+      "install": {
+        "ms": 984426,
+        "ok": true,
+        "lockfileBytes": 4318777,
+        "lockfileLines": 153967,
+        "nmEntries": 86749,
+        "nmSymlinks": 49712,
+        "nmApparentBytes": 434275728
+      },
+      "graph": {
+        "totalBuildTasks": 4300,
+        "focusTasks": 121,
+        "focusPackages": 121,
+        "sampleApp": "@demo/app-2000"
+      },
+      "typecheck": {
+        "coldMs": 233426,
+        "coldOk": true,
+        "warmupOk": true,
+        "warmMs": 20506,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 21071,
+        "ok": true,
+        "app": "@demo/app-2000"
+      },
+      "prune": {
+        "ms": 7614,
+        "ok": true,
+        "app": "@demo/app-2000",
+        "outApparentBytes": 1805022,
+        "outPackages": 122,
+        "outFiles": 2290
+      }
+    }
   }
 ]
