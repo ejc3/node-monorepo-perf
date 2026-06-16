@@ -43,6 +43,14 @@ const APP_DEPS = intOpt("app-deps", "4", 0); // lib deps per app
 const LIB_DEPS = intOpt("lib-deps", "3", 0); // lib->lib deps
 const LAYERS = intOpt("layers", "6", 1); // dependency layers (layerSize divides by it)
 const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
+// Version skew: pin --skew% of apps to off-catalog react/react-dom versions, to
+// model a real rollout where not every app is on the catalog version at once.
+// Skewed apps stop sharing the catalog version → extra lockfile/store entries and
+// divergent Turbo input hashes (fewer cache hits). 0 = fully catalogued (default).
+const SKEW_PCT = intOpt("skew", "0", 0);
+const SKEW_VERSIONS = ["19.1.0", "19.0.0"]; // real react/react-dom versions off the 19.2.7 catalog
+const isSkewed = (i) => SKEW_PCT > 0 && i <= Math.round((APPS * SKEW_PCT) / 100);
+const skewVer = (i) => SKEW_VERSIONS[i % SKEW_VERSIONS.length];
 const FRAMEWORK = opt("framework", "next"); // "next" | "vite"
 if (!["next", "vite"].includes(FRAMEWORK)) {
   console.error(`unknown --framework "${FRAMEWORK}" (use next|vite)`);
@@ -203,6 +211,8 @@ function appPackageJson(i) {
   const deps = appDeps(i);
   const libDepsObj = Object.fromEntries(deps.map((d) => [libPkg(d), wsSpec(d)]));
   const vite = FRAMEWORK === "vite";
+  // most apps reference the shared catalog version; skewed apps pin an off-catalog one
+  const reactSpec = isSkewed(i) ? skewVer(i) : "catalog:";
   return JSON.stringify(
     {
       name: appPkg(i),
@@ -213,8 +223,8 @@ function appPackageJson(i) {
         ? { build: "vite build", dev: "vite", preview: "vite preview", typecheck: "tsc --noEmit" }
         : { build: "next build", dev: "next dev", start: "next start", typecheck: "tsc --noEmit" },
       dependencies: vite
-        ? { react: "catalog:", "react-dom": "catalog:", ...libDepsObj }
-        : { next: "catalog:", react: "catalog:", "react-dom": "catalog:", ...libDepsObj },
+        ? { react: reactSpec, "react-dom": reactSpec, ...libDepsObj }
+        : { next: "catalog:", react: reactSpec, "react-dom": reactSpec, ...libDepsObj },
       devDependencies: vite
         ? {
             vite: "catalog:",

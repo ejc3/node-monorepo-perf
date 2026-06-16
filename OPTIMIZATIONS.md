@@ -51,7 +51,7 @@ catalog:
 ```
 
 ### 1.4 Focused install — prefer `pnpm deploy` / `turbo prune` over `install --filter`
-`pnpm install --filter <app>...` still resolves the whole-workspace lockfile — there is only one — but on **pnpm 10.29 it scopes what it materializes**. Measured (`scripts/focus-install-bench.mjs`, 80 apps / 25 libs): a filtered install linked `node_modules` for only **1 of 80 apps** (the target plus its 14-package closure), versus **80/80** for a full install. The older reports of `--filter` installing the entire workspace (pnpm [#8318](https://github.com/pnpm/pnpm/issues/8318), [#7242](https://github.com/pnpm/pnpm/issues/7242)) do not reproduce here. So the lockfile stays O(repo), but the per-app **materialization** is scoped. For a self-contained per-app environment (its own pruned lockfile) use:
+`pnpm install --filter <app>...` still resolves the whole-workspace lockfile — there is only one — but on **pnpm 10.29 it scopes what it materializes**. Measured (`scripts/focus-install-bench.mjs`, 80 apps / 25 libs): a filtered install linked `node_modules` for only **1 of 80 apps** (the target plus its 14-package closure), versus **80/80** for a full install. So the lockfile stays O(repo), but the per-app **materialization** is scoped. For a self-contained per-app environment (its own pruned lockfile) use:
 ```bash
 # pnpm 10+: deploy requires inject-workspace-packages=true (or --legacy),
 # else ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE
@@ -70,7 +70,7 @@ The single shared lockfile is O(repo): small intents move a lot of it. Measured 
 | bump one shared version via `catalog:` (one line) | **0** | 255 / 255 |
 | pin the same version per-app in 25 apps (version skew) | 25 | 57 / 50 |
 
-The `package.json` column is the apples-to-apples comparison: a catalog bump edits **0** app manifests, the same change pinned per-app edits **25** — that's the merge-conflict surface. The lockfile columns are not same-scope (the catalog row re-resolves the dep for every importer; the skew row only the 25 pinned apps), but both move it. A one-line `catalog:` bump rewrites hundreds of lockfile lines because it re-resolves that dependency for every importer — and two such bumps on different branches **conflict**: a real `git merge` of two version bumps produced **253 conflict markers** in `pnpm-lock.yaml`. You don't hand-resolve that: after choosing the source version, **`pnpm install` drove the 253 markers to 0** — pnpm [auto-resolves lockfile merge conflicts](https://pnpm.io/git). (pnpm v9 was worse: per-component peer-dep listing made 10k+-char lines and 13k-line no-op diffs, discussion [#8180](https://github.com/orgs/pnpm/discussions/8180).)
+The `package.json` column is the apples-to-apples comparison: a catalog bump edits **0** app manifests, the same change pinned per-app edits **25** — that's the merge-conflict surface. The lockfile columns are not same-scope (the catalog row re-resolves the dep for every importer; the skew row only the 25 pinned apps), but both move it. A one-line `catalog:` bump rewrites hundreds of lockfile lines because it re-resolves that dependency for every importer — and two such bumps on different branches **conflict**: a real `git merge` of two version bumps produced **253 conflict markers** in `pnpm-lock.yaml`. You don't hand-resolve that: after choosing the source version, **`pnpm install` drove the 253 markers to 0** — pnpm [auto-resolves lockfile merge conflicts](https://pnpm.io/git).
 
 Mitigations, each verified in `lockfile-merge-bench.mjs`, in order:
 - **Catalogs (§1.3)** keep a version edit to one line and out of every app's `package.json` (0 vs 25 manifest changes above), so rollouts don't cause `package.json` merge conflicts.
@@ -124,9 +124,9 @@ In this benchmark, aggregate build cost is dominated by per-app build startup ti
 
 ### 3.1 Turbopack for builds (Next 16)
 ```bash
-next build --turbopack       # Rust bundler; big dev/HMR wins, faster cold start on large codebases
+next build       # Next 16: Turbopack is the default production bundler
 ```
-Turbopack supports Fast Refresh and incremental bundling and is generally faster for dev. For production builds, measure both build time and output bundle size when switching; results vary by app.
+Measured (`scripts/turbopack-bench.mjs`): on Next 16.2.9, `next build` and `next build --turbopack` produce byte-identical output (2.7s, 3.90 MB) — `--turbopack` is a no-op because Turbopack is already the default. It also powers `next dev` (Fast Refresh, incremental). The bundler is not a choice to tune on Next 16.
 
 ### 3.2 `output: 'standalone'` — tiny deploy artifacts
 ```js
@@ -205,12 +205,11 @@ Internal packages are normally versioned independently and consumed by plain sem
 ## 5. Sharp edges — verified live on this stack (pnpm 10.29, turbo 2.9.18)
 
 Verified here (`scripts/focus-install-bench.mjs`):
-1. **`pnpm install --filter app...` scopes materialization** despite the shared lockfile: 1/80 app `node_modules` under `--filter=app...` vs 80/80 for a full install (§1.4). The older "installs everything" reports ([#8318](https://github.com/pnpm/pnpm/issues/8318)) don't reproduce; the lockfile is still O(repo), so for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
+1. **`pnpm install --filter app...` scopes materialization** despite the shared lockfile: 1/80 app `node_modules` under `--filter=app...` vs 80/80 for a full install (§1.4). The lockfile is still O(repo), so for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
 2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). #7732's internal-dep omission did not reproduce (§4.1).
 
-Still to confirm on your own stack:
-3. **Turbopack production builds** can regress bundle size even while speeding the build — measure both.
-4. **Inode/symlink count** from the `isolated` linker can dominate install on 10k packages — watch `df -i` and consider `hoisted`/`pnp`/`clone`.
+3. **Next 16 builds with Turbopack** (`scripts/turbopack-bench.mjs`): `next build` and `next build --turbopack` produced byte-identical output (2.7s, 3.90 MB on Next 16.2.9) — Turbopack is the default and `--turbopack` is a no-op. The bundler is not a tunable variable on Next 16.
+4. **The `isolated` linker is inode-heavy** — measured **50,159** `node_modules` entries vs hoisted's **21,914** at 2,000 apps (`install-bench.json`), ~3× the symlinks (4,211 vs 1,459 at 300/100, `perf-matrix.json`), and **86,749 entries / 49,712 symlinks** at 4,000 apps (`results.json`). At ~10k packages this dominates filesystem/inode pressure — watch `df -i`; `hoisted` roughly halves the entries and `pnp` eliminates `node_modules` entirely.
 
 ---
 

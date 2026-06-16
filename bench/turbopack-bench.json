@@ -1,0 +1,21 @@
+{
+  "apps": 8,
+  "libs": 4,
+  "app": "@demo/app-4",
+  "pnpm": "10.29.1",
+  "next": "Next.js v16.2.9",
+  "webpack": {
+    "ms": 2665,
+    "bundleBytes": 3901046,
+    "dotNextBytes": 3901410,
+    "bundlerReported": "turbopack"
+  },
+  "turbopack": {
+    "ms": 2657,
+    "bundleBytes": 3901046,
+    "dotNextBytes": 3901410,
+    "bundlerReported": "turbopack"
+  },
+  "buildSpeedup": 1,
+  "bundleSizeDeltaPct": 0
+}
