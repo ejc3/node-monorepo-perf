@@ -135,10 +135,11 @@ function setup(ws) {
   );
 }
 
-// Detect how pnpm materialized node_modules: hardlink (shared inode, link count
-// > 1) vs reflink (distinct inode, shared physical extents) vs copy. Compares a
-// real package file in node_modules against its store original.
-function importMethod(ws, store) {
+// Detect how pnpm materialized node_modules by inspecting a real file under the
+// virtual store: hardlink (shared inode, link count > 1) vs reflink (distinct
+// inode, shared extents — confirmed on btrfs via the exclusive-bytes check in the
+// caller) vs copy.
+function importMethod(ws) {
   // pick a concrete file under the virtual store's package dir. `-print -quit`
   // stops find at the first match with no downstream pipe (no SIGPIPE).
   const pnpmDir = join(ws, "node_modules", ".pnpm");
@@ -180,36 +181,39 @@ for (const { label, root } of TARGETS) {
     // store -> node_modules materialization, the FS-sensitive operation.
     sh("bash", [
       "-c",
-      `set -o pipefail; find ${JSON.stringify(ws)} -name node_modules -type d -prune -exec rm -rf {} + ; rm -f ${JSON.stringify(join(ws, "node_modules", ".modules.yaml"))}`,
+      `set -euo pipefail; find ${JSON.stringify(ws)} -name node_modules -type d -prune -exec rm -rf {} +`,
     ]);
-    const relinkMs = timed("pnpm", ["install", "--config.node-linker=isolated", ...STORE], {
-      cwd: ws,
-    });
+    // --offline proves the timed step is pure store->node_modules materialization,
+    // not network (the store was warmed above).
+    const relinkMs = timed(
+      "pnpm",
+      ["install", "--offline", "--config.node-linker=isolated", ...STORE],
+      { cwd: ws },
+    );
     verifyComplete(ws);
 
-    // Footprint of the workspace node_modules trees.
-    const nmFind = `find ${JSON.stringify(ws)} -name node_modules -type d -prune`;
-    const apparentBytes = statInt(`${nmFind} -exec du -sb {} + | awk '{s+=$1} END{print s+0}'`);
-    const duActualBytes = statInt(
-      `${nmFind} -exec du -s --block-size=1 {} + | awk '{s+=$1} END{print s+0}'`,
-    );
+    // Footprint of the root node_modules — its .pnpm virtual store holds all the
+    // real files; per-app node_modules are symlinks into it. All three metrics use
+    // the SAME path so apparent / du-actual / btrfs-exclusive are comparable.
+    const nm = JSON.stringify(join(ws, "node_modules"));
+    const apparentBytes = statInt(`du -sb ${nm} | awk '{print $1}'`);
+    const duActualBytes = statInt(`du -s --block-size=1 ${nm} | awk '{print $1}'`);
 
-    // btrfs reflink-aware accounting (Exclusive = bytes unique to node_modules).
+    // btrfs reflink-aware accounting (Exclusive = bytes unique to node_modules, not
+    // shared with the store). Fail loud on a btrfs target rather than swallow.
     let btrfsExclusiveBytes = null;
     if (fstype === "btrfs") {
-      const du = sh("bash", [
-        "-c",
-        `btrfs filesystem du -s --raw ${JSON.stringify(ws)}/node_modules 2>/dev/null || true`,
-      ]);
+      const du = sh("bash", ["-c", `btrfs filesystem du -s --raw ${nm}`]);
       const m = du.match(/^\s*(\d+)\s+(\d+)/m); // Total Exclusive
-      if (m) btrfsExclusiveBytes = parseInt(m[2], 10);
+      if (!m) throw new Error(`could not parse \`btrfs filesystem du\` output:\n${du}`);
+      btrfsExclusiveBytes = parseInt(m[2], 10);
     }
 
     // Classify how node_modules was materialized. Hardlink: shared inode (link
     // count > 1), detected by importMethod. Reflink: distinct inode but ~all
     // extents shared with the store — on btrfs that is near-zero `btrfs
     // filesystem du` exclusive bytes, which is more reliable than filefrag flags.
-    let method = importMethod(ws, store);
+    let method = importMethod(ws);
     if (
       fstype === "btrfs" &&
       btrfsExclusiveBytes != null &&

@@ -228,3 +228,26 @@ mkdirSync(join(REPO, "bench"), { recursive: true });
 writeFileSync(join(REPO, "bench/lockfile-merge-bench.json"), JSON.stringify(out, null, 2));
 rmSync(DIR, { recursive: true, force: true });
 console.log(JSON.stringify(out, null, 2));
+
+// This is a verification artifact backing the docs — fail loud if any demo did not
+// behave as claimed (don't just record a regressed result).
+const checks = [
+  ["catalog shields manifests (0 changed)", out.catalogBump.manifestsChanged === 0],
+  ["pinning/skew edits per-app manifests", out.pinnedBump.manifestsChanged === out.pinnedBump.apps],
+  ["adding a dep churns the lockfile", out.churnOneDep.lockfile.added > 0],
+  [
+    "a real merge conflicts the lockfile",
+    out.mergeAutoResolve.mergeExitNonZero &&
+      out.mergeAutoResolve.lockfileConflicted &&
+      out.mergeAutoResolve.lockfileConflictMarkersBefore > 0,
+  ],
+  [
+    "pnpm install resolves the lockfile conflict",
+    out.mergeAutoResolve.pnpmResolvedLockfile === true,
+  ],
+  ["git branch lockfile created", out.gitBranchLockfile.created === true],
+];
+const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
+if (failed.length) {
+  throw new Error(`lockfile-merge-bench: demonstrations regressed:\n- ${failed.join("\n- ")}`);
+}
