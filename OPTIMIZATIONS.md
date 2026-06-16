@@ -40,7 +40,7 @@ packageImportMethod: auto   # clone (CoW) -> hardlink -> copy; clone is the fast
 ```
 
 ### 1.3 Catalogs (`catalog:`) — dedupe versions, shrink the lockfile, stabilize cache hashes
-Define each shared version **once**; reference it from all 10k apps + 300 libs. This is already wired into this repo's `pnpm-workspace.yaml`. Identical versions everywhere → smaller lockfile, deduped store, and — critically — **identical Turborepo input hashes**, which maximizes cache hits. Measured (`scripts/lockfile-merge-bench.mjs`, 200 apps / 50 libs): rolling one shared version through the catalog changed **0** of the apps' `package.json` files (only `pnpm-workspace.yaml` + the lockfile), versus **25** `package.json` files when the same dependency is pinned per-app — so a rollout edits one line, not every app, and no app-manifest merge conflicts arise (the lockfile still moves; see §1.5).
+Define each shared version **once**; reference it from all 10k apps + 300 libs. This is already wired into this repo's `pnpm-workspace.yaml`. Identical versions everywhere → smaller lockfile, deduped store, and — critically — **identical Turborepo input hashes**, which maximizes cache hits. Measured (`scripts/lockfile-merge-bench.mjs`, 200 apps / 50 libs): rolling one shared version through the catalog changed **0** of the apps' `package.json` files (only `pnpm-workspace.yaml` + the lockfile, which moved 255 lines added / 255 removed), versus **25** `package.json` files when the same dependency is pinned per-app — so a rollout edits one line, not every app, and no app-manifest merge conflicts arise (the lockfile still moves; see §1.5).
 ```yaml
 catalog:
   next: 16.2.9
@@ -56,20 +56,21 @@ catalog:
 # pnpm 10+: deploy requires inject-workspace-packages=true (or --legacy),
 # else ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE
 pnpm --config.inject-workspace-packages=true --filter=<app> --prod deploy ./out-app
-# or (what this repo uses for Vercel): plain prune → out/ has source + pruned lockfile
-turbo prune <app> && (cd out && pnpm install --frozen-lockfile)
+# or build a per-app subtree via the verified docker-layer flow in §4.1 — note prune
+# omits root configs (tsconfig.base.json), which you must copy before building:
+turbo prune <app> --docker   # → install out/json, overlay out/full, copy tsconfig.base.json, build
 ```
 
 ### 1.5 Lockfile churn is a real scale tax — but pnpm auto-resolves the conflicts
 The single shared lockfile is O(repo): small intents move a lot of it. Measured (`scripts/lockfile-merge-bench.mjs`, 200 apps / 50 libs, baseline lockfile 8,869 lines):
 
-| change | `package.json` files changed | lockfile lines moved |
+| change | `package.json` files changed | lockfile lines (added / removed) |
 |---|---|---|
-| add one dependency to one app | 1 | 10 |
-| bump one shared version via `catalog:` (one line) | **0** | 255 |
-| same bump pinned per-app in 25 apps (no catalog) | 25 | 107 |
+| add one dependency to one app | 1 | 10 / 0 |
+| bump one shared version via `catalog:` (one line) | **0** | 255 / 255 |
+| pin the same version per-app in 25 apps (version skew) | 25 | 57 / 50 |
 
-A one-line `catalog:` bump rewrites hundreds of lockfile lines because it re-resolves that dependency for every importer — and two such bumps on different branches **conflict**: a real `git merge` of two version bumps produced **253 conflict markers** in `pnpm-lock.yaml`. You don't hand-resolve that: after choosing the source version, **`pnpm install` drove the 253 markers to 0** — pnpm [auto-resolves lockfile merge conflicts](https://pnpm.io/git). (pnpm v9 was worse: per-component peer-dep listing made 10k+-char lines and 13k-line no-op diffs, discussion [#8180](https://github.com/orgs/pnpm/discussions/8180).)
+The `package.json` column is the apples-to-apples comparison: a catalog bump edits **0** app manifests, the same change pinned per-app edits **25** — that's the merge-conflict surface. The lockfile columns are not same-scope (the catalog row re-resolves the dep for every importer; the skew row only the 25 pinned apps), but both move it. A one-line `catalog:` bump rewrites hundreds of lockfile lines because it re-resolves that dependency for every importer — and two such bumps on different branches **conflict**: a real `git merge` of two version bumps produced **253 conflict markers** in `pnpm-lock.yaml`. You don't hand-resolve that: after choosing the source version, **`pnpm install` drove the 253 markers to 0** — pnpm [auto-resolves lockfile merge conflicts](https://pnpm.io/git). (pnpm v9 was worse: per-component peer-dep listing made 10k+-char lines and 13k-line no-op diffs, discussion [#8180](https://github.com/orgs/pnpm/discussions/8180).)
 
 Mitigations, each verified in `lockfile-merge-bench.mjs`, in order:
 - **Catalogs (§1.3)** keep a version edit to one line and out of every app's `package.json` (0 vs 25 manifest changes above), so rollouts don't cause `package.json` merge conflicts.
