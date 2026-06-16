@@ -83,9 +83,23 @@ Each O(repo) cost is dormant until a specific trigger fires it:
   deleted `node_modules`; a CI runner with a cold cache. It does **not** bite on a
   dev-server start, a branch switch with an unchanged lockfile, or a warm
   re-install (7–16s).
-- **The resolve** (98–99% of that install) bites **only when the lockfile must be
-  regenerated** — a dependency added/removed/bumped — on the one machine making the
-  change. `--frozen-lockfile` (reading the committed lockfile) never triggers it.
+- **The full from-scratch resolve** (the 16-min one) bites **only when there is no
+  usable lockfile** — first install, deleted/corrupt lockfile, or `--no-lockfile`.
+  A **dependency change with the lockfile present is incremental, not from-scratch**
+  — pnpm reuses the locked versions and re-resolves only the delta. Measured
+  (`install-modes-bench.json`, 1,000 apps, lockfile 41k lines):
+
+  | install situation | time | % of cold |
+  |---|---|---|
+  | cold-resolve (no lockfile) | 233s | 100% |
+  | +1 dependency (lockfile present) | **9.5s** | 4% |
+  | catalog version bump (lockfile present) | 51.8s | 22% |
+  | frozen, warm store (returning machine / CI) | 7.3s | 3% |
+  | frozen, cold store (new CI runner) | 8.9s | 4% |
+
+  So a one-dep change is ~10s, not minutes; `--frozen-lockfile` never resolves at
+  all. The exception is a **catalog bump** (51.8s): it re-resolves that shared dep
+  across every importer — cheap in *edits* (0 manifests), not free in *time*.
 - **Cold typecheck/build (233s @4k)** bites when a change invalidates many
   packages' cache: a shared `tsconfig`/toolchain bump, a low-layer foundation-lib
   edit (rebuilds ~90% of the repo), or any cache miss with no remote cache. A
