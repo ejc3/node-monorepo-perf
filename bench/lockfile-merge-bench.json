@@ -1,0 +1,48 @@
+{
+  "apps": 200,
+  "libs": 50,
+  "pnpm": "10.29.1",
+  "baselineLockfileLines": 8869,
+  "churnOneDep": {
+    "dep": "nanoid",
+    "appsChanged": 1,
+    "lockfile": {
+      "added": 10,
+      "removed": 0
+    }
+  },
+  "catalogBump": {
+    "dep": "typescript 5.9->5.8.3 via catalog",
+    "manifestsChanged": 0,
+    "workspaceYamlChanged": 2,
+    "lockfile": {
+      "added": 255,
+      "removed": 255
+    }
+  },
+  "pinnedBump": {
+    "dep": "typescript 5.8.3 pinned in N apps",
+    "apps": 25,
+    "manifestsChanged": 25,
+    "lockfile": {
+      "added": 57,
+      "removed": 50
+    }
+  },
+  "mergeAutoResolve": {
+    "mergeExitNonZero": true,
+    "conflictedFiles": [
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml"
+    ],
+    "lockfileConflicted": true,
+    "lockfileConflictMarkersBefore": 253,
+    "lockfileConflictMarkersAfterPnpmInstall": 0,
+    "pnpmResolvedLockfile": true
+  },
+  "gitBranchLockfile": {
+    "setting": ".npmrc git-branch-lockfile=true",
+    "perBranchLockfile": "pnpm-lock.feature-x.yaml",
+    "created": true
+  }
+}

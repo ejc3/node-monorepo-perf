@@ -8,6 +8,8 @@
   "filteredInstall": {
     "totalApps": 80,
     "totalLibs": 25,
+    "closureApps": 1,
+    "closureLibs": 14,
     "fullInstall": {
       "appsWithNodeModules": 80,
       "libsWithNodeModules": 25

@@ -52,7 +52,14 @@ const nmCount = (group) =>
 const rmTrees = () =>
   sh("bash", [
     "-c",
-    `set -o pipefail; find ${JSON.stringify(DIR)} -name node_modules -type d -prune -exec rm -rf {} + ; rm -f ${JSON.stringify(join(DIR, "pnpm-lock.yaml"))}`,
+    `set -euo pipefail; find ${JSON.stringify(DIR)} -name node_modules -type d -prune -exec rm -rf {} + && rm -f ${JSON.stringify(join(DIR, "pnpm-lock.yaml"))}`,
+  ]);
+// drop only node_modules, keep the lockfile (for a filtered install against the
+// existing shared lockfile)
+const rmNodeModules = () =>
+  sh("bash", [
+    "-c",
+    `set -euo pipefail; find ${JSON.stringify(DIR)} -name node_modules -type d -prune -exec rm -rf {} +`,
   ]);
 
 function setup() {
@@ -123,12 +130,27 @@ const clo = closure(target);
 out.closurePackages = clo.length;
 
 // ---- A. filtered install scope ----
+// closure breakdown: apps don't depend on apps, so the app closure is just the target.
+const closureApps = clo.filter((p) => p.startsWith("@demo/app-"));
+const closureLibs = clo.filter((p) => p.startsWith("@demo/lib-"));
+const targetNm = join(
+  DIR,
+  "apps",
+  `app-${String(Math.floor(APPS / 2)).padStart(appW, "0")}`,
+  "node_modules",
+);
+
+// full install first → whole-workspace lockfile + every package materialized
 rmTrees();
 sh("pnpm", ["install", "--config.confirm-modules-purge=false"], { cwd: DIR });
 const fullApps = nmCount("apps");
 const fullLibs = nmCount("packages");
+// the whole-workspace lockfile, measured right after the FULL install
+const fullLockLines = statInt(`wc -l < ${JSON.stringify(join(DIR, "pnpm-lock.yaml"))}`);
 
-rmTrees();
+// now drop node_modules but KEEP the shared lockfile, and run a filtered install
+// against it — the realistic "I have a committed lockfile, install one app" case.
+rmNodeModules();
 sh("pnpm", ["install", `--filter=${target}...`, "--config.confirm-modules-purge=false"], {
   cwd: DIR,
 });
@@ -138,17 +160,19 @@ const filtLibs = nmCount("packages");
 out.filteredInstall = {
   totalApps: APPS,
   totalLibs: LIBS,
+  closureApps: closureApps.length, // = 1 (the target)
+  closureLibs: closureLibs.length,
   fullInstall: { appsWithNodeModules: fullApps, libsWithNodeModules: fullLibs },
   filteredInstall: { appsWithNodeModules: filtApps, libsWithNodeModules: filtLibs },
-  // if a filtered install materializes node_modules for apps outside the closure,
-  // it installed (much of) the whole workspace despite --filter.
-  scopedToClosure: filtApps <= clo.filter((p) => p.startsWith("@demo/app-")).length,
+  // scoped iff the filtered install materialized exactly the closure: only the
+  // target app, and exactly the closure's libs.
+  scopedToClosure:
+    existsSync(targetNm) && filtApps === closureApps.length && filtLibs === closureLibs.length,
 };
 
 // ---- B. turbo prune completeness + pruned-lockfile size + buildability ----
-// measure the full whole-workspace lockfile first (written by the install above)
-const fullLockLines = statInt(`wc -l < ${JSON.stringify(join(DIR, "pnpm-lock.yaml"))}`);
-// prune reads that lockfile; drop only node_modules so prune still has source + lockfile
+// prune reads the whole-workspace lockfile (fullLockLines, captured above);
+// drop only node_modules so prune still has source + lockfile
 sh("bash", [
   "-c",
   `set -euo pipefail; find ${JSON.stringify(DIR)} -name node_modules -type d -prune -exec rm -rf {} +`,
