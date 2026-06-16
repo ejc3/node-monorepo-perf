@@ -98,7 +98,7 @@ Generating and installing tens of thousands of apps materializes a large `node_m
 
 ## Results: scaling behavior
 
-Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Three scale points, 200 → 2,000 apps (10× apps, ~7.7× packages); larger scales extrapolate from this trend.
+Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Three scale points, 200 → 2,000 apps (10× apps, ~7.7× packages); larger scales extrapolate from this trend. Produced by `make sweep` (`scripts/measure.mjs` per scale → `bench/results.json`).
 
 | apps (libs) | typecheck cold | typecheck warm | focus build¹ | prune | build tasks | focus closure |
 |---|---|---|---|---|---|---|
@@ -108,7 +108,7 @@ Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pn
 
 ¹ `turbo run build --filter=<one app>...` (app + its library closure). Turbo hashes the tracked source the way a real monorepo would: the generated workspace is made visible to Turbo for the run (build outputs stay ignored), so the warm-cache and graph-load numbers reflect real per-package hashing. Install is measured cleanly and separately, each scale from scratch, in [TOOLING.md](TOOLING.md).
 
-Scaling factor, 200 → 2,000 apps (10× apps, ~7.7× packages):
+Scaling factor (computed from the table above), 200 → 2,000 apps (10× apps, ~7.7× packages):
 
 | operation | factor | class |
 |---|---|---|
@@ -135,7 +135,7 @@ Whole-workspace operations scale ~linearly with package count; the focus build t
 
 ## Day-to-day developer simulation
 
-`scripts/dev-sim.mjs` models D developers, each owning a small feature area (2 apps + 1 lib), working independently in a 1,000-app / 200-lib workspace (1,200 packages). Each operation is scoped with `turbo --filter` (the set `--affected` selects in CI). Turbo's input hashing respects `.gitignore`, and the generated workspace is gitignored, so the sim makes the source visible to Turbo for the run while keeping build outputs ignored — the way a real, source-tracked monorepo behaves.
+`scripts/dev-sim.mjs` models D developers, each owning a small feature area (2 apps + 1 lib), working independently in a 1,000-app / 200-lib workspace (1,200 packages) — table below from `node scripts/dev-sim.mjs --devs 4 --apps 1000 --libs 200`. Each operation is scoped with `turbo --filter` (the set `--affected` selects in CI). Turbo's input hashing respects `.gitignore`, and the generated workspace is gitignored, so the sim makes the source visible to Turbo for the run while keeping build outputs ignored — the way a real, source-tracked monorepo behaves.
 
 | operation | cost |
 |---|---|
