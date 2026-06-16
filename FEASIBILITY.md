@@ -183,7 +183,11 @@ source). pnpm supports both axes, and they compose:
 Catalogs handle the *shared* axis; semver-internal deps + `workspace:` injection
 handle the *independent-but-local-in-dev* axis. Mechanics, the publish-rewrite
 walkthrough, and the diamond/override cases are in
-[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md). For the fully independent end of
+the spectrum — each app its own workspace + lockfile, libs consumed from the
+registry — [WORKSPACE-VS-SEMVER.md §7](WORKSPACE-VS-SEMVER.md) materializes it live
+(`scripts/per-app-workspace-demo.sh`): a transitive lib resolving local in one app
+and from the registry in another, which one shared root cannot do per-app.
 
 ### pnpm vs bun for this hybrid
 

@@ -72,6 +72,11 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
 - `make diamond` — publish to AWS CodeArtifact; show diamond deps + `workspace:` override collapse.
+- `make per-app` — the per-app-workspace model (each app its own workspace + lockfile,
+  libs consumed from the registry). Live on CodeArtifact: a transitive lib resolving
+  local in one app and from the registry in another (which one shared root cannot do
+  per-app), plus the `workspace:^` → `^x.y.z` publish rewrite. Writeup in
+  WORKSPACE-VS-SEMVER.md §7.
 
 ### Environment
 - `node scripts/env.mjs` — capture CPU/RAM/OS/tool versions → `bench/env.json` (report with every result).
@@ -83,6 +88,20 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs` — workspace scaffolding.
 - `scripts/diamond-demo.sh` (the `make diamond` driver) → `scripts/diamond-scaffold.mjs` —
   CodeArtifact publish + diamond-deps / `workspace:`-override demo.
+- `scripts/per-app-workspace-demo.sh` (the `make per-app` driver) — scaffolds two
+  sibling app workspaces + a libs workspace into `examples/per-app-workspace`
+  (gitignored) and asserts (hard fail on mismatch) transitive per-app divergence
+  via a per-app root override, plus the `workspace:^`→`^1.0.0` rewrite (proven
+  locally with `pnpm pack`). For its own resolution proof it publishes
+  `@ejc3/util`+`@ejc3/ui` at a fixed version, fresh each run, and deletes them on
+  exit (self-cleaning). Removes the local example tree on exit; touches no `bench/*.json`.
+- `scripts/registry-resolution-demo.sh` (the `make registry-resolution` driver) —
+  the sibling demo for the three direct-spec cases (a registry / b override /
+  c `workspace:*`); publishes `@ejc3/reslib` fresh and deletes it on exit.
+- **CodeArtifact:** the dev-server role can publish AND delete versions
+  (`codeartifact:DeletePackageVersions` granted), so the publishing demos
+  (`make diamond`, `make registry-resolution`, `make per-app`) self-clean — they
+  publish a fixed version fresh (pre-deleting any leftover) and delete it on exit.
 
 ## Data of record
 

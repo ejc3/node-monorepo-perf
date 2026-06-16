@@ -9,7 +9,7 @@ MODULES ?= 16
 APP ?= @demo/app-00100
 SCALES ?= 300:100 1500:300
 
-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart deploy-vercel diamond install-bench build-bench lockfile-bench clean
+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,12 @@ deploy-vercel: ## Deploy APP to Vercel (pruned subtree, cloud build) + time it
 
 diamond: ## Publish to CodeArtifact + show diamond deps + workspace override collapse
 	bash scripts/diamond-demo.sh
+
+per-app: ## Per-app workspaces: transitive per-app divergence + workspace:^ pack rewrite (live, CodeArtifact)
+	bash scripts/per-app-workspace-demo.sh
+
+registry-resolution: ## Resolution cases a/b/c: registry vs override vs workspace:* (live, CodeArtifact)
+	bash scripts/registry-resolution-demo.sh
 
 install-bench: ## pnpm (isolated+hoisted) vs bun install across SCALES
 	node scripts/install-bench.mjs "$(SCALES)"

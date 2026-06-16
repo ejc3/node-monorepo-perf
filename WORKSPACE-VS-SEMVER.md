@@ -162,8 +162,49 @@ export default { transpilePackages: ['@ejc3/widget'] };
 
 In this repo libraries ship built `dist`, so apps consume compiled output and `transpilePackages` is not needed.
 
+## 7. Per-app workspaces: the model materialized
+
+§5 ends at a recommendation — to make one app diverge on a *transitive* dep, give it its own workspace root and lockfile. This is that model, run live on CodeArtifact: one git repo, no app-spanning workspace, each app its own pnpm workspace. `scripts/per-app-workspace-demo.sh` builds it and exercises two behaviors a single shared root cannot produce per-app (the necessity is argued in §4–§5).
+
+**The convention.** Apps commit plain semver (`"@ejc3/ui": "^1.0.0"`) and resolve libs from the registry; publishable libs commit `workspace:^` for their internal deps; `workspace:*` is the transient co-dev injection only (§2). Each app has its own `.npmrc` with `link-workspace-packages=false`. A libs-only workspace (`packages: ["libs/*"]`, never `apps/*`) builds and publishes the lib DAG; each app's own `pnpm-workspace.yaml` shadows it on install (pnpm resolves against the nearest workspace file).
+
+**Structure.** Both apps pin `@ejc3/ui` at the **same** version. `@ejc3/util` is named by neither — it is `ui`'s transitive dep. The only difference is `web`'s own root override.
+
+```
+examples/per-app-workspace/
+  pnpm-workspace.yaml   libs-only: packages: ["libs/*"]   (build + publish the libs)
+  libs/util             @ejc3/util, SOURCE="workspace-local"  (the local copy web redirects to)
+  apps/web/             own root; members [".", "../../libs/util"]
+                        dep @ejc3/ui "1.0.0";  pnpm.overrides { "@ejc3/util": "workspace:*" }
+  apps/admin/           own root; members ["."]
+                        dep @ejc3/ui "1.0.0";  (no override)
+```
+
+**Proof 1 — pnpm rewrites `workspace:^` to a real range on pack/publish** (the one mechanic the diamond demo asserts but never runs — its libs ship plain semver). The script runs `pnpm pack` on `@ejc3/ui` (whose source declares `@ejc3/util: workspace:^`) and asserts the dependency in the produced tarball — proven fresh each run, with no registry write:
+
+```
+source spec:  "@ejc3/util": "workspace:^"
+packed:       {"@ejc3/util":"^1.0.0"}
+```
+
+`npm publish` does not perform this rewrite (`FEASIBILITY.md`), so a lib with internal `workspace:`/`catalog:` deps must publish with pnpm.
+
+**Proof 2 — the same transitive lib resolves differently per app.** Each app's `@ejc3/ui` is the same registry artifact and re-exports the `SOURCE` of the `@ejc3/util` it resolved (the registry copy is marked `registry@1.0.0`, the local copy `workspace-local`). The script first asserts neither app names `@ejc3/util` directly (so it is genuinely transitive), then asserts both resolved sources exactly:
+
+```
+web    require("@ejc3/ui") = {"SOURCE":"registry@1.0.0","util":"workspace-local"}
+admin  require("@ejc3/ui") = {"SOURCE":"registry@1.0.0","util":"registry@1.0.0"}
+```
+
+Both apps run the same registry `@ejc3/ui`, yet its transitive `@ejc3/util` is local in `web` and from the registry in `admin`. The difference is that `web`'s own root carries `pnpm.overrides { "@ejc3/util": "workspace:*" }` and `admin`'s does not. §4 showed this same override in **one** shared root forces **every** consumer onto the local copy; here it is in `web`'s root only, so `admin` is unaffected. A shared root has a single overrides block and cannot scope it to one app — separate workspace roots can. The apps also hold separate lockfiles.
+
+The demo publishes `@ejc3/util` + `@ejc3/ui` to real CodeArtifact at a fixed version, fresh each run (pre-deleting any leftover), and deletes both on exit — self-cleaning.
+
+**The trade.** Observed: per-app divergence on a transitive dep, and per-app install/lockfile scope. Removed relative to the single root: the shared catalog (one-version-everywhere becomes a per-app pin in each app), the fleet `turbo` graph and cross-app `--affected`, instant lib-edit feedback in the pinned default (a lib change is publish-then-bump across the consuming apps), and the atomic cross-cutting refactor (lib + consumers in one commit). `FEASIBILITY.md` carries the full cost model and the decision criteria.
+
 ## Reproduce
 ```bash
-bash scripts/diamond-demo.sh    # publish, diamond, collapse
-pnpm gen --versioned            # workspace with semver + workspace:^x.y.z
+bash scripts/diamond-demo.sh            # publish, diamond, collapse
+bash scripts/per-app-workspace-demo.sh  # per-app workspaces: transitive divergence + publish rewrite
+pnpm gen --versioned                    # workspace with semver + workspace:^x.y.z
 ```

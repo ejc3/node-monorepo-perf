@@ -20,6 +20,28 @@ EP="https://${DOMAIN}-${OWNER}.d.codeartifact.${REGION}.amazonaws.com/npm/${REPO
 HOST="${DOMAIN}-${OWNER}.d.codeartifact.${REGION}.amazonaws.com/npm/${REPO}/"
 NPMRC="$DIR/.npmrc"
 
+del_all_versions() { # pkg — best-effort delete of EVERY published version of @ejc3/<pkg>
+  # (demo-owned throwaway). Distinguishes "not published yet" (fine, silent) from a real
+  # list/delete failure (warns), so a leftover never persists silently.
+  local vers
+  if ! vers=$(aws codeartifact list-package-versions --domain "$DOMAIN" --domain-owner "$OWNER" \
+      --repository "$REPO" --region "$REGION" --format npm --namespace "$DOMAIN" \
+      --package "$1" --query 'versions[].version' --output text 2>/tmp/dav-err.log); then
+    grep -q ResourceNotFoundException /tmp/dav-err.log \
+      || echo "WARN: could not list @ejc3/$1 versions: $(tail -1 /tmp/dav-err.log)" >&2
+    return 0
+  fi
+  [ -n "$vers" ] || return 0
+  # shellcheck disable=SC2086  # word-split the version list into separate --versions args
+  aws codeartifact delete-package-versions --domain "$DOMAIN" --domain-owner "$OWNER" \
+    --repository "$REPO" --region "$REGION" --format npm --namespace "$DOMAIN" \
+    --package "$1" --versions $vers >/dev/null 2>&1 \
+    || echo "WARN: could not delete @ejc3/$1 versions; remove manually" >&2
+  return 0
+}
+cleanup() { for p in widget alpha beta; do del_all_versions "$p"; done; }
+trap cleanup EXIT   # delete the published demo versions on exit (self-cleaning)
+
 echo "════════ 1. scaffold ════════"
 node "$ROOT/scripts/diamond-scaffold.mjs"
 
@@ -31,22 +53,17 @@ printf '%s\n' "$AUTH" > "$DIR/consumer/.npmrc"
 printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/override/.npmrc"
 echo "wrote scoped .npmrc (registry=$EP)"
 
-echo "════════ cleanup prior versions (idempotent reruns) ════════"
-for p in widget alpha beta; do
-  aws codeartifact delete-package-versions --domain "$DOMAIN" --domain-owner "$OWNER" --repository "$REPO" --region "$REGION" \
-    --format npm --namespace "$DOMAIN" --package "$p" --versions 1.0.0 2.0.0 >/dev/null 2>&1 || true
-done
+echo "════════ pre-delete any prior versions (publish fresh) ════════"
+for p in widget alpha beta; do del_all_versions "$p"; done
 
 build() { ( cd "$DIR/$1"; [ "${2:-}" = withdeps ] && npm install --omit=dev --no-package-lock --userconfig "$NPMRC" >/dev/null 2>&1; "$TSC" ); }
 pub() {
   ( cd "$DIR/$1"
     local t0 t1; t0=$(date +%s%3N)
+    # versions are pre-deleted and deleted on exit, so a publish is always fresh;
+    # any failure (including an unexpected "already exists") is a real failure
     if ! npm publish --userconfig "$NPMRC" >/tmp/diamond-pub.log 2>&1; then
-      if grep -q "already exists" /tmp/diamond-pub.log; then
-        echo "    (version already published) $1"
-      else
-        echo "PUBLISH FAILED ($1):" >&2; tail -6 /tmp/diamond-pub.log >&2; exit 1
-      fi
+      echo "PUBLISH FAILED ($1):" >&2; tail -6 /tmp/diamond-pub.log >&2; exit 1
     fi
     grep -E 'notice (name|version|package size)|^\+ ' /tmp/diamond-pub.log | sed 's/^/    /' || true
     t1=$(date +%s%3N)
