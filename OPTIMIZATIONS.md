@@ -126,7 +126,7 @@ In this benchmark, aggregate build cost is dominated by per-app build startup ti
 ```bash
 next build       # Next 16: Turbopack is the default production bundler
 ```
-Measured (`scripts/turbopack-bench.mjs`): on Next 16.2.9, `next build` and `next build --turbopack` produce byte-identical output (2.7s, 3.90 MB) — `--turbopack` is a no-op because Turbopack is already the default. It also powers `next dev` (Fast Refresh, incremental). The bundler is not a choice to tune on Next 16.
+Measured (`scripts/turbopack-bench.mjs`): on Next 16.2.9, `next build` and `next build --turbopack` produce byte-identical output (2.6s, 3.90 MB) — `--turbopack` is a no-op because Turbopack is already the default. It also powers `next dev` (Fast Refresh, incremental). The bundler is not a choice to tune on Next 16.
 
 ### 3.2 `output: 'standalone'` — tiny deploy artifacts
 ```js
@@ -208,7 +208,7 @@ Verified here (`scripts/focus-install-bench.mjs`):
 1. **`pnpm install --filter app...` scopes materialization** despite the shared lockfile: 1/80 app `node_modules` under `--filter=app...` vs 80/80 for a full install (§1.4). The lockfile is still O(repo), so for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
 2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). #7732's internal-dep omission did not reproduce (§4.1).
 
-3. **Next 16 builds with Turbopack** (`scripts/turbopack-bench.mjs`): `next build` and `next build --turbopack` produced byte-identical output (2.7s, 3.90 MB on Next 16.2.9) — Turbopack is the default and `--turbopack` is a no-op. The bundler is not a tunable variable on Next 16.
+3. **Next 16 builds with Turbopack** (`scripts/turbopack-bench.mjs`): `next build` and `next build --turbopack` produced byte-identical output (2.6s, 3.90 MB on Next 16.2.9) — Turbopack is the default and `--turbopack` is a no-op. The bundler is not a tunable variable on Next 16.
 4. **The `isolated` linker is inode-heavy** — measured **50,159** `node_modules` entries vs hoisted's **21,914** at 2,000 apps (`install-bench.json`), ~3× the symlinks (4,211 vs 1,459 at 300/100, `perf-matrix.json`), and **86,749 entries / 49,712 symlinks** at 4,000 apps (`results.json`). At ~10k packages this dominates filesystem/inode pressure — watch `df -i`; `hoisted` roughly halves the entries and `pnp` eliminates `node_modules` entirely.
 
 ---

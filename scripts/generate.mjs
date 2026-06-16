@@ -213,6 +213,9 @@ function appPackageJson(i) {
   const vite = FRAMEWORK === "vite";
   // most apps reference the shared catalog version; skewed apps pin an off-catalog one
   const reactSpec = isSkewed(i) ? skewVer(i) : "catalog:";
+  // keep @types compatible with a skewed (off-catalog) react: a 19.x range, not the
+  // exact catalog @types version, so skewed apps still typecheck/build
+  const typesReactSpec = isSkewed(i) ? "^19.0.0" : "catalog:";
   return JSON.stringify(
     {
       name: appPkg(i),
@@ -231,14 +234,14 @@ function appPackageJson(i) {
             "@vitejs/plugin-react": "catalog:",
             typescript: "catalog:",
             "@types/node": "catalog:",
-            "@types/react": "catalog:",
-            "@types/react-dom": "catalog:",
+            "@types/react": typesReactSpec,
+            "@types/react-dom": typesReactSpec,
           }
         : {
             typescript: "catalog:",
             "@types/node": "catalog:",
-            "@types/react": "catalog:",
-            "@types/react-dom": "catalog:",
+            "@types/react": typesReactSpec,
+            "@types/react-dom": typesReactSpec,
           },
     },
     null,

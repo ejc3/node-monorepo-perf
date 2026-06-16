@@ -91,15 +91,15 @@ Each O(repo) cost is dormant until a specific trigger fires it:
 
   | install situation | time | % of cold |
   |---|---|---|
-  | cold-resolve (no lockfile) | 232.9s | 100% |
+  | cold-resolve (no lockfile) | 233.4s | 100% |
   | +1 dependency (lockfile present) | 9.5s | 4% |
-  | catalog version bump (lockfile present) | 51.8s | 22% |
-  | frozen, warm store (returning machine / CI) | 7.3s | 3% |
-  | frozen, cold store (new CI runner) | 8.9s | 4% |
+  | catalog version bump (lockfile present) | 51.3s | 22% |
+  | frozen, warm store (returning machine / CI) | 7.4s | 3% |
+  | frozen, cold store (new CI runner) | 9.2s | 4% |
 
   So a one-dep change is ~10s and a fresh clone / cold CI runner is ~7–9s (frozen);
   only the no-lockfile case is the 233s/16-min resolve. The exception is a **catalog
-  bump** (51.8s): it re-resolves that shared dep across every importer — cheap in
+  bump** (51.3s): it re-resolves that shared dep across every importer — cheap in
   *edits* (0 manifests), not in *time*.
 - **Cold typecheck** bites when a change invalidates many packages' cache: a shared
   `tsconfig`/toolchain bump, a low-layer foundation-lib edit (rebuilds ~90% of the

@@ -4,18 +4,20 @@
   "app": "@demo/app-4",
   "pnpm": "10.29.1",
   "next": "Next.js v16.2.9",
-  "webpack": {
-    "ms": 2665,
+  "nextBuild": {
+    "ms": 2623,
     "bundleBytes": 3901046,
     "dotNextBytes": 3901410,
     "bundlerReported": "turbopack"
   },
-  "turbopack": {
-    "ms": 2657,
+  "nextBuildTurboFlag": {
+    "ms": 2686,
     "bundleBytes": 3901046,
     "dotNextBytes": 3901410,
     "bundlerReported": "turbopack"
   },
-  "buildSpeedup": 1,
-  "bundleSizeDeltaPct": 0
+  "bothTurbopack": true,
+  "note": "Next 16 `next build` uses Turbopack by default; `--turbopack` is a no-op (identical output). No separate webpack production build to compare against.",
+  "buildSpeedup": null,
+  "bundleSizeDeltaPct": null
 }

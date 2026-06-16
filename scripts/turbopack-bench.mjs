@@ -96,27 +96,48 @@ function build(turbopack) {
   };
 }
 
+// Two invocations: plain `next build`, and `next build --turbopack`. On Next 16
+// `next build` is already Turbopack, so the second is a no-op — which the bench
+// detects (identical bundler + output) rather than presenting a webpack-vs-turbopack
+// speedup that didn't happen.
+const nextBuild = build(false);
+const nextBuildTurboFlag = build(true);
 const out = {
   apps: APPS,
   libs: LIBS,
   app: target,
   pnpm: PNPM_VER,
   next: sh(nextBin, ["--version"]).trim(),
-  webpack: build(false),
-  turbopack: build(true),
+  nextBuild, // `next build`
+  nextBuildTurboFlag, // `next build --turbopack`
 };
-out.buildSpeedup = +(out.webpack.ms / out.turbopack.ms).toFixed(2);
-out.bundleSizeDeltaPct = +(
-  ((out.turbopack.bundleBytes - out.webpack.bundleBytes) / out.webpack.bundleBytes) *
-  100
-).toFixed(1);
+out.bothTurbopack =
+  nextBuild.bundlerReported === "turbopack" && nextBuildTurboFlag.bundlerReported === "turbopack";
+if (out.bothTurbopack) {
+  // No webpack production path on Next 16 → no meaningful webpack-vs-turbopack ratio.
+  out.note =
+    "Next 16 `next build` uses Turbopack by default; `--turbopack` is a no-op (identical output). No separate webpack production build to compare against.";
+  out.buildSpeedup = null;
+  out.bundleSizeDeltaPct = null;
+} else {
+  out.buildSpeedup =
+    nextBuildTurboFlag.ms > 0 ? +(nextBuild.ms / nextBuildTurboFlag.ms).toFixed(2) : null;
+  out.bundleSizeDeltaPct =
+    nextBuild.bundleBytes > 0
+      ? +(
+          ((nextBuildTurboFlag.bundleBytes - nextBuild.bundleBytes) / nextBuild.bundleBytes) *
+          100
+        ).toFixed(1)
+      : null;
+}
 
 mkdirSync(join(REPO, "bench"), { recursive: true });
 writeFileSync(join(REPO, "bench/turbopack-bench.json"), JSON.stringify(out, null, 2));
 rmSync(DIR, { recursive: true, force: true });
 console.log(JSON.stringify(out, null, 2));
 console.log(
-  `\nbuild: webpack ${(out.webpack.ms / 1000).toFixed(1)}s (${(out.webpack.bundleBytes / 1e6).toFixed(2)}MB) vs ` +
-    `turbopack ${(out.turbopack.ms / 1000).toFixed(1)}s (${(out.turbopack.bundleBytes / 1e6).toFixed(2)}MB) → ` +
-    `${out.buildSpeedup}x faster, bundle ${out.bundleSizeDeltaPct >= 0 ? "+" : ""}${out.bundleSizeDeltaPct}%`,
+  out.bothTurbopack
+    ? `\nNext ${out.next}: \`next build\` and \`next build --turbopack\` identical ` +
+        `(${(nextBuild.ms / 1000).toFixed(1)}s, ${(nextBuild.bundleBytes / 1e6).toFixed(2)}MB) — Turbopack is the default, --turbopack a no-op.`
+    : `\nnext build ${(nextBuild.ms / 1000).toFixed(1)}s vs --turbopack ${(nextBuildTurboFlag.ms / 1000).toFixed(1)}s → ${out.buildSpeedup}x, bundle ${out.bundleSizeDeltaPct}%`,
 );

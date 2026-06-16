@@ -100,20 +100,32 @@ const coldResolveMs = timed(["install", PI]);
 // actually matters: a DEPENDENCY CHANGE against the existing lockfile. pnpm should
 // reuse the locked versions and only re-resolve the delta (incremental), not redo
 // the from-scratch resolve.
-// D. add one new dependency to one app
+// Each case starts from the clean post-A state; D is reverted before E so they
+// don't compound (E would otherwise measure on the leftover nanoid delta).
 const oneApp = join(
   DIR,
   "apps",
   `app-${String(1).padStart(String(APPS).length, "0")}`,
   "package.json",
 );
-const oneAppPkg = JSON.parse(readFileSync(oneApp, "utf8"));
+const oneAppOrig = readFileSync(oneApp, "utf8");
+const wsPath = join(DIR, "pnpm-workspace.yaml");
+const wsOrig = readFileSync(wsPath, "utf8");
+
+// D. add one new dependency to one app
+const oneAppPkg = JSON.parse(oneAppOrig);
 oneAppPkg.dependencies = { ...oneAppPkg.dependencies, nanoid: "^5.0.0" };
 writeFileSync(oneApp, JSON.stringify(oneAppPkg, null, 2) + "\n");
 const depChangeAddOneMs = timed(["install", PI]);
+// revert D (untimed) so E measures against the clean post-A lockfile
+writeFileSync(oneApp, oneAppOrig);
+sh("pnpm", ["install", PI]);
+
 // E. bump one catalog version (a shared dep used by every package)
-const wsPath = join(DIR, "pnpm-workspace.yaml");
-writeFileSync(wsPath, readFileSync(wsPath, "utf8").replace(/^(\s*typescript:\s*).*$/m, "$15.8.3"));
+const wsBumped = wsOrig.replace(/^(\s*typescript:\s*).*$/m, "$15.8.3");
+if (wsBumped === wsOrig)
+  throw new Error("catalog typescript line not found in pnpm-workspace.yaml");
+writeFileSync(wsPath, wsBumped);
 const depChangeCatalogBumpMs = timed(["install", PI]);
 
 const out = {
@@ -126,8 +138,10 @@ const out = {
   frozenColdStoreMs, // lockfile present, empty store: download + link (brand-new CI runner)
   depChangeAddOneMs, // +1 dep, lockfile present: incremental re-resolve + link
   depChangeCatalogBumpMs, // bump a shared catalog version, lockfile present: incremental re-resolve
-  frozenWarmPctOfCold: +((frozenWarmMs / coldResolveMs) * 100).toFixed(1),
-  depChangeAddPctOfCold: +((depChangeAddOneMs / coldResolveMs) * 100).toFixed(1),
+  frozenWarmPctOfCold:
+    coldResolveMs > 0 ? +((frozenWarmMs / coldResolveMs) * 100).toFixed(1) : null,
+  depChangeAddPctOfCold:
+    coldResolveMs > 0 ? +((depChangeAddOneMs / coldResolveMs) * 100).toFixed(1) : null,
 };
 mkdirSync(join(REPO, "bench"), { recursive: true });
 writeFileSync(join(REPO, "bench/install-modes-bench.json"), JSON.stringify(out, null, 2));
