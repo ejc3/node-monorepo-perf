@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Answer "what does an install actually cost, depending on the situation?" by
-// timing the three real modes against one workspace:
+// timing five real situations against one workspace:
 //
-//   A. cold-resolve   no lockfile present  -> pnpm install (resolve + link).
-//                     This is authoring the lockfile: a fresh repo, or a dep change.
+//   A. cold-resolve   no lockfile present -> pnpm install (full resolve + link):
+//                     authoring the lockfile (fresh repo / deleted lockfile).
 //   B. frozen, warm   lockfile present, node_modules absent, store warm ->
-//                     pnpm install --frozen-lockfile (skip resolve, just link).
-//                     This is a returning machine / CI with a cached store.
+//                     --frozen-lockfile (skip resolve, link only): returning machine / cached CI.
 //   C. frozen, cold   lockfile present, node_modules absent, FRESH store ->
-//                     frozen install into an empty store (download + link, no resolve).
-//                     This is a brand-new CI runner with no store cache.
+//                     --frozen-lockfile into an empty store (download + link): new CI runner.
+//   D. +1 dependency  lockfile present, add one dep -> pnpm install: incremental re-resolve.
+//   E. catalog bump   lockfile present, bump a shared catalog version -> pnpm install:
+//                     incremental re-resolve across every importer of that dep.
 //
 //   node scripts/install-modes-bench.mjs            # default 1000:200
 //
