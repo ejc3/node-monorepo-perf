@@ -33,7 +33,7 @@ nodeLinker: isolated   # default — strict, deduped, symlink farm
 - Use **`pnp`** (+ `symlink: false`) to kill the symlink farm entirely when your toolchain tolerates Plug'n'Play.
 
 ### 1.2 `package-import-method` on copy-on-write filesystems
-How files land in `node_modules`. The default `auto` tries reflink clone → hardlink → copy. Measured here on both filesystems (`scripts/fs-bench.mjs`, `bench/fs-bench.json`; 300 apps / 100 libs, warm store): on **ext4** pnpm **hardlinks** into `node_modules` (shared inode with the store); on **btrfs** it **reflinks** (CoW clone) — confirmed by `btrfs filesystem du`, which shows `node_modules` holding only **0.4 MB exclusive of 338 MB apparent** (≈100% shared extents with the store). Warm-store relink time (a forced `--offline` install, so it's pure store→`node_modules` materialization) was equal within noise — ext4 2.9s vs btrfs 3.1s — so the CoW path costs nothing extra and buys independent inodes — editing a file in `node_modules` can't corrupt the store, unlike a hardlink. No configuration needed; forcing `clone` only matters if detection is wrong.
+How files land in `node_modules`. The default `auto` tries reflink clone → hardlink → copy. Measured here on both filesystems (`scripts/fs-bench.mjs`, `bench/fs-bench.json`; 300 apps / 100 libs, warm store): on **ext4** pnpm **hardlinks** into `node_modules` (shared inode with the store); on **btrfs** it **reflinks** (CoW clone) — confirmed by `btrfs filesystem du`, which shows `node_modules` holding only **0.4 MB exclusive of 338 MB apparent** (≈100% shared extents with the store). Warm-store relink time (a forced `--offline` install, so it's pure store→`node_modules` materialization) was equal within noise: ext4 2.9s vs btrfs 3.1s. The CoW path costs nothing extra and gives independent inodes, so a file edited in `node_modules` can't corrupt the store the way a hardlink can. No configuration needed; forcing `clone` only matters if detection is wrong.
 ```yaml
 # pnpm-workspace.yaml
 packageImportMethod: auto   # clone (CoW) -> hardlink -> copy; clone is the fast path on CoW filesystems
@@ -147,7 +147,7 @@ export default {
   typescript: { ignoreBuildErrors: true } // typecheck as its own Turbo task, not per-build
 };
 ```
-Run `typecheck` and `lint` as **separate Turbo tasks** (cached, filterable) instead of paying for them inside every `next build`. The generated Next 16 config omits the `eslint` key (no webpack-era `ignoreDuringBuilds` carried over) and the apps ship no ESLint config, so `next build` does not lint; run lint as its own `turbo run lint --affected` task.
+Run `typecheck` (and `lint`, if you add it) as **separate Turbo tasks** (cached, filterable) instead of paying for them inside every `next build`. The generated Next 16 config omits the `eslint` key (no webpack-era `ignoreDuringBuilds` carried over) and the apps ship no ESLint config, so `next build` does not lint; if you want lint, run it as its own `turbo run lint --affected` task.
 
 ### 3.5 Share one config, not 10k bespoke ones
 Centralize a base `next.config` and `tsconfig` in a shared package and extend per app. Shared config removes one source of hash divergence (source, lockfile, env, and task inputs still determine cache hits) and gives one place to change a flag.
@@ -176,7 +176,7 @@ COPY --from=prune /app/out/full/ .
 COPY tsconfig.base.json .                    # prune omits root configs apps extend (verified, §4.1/§5)
 RUN turbo run build --filter=@demo/app-05000
 ```
-Verified here (turbo 2.9.18, `scripts/focus-install-bench.mjs`): prune included **all 15** of the target's closure packages (0 missing) and the docker-flow build succeeded — but only after copying `tsconfig.base.json`, which prune does **not** include (apps extend it). So #7732's internal-dep omission did not reproduce; the gap to handle is root configs, which `deploy-vercel.mjs` copies.
+Verified here (turbo 2.9.18, `scripts/focus-install-bench.mjs`): prune included **all 15** of the target's closure packages (0 missing) and the docker-flow build succeeded — but only after copying `tsconfig.base.json`, which prune does **not** include (apps extend it). So an earlier report that `turbo prune` drops internal deps ([turborepo#7732](https://github.com/vercel/turborepo/issues/7732)) did not reproduce; the gap to handle is root configs, which `deploy-vercel.mjs` copies.
 
 ### 4.2 CI baseline
 ```bash
@@ -205,7 +205,7 @@ Internal packages are normally versioned independently and consumed by plain sem
 
 Verified here (`scripts/focus-install-bench.mjs`):
 1. **`pnpm install --filter app...` scopes materialization** despite the shared lockfile: 1/80 app `node_modules` under `--filter=app...` vs 80/80 for a full install (§1.4). The lockfile is still O(repo), so for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
-2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). #7732's internal-dep omission did not reproduce (§4.1).
+2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). [turborepo#7732](https://github.com/vercel/turborepo/issues/7732)'s internal-dep omission did not reproduce (§4.1).
 
 3. **Next 16 builds with Turbopack** (`scripts/turbopack-bench.mjs`): `next build` and `next build --turbopack` produced byte-identical output (2.6s, 3.90 MB on Next 16.2.9) — Turbopack is the default and `--turbopack` is a no-op. The bundler is not a tunable variable on Next 16.
 4. **The `isolated` linker is inode-heavy** — measured **50,159** `node_modules` entries vs hoisted's **21,914** at 2,000 apps (`install-bench.json`), ~3× the symlinks (4,211 vs 1,459 at 300/100, `perf-matrix.json`), and **86,749 entries / 49,712 symlinks** at 4,000 apps (`results.json`). At ~10k packages this dominates filesystem/inode pressure — watch `df -i`; `hoisted` roughly halves the entries and `pnp` eliminates `node_modules` entirely.

@@ -25,7 +25,7 @@ Columns: CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full
 Truly-cold (fresh pnpm store + cleared bun cache, network) at 200/100: pnpm-hoisted 48.9s, bun 1.2s.
 
 Reading it:
-- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 440× faster cold at 200/100, ~100× at 1,000, ~58× at 2,000. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
+- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 440× faster cold than pnpm's default isolated at 200/100, ~100× at 1,000, ~58× at 2,000 (against the matched-layout pnpm-hoisted the ratios are ~424× / ~100× / ~55×). The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
 - Warm relink (lockfile present) is where the linker shows up: pnpm-hoisted relinks in 4.7s at 2,000 vs pnpm-isolated's 15.6s — recreating the isolated symlink farm is a real warm-relink cost. bun's warm (10.1s) lands near its cold (8.3s) at 2,000.
 - Cold install time is within ~5% across isolated/hoisted (resolution-bound); the isolated layout's costs are footprint (50,159 vs 21,914 `node_modules` entries at 2,000) and that warm-relink time, not cold-install time.
 - pnpm uses ~1.3–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB. Each figure is a single measured run (large installs are measured once).

@@ -45,6 +45,6 @@ Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun),
 - `pnpm install --filter app...` scopes what it *materializes* (1 of 80 apps linked, `focus-install-bench`) but still resolves the one shared, whole-workspace lockfile; for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
 - `workspace:*` deploys the in-tree source at its local version, not a published version (rewrite happens only on `pnpm publish`).
 - bun ignores `pnpm-workspace.yaml` (needs `package.json` "workspaces") and uses a hoisted layout.
-- Don't carry `eslint: { ignoreDuringBuilds: true }` from webpack-era configs — the generated Next 16 config omits the `eslint` key entirely and lint runs as a separate Turbo task, not inside `next build`.
+- Don't carry `eslint: { ignoreDuringBuilds: true }` from webpack-era configs — the generated Next 16 config omits the `eslint` key entirely; if you want lint, run it as a separate Turbo task, not inside `next build`.
 - `spawnSync` buffers child output in memory → ENOBUFS at scale; pipe to a file instead.
 - Even a fully-cached `turbo run` is O(repo) (graph load + hashing).

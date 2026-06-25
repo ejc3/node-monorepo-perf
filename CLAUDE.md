@@ -55,15 +55,15 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   (install scales with apps; focus tracks libs/closure) → `bench/axis-bench.json`.
 - `make lockfile-bench` — split install into resolve (`--lockfile-only`) vs verify
   vs full, per `SCALES` → `bench/lockfile-bench.json`.
-- `node scripts/install-modes-bench.mjs --apps <n> --libs <n>` — install by
-  situation: cold-resolve (no lockfile) vs +1 dependency vs catalog bump vs frozen
-  (warm/cold store) → `bench/install-modes-bench.json`.
-- `node scripts/focus-install-bench.mjs --apps <n> --libs <n>` — focused install:
-  `pnpm install --filter app...` materialization scope and `turbo prune`
+- `node scripts/install-modes-bench.mjs <apps>:<libs>` (default `1000:200`) —
+  install by situation: cold-resolve (no lockfile) vs +1 dependency vs catalog bump
+  vs frozen (warm/cold store) → `bench/install-modes-bench.json`.
+- `node scripts/focus-install-bench.mjs <apps>:<libs>` (default `80:25`) — focused
+  install: `pnpm install --filter app...` materialization scope and `turbo prune`
   completeness + pruned-lockfile size → `bench/focus-install-bench.json`.
-- `node scripts/lockfile-merge-bench.mjs --apps <n> --libs <n>` — lockfile churn:
-  catalog bump vs per-app pin (`package.json` files changed + lockfile lines) and a
-  two-branch merge conflict auto-resolved by `pnpm install` →
+- `node scripts/lockfile-merge-bench.mjs <apps>:<libs>` (default `200:50`) — lockfile
+  churn: catalog bump vs per-app pin (`package.json` files changed + lockfile lines)
+  and a two-branch merge conflict auto-resolved by `pnpm install` →
   `bench/lockfile-merge-bench.json`.
 
 ### Tool comparisons
@@ -75,9 +75,9 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   and node-linker choice move install time / footprint → `bench/perf-matrix.json`.
 - `node scripts/turbopack-bench.mjs` — `next build` vs `next build --turbopack` on
   Next 16 (byte-identical output) → `bench/turbopack-bench.json`.
-- `node scripts/fs-bench.mjs --apps <n> --libs <n>` — `package-import-method` on a
-  CoW filesystem (btrfs reflink) vs hardlink (ext4): relink time + exclusive disk →
-  `bench/fs-bench.json`.
+- `node scripts/fs-bench.mjs <apps>:<libs>` (default `300:100`) —
+  `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
+  relink time + exclusive disk → `bench/fs-bench.json`.
 
 ### Developer experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>` — simulate D devs each

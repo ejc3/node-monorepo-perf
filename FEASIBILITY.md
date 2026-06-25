@@ -1,10 +1,9 @@
 # Feasibility: should you adopt a shared-workspace monorepo?
 
 This repo is feasibility research from a standing start — you are **not** on a
-pnpm-workspace monorepo today. The question is not "is pnpm-workspaces good," but:
-given the measured costs, what does the optimization stack buy, **when are the
-expensive costs paid vs amortized**, and via which path (pnpm, bun, sharding,
-polyrepo).
+pnpm-workspace monorepo today. It answers, given the measured costs: what does the
+optimization stack buy, **when are the expensive costs paid vs amortized**, and via
+which path (pnpm, bun, sharding, polyrepo).
 
 Every benchmark number traces to a `bench/*.json` file produced by `scripts/`;
 external claims are linked to their source. Stack: pnpm 10.29, Turborepo 2.9.18,
@@ -116,7 +115,7 @@ Each O(repo) cost is dormant until a specific trigger fires it:
   of OPTIMIZATIONS.md). `lockfile-merge-bench.json` measures the manifest/lockfile
   churn of skew (25 changed manifests), not the cache-hit rate.
 
-## Why there is "global" cost at all for single-app work
+## The graph-load is the only global cost single-app work pays
 
 A shared workspace keeps **one lockfile + one dependency graph** as the source of
 truth — that is what delivers one version everywhere (catalogs), atomic
