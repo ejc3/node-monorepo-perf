@@ -104,7 +104,7 @@ $ node run.mjs
 SyntaxError: The requested module '@ejc3/widget' does not provide an export named 'render'
 ```
 
-`alpha` was built against widget v1's `render()`; the override put it on local v2, which removed `render()`. Collapsing a diamond to one local version breaks whichever dependent was written against the other major. A local v1 would break `beta` instead. Revert: delete `node_modules`, `git checkout pnpm-lock.yaml`, reinstall.
+`alpha` was built against widget v1's `render()`; the override put it on local v2, which removed `render()`. Collapsing a diamond to one local version breaks whichever dependent was written against the other major. A local v1 would break `beta` instead. Revert: remove the override, delete `node_modules` and the lockfile, then reinstall.
 
 ## 5. Switching one app without changing the others
 
@@ -153,7 +153,7 @@ admin → alpha → widget
 
 ## 6. Next.js
 
-When an app imports a workspace lib's TypeScript source (not its built `dist`), set `transpilePackages` so Next compiles it and keeps one React copy:
+When an app imports a workspace lib's TypeScript source (not its built `dist`), set `transpilePackages` so Next compiles that source instead of expecting prebuilt JS:
 
 ```js
 // next.config.mjs

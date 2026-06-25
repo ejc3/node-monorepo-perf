@@ -9,14 +9,14 @@ A measurement lab for a large pnpm + Turborepo monorepo. It generates a syntheti
 workspace (N Next.js apps + M shared libs, each package holding `MODULES` generated
 TS modules re-exported through an `index.ts`), with inter-package imports forming a
 layered dependency graph (apps import libs; libs import lower libs). It then
-benchmarks every workflow as the workspace scales (200 → 2,000+ apps) and reports
+benchmarks every workflow as the workspace scales (200 → 4,000 apps) and reports
 the results in the docs.
 
 **Thesis:** whole-workspace operations are **O(repo)** — they scale ~linearly with
 package count (install, cold/warm typecheck, lockfile, graph-load, prune). Focused
 operations (`turbo --filter=<app>...` / `--affected`) are **O(closure)** — they
-track one app's dependency closure and stay flat as the repo grows. The takeaway
-is to scope work, not to optimize unscoped commands.
+track one app's dependency closure and grow with that closure, not the repo. The
+takeaway is to scope work, not to optimize unscoped commands.
 
 The apps/ and packages/ trees are **generated and gitignored** — they are build
 inputs, not source. Tracked files are `scripts/`, the docs, `bench/*.json`,
@@ -55,6 +55,16 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   (install scales with apps; focus tracks libs/closure) → `bench/axis-bench.json`.
 - `make lockfile-bench` — split install into resolve (`--lockfile-only`) vs verify
   vs full, per `SCALES` → `bench/lockfile-bench.json`.
+- `node scripts/install-modes-bench.mjs --apps <n> --libs <n>` — install by
+  situation: cold-resolve (no lockfile) vs +1 dependency vs catalog bump vs frozen
+  (warm/cold store) → `bench/install-modes-bench.json`.
+- `node scripts/focus-install-bench.mjs --apps <n> --libs <n>` — focused install:
+  `pnpm install --filter app...` materialization scope and `turbo prune`
+  completeness + pruned-lockfile size → `bench/focus-install-bench.json`.
+- `node scripts/lockfile-merge-bench.mjs --apps <n> --libs <n>` — lockfile churn:
+  catalog bump vs per-app pin (`package.json` files changed + lockfile lines) and a
+  two-branch merge conflict auto-resolved by `pnpm install` →
+  `bench/lockfile-merge-bench.json`.
 
 ### Tool comparisons
 - `make install-bench` — pnpm (isolated + hoisted) vs bun, cold/warm/truly-cold → `bench/install-bench.json`.
@@ -63,6 +73,11 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
 - `node scripts/perf-matrix.mjs --apps <n> --libs <n>` — how `workspace:` spec form
   and node-linker choice move install time / footprint → `bench/perf-matrix.json`.
+- `node scripts/turbopack-bench.mjs` — `next build` vs `next build --turbopack` on
+  Next 16 (byte-identical output) → `bench/turbopack-bench.json`.
+- `node scripts/fs-bench.mjs --apps <n> --libs <n>` — `package-import-method` on a
+  CoW filesystem (btrfs reflink) vs hardlink (ext4): relink time + exclusive disk →
+  `bench/fs-bench.json`.
 
 ### Developer experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>` — simulate D devs each

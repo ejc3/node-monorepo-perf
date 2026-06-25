@@ -10,9 +10,9 @@ Each package runs `tsc --noEmit`, fanned out and cached by Turborepo. Whole-repo
 |---|---|---|---|
 | 3,000 | 3,101ms | 255ms | 12.2x |
 
-Consistent with Microsoft's ~10x claim. tsgo is a drop-in `tsgo --noEmit` and fits the existing per-package Turborepo task.
+Consistent with Microsoft's ~10x claim. tsgo runs as `tsgo --noEmit` and fits the existing per-package Turborepo task; it is drop-in for modern configs — those not relying on the options TS 7 drops (below).
 
-tsgo is beta as of 2026-06 — only `7.0.0-dev.*` nightlies, no GA — and TypeScript 7.0 removes `baseUrl`, `moduleResolution: node10`, and `target: es5` and has no compiler/LSP plugin API yet. Pin a nightly and keep tsc as the CI fallback.
+tsgo is beta as of 2026-06 — only `7.0.0-dev.*` nightlies, no GA. The native port drops some legacy configuration (it discourages bare `baseUrl` resolution and drops `moduleResolution: node10` and older `target`s such as `es5`) and has no compiler/LSP plugin API yet; confirm the specifics against the TS 7 release notes (linked below) before adopting. Pin a nightly and keep tsc as the CI fallback.
 
 ## Ranked levers
 

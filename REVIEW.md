@@ -4,16 +4,16 @@ How the pieces fit, fastest/cheapest first.
 
 ## 1. Static syntax checks (instant, local)
 
-- `node --check scripts/*.mjs` parses every Node script without running it.
-- `bash -n scripts/*.sh` parses every shell script.
+- `for f in scripts/*.mjs; do node --check "$f"; done` parses every Node script without running it — `node --check` only checks its first file argument, so loop over the glob rather than passing it directly.
+- `for f in scripts/*.sh; do bash -n "$f"; done` parses every shell script (same gotcha: `bash -n` only parses its first argument).
 
 These catch typos and broken edits before anything executes. Run them after editing a script.
 
 ## 2. Type-checking (the static gate)
 
-A static check analyzes the source without running it; a gate is a check that must pass before you commit. This repo's static gate is the TypeScript type-check: it reads the code and rejects type errors (wrong shapes, missing props, bad imports) with no execution and no test harness. (`node --check` / `bash -n` are lighter static checks — syntax only; tsc is the semantic one.)
+The static gate is the TypeScript type-check (`tsc --noEmit`): it rejects type errors (wrong shapes, missing props, bad imports) with no execution and no test harness. `node --check` / `bash -n` are lighter, syntax-only static checks; tsc is the semantic one.
 
-There is no ESLint here, by design. At thousands of apps, linting inside every `next build` is wasted work, so the generated `next.config` does not enable it and apps ship no eslint config. Type-checking runs as its own task:
+There is no ESLint here, by design. At thousands of apps, linting inside every `next build` is wasted work, so the generated apps ship no ESLint config (and no eslint dependency) and `next build` does not lint. Type-checking runs as its own task:
 
 - Per package: `tsc --noEmit` (the `typecheck` script).
 - Across the workspace: `turbo run typecheck`, cached and scoped with `--filter` / `--affected`.

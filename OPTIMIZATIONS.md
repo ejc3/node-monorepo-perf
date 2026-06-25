@@ -1,6 +1,6 @@
-# Optimization Playbook — pnpm + Turborepo + Next.js at 10k-app scale
+# Optimization Playbook — pnpm + Turborepo + Next.js for 10k-app scale
 
-Principle: any operation that touches all packages scales with repo size. The techniques below scope work to the changed subset, cache the rest, and avoid materializing the whole tree.
+Principle: any operation that touches all packages scales with repo size. The techniques below scope work to the changed subset, cache the rest, and avoid materializing the whole tree. The costs they address are measured to 4,000 apps (README Results) and extrapolated beyond; 10k is the target scale, not a measured one.
 
 Organized by where the cost shows up: install, graph/tasks, Next.js build, CI/deploy. Each item gives what, why, and the command.
 
@@ -21,7 +21,7 @@ They **compose**: prune to a subtree (artifact), install only that subtree (inst
 ## 1. Install-time (pnpm)
 
 ### 1.1 `node-linker` mode (footprint and strictness, not install speed)
-pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within ~3% on this single run), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~3x more symlinks (4,211 vs 1,459 at 300/100, full-tree). See [TOOLING.md](TOOLING.md).
+pnpm's default `isolated` linker builds a symlink farm: every package gets a `node_modules/` of symlinks into a virtual store (`node_modules/.pnpm`), and every file there is a hard link into the global content-addressable store. It is the strictest, most disk-efficient layout, but the count of symlinks and inodes scales with `packages × deps`, which stresses the filesystem and anything that walks the tree. Measured here (`perf-matrix.mjs`): isolated and hoisted install in about the same time (within ~3.4% on this single run), so the linker is a footprint/strictness choice, not an install-speed one — isolated had ~3x more symlinks (4,211 vs 1,459 at 300/100, full-tree). See [TOOLING.md](TOOLING.md).
 
 ```yaml
 # pnpm-workspace.yaml
@@ -40,7 +40,7 @@ packageImportMethod: auto   # clone (CoW) -> hardlink -> copy; clone is the fast
 ```
 
 ### 1.3 Catalogs (`catalog:`) — dedupe versions, shrink the lockfile, stabilize cache hashes
-Define each shared version **once**; reference it from all 10k apps + 300 libs. This is already wired into this repo's `pnpm-workspace.yaml`. Identical versions everywhere → smaller lockfile, deduped store, and — critically — **identical Turborepo input hashes**, which maximizes cache hits. Measured (`scripts/lockfile-merge-bench.mjs`, 200 apps / 50 libs): rolling one shared version through the catalog changed **0** of the apps' `package.json` files (only `pnpm-workspace.yaml` + the lockfile, which moved 255 lines added / 255 removed), versus **25** `package.json` files when the same dependency is pinned per-app — so a rollout edits one line, not every app, and no app-manifest merge conflicts arise (the lockfile still moves; see §1.5).
+Define each shared version **once**; reference it from every app and lib in the workspace. This is already wired into this repo's `pnpm-workspace.yaml`. Identical versions everywhere → smaller lockfile, deduped store, and — critically — **identical Turborepo input hashes**, which maximizes cache hits. Measured (`scripts/lockfile-merge-bench.mjs`, 200 apps / 50 libs): rolling one shared version through the catalog changed **0** of the apps' `package.json` files (only `pnpm-workspace.yaml` + the lockfile, which moved 255 lines added / 255 removed), versus **25** `package.json` files when the same dependency is pinned per-app — so a rollout edits one line, not every app, and no app-manifest merge conflicts arise (the lockfile still moves; see §1.5).
 ```yaml
 catalog:
   next: 16.2.9
@@ -100,7 +100,7 @@ turbo run build typecheck --affected            # diff main→HEAD, pick changed
 Auto-detects GitHub Actions and diffs PR base to head; override the base with `TURBO_SCM_BASE`. A one-file PR builds the changed packages and their dependents, not all of them.
 
 ### 2.3 Caching — local, then remote
-Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). In the sweep, whole-workspace typecheck warm ran 1.5s (200 apps) to 7.6s (2,000 apps), versus 19–127s cold. Remote Caching restores matching task outputs across machines instead of re-running them.
+Turborepo hashes each task's inputs and skips tasks whose hash is unchanged (`>>> FULL TURBO`). In the sweep, whole-workspace typecheck warm ran 1.5s (200 apps) to 20.5s (4,000 apps), versus 19–233s cold. Remote Caching restores matching task outputs across machines instead of re-running them.
 ```bash
 turbo run build --cache=local:rw,remote:r       # fine-grained cache source control
 npx turbo login && npx turbo link                # enable Vercel remote cache
@@ -120,7 +120,7 @@ turbo run typecheck --concurrency=100%          # = number of cores; or an integ
 
 ## 3. Next.js build cost
 
-In this benchmark, aggregate build cost is dominated by per-app build startup times the app count, not any single build. The main lever is skipping unchanged builds (§2.2/§2.3) more than speeding one build. Beyond that:
+In this benchmark, aggregate build cost is dominated by per-app build startup cost multiplied by the app count, not by any single build's duration. The main lever is skipping unchanged builds (§2.2/§2.3) more than speeding one build. Beyond that:
 
 ### 3.1 Turbopack for builds (Next 16)
 ```bash
@@ -144,11 +144,10 @@ Can reduce work for large barrel-export packages by importing only the used symb
 ### 3.4 Build-time safety valves you already want at scale
 ```js
 export default {
-  eslint: { ignoreDuringBuilds: true },   // lint as its own task, not inside 10k builds
   typescript: { ignoreBuildErrors: true } // typecheck as its own Turbo task, not per-build
 };
 ```
-Run `typecheck` and `lint` as **separate Turbo tasks** (cached, filterable) instead of paying for them inside every `next build`.
+Run `typecheck` and `lint` as **separate Turbo tasks** (cached, filterable) instead of paying for them inside every `next build`. The generated Next 16 config omits the `eslint` key (no webpack-era `ignoreDuringBuilds` carried over) and the apps ship no ESLint config, so `next build` does not lint; run lint as its own `turbo run lint --affected` task.
 
 ### 3.5 Share one config, not 10k bespoke ones
 Centralize a base `next.config` and `tsconfig` in a shared package and extend per app. Shared config removes one source of hash divergence (source, lockfile, env, and task inputs still determine cache hits) and gives one place to change a flag.

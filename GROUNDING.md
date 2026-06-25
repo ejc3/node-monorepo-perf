@@ -1,6 +1,6 @@
 # Industry grounding
 
-Primary sources for every optimization in this benchmark, where the repo follows the canonical practice, the documented ceiling where pnpm + Turborepo gives way to a different architecture, and how the benchmark methodology matches rigorous norms.
+This doc cites the primary source behind each practice in the benchmark, shows where pnpm + Turborepo hits a ceiling and which architecture replaces it, and maps the methodology to standard benchmarking norms.
 
 ## Practices this repo follows
 
@@ -15,7 +15,7 @@ Primary sources for every optimization in this benchmark, where the repo follows
 | `turbo run --affected` in CI (changed packages + dependents) | [Turborepo CI guide](https://turborepo.dev/docs/crafting-your-repository/constructing-ci) |
 | `turbo prune --docker` → `json/` install layer + `full/` source layer + pruned lockfile | [turbo prune](https://turborepo.dev/docs/reference/prune) |
 | Remote caching (download unchanged outputs instead of rebuilding) | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
-| One Vercel project per app; skip-unaffected does not consume a build slot (legacy turbo-ignore does) | [Vercel monorepos](https://vercel.com/docs/monorepos) |
+| One Vercel project per app; skip-unaffected does not consume a build slot (legacy turbo-ignore does) | [Vercel monorepos](https://vercel.com/docs/monorepos), [limits](https://vercel.com/docs/limits) |
 
 ## The ceiling: when pnpm + Turborepo gives way
 
@@ -42,5 +42,5 @@ At ~130k files (20k apps) Git itself needs scaling, with the same focus-vs-whole
 | Named cold/warm/clean states (install time is dominated by what's already populated) | [pnpm benchmarks](https://pnpm.io/benchmarks) | install-bench/lockfile-bench model cold (no lockfile) / warm (lockfile, no node_modules) / truly-cold (fresh store) |
 | Reset state / isolate the store between configs | [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) | isolated `/tmp` workspace; each scale freshly generated; node_modules+lockfile removed per measurement; truly-cold uses a throwaway `--store-dir` + `bun pm cache rm` |
 | Verify completeness (don't time a no-op) | [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) | `verifyComplete()` throws if a sample app can't resolve all deps; build-bench errors on 0-byte output |
-| Report variance, not bare averages; repeat noisy runs | [hyperfine](https://github.com/sharkdp/hyperfine), [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) | dev-sim reports medians; short/noisy ops repeated; large cold installs (deterministic-heavy, low relative noise) measured once with n recorded |
+| Report variance, not bare averages; repeat noisy runs | [hyperfine](https://github.com/sharkdp/hyperfine), [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) | dev-sim reports medians; short/noisy ops repeated; large cold installs (deterministic-heavy, low relative noise) measured once |
 | Report absolute numbers + full system config | [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) | `/usr/bin/time -v` CPU% + peak RSS per run; `bench/env.json` (CPU model, cores, RAM, OS, tool versions) |

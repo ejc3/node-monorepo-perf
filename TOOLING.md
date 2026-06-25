@@ -2,7 +2,13 @@
 
 ## Install: bun vs pnpm (`scripts/install-bench.mjs`)
 
-Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated is pnpm's default; pnpm-hoisted matches bun's flat `node_modules`, so the manager is compared at the same layout. cold = no lockfile present (full resolve + link against the warm content store, no network); warm = lockfile present, `node_modules` removed (relink); the truly-cold pass below is the network-cold case. Each scale is generated fresh; the whole `node_modules` tree (root + every per-package dir) and the lockfile are removed before each measurement, and the store is pre-warmed once so a "cold" install is warm-store rather than a cache-order artifact. Every install is verified complete: every app and lib must resolve all its declared dependencies and devDependencies or the bench throws. CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full-tree `node_modules` footprint (root virtual store + every per-package tree).
+Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated is pnpm's default; pnpm-hoisted matches bun's flat `node_modules`, so the manager is compared at the same layout.
+
+The three states: **cold** = no lockfile present (full resolve + link against the warm content store, no network); **warm** = lockfile present, `node_modules` removed (relink); **truly-cold** (the pass below the table) = the network-cold case.
+
+Reset discipline: each scale is generated fresh, the whole `node_modules` tree (root + every per-package dir) and the lockfile are removed before each measurement, and the store is pre-warmed once so a "cold" install reflects warm-store work rather than a cache-order artifact. Every install is verified complete afterward — every app and lib must resolve all its declared dependencies and devDependencies, or the bench throws.
+
+Columns: CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full-tree `node_modules` footprint (root virtual store + every per-package tree).
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
@@ -19,7 +25,7 @@ Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated i
 Truly-cold (fresh pnpm store + cleared bun cache, network) at 200/100: pnpm-hoisted 48.9s, bun 1.2s.
 
 Reading it:
-- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 430× faster cold at 200/100, ~100× at 1,000, ~55× at 2,000. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
+- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 440× faster cold at 200/100, ~100× at 1,000, ~58× at 2,000. The gap isn't just a warm cache: even truly-cold (fresh store, network), bun is ~40× faster (1.2s vs 48.9s).
 - Warm relink (lockfile present) is where the linker shows up: pnpm-hoisted relinks in 4.7s at 2,000 vs pnpm-isolated's 15.6s — recreating the isolated symlink farm is a real warm-relink cost. bun's warm (10.1s) lands near its cold (8.3s) at 2,000.
 - Cold install time is within ~5% across isolated/hoisted (resolution-bound); the isolated layout's costs are footprint (50,159 vs 21,914 `node_modules` entries at 2,000) and that warm-relink time, not cold-install time.
 - pnpm uses ~1.3–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB. Each figure is a single measured run (large installs are measured once).

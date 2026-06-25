@@ -1,8 +1,8 @@
 # Next.js Monorepo Scale Lab
 
-Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries. It generates the workspace with a layered dependency graph and measures install, typecheck, build, and the scoped ("focus") operations. Tested to 2,000 apps / 300 libs.
+Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries. It generates the workspace with a layered dependency graph and measures install, typecheck, build, and the scoped ("focus") operations. Tested to 4,000 apps / 300 libs.
 
-Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`, `pnpm deploy`) executes only one app's dependency closure and stays roughly constant as app count grows. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
+Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`, `pnpm deploy`) executes only one app's dependency closure and grows with that closure (×1.8 here), not with app count. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
 ---
 
@@ -130,7 +130,7 @@ Whole-workspace operations scale ~linearly with package count; the focus build t
 - Build/typecheck: `--filter=<app>...` or `--affected`.
 - An unscoped `turbo run` still enumerates the whole graph, even on cache hits.
 - CI: `--affected` plus remote cache.
-- Past ~20k packages, loading one task graph is itself O(repo); shard or use git-based selection.
+- Past ~20,000 apps, loading one task graph is itself O(repo); shard or use git-based selection.
 
 ---
 
@@ -148,7 +148,11 @@ Whole-workspace operations scale ~linearly with package count; the focus build t
 | edit foundation lib (`lib-003`, low layer) | **1,080 of 1,200** packages would rebuild |
 | edit high-layer lib (`lib-197`) | 21 packages would rebuild |
 
-The inner loop (typecheck-on-save 4.3s, build-before-push 5.8s) touches only the edited app's closure regardless of the 1,200-package repo — O(closure), not O(repo). Independence: a teammate editing their own app adds **zero** rebuilds to yours — apps don't depend on each other, so an unrelated app is outside your `--filter` closure and Turbo never considers it, which confirms Turbo scopes work to the closure rather than the repo. (It's measured as a baseline-vs-after-edit delta to stay robust to `next build`'s own caching; here your closure was a full cache hit both before and after the edit, so the delta is 0.) The sharper case — does editing a *shared lib* rebuild only its real dependents? — is the blast-radius rows below. The one expensive action is editing a low-layer foundation lib that most packages depend on: every dependent has to rebuild — here 1,080 of the 1,200 packages (~90%). That large blast radius is why such edits rely on the remote cache (CI and teammates download the rebuilt packages instead of rebuilding them locally) and on CI `--affected` (only the affected packages run, not the whole repo), and why teams change foundation libs infrequently.
+The inner loop is O(closure), not O(repo): typecheck-on-save (4.3s) and build-before-push (5.8s) touch only the edited app's closure, regardless of the 1,200-package repo.
+
+Independence holds across developers. A teammate editing their own app adds **zero** rebuilds to yours: apps don't depend on each other, so an unrelated app falls outside your `--filter` closure and Turbo never considers it. The 0 is a baseline-vs-after-edit delta (robust to `next build`'s own caching — the closure was a full cache hit both before and after the edit).
+
+Editing a *shared lib* is the sharper test: does it rebuild only its real dependents? The blast-radius rows answer it. A high-layer lib rebuilds 21 packages; a low-layer foundation lib that most packages depend on rebuilds 1,080 of the 1,200 (~90%), since every dependent must rebuild. That blast radius is why foundation edits lean on the remote cache (CI and teammates download the rebuilt packages instead of rebuilding them) and CI `--affected` (only affected packages run), and why teams change foundation libs infrequently.
 
 ---
 
@@ -160,7 +164,7 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 2. Remote caching: unchanged tasks are downloaded, not rebuilt. Catalogs keep dependency versions identical so cache hashes stay stable.
 3. Don't materialize the whole tree in CI: `turbo prune <app> --docker` produces the needed subtree, a pruned lockfile, and a cache-friendly install layer.
 4. `node_modules` footprint: at large package counts the pnpm symlink/inode count is significant. `node-linker` mode (`isolated`/`hoisted`/`pnp`) and `package-import-method: clone` (on copy-on-write filesystems) are the relevant settings.
-5. Next.js: aggregate build cost is per-build overhead times app count, so the lever is skipping unchanged builds (cache + `--affected`). Turbopack is faster for dev/HMR; check production bundle size when switching.
+5. Next.js: aggregate build cost is per-build overhead times app count, so the lever is skipping unchanged builds (cache + `--affected`). On Next 16, Turbopack is the default production bundler and powers dev/HMR, so there is nothing to switch.
 
 ---
 
@@ -169,17 +173,24 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 - One app deployed from this monorepo to Vercel (pruned subtree, cloud build): https://nextjs-monorepo-scale-demo.vercel.app (22s wall; `bench/deploy.json`).
 - Four packages published to AWS CodeArtifact for the diamond demo (`scripts/diamond-demo.sh`).
 
-## Companion docs
+## Findings by area
 
-- [OPTIMIZATIONS.md](OPTIMIZATIONS.md) — pnpm / Turborepo / Next.js / Vercel optimization playbook.
-- [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) — semver vs `workspace:`, overrides, diamond dependencies.
-- [TYPECHECKERS.md](TYPECHECKERS.md) — tsc vs tsgo and the faster type-checking levers.
-- [LIMITS.md](LIMITS.md) — what breaks at 20k that focus/cache can't fix, gotchas, and what's left to quantify.
+The companion docs measure each cost separately. The headline result of each, with the bench JSON behind it:
 
-### Internal / dev
+**Verdict — when a shared workspace is worth it.** It fits apps that **share code and versions**: the daily loop is O(closure) (seconds, no install) and the O(repo) costs land on rare events that are paid once per change and amortized across machines by the committed lockfile and the remote cache. It is the wrong fit for **independent** apps — the single lockfile and graph then buy nothing, so a polyrepo or separate installs avoid that shared cost. The measured basis and a per-situation decision table are in [FEASIBILITY.md](FEASIBILITY.md).
 
-- [TOOLING.md](TOOLING.md) — bun vs pnpm install, Vite vs Next build.
-- [REVIEW.md](REVIEW.md) — the quality pipeline: static checks, type-checking, and the review workflows.
+| area | headline finding | docs |
+|---|---|---|
+| **Install cost** | pnpm cold install is resolve-bound and ~linear: 48.8s → 476.8s (200 → 2,000 apps). bun installs the same dependency set 58–440× faster. The cold resolve is rare when the lockfile is committed: at 1,000 apps a frozen install is 7–9s and a one-dependency change ~10s; only a missing lockfile pays the full cold install (~16 min at 4,000 apps), which the resolve dominates (98% of it at 2,000 apps). | [FEASIBILITY](FEASIBILITY.md), [TOOLING](TOOLING.md) |
+| **`node_modules` footprint** | cold install is within ~5% across `isolated`/`hoisted` (resolution-bound), so the linker is a footprint/strictness choice, not a speed one: `isolated` holds 86,749 entries / 49,712 symlinks at 4,000 apps; `hoisted` ~halves the entries (21,914 vs 50,159 at 2,000 apps); `pnp` removes `node_modules`. | [OPTIMIZATIONS §1](OPTIMIZATIONS.md), [TOOLING](TOOLING.md) |
+| **Lockfile** | the single shared lockfile is irreducibly O(repo): 9,897 → 153,967 lines (200 → 4,000 apps). A `catalog:` bump edits **0** app manifests (vs 25 when pinned per-app) but rewrites hundreds of lockfile lines; two concurrent bumps conflict (253 markers) and `pnpm install` auto-resolves them to 0. | [OPTIMIZATIONS §1.5](OPTIMIZATIONS.md), [LIMITS](LIMITS.md) |
+| **Type-checking** | whole-repo typecheck is O(repo): cold 19s → 233s, warm cache 1.5s → 20.5s — warm is still O(repo) because Turbo hashes every package on a full hit. tsgo (TypeScript's native port) is ~12× faster per check, drop-in, still beta. | [TYPECHECKERS](TYPECHECKERS.md) |
+| **Build** | Next 16 builds with Turbopack by default — `next build --turbopack` is a no-op (byte-identical output). A Vite SPA builds ~2.3× faster with ~20× less output than Next App Router, a different feature set. At scale the lever is skipping unchanged builds, not per-build speed. | [OPTIMIZATIONS §3](OPTIMIZATIONS.md), [TOOLING](TOOLING.md) |
+| **Focus / deploy** | `turbo prune` emits a complete subtree (0 of 15 closure packages missing) plus a pruned lockfile (876 of 3,969 lines), but omits root configs an app extends (`tsconfig.base.json`) — copy them before building. One app deployed to Vercel via cloud build in 22s. | [OPTIMIZATIONS §4](OPTIMIZATIONS.md) |
+| **Semver vs `workspace:`** | internal deps are consumed by semver from a registry; `workspace:` forces local linking and `pnpm publish` rewrites it to a real range. A diamond keeps both majors under the isolated linker; a root override collapses it and breaks the dependent built against the other major; per-app divergence on a *transitive* dep needs a separate workspace + lockfile — proven live on CodeArtifact. | [WORKSPACE-VS-SEMVER](WORKSPACE-VS-SEMVER.md) |
+| **The ceiling** | what focus/cache/`--affected` cannot remove at ~20,000 apps: the single lockfile, the per-command Turbo graph-load floor, foundation-change blast radius (~90% of packages), inode/disk pressure, tsserver memory, git worktree cost, and Vercel's per-project model. Past this, shard the workspace or move to a daemon + remote-execution build system. | [LIMITS](LIMITS.md) |
+
+Methodology and industry grounding: [GROUNDING.md](GROUNDING.md) maps each practice to its primary source and the documented ceiling; [REVIEW.md](REVIEW.md) is the static-check, type-check, and two-reviewer pipeline every change runs through.
 
 ## License
 
