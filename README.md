@@ -156,7 +156,7 @@ Editing a *shared lib* is the sharper test: does it rebuild only its real depend
 
 ---
 
-## Optimization playbook (what actually scales)
+## Optimization playbook
 
 See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 
