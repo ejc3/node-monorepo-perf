@@ -1,10 +1,5 @@
 # Feasibility: should you adopt a shared-workspace monorepo?
 
-This repo is feasibility research from a standing start — you are **not** on a
-pnpm-workspace monorepo today. It answers, given the measured costs: what does the
-optimization stack buy, **when are the expensive costs paid vs amortized**, and via
-which path (pnpm, bun, sharding, polyrepo).
-
 Every benchmark number traces to a `bench/*.json` file produced by `scripts/`;
 external claims are linked to their source. Stack: pnpm 10.29, Turborepo 2.9.18,
 Node 22, on a 64-core arm64 box (`bench/env.json`); Next 16.2.9
@@ -59,17 +54,17 @@ amortizer:
 ### "Paid once" means once per *change*, not once per *person or machine*
 
 - **Resolve once, reused via git.** The resolve's result — the lockfile — is
-  committed to `pnpm-lock.yaml`. The full from-scratch resolve happens only when the
-  lockfile is first created; a later dependency change re-resolves just the delta
-  (incremental, see below). Either way, every teammate, CI runner, and deploy runs
-  `pnpm install --frozen-lockfile`, which reads the committed lockfile and skips
-  resolution — so the cost does not multiply with the number of people or runners.
+committed to `pnpm-lock.yaml`. The full from-scratch resolve happens only when the
+lockfile is first created; a later dependency change re-resolves just the delta
+(incremental, see below). Either way, every teammate, CI runner, and deploy runs
+`pnpm install --frozen-lockfile`, which reads the committed lockfile and skips
+resolution — so the cost does not multiply with the number of people or runners.
 - **Build once, reused via cache.** A task with input-hash `H` runs once anywhere;
-  others with the same `H` download the output. Cold typecheck 233s @4k → cached
-  20.5s for everyone else (`results.json` warm typecheck).
+others with the same `H` download the output. Cold typecheck 233s @4k → cached
+20.5s for everyone else (`results.json` warm typecheck).
 - **Residual that does repeat per environment:** each machine links its own
-  `node_modules` (the 1–2% materialize), pays the per-command graph-load, and pays
-  for its own genuine cache misses.
+`node_modules` (the 1–2% materialize), pays the per-command graph-load, and pays
+for its own genuine cache misses.
 
 The build-once amortization **requires the remote cache to be on** — without it,
 "once per source state" degrades to "once per machine." The committed-lockfile
@@ -80,40 +75,40 @@ amortization is automatic (the lockfile is in git).
 Each O(repo) cost is dormant until a specific trigger fires it:
 
 - **The full from-scratch resolve (16 min @4k) bites only when there is no usable
-  lockfile** — the first install, or a deleted/corrupt lockfile, or `--no-lockfile`.
-  It does **not** bite on a fresh clone, a cold CI runner, or a deleted
-  `node_modules` *as long as the committed lockfile is present* — those read the
-  lockfile and take the cheap path (link, plus a download if the store is cold). A
-  dependency change with the lockfile present is also incremental, not from-scratch —
-  pnpm reuses locked versions and re-resolves only the delta
-  (`install-modes-bench.json`, 1,000 apps, lockfile 41,069 lines):
+lockfile** — the first install, or a deleted/corrupt lockfile, or `--no-lockfile`.
+It does **not** bite on a fresh clone, a cold CI runner, or a deleted
+`node_modules` *as long as the committed lockfile is present* — those read the
+lockfile and take the cheap path (link, plus a download if the store is cold). A
+dependency change with the lockfile present is also incremental, not from-scratch —
+pnpm reuses locked versions and re-resolves only the delta
+(`install-modes-bench.json`, 1,000 apps, lockfile 41,069 lines):
 
-  | install situation | time | % of cold |
-  |---|---|---|
-  | cold-resolve (no lockfile) | 233.4s | 100% |
-  | +1 dependency (lockfile present) | 9.5s | 4% |
-  | catalog version bump (lockfile present) | 51.3s | 22% |
-  | frozen, warm store (returning machine / CI) | 7.4s | 3% |
-  | frozen, cold store (new CI runner) | 9.2s | 4% |
+| install situation | time | % of cold |
+|---|---|---|
+| cold-resolve (no lockfile) | 233.4s | 100% |
+| +1 dependency (lockfile present) | 9.5s | 4% |
+| catalog version bump (lockfile present) | 51.3s | 22% |
+| frozen, warm store (returning machine / CI) | 7.4s | 3% |
+| frozen, cold store (new CI runner) | 9.2s | 4% |
 
-  So a one-dep change is ~10s and a fresh clone / cold CI runner is ~7–9s (frozen);
-  only the no-lockfile case is the 233s/16-min resolve. The exception is a **catalog
-  bump** (51.3s): it re-resolves that shared dep across every importer — cheap in
-  *edits* (0 manifests), not in *time*.
+So a one-dep change is ~10s and a fresh clone / cold CI runner is ~7–9s (frozen);
+only the no-lockfile case is the 233s/16-min resolve. The exception is a **catalog
+bump** (51.3s): it re-resolves that shared dep across every importer — cheap in
+*edits* (0 manifests), not in *time*.
 - **Cold typecheck** bites when a change invalidates many packages' cache: a shared
-  `tsconfig`/toolchain bump, a low-layer foundation-lib edit (rebuilds ~90% of the
-  repo, `dev-sim.json` blast radius), or any cache miss with no remote cache. A PR
-  under `--affected` + warm/remote cache rebuilds only what changed.
+`tsconfig`/toolchain bump, a low-layer foundation-lib edit (rebuilds ~90% of the
+repo, `dev-sim.json` blast radius), or any cache miss with no remote cache. A PR
+under `--affected` + warm/remote cache rebuilds only what changed.
 - **Graph-load** bites on every `turbo` command (before it computes the closure) —
-  sub-second to low-seconds, and being reduced (see the Vercel link above).
+sub-second to low-seconds, and being reduced (see the Vercel link above).
 - **Lockfile merge conflict** bites when two branches change dependencies in
-  overlapping lockfile regions; `pnpm install` auto-resolves it (253→0 markers).
+overlapping lockfile regions; `pnpm install` auto-resolves it (253→0 markers).
 - **Version skew** bites while apps sit off the catalog version. Turborepo hashes a
-  package's resolved dependency versions as part of its task inputs, so an
-  off-catalog version produces a different input hash → a cache miss for that
-  package — which is the documented reason catalogs keep cache hashes stable (§2.3
-  of OPTIMIZATIONS.md). `lockfile-merge-bench.json` measures the manifest/lockfile
-  churn of skew (25 changed manifests), not the cache-hit rate.
+package's resolved dependency versions as part of its task inputs, so an
+off-catalog version produces a different input hash → a cache miss for that
+package — which is the documented reason catalogs keep cache hashes stable (§2.3
+of OPTIMIZATIONS.md). `lockfile-merge-bench.json` measures the manifest/lockfile
+churn of skew (25 changed manifests), not the cache-hit rate.
 
 ## The graph-load is the only global cost single-app work pays
 
@@ -164,9 +159,9 @@ exclusive of 338 MB), with CoW-independent inodes (`fs-bench.json`).
 Your constraint is a hybrid, and the two halves are orthogonal:
 
 1. **Centralize the versions of shared third-party deps** — one React, one
-   TypeScript across everything.
+ TypeScript across everything.
 2. **Keep internal packages independently versioned and published to npm** —
-   consumed by semver/range, available on the registry.
+ consumed by semver/range, available on the registry.
 
 …while it still **behaves like a workspace** (edit a lib, dependents pick up local
 source). pnpm supports both axes, and they compose:
@@ -204,13 +199,13 @@ Cells not benchmarked on bun are marked *(unverified)*.
 The two paths, side by side (no recommendation):
 
 - **pnpm** does the independently-published + catalogs + workspace setup as the
-  model pnpm documents, with the strict isolated linker; cost is the whole-workspace
-  resolve (16 min cold @4k) and the inode-heavy linker.
+model pnpm documents, with the strict isolated linker; cost is the whole-workspace
+resolve (16 min cold @4k) and the inode-heavy linker.
 - **bun** exposes the same capabilities with 58–440× faster installs; cost is that
-  the isolated+catalog path is newer (1.3, 2025) and hit the bugs above, and the
-  *(unverified)* rows are untested here.
+the isolated+catalog path is newer (1.3, 2025) and hit the bugs above, and the
+*(unverified)* rows are untested here.
 - **npm / yarn** work with Turborepo but have no catalogs, so the centralize-shared
-  axis becomes manual version-pinning.
+axis becomes manual version-pinning.
 
 *(If you meant Buck2 / Bazel rather than bun — a build system, not a package
 manager — it would replace Turborepo's task orchestration, not pnpm; a separate
@@ -240,17 +235,17 @@ skew windows short.
 ## By scale
 
 - **Up to ~1,000–2,000 apps (≤2,300 packages):** cold install minutes, cold
-  typecheck ~1–2 min — both rare and cacheable; daily loop seconds.
+typecheck ~1–2 min — both rare and cacheable; daily loop seconds.
 - **4,000 apps / 4,300 packages (measured):** cold install 16.4 min, cold typecheck
-  233s. These are bearable only if remote cache + prune keep them rare; the isolated
-  linker uses 86,749 `node_modules` entries / 49,712 symlinks at this size
-  (`results.json`), so `df -i` is worth watching — hoisted roughly halves the
-  entries (21,914 vs 50,159 at 2,000 apps, `install-bench.json`); `pnp` removes
-  `node_modules` entirely (not benchmarked here).
+233s. These are bearable only if remote cache + prune keep them rare; the isolated
+linker uses 86,749 `node_modules` entries / 49,712 symlinks at this size
+(`results.json`), so `df -i` is worth watching — hoisted roughly halves the
+entries (21,914 vs 50,159 at 2,000 apps, `install-bench.json`); `pnp` removes
+`node_modules` entirely (not benchmarked here).
 - **10,000–20,000 packages (extrapolated from the ~linear trend):** lockfile
-  ~360k–720k lines (154k at 4,300 pkgs ≈ 36 lines/pkg), cold install and cold
-  typecheck in the tens of minutes. At this
-  size a single shared workspace needs sharding or git-based selection.
+~360k–720k lines (154k at 4,300 pkgs ≈ 36 lines/pkg), cold install and cold
+typecheck in the tens of minutes. At this
+size a single shared workspace needs sharding or git-based selection.
 
 Vercel's platform also caps projects per git repo (Pro: 60; Hobby: 10; Enterprise:
 custom — [limits](https://vercel.com/docs/limits)), a deployment-side ceiling
