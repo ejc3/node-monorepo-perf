@@ -86,7 +86,7 @@ beta sees widget v2 -> [widget@2] B
 
 Under the isolated linker, two majors of the same package are not a conflict: pnpm installs both, so `alpha` gets widget 1 and `beta` gets widget 2 at the same time, each against the API it was built for.
 
-## 4. Overriding one lib to `workspace:` (the collapse)
+## 4. Overriding one lib to `workspace:`
 
 To develop `widget` locally and have everyone use that copy, use root `pnpm.overrides`. Overrides ignore declared ranges and apply workspace-wide, so they catch the direct and transitive edges of the diamond:
 
