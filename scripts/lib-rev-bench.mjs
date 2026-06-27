@@ -305,8 +305,14 @@ try {
     `  tsgo: caught=${!breakTsgo.ok} ${breakTsgo.failed}/${breakTsgo.total} failed ` +
       `(${breakTsgo.appTypecheckFailures} app typechecks) in ${breakTsgo.ms}ms · ${breakTsgo.sampleError || ""}`,
   );
+  // A gate that does NOT go red on a breaking change is a broken measurement, not a
+  // result — fail hard rather than write a JSON that records the catch as working.
   if (breakTsc.ok || breakTsgo.ok) {
-    console.log("  WARNING: a breaking foundation change was NOT caught by a gate — investigate");
+    throw new Error(
+      `breaking foundation change was NOT caught (gate must go red): ` +
+        `tsc ok=${breakTsc.ok} (${breakTsc.failed}/${breakTsc.total} failed, "${breakTsc.sampleError || "none"}"), ` +
+        `tsgo ok=${breakTsgo.ok} (${breakTsgo.failed}/${breakTsgo.total} failed, "${breakTsgo.sampleError || "none"}")`,
+    );
   }
 
   // ---- leaf rev (O(closure) contrast) -----------------------------------------
