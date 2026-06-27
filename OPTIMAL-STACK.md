@@ -1,9 +1,11 @@
 # OPTIMAL-STACK.md — bun + tsgo + oxlint + turbo at 4,000 apps / 400 libs
 
-Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), `bench/env.json`.
+Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), the real-types parity
+vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), `bench/env.json`.
 Reproduce: `node scripts/optimal-gate-bench.mjs 4000:400` (in a dedicated git worktree —
 the bench overwrites the root `package.json` and regenerates the tree, so it refuses to
-run in the primary tree).
+run in the primary tree); `node scripts/typecheck-parity-bench.mjs 4000:400:8` (self-contained
+— scaffolds a throwaway workspace under the temp dir, needs no worktree).
 
 One native-compiled tool per job — no slower baseline in the measured loop:
 
@@ -52,6 +54,35 @@ the catch is exactly this — `appsWithErrors === 4000` and a `TS2554` sample �
 that went red for any other reason fails the run. This is "catch a type error in one of
 the 4,000 apps before it ships," in under a second and a half.
 
+## Does the gate survive real types, and does it agree with tsc?
+
+The gate numbers above are measured on the generated tree, whose libs are 16-line
+re-exports. A separate, self-contained vet (`scripts/typecheck-parity-bench.mjs` →
+`bench/typecheck-parity-bench.json`) runs the same one-program shape over a deliberately
+type-heavy tree of the same 4,000:400 scale — libs carrying recursive conditional + mapped
+types, 48-member unions, recursive path-flattening, and cross-lib type intersections.
+
+**Cost holds.** One tsgo program checks this type-heavy tree in **1.96s** (median of 3,
+samples 1.95–1.96s), peak RSS **1281MB** — the same ~2s order as the optimal-gate tree's
+1.32s/911MB. This is a smoke test, not an isolated type-weight delta: the two trees are
+structured differently (8 vs 16 modules per lib, a non-universal vs universal import graph),
+so the only claim is that real type computation keeps the one-program gate around 2s at this
+scale — not a general bound. The ratio below is core-bound (tsgo is parallel), so the bench
+refuses to run on a loaded box and records the load it ran under.
+
+**On the injected errors, tsgo catches what tsc catches.** tsc is the oracle. On the valid
+tree both report **0** diagnostics. Into 5 apps the bench injects 5 error sites each
+(assignment, arg-type, arity, return-type) — 25 in all; tsc flags all 25 and tsgo flags the
+same **25 locations**, missing **0** and adding **0** of its own (the bench hard-fails on
+either drift, on the tsc count drifting from 25, and on a signal-killed run). Error codes
+match on 20 of 25; at the arg-type site (in all 5 apps) tsc emits `TS2345` and tsgo `TS2739`
+— both reject the same expression, with a different code. This is one generated corpus with
+`skipLibCheck` (no `.d.ts` parity), not a general diagnostic-parity proof — but on these 25
+located errors tsgo loses nothing tsc catches. So "tsgo is a preview" constrains emit and
+config (below), not which type errors it reports here — on the same type-heavy check tsc
+takes **17.2s** to tsgo's 1.96s (**8.8×**, both medians, measured at 1-min load 1.97 on 64
+cores).
+
 ## Context — turbo build+tsgo, 80.1s (not like-for-like)
 
 The orchestrated path, `turbo run typecheck:tsgo --filter=...@demo/lib-001`, runs one tsgo
@@ -88,4 +119,6 @@ oxlint (native Rust) checks the whole 4,400-package source tree in **180ms** (0 
   before installing (`workspace:*` specs are left intact — bun understands those). bun's
   own catalog format is the catalog-preserving option, not exercised here.
 - In the turbo path lib `dist` is emitted by **tsc** via `^build` (tsgo emit is not wired —
-  tsgo is a preview build).
+  tsgo is a preview build). The preview status constrains emit and resolution config, not
+  type checking: on the type-heavy parity vet above tsgo flagged every injected error
+  location tsc flagged (25 of 25, 0 missed).

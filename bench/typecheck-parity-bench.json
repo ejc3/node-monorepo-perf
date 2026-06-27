@@ -1,0 +1,53 @@
+{
+  "apps": 4000,
+  "libs": 400,
+  "modulesPerLib": 8,
+  "versions": {
+    "bun": "1.3.14",
+    "tsc": "Version 5.9.3",
+    "tsgo": "Version 7.0.0-dev.20260614.1",
+    "node": "v22.22.0"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 1.97,
+  "samples": 3,
+  "typeShape": "recursive conditional + mapped types, 48-member unions, path-flatten, cross-lib intersections",
+  "cleanBaseline": {
+    "tsgo": {
+      "ms": 1961,
+      "rssMB": 1281,
+      "diagnostics": 0,
+      "sampleMs": [
+        1962,
+        1961,
+        1948
+      ]
+    },
+    "tsc": {
+      "ms": 17228,
+      "rssMB": 2113,
+      "diagnostics": 0,
+      "sampleMs": [
+        17228,
+        17073,
+        17385
+      ]
+    },
+    "speedupTsgoOverTsc": 8.8
+  },
+  "injected": {
+    "apps": 5,
+    "tscDiagnostics": 25,
+    "tsgoDiagnostics": 25,
+    "locationMissedByTsgo": 0,
+    "tsgoOnlyLocations": 0,
+    "codeDiffersAtSharedLocation": 5,
+    "codeDiffSample": {
+      "tsc": "TS2345",
+      "tsgo": "TS2739"
+    },
+    "codeDiffPairs": [
+      "TS2345->TS2739"
+    ]
+  }
+}
