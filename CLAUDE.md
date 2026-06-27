@@ -99,6 +99,27 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   The gate wall-clock ratio is build-diluted (both gates share the tsc `^build`) and
   labeled as such; the npm-dep re-resolve/lockfile churn and registry publish are measured
   by install-modes-bench, lockfile-merge-bench, and registry-resolution-demo.
+- `node scripts/optimal-gate-bench.mjs <apps>:<libs>` (default `4000:400`) — the
+  foundation-rev scenario on the single optimal toolchain only (no slower baseline): bun
+  install, tsgo typecheck, oxlint, turbo. Generates `--universal 1 --tsgo-task`, decatalogs
+  (bun ignores pnpm `catalog:`), writes a bun workspace root (`packageManager: bun@…` +
+  toolchain devDeps), then measures: bun warm-store install; the **optimal type-error gate**
+  for a universal rev — a single tsgo process over the whole workspace from source
+  (`tsgo --noEmit -p tsconfig.whole.json`, `@demo/*`→`packages/*/src`, so it parses each
+  lib once and shares it across all apps, skipping the tsc dist builds; typecheck-only,
+  peak RSS recorded); a breaking foundation signature caught as **every** dependent app
+  turning red (the `caught` flag requires `appsWithErrors === APPS` + a `TS2554` sample,
+  not just a non-zero exit); for context the turbo build+tsgo gate (`--filter=...@demo/lib-001`,
+  O(repo), 4,800 tasks cold — **not** like-for-like, it also emits dist); a leaf rev via
+  `turbo --filter` (O(closure), asserted smaller); oxlint across the tree →
+  `bench/optimal-gate-bench.json`, writeup in OPTIMAL-STACK.md. The whole-program gate runs
+  a throwaway warmup first (excludes binary load / first-touch fs) and asserts RSS was
+  captured; the turbo gate runs after a daemon warmup and is asserted cold (zero cached).
+  **Destructive** (overwrites the root `package.json`, regenerates the tree) so it refuses
+  to run outside a linked git worktree, and restores everything it mutates (package.json,
+  revved source, `tsconfig.whole.json`) on exit via an idempotent `process.on("exit")`
+  handler. Lib `dist` is tsc-emitted via `^build` in the turbo path; the whole-program gate
+  sidesteps it — labeled in the doc.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -143,7 +164,8 @@ isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 it can't regenerate this run rather than deleting it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
-`OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing).
+`OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
+`OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400).
 
 ## Measurement methodology (how the numbers stay honest)
 
