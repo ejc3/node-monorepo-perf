@@ -21,3 +21,8 @@ pnpm-lock.yaml
 /bench/tc/
 .DS_Store
 .vercel
+
+# transient: written by optimal-gate-bench.mjs (removed on exit)
+tsconfig.whole.json
+bun.lock
+bun.lockb
