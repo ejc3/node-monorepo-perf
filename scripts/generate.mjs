@@ -3,7 +3,7 @@
 // libraries with a realistic, layered dependency graph.
 //
 //   node scripts/generate.mjs --apps 10000 --libs 300 --modules 16 \
-//       --app-deps 4 --lib-deps 3 --layers 6 --clean
+//       --app-deps 4 --lib-deps 3 --layers 6 --universal 1 --clean
 //
 // Design goals:
 //   * Apps are TINY (a layout + a page importing a few libs).
@@ -42,6 +42,17 @@ const MODULES = intOpt("modules", "16", 1); // modules per library (index import
 const APP_DEPS = intOpt("app-deps", "4", 0); // lib deps per app
 const LIB_DEPS = intOpt("lib-deps", "3", 0); // lib->lib deps
 const LAYERS = intOpt("layers", "6", 1); // dependency layers (layerSize divides by it)
+// Universal foundation tier: the lowest `--universal K` libs (indices 1..K) become a
+// dependency of EVERY app and every non-foundation lib — the @acme/core / design-system
+// / logger that a real monorepo has everyone import. Each foundation lib is forced to a
+// pure sink (depends on nothing), so the tier stays acyclic and revving one has a blast
+// radius of the whole repo (every app rebuilds). That whole-repo-blast case is what the
+// lib-revision bench measures. 0 = no universal lib (default).
+const UNIVERSAL = intOpt("universal", "0", 0); // validated against layer size below
+// Also emit a `typecheck:tsgo` script in every package (a tsgo-backed twin of the
+// `typecheck` task) so a bench can run the same gate under tsc vs tsgo. Off by
+// default so the generator's output (and other benches' input hashes) is unchanged.
+const TSGO_TASK = flag("tsgo-task");
 const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
 // Version skew: pin --skew% of apps to off-catalog react/react-dom versions, to
 // model a real rollout where not every app is on the catalog version at once.
@@ -75,6 +86,15 @@ const appPkg = (i) => `@demo/app-${pad(i, appW)}`;
 // ---- dependency graph ----------------------------------------------------
 const layerSize = Math.ceil(LIBS / LAYERS);
 const layerOf = (i) => Math.floor((i - 1) / layerSize); // 0-based layer
+// Keep the foundation tier within layer 0: forcing a foundation lib to a pure sink
+// (libDeps -> []) would otherwise silently strip the real layer-below deps of any
+// foundation lib that spilled into layer 1+, flattening the graph shape.
+if (UNIVERSAL > layerSize) {
+  console.error(
+    `--universal (${UNIVERSAL}) must be <= layer size (${layerSize} = ceil(LIBS/LAYERS))`,
+  );
+  process.exit(1);
+}
 
 // Optional semver mode: stamp real versions and reference internal deps with a
 // semver-flavored workspace specifier (`workspace:^1.2.3`). pnpm links the local
@@ -83,30 +103,43 @@ const layerOf = (i) => Math.floor((i - 1) / layerSize); // 0-based layer
 const libVersion = (i) => (VERSIONED ? `1.${layerOf(i)}.${i}` : "0.0.0");
 const wsSpec = (d) => (VERSIONED ? `workspace:^${libVersion(d)}` : "workspace:*");
 
+// indices 1..UNIVERSAL form the universal foundation tier (see --universal).
+const isFoundation = (i) => i >= 1 && i <= UNIVERSAL;
+// Fixed once UNIVERSAL is parsed; injected into every non-foundation package's
+// dep set, so hoist it out of the per-package hot loop rather than rebuilding it.
+const FOUNDATION_DEPS = Array.from({ length: UNIVERSAL }, (_, k) => k + 1);
+
 // Lib i depends on LIB_DEPS libs from the layer below (deterministic spread),
 // so closures are bounded by the number of layers but overlap heavily
 // (realistic: many features share a few foundation libs).
 function libDeps(i) {
+  // A foundation lib is a pure sink: it depends on nothing, so the tier can be
+  // injected everywhere below without ever forming a cycle.
+  if (isFoundation(i)) return [];
   const layer = layerOf(i);
-  if (layer === 0) return [];
-  const prevStart = (layer - 1) * layerSize + 1;
-  const prevEnd = Math.min(layer * layerSize, LIBS);
-  const span = prevEnd - prevStart + 1;
   const deps = new Set();
-  for (let k = 0; k < LIB_DEPS && span > 0; k++) {
-    const idx = prevStart + ((i * 7 + k * 13) % span);
-    deps.add(idx);
+  if (layer > 0) {
+    const prevStart = (layer - 1) * layerSize + 1;
+    const prevEnd = Math.min(layer * layerSize, LIBS);
+    const span = prevEnd - prevStart + 1;
+    for (let k = 0; k < LIB_DEPS && span > 0; k++) {
+      const idx = prevStart + ((i * 7 + k * 13) % span);
+      deps.add(idx);
+    }
   }
+  for (const f of FOUNDATION_DEPS) deps.add(f); // every non-foundation lib imports the foundation tier
   return [...deps].sort((a, b) => a - b);
 }
 
-// App i depends on APP_DEPS libs biased toward the top (feature) layers.
+// App i depends on APP_DEPS libs biased toward the top (feature) layers, plus the
+// whole foundation tier (so revving a foundation lib invalidates every app).
 function appDeps(i) {
   const deps = new Set();
   for (let k = 0; k < APP_DEPS; k++) {
     const idx = 1 + ((i * 31 + k * 97) % LIBS);
     deps.add(idx);
   }
+  for (const f of FOUNDATION_DEPS) deps.add(f);
   return [...deps].sort((a, b) => a - b);
 }
 
@@ -178,6 +211,7 @@ function libPackageJson(i) {
       scripts: {
         build: "tsc -p tsconfig.json",
         typecheck: "tsc --noEmit -p tsconfig.json",
+        ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit -p tsconfig.json" } : {}),
       },
       dependencies,
       devDependencies: {
@@ -223,8 +257,20 @@ function appPackageJson(i) {
       private: true,
       type: "module",
       scripts: vite
-        ? { build: "vite build", dev: "vite", preview: "vite preview", typecheck: "tsc --noEmit" }
-        : { build: "next build", dev: "next dev", start: "next start", typecheck: "tsc --noEmit" },
+        ? {
+            build: "vite build",
+            dev: "vite",
+            preview: "vite preview",
+            typecheck: "tsc --noEmit",
+            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+          }
+        : {
+            build: "next build",
+            dev: "next dev",
+            start: "next start",
+            typecheck: "tsc --noEmit",
+            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+          },
       dependencies: vite
         ? { react: reactSpec, "react-dom": reactSpec, ...libDepsObj }
         : { next: "catalog:", react: reactSpec, "react-dom": reactSpec, ...libDepsObj },
@@ -429,6 +475,8 @@ function main() {
       appDeps: APP_DEPS,
       libDeps: LIB_DEPS,
       layers: LAYERS,
+      universal: UNIVERSAL,
+      tsgoTask: TSGO_TASK,
       framework: FRAMEWORK,
       versioned: VERSIONED,
       approxFiles: fileCount,
