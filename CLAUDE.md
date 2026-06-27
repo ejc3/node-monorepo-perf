@@ -120,6 +120,25 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   revved source, `tsconfig.whole.json`) on exit via an idempotent `process.on("exit")`
   handler. Lib `dist` is tsc-emitted via `^build` in the turbo path; the whole-program gate
   sidesteps it — labeled in the doc.
+- `node scripts/typecheck-parity-bench.mjs <apps>:<libs>:<modules>` (default `300:80:8`) —
+  vets the two properties the optimal gate depends on, on **real** type complexity (not the
+  16-line re-exports the optimal-gate tree uses): the libs carry recursive conditional +
+  mapped types, 48-member unions, recursive path-flattening, and cross-lib intersections.
+  **Self-contained and non-destructive** — it scaffolds a throwaway workspace under the OS
+  temp dir (never the repo tree, so no worktree needed), bun-installs typescript + tsgo,
+  runs both checkers over one `tsconfig.whole.json` (`@demo/*`→lib source), and removes the
+  workspace on exit. Measures (1) **cost** — the one tsgo program over the type-heavy tree
+  (time + peak RSS), each checker run as the median of `PARITY_SAMPLES` (default 3) timed
+  runs after a warmup; (2) **parity vs tsc** (the oracle) — clean baseline both 0, then 5
+  apps × 5 injected error sites; reports locations missed by tsgo, tsgo-only locations, and
+  same-location-different-code (with a sample of the differing codes). **Hard-fails** if the
+  clean baseline isn't 0/0 (the generated heavy types must be valid), if tsgo misses or adds
+  any location vs tsc (location parity is enforced both ways), if the tsc injected count
+  drifts from 25, or if a checker is killed by a signal. The speed ratio is core-bound (tsgo
+  is parallel), so it **refuses to run on a loaded box** (1-min load > half the cores) unless
+  `PARITY_ALLOW_BUSY=1`, and records `cores`/`preRunLoadAvg1`/per-run `sampleMs` so a
+  contended run is visible → `bench/typecheck-parity-bench.json`, results folded into
+  OPTIMAL-STACK.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -165,7 +184,8 @@ it can't regenerate this run rather than deleting it. Docs: `README.md` (overvie
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
 `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
-`OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400).
+`OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
+tsgo-vs-tsc parity vet on real types).
 
 ## Measurement methodology (how the numbers stay honest)
 
