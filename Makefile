@@ -9,7 +9,7 @@ MODULES ?= 16
 APP ?= @demo/app-00100
 SCALES ?= 300:100 1500:300
 
-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench clean
+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -70,6 +70,9 @@ build-bench: ## full Next vs Vite build at APPS/LIBS
 
 lockfile-bench: ## decompose install: resolve (--lockfile-only) vs verify vs full, per SCALES
 	node scripts/lockfile-bench.mjs "$(SCALES)"
+
+lib-rev-bench: ## rev a universal lib: workspace-dep vs npm-dep cost, tsc vs tsgo (APPS:LIBS)
+	node scripts/lib-rev-bench.mjs $(APPS):$(LIBS)
 
 clean: ## Remove generated workspace + caches
 	rm -rf apps packages out .turbo node_modules/.cache/turbo examples/diamond

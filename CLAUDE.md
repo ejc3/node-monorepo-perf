@@ -30,6 +30,9 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 ### Scaffold
 - `make gen` — generate the workspace (`generate.mjs --apps --libs --modules --clean`).
 - `make gen-versioned` — same, but with semver versions + `workspace:^x.y.z` specifiers.
+- `generate.mjs --universal K` — make the lowest K libs a pure-sink foundation tier that
+  every app and every other lib depends on (the `@acme/core` everyone imports); revving
+  one has a whole-repo blast radius. Used by `lib-rev-bench.mjs`. 0 = none (default).
 - `make clean` — remove generated apps/packages, `out`, `.turbo`, `node_modules/.cache/turbo`, diamond example.
 
 ### Core operations (the O(repo)-vs-O(closure) thesis, one command each)
@@ -83,6 +86,19 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>` — simulate D devs each
   owning a feature area (2 apps + 1 lib): onboarding, typecheck-on-save,
   build-before-push, lib-edit, independence, blast radius → `bench/dev-sim.json`.
+- `node scripts/lib-rev-bench.mjs <apps>:<libs>` (default `4000:400`; `make lib-rev-bench`)
+  — cost of revving a universal foundation lib (`generate --universal 1 --tsgo-task`, so
+  `@demo/lib-001` is imported by every app and every package has a `typecheck:tsgo` twin
+  task). Workspace-dep rev: lockfile byte-identical (no install/publish); the lib-owner
+  gate `turbo run typecheck --filter=...foundation` re-checks every dependent (O(repo)
+  because it's universal) vs a leaf lib (O(closure)), each timed under tsc and tsgo from a
+  cold cache. Breaking-change catch: a breaking foundation signature makes the gate go red
+  and name the dependent apps/libs that no longer typecheck (TS2554), under both checkers.
+  tsc vs tsgo on the real lib source as one big program (pure-checker speedup). npm-dep
+  version-bump fanout (catalog 1 line vs per-consumer pin) → `bench/lib-rev-bench.json`.
+  The gate wall-clock ratio is build-diluted (both gates share the tsc `^build`) and
+  labeled as such; the npm-dep re-resolve/lockfile churn and registry publish are measured
+  by install-modes-bench, lockfile-merge-bench, and registry-resolution-demo.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.

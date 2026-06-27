@@ -9,6 +9,10 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "typecheck:tsgo": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   }
 }
