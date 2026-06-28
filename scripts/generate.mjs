@@ -53,6 +53,13 @@ const UNIVERSAL = intOpt("universal", "0", 0); // validated against layer size b
 // `typecheck` task) so a bench can run the same gate under tsc vs tsgo. Off by
 // default so the generator's output (and other benches' input hashes) is unchanged.
 const TSGO_TASK = flag("tsgo-task");
+// Also emit a `test` script (node --test over a per-package smoke test) in every package,
+// so a bench can measure the TEST axis through Turbo's `test` task (defined in the root
+// turbo.json with no task deps, so a `turbo run test` isolates test-task selection +
+// execution from the build axis). The turbo.json `test` task is inert for any package that
+// has no `test` script, so it is harmless when this flag is off. Off by default so other
+// benches' input hashes and generator output are unchanged.
+const TEST_TASK = flag("test-task");
 const VERSIONED = flag("versioned"); // stamp real semver + use workspace:^x.y.z specifiers
 // Version skew: pin --skew% of apps to off-catalog react/react-dom versions, to
 // model a real rollout where not every app is on the catalog version at once.
@@ -212,6 +219,7 @@ function libPackageJson(i) {
         build: "tsc -p tsconfig.json",
         typecheck: "tsc --noEmit -p tsconfig.json",
         ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit -p tsconfig.json" } : {}),
+        ...(TEST_TASK ? { test: "node --test" } : {}),
       },
       dependencies,
       devDependencies: {
@@ -263,6 +271,7 @@ function appPackageJson(i) {
             preview: "vite preview",
             typecheck: "tsc --noEmit",
             ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TEST_TASK ? { test: "node --test" } : {}),
           }
         : {
             build: "next build",
@@ -270,6 +279,7 @@ function appPackageJson(i) {
             start: "next start",
             typecheck: "tsc --noEmit",
             ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TEST_TASK ? { test: "node --test" } : {}),
           },
       dependencies: vite
         ? { react: reactSpec, "react-dom": reactSpec, ...libDepsObj }
@@ -357,6 +367,21 @@ export default function Page() {
 }
 
 // ---- write ---------------------------------------------------------------
+// A self-contained per-package smoke test discovered by `node --test` (it scans the package dir for
+// files whose names match its default test glob — here only `index.test.mjs`; node_modules is excluded,
+// and the .ts source files are not `*.test.*` so they are not matched). It imports nothing — the
+// TEST-axis bench measures Turbo's test-task SELECTION (`--filter` picks the package closure, which is
+// what makes the axis O(repo) vs O(closure)) and the per-task orchestration/runner cost, not real test
+// runtime; a trivial body keeps that signal clean. Placed at the package root, not in `src`, so tsc's
+// `include: ["src"]` never picks it up.
+const testSource = (pkg) => `import { test } from "node:test";
+import assert from "node:assert/strict";
+
+test(${JSON.stringify(`${pkg} smoke`)}, () => {
+  assert.equal(1 + 1, 2);
+});
+`;
+
 function writeLib(i) {
   const dir = join(LIBS_DIR, libDir(i));
   const src = join(dir, "src");
@@ -367,6 +392,7 @@ function writeLib(i) {
   writeFileSync(join(src, "index.ts"), libIndexSource(i));
   writeFileSync(join(dir, "package.json"), libPackageJson(i));
   writeFileSync(join(dir, "tsconfig.json"), LIB_TSCONFIG);
+  if (TEST_TASK) writeFileSync(join(dir, "index.test.mjs"), testSource(libPkg(i)));
 }
 
 const VITE_CONFIG = `import { defineConfig } from "vite";
@@ -424,6 +450,7 @@ function writeApp(i) {
   const dir = join(APPS_DIR, appDir(i));
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), appPackageJson(i));
+  if (TEST_TASK) writeFileSync(join(dir, "index.test.mjs"), testSource(appPkg(i)));
   if (FRAMEWORK === "vite") {
     const src = join(dir, "src");
     mkdirSync(src, { recursive: true });
@@ -466,7 +493,8 @@ function main() {
   process.stdout.write(`  apps ${APPS}/${APPS}\n`);
 
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  const fileCount = LIBS * (MODULES + 3) + APPS * 6;
+  // +1 per package for the index.test.mjs emitted under --test-task
+  const fileCount = LIBS * (MODULES + 3) + APPS * 6 + (TEST_TASK ? LIBS + APPS : 0);
   console.log(
     JSON.stringify({
       apps: APPS,
@@ -477,6 +505,7 @@ function main() {
       layers: LAYERS,
       universal: UNIVERSAL,
       tsgoTask: TSGO_TASK,
+      testTask: TEST_TASK,
       framework: FRAMEWORK,
       versioned: VERSIONED,
       approxFiles: fileCount,
