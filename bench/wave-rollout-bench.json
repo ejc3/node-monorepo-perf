@@ -1,0 +1,91 @@
+{
+  "claim": "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun is the recommended driver: it does all of it natively and cold-installs 58-440x faster than pnpm in the clean-env case that recurs in practice (bench/install-bench.json; warm-cached runners narrow the gap and pnpm-hoisted can win fully-warm at 2,000 apps). Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and auto-enables frozen in CI. Named catalogs route two cohorts to two versions in one lockfile and a repoint edits zero consumer manifests on both (bun in package.json, pnpm in pnpm-workspace.yaml). bun ACCEPTS workspace:* as a catalog value and links the local package; pnpm rejects every form. Both bake a CONCRETE range on publish (workspace:^ -> ^2.5.0), so advancing a universal lib is a republish-fanout. bun does not read pnpm-workspace.yaml catalogs, so author them in package.json.",
+  "versions": {
+    "pnpm": "10.29.1",
+    "bun": "1.3.14",
+    "node": "v22.22.0"
+  },
+  "registry": "https://registry.npmjs.org/",
+  "speedContext": {
+    "source": "bench/install-bench.json",
+    "note": "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~440x at 200 apps, ~100x at 1,000, ~58x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container): bun 1.2s vs pnpm-hoisted 48.9s at 200 apps (~41x). WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 10.1s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the clean-env/cold case; pnpm-hoisted can win the fully-warm case."
+  },
+  "determinism": {
+    "bun": {
+      "config": "bunfig.toml [install] frozenLockfile=true; bare bun install on drift",
+      "failsClosedOnDrift": true,
+      "exitCode": 1,
+      "diagnostic": "lockfile had changes, but lockfile is frozen",
+      "ciAutoEnablesFrozen": false,
+      "sourceVerifiedAt": "bun-v1.3.14",
+      "sourceNote": "frozen_lockfile is set only by --frozen-lockfile / `bun ci` / --production / bunfig (CommandLineArguments.zig:797, PackageManagerOptions.zig:335-344,613-620); env.isCI() only disables the progress bar (PackageManagerOptions.zig:392)."
+    },
+    "pnpm": {
+      "config": "committed pnpm-lock.yaml + pnpm install --frozen-lockfile",
+      "inputSpec": "^3.0.0",
+      "resolvedVersion": "3.0.1",
+      "byteIdentical": true,
+      "frozenRuns": 2,
+      "failsClosedOnDrift": true,
+      "driftExitCode": 1,
+      "driftError": "ERR_PNPM_OUTDATED_LOCKFILE",
+      "autoEnablesFrozenInCi": true,
+      "ciDriftError": "ERR_PNPM_OUTDATED_LOCKFILE"
+    }
+  },
+  "namedCatalogLanes": {
+    "consumers": 2,
+    "bun": {
+      "where": "root package.json workspaces.catalogs",
+      "stableResolves": "1.0.0",
+      "nextResolves": "3.0.0",
+      "repointConsumerManifestsEdited": 0,
+      "cohortMovedTo": "3.0.0"
+    },
+    "pnpm": {
+      "where": "pnpm-workspace.yaml catalogs",
+      "stableResolves": "1.0.0",
+      "nextResolves": "3.0.0",
+      "oneLockfile": true,
+      "repointConsumerManifestsEdited": 0,
+      "cohortMovedTo": "3.0.0"
+    }
+  },
+  "workspaceInCatalog": {
+    "bun": {
+      "accepts": true,
+      "linkedLocal": true
+    },
+    "pnpm": {
+      "rejectsEveryForm": true,
+      "formsTested": [
+        "workspace:*",
+        "workspace:^",
+        "workspace:~",
+        "workspace:^1.0.0"
+      ],
+      "formsRejected": 4,
+      "error": "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC"
+    }
+  },
+  "publishBakesConcrete": {
+    "bun": {
+      "sourceCore": "workspace:^",
+      "sourceDep": "catalog:",
+      "tarballCore": "^2.5.0",
+      "tarballDep": "1.0.0"
+    },
+    "pnpm": {
+      "sourceCore": "workspace:^",
+      "sourceDep": "catalog:",
+      "tarballCore": "^2.5.0",
+      "tarballDep": "1.0.0"
+    },
+    "implication": "a consumer catalog cannot repoint a baked range inside a dependent lib's tarball; a universal lib re-exported through every other lib advances by republishing its dependents."
+  },
+  "bunIgnoresPnpmCatalog": {
+    "resolved": false,
+    "diagnostic": "is-odd@catalog: failed to resolve"
+  },
+  "reproduced": true
+}

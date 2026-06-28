@@ -2,7 +2,7 @@
 
 Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries. It generates the workspace with a layered dependency graph and measures install, typecheck, build, and the scoped ("focus") operations. Tested to 4,000 apps / 300 libs.
 
-Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`, `pnpm deploy`) executes only one app's dependency closure and grows with that closure (×1.8 here), not with app count. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
+Result: whole-workspace operations — install, typecheck, even a warm-cache `turbo run`, and `turbo prune`'s graph load — scale with package count. A focused build (`turbo run --filter=<app>...`) executes only one app's dependency closure and grows with that closure (×1.8 here), not with app count. The workflow avoids unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
 ---
 
@@ -10,9 +10,9 @@ Result: whole-workspace operations — install, typecheck, even a warm-cache `tu
 
 | Layer | Question it answers | Tool | Command |
 |---|---|---|---|
-| **Install-time** | "Install only *this* app's dependency closure" | `pnpm deploy` / `turbo prune` | `turbo prune @demo/app-05000 --docker` |
-| **Task-time** | "Build/typecheck only the affected packages" | Turborepo filters | `turbo run build --filter=@demo/app-05000...` |
-| **Artifact-time** | "Ship a minimal subtree to CI/Vercel/Docker" | `turbo prune` | `turbo prune @demo/app-05000 --docker` then build `out/` |
+| **Install-time** | "Install only *this* app's dependency closure" | `pnpm deploy` / `turbo prune` | `turbo prune @demo/app-2000 --docker` |
+| **Task-time** | "Build/typecheck only the affected packages" | Turborepo filters | `turbo run build --filter=@demo/app-2000...` |
+| **Artifact-time** | "Ship a minimal subtree to CI/Vercel/Docker" | `turbo prune` | `turbo prune @demo/app-2000 --docker` then build `out/` |
 
 Measured by `scripts/measure.mjs`, recorded in [`bench/results.json`](bench/results.json). See [Results](#results-scaling-behavior).
 
@@ -31,6 +31,7 @@ pnpm-demo/
 │   ├── sweep.mjs           # run measure across a matrix of sizes
 │   ├── perf-matrix.mjs     # install variants: specifier form, node-linker
 │   ├── chart.mjs           # render scaling charts (SVG) from results
+│   ├── comparison-chart.mjs # render the tool head-to-head heatmap (SVG)
 │   ├── deploy-vercel.mjs   # prune one app -> cloud build on Vercel, timed
 │   ├── rewrite-protocols.mjs # materialize catalog:/workspace: for non-pnpm tools
 │   ├── diamond-scaffold.mjs # generate the semver/diamond example
@@ -92,13 +93,13 @@ node scripts/measure.mjs --label 10k --apps 10000 --libs 300 \
 pnpm chart            # render bench/*.svg from results.json
 ```
 
-Generating and installing tens of thousands of apps materializes a large `node_modules` (hundreds of thousands of inodes) and a big lockfile. Start at 200–2,000 apps before going higher.
+Generating and installing at this scale materializes a large `node_modules` (~87k entries at 4,000 apps, `bench/results.json`) and a big lockfile, both growing ~linearly with app count. Start at 200–2,000 apps before going higher.
 
 ---
 
 ## Results: scaling behavior
 
-Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Four scale points, 200 → 4,000 apps (20× apps, ~14× packages); larger scales extrapolate from this trend. Produced by `make sweep` (`scripts/measure.mjs` per scale → `bench/results.json`).
+Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Four scale points, 200 → 4,000 apps (20× apps, ~14× packages); larger scales extrapolate from this trend. Produced by `scripts/measure.mjs` per scale → `bench/results.json` (the 200–2,000 points via `make sweep`; the 4,000 point a standalone `measure.mjs` run).
 
 | apps (libs) | typecheck cold | typecheck warm | focus build¹ | prune | build tasks | focus closure |
 |---|---|---|---|---|---|---|
@@ -143,7 +144,7 @@ Whole-workspace operations scale ~linearly with package count; the focus build t
 | onboarding — build a dev's feature area (apps + lib closure) | median 10.8s |
 | typecheck-on-save — edit an app, typecheck it | median 4.3s |
 | build-before-push — edit an app, build it + closure | median 5.8s |
-| lib-edit — edit your own lib, rebuild it + dependents (21 here) | median 11.6s |
+| lib-edit — edit your own lib, rebuild it + dependents (21 packages here) | median 11.6s |
 | independence — a teammate's unrelated edit | **adds 0 rebuilds** to your closure |
 | edit foundation lib (`lib-003`, low layer) | **1,080 of 1,200** packages would rebuild |
 | edit high-layer lib (`lib-197`) | 21 packages would rebuild |
@@ -179,15 +180,24 @@ The companion docs measure each cost separately. The headline result of each, wi
 
 **Verdict — when a shared workspace is worth it.** It fits apps that **share code and versions**: the daily loop is O(closure) (seconds, no install) and the heavy O(repo) costs (cold install, cold typecheck, lockfile rewrite) land on rare events, paid once per change and amortized across machines by the committed lockfile and the remote cache (the Turbo graph-load is the one O(repo) cost paid on every command). It is the wrong fit for **independent** apps — the single lockfile and graph then buy nothing, so a polyrepo or separate installs avoid that shared cost. The measured basis and a per-situation decision table are in [FEASIBILITY.md](FEASIBILITY.md).
 
+### Tooling head-to-head
+
+bun and tsgo win their head-to-heads, but the margin depends on the regime. A full cold install — no committed lockfile, full dependency resolve — is where bun's lead is largest (×58–×440 across 200–2,000 apps vs pnpm's default isolated linker; hoisted is within ~5%); a clean checkout carries the committed lockfile, so it relinks instead, and fully warm at 2,000 apps `pnpm`-hoisted is fastest (4.7s vs bun 10.1s). tsgo runs ~9–12× faster than tsc; a Vite SPA builds ~2.3× faster than the Next App Router (different feature sets). Each section below keeps compatible columns, the fastest cell per row green and the rest labeled with how many times slower. Every number traces to the cited `bench/*.json`; regenerate with `node scripts/comparison-chart.mjs`.
+
+![tooling head-to-head: install (bun vs pnpm), typecheck (tsc vs tsgo), build (Next vs Vite), and pnpm install situations](bench/charts/tool-comparison.svg)
+
 | area | headline finding | docs |
 |---|---|---|
-| **Install cost** | pnpm cold install is resolve-bound and ~linear: 48.8s → 476.8s (200 → 2,000 apps). bun installs the same dependency set 58–440× faster. The cold resolve is rare when the lockfile is committed: at 1,000 apps a frozen install is 7–9s and a one-dependency change ~10s; only a missing lockfile pays the full cold install (~16 min at 4,000 apps), which the resolve dominates (98% at 2,000 apps, the largest measured split). | [FEASIBILITY](FEASIBILITY.md), [TOOLING](TOOLING.md) |
+| **Install cost** | pnpm cold install is resolve-bound and ~linear: 48.8s → 476.8s (200 → 2,000 apps). bun installs the same dependency set 58–440× faster. The cold resolve is rare when the lockfile is committed: at 1,000 apps a frozen install is 7–9s and a one-dependency change ~10s; only a missing lockfile pays the full cold install (~16 min at 4,000 apps), which the resolve dominates (98% at 2,000 apps, the largest scale measured). | [FEASIBILITY](FEASIBILITY.md), [TOOLING](TOOLING.md) |
 | **`node_modules` footprint** | cold install is within ~5% across `isolated`/`hoisted` (resolution-bound), so the linker is a footprint/strictness choice, not a speed one: `isolated` holds 86,749 entries / 49,712 symlinks at 4,000 apps; `hoisted` ~halves the entries (21,914 vs 50,159 at 2,000 apps); `pnp` removes `node_modules`. | [OPTIMIZATIONS §1](OPTIMIZATIONS.md), [TOOLING](TOOLING.md) |
 | **Lockfile** | the single shared lockfile is irreducibly O(repo): 9,897 → 153,967 lines (200 → 4,000 apps). A `catalog:` bump edits **0** app manifests (vs 25 when pinned per-app) but rewrites hundreds of lockfile lines; two concurrent bumps conflict (253 markers) and `pnpm install` auto-resolves them to 0. | [OPTIMIZATIONS §1.5](OPTIMIZATIONS.md), [LIMITS](LIMITS.md) |
 | **Type-checking** | whole-repo typecheck is O(repo): cold 19s → 233s, warm cache 1.5s → 20.5s — warm is still O(repo) because Turbo hashes every package on a full hit. tsgo (TypeScript's native port) is ~12× faster per check, drop-in for modern configs, still beta (it drops `node10`/legacy targets and has no LSP plugin API yet). | [TYPECHECKERS](TYPECHECKERS.md) |
-| **Build** | Next 16 builds with Turbopack by default — `next build --turbopack` is a no-op (byte-identical output). A Vite SPA builds ~2.3× faster with ~20× less output than Next App Router, a different feature set. At scale the lever is skipping unchanged builds, not per-build speed. | [OPTIMIZATIONS §3](OPTIMIZATIONS.md), [TOOLING](TOOLING.md) |
+| **Build** | Next 16 builds with Turbopack by default — `next build --turbopack` is a no-op (identical output size and bundler). A Vite SPA builds ~2.3× faster with ~20× less output than Next App Router, a different feature set. At scale the lever is skipping unchanged builds, not per-build speed. | [OPTIMIZATIONS §3](OPTIMIZATIONS.md), [TOOLING](TOOLING.md) |
 | **Focus / deploy** | `turbo prune` emits a complete subtree (0 of 15 closure packages missing) plus a pruned lockfile (876 of 3,969 lines), but omits root configs an app extends (`tsconfig.base.json`) — copy them before building. One app deployed to Vercel via cloud build in 22s. | [OPTIMIZATIONS §4](OPTIMIZATIONS.md) |
 | **Semver vs `workspace:`** | internal deps are consumed by semver from a registry; `workspace:` forces local linking and `pnpm publish` rewrites it to a real range. A diamond keeps both majors under the isolated linker; a root override collapses it and breaks the dependent built against the other major; per-app divergence on a *transitive* dep needs a separate workspace + lockfile — proven live on CodeArtifact. | [WORKSPACE-VS-SEMVER](WORKSPACE-VS-SEMVER.md) |
+| **Optimal type-error gate (4k:400)** | the workspace-author's core-lib-rev gate on bun + tsgo + oxlint + turbo: a whole-program type-error gate over all 4,000 apps in 1.32s; a breaking foundation signature caught as every app red (4,399 `TS2554`); tsgo-vs-tsc parity holds on heavy real types; the fast `declaration:false` gate misses a `.d.ts` portability error the build catches. | [OPTIMAL-STACK](OPTIMAL-STACK.md) |
+| **Developer inner loops** | per-role O(closure) loops on the optimal stack, fresh vs subsequent — app dev (one app + its libs) and lib dev (one leaf lib): typecheck/lint/focused-gate in seconds; the stack run on real apps (vercel/commerce, shadcn/taxonomy). | [SUMMARY](SUMMARY.md), [OPTIMAL-STACK](OPTIMAL-STACK.md) |
+| **Core-lib rollout** | advancing a shared internal lib across 4,000 apps: the lockfile (not the range) is the determinism boundary; bun drives it natively (frozen `bunfig`, named-catalog cohorts, `workspace:` HEAD-tracking, concrete-range publish) and cold-installs ~58–440× faster than pnpm on a clean checkout; a universal lib is a republish-fanout; breaking changes go expand→migrate→contract. | [ROLLOUT](ROLLOUT.md) |
 | **The ceiling** | what focus/cache/`--affected` cannot remove at ~20,000 apps: the single lockfile, the per-command Turbo graph-load floor, foundation-change blast radius (~90% of packages), inode/disk pressure, tsserver memory, git worktree cost, and Vercel's per-project model. Past this, shard the workspace or move to a daemon + remote-execution build system. | [LIMITS](LIMITS.md) |
 
 Methodology and industry grounding: [GROUNDING.md](GROUNDING.md) maps each practice to its primary source and the documented ceiling; [REVIEW.md](REVIEW.md) is the static-check, type-check, and two-reviewer pipeline every change runs through.

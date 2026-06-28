@@ -1,9 +1,8 @@
 # A 4,000-app monorepo on bun + tsgo + oxlint + turbo — measured
 
 What the day-to-day costs are when a pnpm + Turborepo monorepo of **4,000 Next.js apps and
-400 shared libraries** (4,400 packages) runs on one native-compiled tool per job. Every number
-below is measured on the same machine and traces to a JSON under `bench/`; nothing is
-estimated or extrapolated unless labeled as such.
+400 shared libraries** (4,400 packages) runs on one native-compiled tool per job. Figures
+trace to `bench/*.json`; extrapolations are labeled.
 
 **Machine:** 64-core Neoverse-V1, 135 GB RAM. **Versions:** bun 1.3.14, tsgo
 (`@typescript/native-preview`) 7.0.0-dev.20260614.1, oxlint 1.71.0, turbo 2.9.18, tsc 5.9.3,
@@ -27,7 +26,7 @@ infrequent (first clone, CI install, a core-library rev) and are still fast here
 
 | job                 | tool                 | why                                            |
 | ------------------- | -------------------- | ---------------------------------------------- |
-| install             | **bun**              | links 4,400 packages in ~21s vs pnpm's minutes |
+| install             | **bun**              | links the 4,400-package workspace in ~21s (warm store, `optimal-gate-bench.json`) |
 | typecheck / gate    | **tsgo**             | the native TypeScript port; 8.8× tsc, same error locations |
 | lint                | **oxlint**           | native Rust; whole tree in 180ms               |
 | orchestrate + scope | **turbo**            | `--filter`/`--affected` + per-package caching  |
@@ -74,31 +73,36 @@ the version-bump fanout row from `bench/lockfile-merge-bench.json`, measured at 
 
 | action                                                 | cost |
 | ------------------------------------------------------ | ---- |
-| **gate every dependent** — one tsgo program, whole ws  | **1.32s** (re-export tree) / **1.96s** (real heavy types) |
+| **gate every dependent** — one tsgo program, whole ws  | **1.32s** (re-export tree) / **1.96s** (clean whole-ws check, type-heavy parity tree) |
 | **catch a breaking change**                            | **1.39s** — 4,000 / 4,000 apps go red, named (TS2554) |
-| does tsgo agree with tsc on what it catches?           | **0 missed, 0 false-positive** on 25 injected real-type errors |
+| does tsgo agree with tsc on what it catches?           | **0 missed, 0 false-positive** on 25 injected real-type errors (same 25 locations; different diagnostic code at 5 of them) |
 | same gate via orchestrated turbo (also emits dist)     | 80.1s / 4,800 tasks |
 | bump a **workspace** dep version                       | no install or publish — workspace deps are symlinks (source edit only) |
 | bump an **npm** dep version (fanout)                   | catalog: **2** workspace-yaml lines / per-consumer pin: **one manifest each** (25 of 25 in the 200:50 bench) |
 
-Revving the package *everyone* imports gates in **~1.4 seconds** and names exactly which of
-the 4,000 apps broke. The single tsgo process reads each library's source once and shares it
+Revving the package *everyone* imports gates clean in **1.3s** and catches a breaking change in
+**1.4s**, naming exactly which of the 4,000 apps broke. The single tsgo process reads each library's source once and shares it
 across every importing app, so it skips the 400 per-library dist builds the orchestrated path
 does — that is the ~60× gap (1.32s vs 80.1s). It is typecheck-only; a deploy that needs `dist`
 runs the turbo path.
 
 ## What stays expensive
 
-Honest about the limits. Two operations are genuinely O(repo) and cannot be scoped away:
+Two operations are genuinely O(repo) and cannot be scoped away:
 
-- **Install** of the whole workspace (~21s fresh) — paid on a clean clone or in CI. For
-  contrast, pnpm cold-resolve of a quarter the apps (1,000) already takes 233s
-  (`bench/install-modes-bench.json`).
+- **Install** of the whole workspace (~21s, warm store) — paid on a clean clone or in CI.
+  pnpm's no-lockfile cold-resolve (lockfile authoring) is a different operation and scale —
+  233s at 1,000:200 (`bench/install-modes-bench.json`). The same-scale bun-vs-pnpm head-to-head
+  (`bench/install-bench.json`, to 2,000 apps): cold (fresh `node_modules`, the clean-checkout
+  case) bun is ~58–440× faster; warm (cached) the gap narrows to single digits by 1,000 apps,
+  and at 2,000 apps bun warm 10.1s vs pnpm-isolated 15.6s while pnpm-hoisted warm 4.7s is ~2×
+  faster than bun.
 - **A whole-repo dist build** (release-everything) scales with package count.
 
 Everything else is either O(closure) (a developer's day) or O(repo) but small in wall time —
 whole typecheck 1.3s, whole lint 0.18s. The core-package gate is O(repo) in *what it checks*
-but 1.4s in wall time.
+but small in wall time: 1.3s to gate clean, 1.4s when it must also name every broken app (the
+breaking-change catch).
 
 ## Does it hold on real, larger apps?
 
@@ -118,9 +122,10 @@ real Next tsconfig**, erroring in 139–273ms on options it has removed (both ap
 real app in means modernizing the config and adding an ambient `*.css` declaration. The finagled
 program checks the app's hand-written source, not its `next build`-generated types, so it is the
 inner-loop source check, not the app's full `tsc` surface. After that, commerce checks clean (0
-errors); taxonomy shows 13 — 7 for codegen this bench doesn't run
-(`contentlayer/generated`), 6 for genuine dependency drift (Radix dropped `className` from its Portal
-props — `AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`). Turbo caches a clean app's
+errors); taxonomy shows 13 — 7 cannot-find-module errors (TS2307), the sampled ones for
+`contentlayer/generated` codegen this bench doesn't run; 6 for genuine dependency drift
+(`className` is no longer accepted on the Radix Portal props —
+`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`). Turbo caches a clean app's
 checks (commerce warm 56ms, 2 of 2); it won't cache taxonomy's red typecheck until it goes green.
 
 ## Caveats on the tools
@@ -143,5 +148,9 @@ The workspace is generated; `scripts/` builds it at any scale and runs each meas
 three role benches: `node scripts/dev-loop-bench.mjs 4000:400` (app + lib inner loops),
 `node scripts/optimal-gate-bench.mjs 4000:400` (core-package gate),
 `node scripts/typecheck-parity-bench.mjs 4000:400:8` (tsgo-vs-tsc parity). The destructive ones
-run in a throwaway git worktree and refuse to run on a loaded box (the timings are core-bound).
+run in a throwaway git worktree; the dev-loop and parity benches also refuse on a loaded box
+(their timings are core-bound). The side tables draw on `bench/real-app-bench.json`,
+`bench/install-modes-bench.json`, and `bench/install-bench.json` (run via
+`scripts/real-app-bench.mjs`, `scripts/install-modes-bench.mjs`, `scripts/install-bench.mjs`),
+plus `bench/lockfile-merge-bench.json` (`scripts/lockfile-merge-bench.mjs`).
 Source of record is `bench/*.json`; `bench/env.json` records the machine.
