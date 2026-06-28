@@ -222,8 +222,12 @@ for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]
     canonical.add(m[1]);
   }
 }
+// Doc-linked charts produced by a SEPARATE generator, not this script's `made` set: comparison-chart.mjs
+// owns tool-comparison.svg. Exempt them from the stale-warning and from deletion so a plain `make chart`
+// neither false-warns about a chart it doesn't render nor removes it.
+const external = new Set(["tool-comparison.svg"]);
 for (const f of canonical) {
-  if (!made.includes(f)) {
+  if (!made.includes(f) && !external.has(f)) {
     console.warn(
       `[chart] WARNING: ${f} was not regenerated this run (insufficient/confounded data); ` +
         `keeping the existing file, which may be STALE and is still linked by the docs.`,
@@ -231,9 +235,9 @@ for (const f of canonical) {
   }
 }
 
-// remove only genuinely orphaned SVGs (renamed/removed charts) — never doc-linked ones
+// remove only genuinely orphaned SVGs (renamed/removed charts) — never doc-linked or externally-owned ones
 for (const f of readdirSync(chartsDir)) {
-  if (f.endsWith(".svg") && !made.includes(f) && !canonical.has(f)) {
+  if (f.endsWith(".svg") && !made.includes(f) && !canonical.has(f) && !external.has(f)) {
     rmSync(join(chartsDir, f));
   }
 }

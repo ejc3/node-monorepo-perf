@@ -31,6 +31,7 @@ pnpm-demo/
 │   ├── sweep.mjs           # run measure across a matrix of sizes
 │   ├── perf-matrix.mjs     # install variants: specifier form, node-linker
 │   ├── chart.mjs           # render scaling charts (SVG) from results
+│   ├── comparison-chart.mjs # render the tool head-to-head heatmap (SVG)
 │   ├── deploy-vercel.mjs   # prune one app -> cloud build on Vercel, timed
 │   ├── rewrite-protocols.mjs # materialize catalog:/workspace: for non-pnpm tools
 │   ├── diamond-scaffold.mjs # generate the semver/diamond example
@@ -178,6 +179,12 @@ See [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md) for the sourced write-up. Summary:
 The companion docs measure each cost separately. The headline result of each, with the bench JSON behind it:
 
 **Verdict — when a shared workspace is worth it.** It fits apps that **share code and versions**: the daily loop is O(closure) (seconds, no install) and the heavy O(repo) costs (cold install, cold typecheck, lockfile rewrite) land on rare events, paid once per change and amortized across machines by the committed lockfile and the remote cache (the Turbo graph-load is the one O(repo) cost paid on every command). It is the wrong fit for **independent** apps — the single lockfile and graph then buy nothing, so a polyrepo or separate installs avoid that shared cost. The measured basis and a per-situation decision table are in [FEASIBILITY.md](FEASIBILITY.md).
+
+### Tooling head-to-head
+
+bun and tsgo win their head-to-heads, but the margin depends on the regime. A full cold install — no committed lockfile, full dependency resolve — is where bun's lead is largest (×58–×440 across 200–2,000 apps vs pnpm's default isolated linker; hoisted is within ~5%); a clean checkout carries the committed lockfile, so it relinks instead, and fully warm at 2,000 apps `pnpm`-hoisted is fastest (4.7s vs bun 10.1s). tsgo runs ~9–12× faster than tsc; a Vite SPA builds ~2.3× faster than the Next App Router (different feature sets). Each section below keeps compatible columns, the fastest cell per row green and the rest labeled with how many times slower. Every number traces to the cited `bench/*.json`; regenerate with `node scripts/comparison-chart.mjs`.
+
+![tooling head-to-head: install (bun vs pnpm), typecheck (tsc vs tsgo), build (Next vs Vite), and pnpm install situations](bench/charts/tool-comparison.svg)
 
 | area | headline finding | docs |
 |---|---|---|

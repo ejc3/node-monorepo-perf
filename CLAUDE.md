@@ -259,7 +259,10 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (deterministically for a given dataset); it keeps and warns about a doc-linked chart
-it can't regenerate this run rather than deleting it. Docs: `README.md` (overview +
+it can't regenerate this run rather than deleting it (it exempts charts owned by another
+generator from that warning + cleanup). `comparison-chart.mjs` renders the
+`bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, typecheck, build,
+pnpm install-situations) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
 `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
