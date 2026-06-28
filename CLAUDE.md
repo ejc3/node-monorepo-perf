@@ -182,6 +182,22 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   (`REAL_APP_WORK`, default `/mnt/fcvm-btrfs/real-app-bench`) and removes each clone on exit unless
   `REAL_APP_KEEP=1`, so it needs no worktree; core-bound, refuses on a loaded box unless
   `REAL_APP_ALLOW_BUSY=1` → `bench/real-app-bench.json`, folded into OPTIMAL-STACK.md + SUMMARY.md.
+- `node scripts/decl-emit-caveat.mjs` — the **declaration-emit caveat vet**: demonstrates the
+  declaration-emit coverage gap, one place the fast type-error gate is not equivalent to the build.
+  The optimal gate runs `declaration:false` (to avoid TS2883 noise on JSX return types), so it
+  validates the code but not the published `.d.ts`. Scaffolds a throwaway workspace (an app importing
+  a `@demo/foundation` package whose source re-exports a value whose inferred type comes from a
+  transitive dep nested under another package's `node_modules` — the pnpm geometry that trips the
+  "inferred type cannot be named" portability error) and runs it through: the gate (`declaration:false`,
+  `--noEmit`) stays clean under both tsgo and tsc; a `declaration:true` `--noEmit` check (NO emit)
+  flags it (tsc `TS2742` / tsgo `TS2883`); the dist-emitting build (`tsc --declaration`) flags it;
+  promoting the transitive type to a directly-resolvable dependency clears it; and the explicit
+  annotation `TS2742` suggests is shown insufficient alone (without promoting the dep it can't even
+  resolve the nested type — `TS2307`). The boundary is `declaration` off-vs-on, not check-vs-emit.
+  **Hard-fails** if the divergence doesn't reproduce — it asserts the exact per-tool code, so a
+  toolchain change that closes the gap (or moves tsgo to TS2742) turns the bench red. **Self-contained
+  and non-destructive** — scaffolds under the OS temp dir (never the repo tree), removes it on exit,
+  needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -228,8 +244,9 @@ scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
 `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
-tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, and a
-real-app vet running the stack on vercel/commerce + shadcn/taxonomy),
+tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
+real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the
+declaration-emit caveat where the gate's `declaration:false` misses a `.d.ts` portability error),
 `SUMMARY.md` (the shareable cross-role synthesis — the app and lib personas' fresh-vs-subsequent
 inner loops plus the workspace-author core-package gate and the real-app results, every figure
 traced to a `bench/*.json`).

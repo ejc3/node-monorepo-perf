@@ -1,0 +1,51 @@
+{
+  "claim": "The optimal gate runs declaration:false, so it validates the code but not the published .d.ts. A declaration-portability error (an exported value whose inferred type comes from a transitive dep nested under another package's node_modules) is MISSED by the gate, yet caught both by a declaration:true check (no emit needed) and by the dist-emitting build. tsc reports TS2742, tsgo TS2883 — same issue, different code; the boundary is declaration off-vs-on, not noEmit-vs-emit. The load-bearing fix is promoting the transitive type to a directly-resolvable dependency; the explicit annotation TS2742 suggests is insufficient alone here (it cannot resolve the nested type).",
+  "versions": {
+    "tsgo": "Version 7.0.0-dev.20260614.1",
+    "tsc": "Version 5.9.3",
+    "node": "v22.22.0"
+  },
+  "gate": {
+    "config": "declaration:false, --noEmit (@demo/*->src whole program — the optimal gate)",
+    "tsgo": {
+      "exit": 0,
+      "errors": 0
+    },
+    "tsc": {
+      "exit": 0,
+      "errors": 0
+    }
+  },
+  "declarationCheck": {
+    "config": "declaration:true, --noEmit (declaration checking on, still no files written)",
+    "tsgo": {
+      "exit": 1,
+      "errors": 1,
+      "diagnostic": "error TS2883: The inferred type of 'x' cannot be named without a reference to 'Sub' from 'dep/node_modules/subdep'. This is likely not portable. A type annotation is necessary."
+    },
+    "tsc": {
+      "exit": 2,
+      "errors": 1,
+      "diagnostic": "error TS2742: The inferred type of 'x' cannot be named without a reference to 'dep/node_modules/subdep'. This is likely not portable. A type annotation is necessary."
+    }
+  },
+  "build": {
+    "config": "declaration:true, emit .d.ts via tsc (a declaration-emitting build, as turbo ^build runs)",
+    "tool": "tsc",
+    "exit": 1,
+    "errors": 1,
+    "diagnostic": "error TS2742: The inferred type of 'x' cannot be named without a reference to 'dep/node_modules/subdep'. This is likely not portable. A type annotation is necessary."
+  },
+  "fix": {
+    "config": "promote the transitive type to a directly-resolvable dependency (same un-annotated source)",
+    "tool": "tsc --declaration",
+    "exit": 0
+  },
+  "annotationOnly": {
+    "config": "TS2742's suggested explicit annotation, dep NOT promoted — insufficient alone",
+    "tool": "tsc --declaration",
+    "exit": 2,
+    "diagnostic": "error TS2307: Cannot find module 'subdep' or its corresponding type declarations."
+  },
+  "reproduced": true
+}
