@@ -1,0 +1,104 @@
+{
+  "apps": 4000,
+  "libs": 400,
+  "modulesPerLib": 16,
+  "cores": 64,
+  "preRunLoadAvg1": 0.48,
+  "samples": 3,
+  "versions": {
+    "bun": "1.3.14",
+    "tsgo": "Version 7.0.0-dev.20260614.1",
+    "tsc": "Version 5.9.3",
+    "oxlint": "Version: 1.71.0",
+    "turbo": "2.9.18",
+    "node": "v22.22.0"
+  },
+  "onboarding": {
+    "tool": "bun",
+    "storeWarm": true,
+    "freshMs": 20567,
+    "subsequentMs": 3776
+  },
+  "appDev": {
+    "target": "@demo/app-2000",
+    "typecheckOnSave": {
+      "tool": "tsgo (from src)",
+      "freshMs": 167,
+      "subsequentMs": 168,
+      "maxRssMB": 187
+    },
+    "lintOnSave": {
+      "tool": "oxlint",
+      "freshMs": 64,
+      "subsequentMs": 60
+    },
+    "focusedGate": {
+      "tool": "turbo+tsgo",
+      "filter": "@demo/app-2000...",
+      "closureTasks": 187,
+      "coldMs": 19088,
+      "coldSamples": [
+        19088,
+        22991,
+        17089
+      ],
+      "warmMs": 15184,
+      "warmSamples": [
+        12221,
+        15917,
+        15184
+      ]
+    }
+  },
+  "libDev": {
+    "target": "@demo/lib-400",
+    "typecheckOnSave": {
+      "tool": "tsgo (from src)",
+      "freshMs": 190,
+      "subsequentMs": 190,
+      "maxRssMB": 189
+    },
+    "lintOnSave": {
+      "tool": "oxlint",
+      "freshMs": 70,
+      "subsequentMs": 65
+    },
+    "focusedGate": {
+      "tool": "turbo+tsgo",
+      "filter": "...@demo/lib-400",
+      "closureTasks": 237,
+      "coldMs": 22814,
+      "coldSamples": [
+        22814,
+        20488,
+        23683
+      ],
+      "warmMs": 13621,
+      "warmSamples": [
+        13424,
+        13621,
+        16602
+      ]
+    }
+  },
+  "summary": {
+    "installFreshMs": 20567,
+    "installSubsequentMs": 3776,
+    "app": {
+      "tsgoFresh": 167,
+      "tsgoSubsequent": 168,
+      "oxlintSubsequent": 60,
+      "gateCold": 19088,
+      "gateWarm": 15184,
+      "gateTasks": 187
+    },
+    "lib": {
+      "tsgoFresh": 190,
+      "tsgoSubsequent": 190,
+      "oxlintSubsequent": 65,
+      "gateCold": 22814,
+      "gateWarm": 13621,
+      "gateTasks": 237
+    }
+  }
+}

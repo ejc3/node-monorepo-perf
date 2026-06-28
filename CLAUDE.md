@@ -139,6 +139,26 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `PARITY_ALLOW_BUSY=1`, and records `cores`/`preRunLoadAvg1`/per-run `sampleMs` so a
   contended run is visible → `bench/typecheck-parity-bench.json`, results folded into
   OPTIMAL-STACK.md.
+- `node scripts/dev-loop-bench.mjs <apps>:<libs>` (default `4000:400`; `APP_LOOP_TARGET` /
+  `LIB_LOOP_TARGET` pick the targets) — the **developer inner loops** on the optimal stack,
+  the O(closure) counterpart to the optimal-gate O(repo) lib-owner gate, for the two day-to-day
+  roles (**app developer**: one app + the libs it imports; **lib developer**: one leaf lib +
+  the libs it imports), each reported **fresh (first time) vs subsequent (repeat)**. Per role:
+  (A) **typecheck-on-save** — tsgo over the package + its closure from source; (B)
+  **lint-on-save** — oxlint over the one package dir; (C) **focused gate** — `turbo
+  typecheck:tsgo` over the closure (app: `app...`) or dependents (lib: `...lib`), COLD then
+  WARM, under `enterSourceVisible` so input hashing is representative, asserted cold (0 cached)
+  / warm (all cached). Plus the one-time onboarding `bun install`, fresh (cold `node_modules`)
+  vs subsequent (warm). Direct-tool steps run `APP_LOOP_SAMPLES`+1 times (run #1 = fresh, median
+  of the rest = subsequent) and hard-fail unless the package exits clean (a valid package must
+  typecheck and lint 0). **Destructive** (regenerates the tree, overwrites the root
+  `package.json`) so it refuses to run outside a git worktree and on exit restores the tracked
+  files it overwrites (`package.json`, `.gitignore`, temp tsconfigs, lockfiles) — the
+  regenerated tree is left as gitignored scratch; **core-bound**, so it refuses on a loaded box
+  unless `APP_LOOP_ALLOW_BUSY=1` and records
+  `cores`/`preRunLoadAvg1` → `bench/dev-loop-bench.json`, results folded into OPTIMAL-STACK.md.
+  The workspace-author core-package (universal) gate is the O(repo) case and lives in
+  `optimal-gate-bench.mjs`.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -185,7 +205,9 @@ scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
 `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
-tsgo-vs-tsc parity vet on real types).
+tsgo-vs-tsc parity vet on real types and the app + lib developer O(closure) inner loops),
+`SUMMARY.md` (the shareable cross-role synthesis — the app and lib personas' fresh-vs-subsequent
+inner loops plus the workspace-author core-package gate, every figure traced to a `bench/*.json`).
 
 ## Measurement methodology (how the numbers stay honest)
 

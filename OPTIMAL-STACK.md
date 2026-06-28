@@ -1,11 +1,13 @@
 # OPTIMAL-STACK.md — bun + tsgo + oxlint + turbo at 4,000 apps / 400 libs
 
 Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), the real-types parity
-vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), `bench/env.json`.
+vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), the developer inner loops
+`bench/dev-loop-bench.json` (run at 4000:400), `bench/env.json`.
 Reproduce: `node scripts/optimal-gate-bench.mjs 4000:400` (in a dedicated git worktree —
 the bench overwrites the root `package.json` and regenerates the tree, so it refuses to
 run in the primary tree); `node scripts/typecheck-parity-bench.mjs 4000:400:8` (self-contained
-— scaffolds a throwaway workspace under the temp dir, needs no worktree).
+— scaffolds a throwaway workspace under the temp dir, needs no worktree); `node
+scripts/dev-loop-bench.mjs 4000:400` (also in a worktree).
 
 One native-compiled tool per job — no slower baseline in the measured loop:
 
@@ -100,6 +102,40 @@ When the revved lib is **not** universal, scoping is the win. The same turbo com
 leaf lib (`...@demo/lib-400`, imported by ~1% of apps) runs only **237 of 4,800 tasks** in
 **22.4s** — the graph tracks that one lib's closure, not the repo. The rule: a universal
 rev → one tsgo program; a scoped rev → `turbo --filter=...<lib>` (or `--affected`).
+
+## The developer inner loops — O(closure), fresh vs subsequent
+
+The sections above are the workspace-author / lib-owner view, where a core-package rev is
+O(repo). The two day-to-day roles are the other case: each touches one package and the libs it
+imports, so their work is scoped to that closure by construction, not to the repo. Measured at
+4,000:400 for one mid app (`@demo/app-2000`) and one leaf lib (`@demo/lib-400`), each step
+fresh (first time) vs subsequent (repeat) (`bench/dev-loop-bench.json`):
+
+| step                               | app dev (fresh / subsequent) | lib dev (fresh / subsequent) |
+| ---------------------------------- | ---------------------------- | ---------------------------- |
+| typecheck-on-save (tsgo, from src) | 167 / **168ms** (187MB)      | 190 / **190ms** (189MB)      |
+| lint-on-save (oxlint, one dir)     | 64 / **60ms**                | 70 / **65ms**                |
+| focused gate (turbo, cold / warm)  | **19.1s** / **15.2s** (187)  | **22.8s** / **13.6s** (237)  |
+
+- **Onboarding** — `bun install` the whole workspace: fresh **20.6s** (cold `node_modules`),
+  subsequent **3.8s** (warm — bun re-verifies the 4,400-package tree). One O(repo) cost, paid
+  on first clone.
+- **Typecheck-on-save** and **lint-on-save** have no meaningful fresh-vs-subsequent gap — tsgo
+  and oxlint have no incremental cache, so the first run matches the steady state within noise
+  (~170–190ms typecheck, ~60–65ms lint). That is why they run on every save, directly, not
+  through turbo.
+- **Focused gate** — `turbo typecheck:tsgo` over the closure (app: `app...` = the app + its
+  dependencies) or the dependents (lib: `...lib`), building dependency-lib dist via `^build`
+  and typechecking; medians of 3, under source-visibility. The lib gate covers more (237 tasks
+  of dependents vs the app's 187-task closure) and costs more **cold** (22.8s vs 19.1s). The
+  **warm** run is dominated by turbo's graph-load + input-hash + cache-restore over the
+  4,400-package workspace — noisy enough that the app and lib warm gates don't order reliably
+  (this run 13.6s vs 15.2s; a prior run the reverse), and this bench does not break those costs
+  out. That floor is why the keystroke loop runs the tools directly.
+
+The contrast with the core-package gate is the point: a core-package rev is O(repo) (every app
+re-checks — 1.4s as one tsgo program) because the change reaches everything; a developer's
+edit reaches only their closure, so their keystroke loop is ~170ms.
 
 ## Lint — oxlint, 180ms
 
