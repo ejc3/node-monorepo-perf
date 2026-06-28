@@ -198,6 +198,23 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   toolchain change that closes the gap (or moves tsgo to TS2742) turns the bench red. **Self-contained
   and non-destructive** — scaffolds under the OS temp dir (never the repo tree), removes it on exit,
   needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
+- `node scripts/wave-rollout-bench.mjs` — the **rollout-mechanics vet**: the load-bearing facts for
+  advancing an internal core lib through a hermetic, wave-based rollout (writeup in ROLLOUT.md). Five
+  rungs on self-contained temp scaffolds, each HARD-ASSERTING a stable fact (bun's frozen behavior is
+  RECORDED, not asserted, since it is the property being measured): (A) pnpm is the determinism
+  boundary — committed lockfile + `--frozen-lockfile` is byte-identical across runs (the range is inert)
+  and FAILS CLOSED on drift (`ERR_PNPM_OUTDATED_LOCKFILE`); (B) bun, measured on 1.3.14 AND cross-checked
+  against bun's source at `bun-v1.3.14` — its explicit frozen does fail closed on the drift here, but it
+  does NOT auto-enable frozen in CI (only pnpm does) and ignores pnpm-workspace.yaml catalogs, so the
+  lockfile/channel of record stays pnpm; (C) the DIRECT clean wave — named catalogs (`catalog:stable`/
+  `catalog:next`) route two cohorts to two versions in one lockfile, and a repoint is one catalog entry
+  (0 of 2 consumer manifests edited, measured); (D) a catalog value cannot be a `workspace:` spec — every
+  form tested (`*`, `^`, `~`, `^1.0.0`) errors `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`, so the catalog channel needs a registry-published
+  lib; (E) the UNIVERSAL collapse — `pnpm pack` bakes a CONCRETE range (`workspace:^`→`^1.0.0`) into the
+  tarball, so a lib every other lib re-exports advances by republishing its dependents, not a one-line
+  flip. **Self-contained and non-destructive** — scaffolds throwaway workspaces under the OS temp dir,
+  pins each to public npm for one tiny real dep, removes them on exit, needs no worktree →
+  `bench/wave-rollout-bench.json`, writeup in ROLLOUT.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -249,7 +266,11 @@ real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the
 declaration-emit caveat where the gate's `declaration:false` misses a `.d.ts` portability error),
 `SUMMARY.md` (the shareable cross-role synthesis — the app and lib personas' fresh-vs-subsequent
 inner loops plus the workspace-author core-package gate and the real-app results, every figure
-traced to a `bench/*.json`).
+traced to a `bench/*.json`), `ROLLOUT.md` (advancing an internal core lib through a hermetic,
+wave-based rollout — the lockfile-not-the-range determinism boundary with frozen vs not-frozen, pnpm
+vs bun as the boundary, named-catalog cohorts, the direct-clean vs universal-republish-fanout
+distinction, expand/migrate/contract for breaking changes, and gating the artifact not just the
+source; backed by `bench/wave-rollout-bench.json`).
 
 ## Measurement methodology (how the numbers stay honest)
 

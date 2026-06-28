@@ -1,0 +1,74 @@
+{
+  "claim": "Hermetic core-lib rollout mechanics, measured. pnpm is the determinism boundary: a committed lockfile + --frozen-lockfile is byte-identical (range inert) and FAILS CLOSED on drift (ERR_PNPM_OUTDATED_LOCKFILE). bun (the install tool of record) does NOT auto-enable frozen in CI and ignores pnpm-workspace.yaml catalogs (both asserted, source-verified at bun-v1.3.14); its explicit frozen fails closed on the drift here but is recorded, not asserted (#24223). The DIRECT clean wave is pnpm named catalogs routing cohorts to versions in one lockfile, with a zero-consumer-manifest repoint; but a catalog value cannot be a workspace: spec (any form), and a published lib bakes a CONCRETE range for its internal deps into the tarball (workspace:^ -> ^1.0.0), so advancing a UNIVERSAL lib every other lib re-exports is a republish-fanout, not a one-line catalog flip.",
+  "versions": {
+    "pnpm": "10.29.1",
+    "bun": "1.3.14",
+    "node": "v22.22.0"
+  },
+  "registry": "https://registry.npmjs.org/",
+  "frozenPnpm": {
+    "config": "committed pnpm-lock.yaml + pnpm install --frozen-lockfile",
+    "inputSpec": "^3.0.0",
+    "resolvedVersion": "3.0.1",
+    "frozenRuns": 2,
+    "byteIdentical": true,
+    "lockfileHash": "d593e52a0aff6099",
+    "failsClosedOnDrift": true,
+    "driftError": "ERR_PNPM_OUTDATED_LOCKFILE"
+  },
+  "frozenBun": {
+    "measuredBunVersion": "1.3.14",
+    "sourceVerifiedAt": "bun-v1.3.14",
+    "note": "bun is the optimal-stack installer but not the rollout determinism authority. Source-verified at bun-v1.3.14 (src/install): frozen_lockfile is set only by --frozen-lockfile / `bun ci` / --production / bunfig (CommandLineArguments.zig:797, PackageManagerOptions.zig:335-344,613-620); env.isCI() only disables the progress bar (PackageManagerOptions.zig:392), so bun does NOT auto-enable frozen in CI — pnpm does. bun reads catalogs from package.json (lockfile/Package.zig:1592-2011), not pnpm-workspace.yaml (read only via the migration path, pnpm.zig). B2/B3 below assert these; B1 (explicit frozen on drift) is recorded per run, since oven-sh/bun#24223 reports contexts where it does not fail.",
+    "b1FrozenDrift": {
+      "exit": 1,
+      "lockfileChanged": false,
+      "failedClosed": true,
+      "diagnostic": "lockfile had changes, but lockfile is frozen"
+    },
+    "b2CiAutoEnable": {
+      "exit": 0,
+      "lockfileRewritten": true,
+      "autoFroze": false
+    },
+    "b3PnpmCatalog": {
+      "exit": 1,
+      "resolvedPnpmCatalog": false,
+      "diagnostic": "is-odd@catalog: failed to resolve"
+    }
+  },
+  "namedCatalogDirect": {
+    "config": "catalog:stable / catalog:next route two cohorts; repoint edits only pnpm-workspace.yaml",
+    "dep": "is-odd",
+    "stableSpec": "1.0.0",
+    "nextSpec": "3.0.0",
+    "stableResolves": "1.0.0",
+    "nextResolves": "3.0.0",
+    "oneLockfile": true,
+    "repoint": {
+      "consumerManifestsEdited": 0,
+      "consumerManifestCount": 2,
+      "workspaceYamlChanged": true,
+      "cohortStableMovedTo": "3.0.0"
+    }
+  },
+  "catalogRejectsWorkspace": {
+    "config": "catalog value is a workspace: spec",
+    "formsTested": [
+      "workspace:*",
+      "workspace:^",
+      "workspace:~",
+      "workspace:^1.0.0"
+    ],
+    "allRejected": true,
+    "error": "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC"
+  },
+  "universalCollapse": {
+    "config": "pnpm pack a lib whose internal dep is workspace:^; inspect the tarball",
+    "sourceSpec": "workspace:^",
+    "tarballSpec": "^1.0.0",
+    "bakedConcrete": true,
+    "implication": "a consumer catalog over @wave/core cannot repoint mid's baked @wave/core range; a universal lib (re-exported through every other lib) must be advanced by republishing its dependents."
+  },
+  "reproduced": true
+}
