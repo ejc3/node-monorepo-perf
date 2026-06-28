@@ -2,12 +2,14 @@
 
 Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), the real-types parity
 vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), the developer inner loops
-`bench/dev-loop-bench.json` (run at 4000:400), `bench/env.json`.
+`bench/dev-loop-bench.json` (run at 4000:400), the real-app vet `bench/real-app-bench.json`,
+`bench/env.json`.
 Reproduce: `node scripts/optimal-gate-bench.mjs 4000:400` (in a dedicated git worktree —
 the bench overwrites the root `package.json` and regenerates the tree, so it refuses to
 run in the primary tree); `node scripts/typecheck-parity-bench.mjs 4000:400:8` (self-contained
 — scaffolds a throwaway workspace under the temp dir, needs no worktree); `node
-scripts/dev-loop-bench.mjs 4000:400` (also in a worktree).
+scripts/dev-loop-bench.mjs 4000:400` (also in a worktree); `node scripts/real-app-bench.mjs`
+(self-contained — clones real apps to a btrfs work dir, needs no worktree).
 
 One native-compiled tool per job — no slower baseline in the measured loop:
 
@@ -136,6 +138,60 @@ fresh (first time) vs subsequent (repeat) (`bench/dev-loop-bench.json`):
 The contrast with the core-package gate is the point: a core-package rev is O(repo) (every app
 re-checks — 1.4s as one tsgo program) because the change reaches everything; a developer's
 edit reaches only their closure, so their keystroke loop is ~170ms.
+
+## Does it hold on real, larger apps? — finagling product code into the stack
+
+The synthetic apps are deliberately tiny (one page importing ~4 libs). To check the per-app
+numbers aren't an artifact of that, `scripts/real-app-bench.mjs` clones two real open-source
+Next.js App Router apps at pinned commits and runs them through this repo's pinned toolchain
+(`bench/real-app-bench.json`): **vercel/commerce** (65 source files, 3.9k LOC) and
+**shadcn/taxonomy** (125 files, 7.5k LOC) — real product code, not a single generated page.
+
+**The config is the friction.** tsgo (TS7 preview) refuses to start on a real Next tsconfig: it
+errors — before type-checking anything — on options it has removed. commerce trips `baseUrl`,
+`moduleResolution: node`, `downlevelIteration` (139ms to bail); taxonomy trips `baseUrl`,
+`moduleResolution: node`, `target: es5` (273ms). Wiring a real app into tsgo therefore means
+modernizing the config (drop those, `baseUrl`→`paths: {"*": ["./*"]}`, `moduleResolution: bundler`)
+and adding an ambient declaration for CSS/asset side-effect imports (the `*.css` decl that
+`next build` codegen normally supplies). After that, tsgo type-checks the real source.
+
+**What the finagled program checks — and doesn't.** It type-checks the app's hand-written
+`.ts`/`.tsx` plus the stub ambient decl; it does **not** run the app's codegen, so it omits Next's
+generated `.next/types` route types, the `next-env.d.ts` ambient globals, and (for taxonomy)
+contentlayer's generated module. This is the inner-loop _source_ check — the cost a developer pays
+on save — not the app's build-complete `tsc`/`next typecheck` surface. (The omitted codegen is also
+why taxonomy's 7 "cannot find module" errors appear, below.)
+
+**The cost stays small.** Per app, on the single quiet box (tsgo and oxlint are medians of 3 timed
+runs after a warmup; bun install and turbo cold/warm are single runs; the synthetic-tiny row is from
+`bench/dev-loop-bench.json`, app `@demo/app-2000`):
+
+| app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm           |
+| --------------- | ----------- | ------------- | ----------------- | ------ | --------------------------- |
+| synthetic tiny  | 1 page      | —             | 168ms / 187MB     | ~60ms  | —                           |
+| vercel/commerce | 65 / 3.9k   | 553ms (76)    | **134ms** / 122MB | 62ms   | 189 → **56ms** (2/2 cached) |
+| shadcn/taxonomy | 125 / 7.5k  | 3381ms (1031) | **231ms** / 215MB | 66ms   | 288 → 289ms (1/2 cached)    |
+
+The per-app typecheck stayed in the low hundreds of ms for both apps, including the real 7.5k-LOC
+one. (It is not a controlled LOC curve: the synthetic number checks lib **source** in-program,
+while these real apps' deps are `skipLibCheck`'d `.d.ts` — `skipLibCheck` being the apps' own
+tsconfig setting, recorded per app — which is why a 3.9k-LOC real app can check faster than a
+synthetic one. The claim is only that all stay in the low hundreds of ms.) oxlint is ~60ms
+regardless — it does not read the tsconfig at all, so it takes no finagling.
+
+**The errors a standalone run surfaces are real, not tsgo faults.** commerce is **0 errors**.
+taxonomy reports **13**: 7 are `TS2307` "cannot find module" for the codegen this bench doesn't run
+(`contentlayer/generated`), and 6 are genuine **dependency drift** — Radix removed `className` from
+its Portal props (`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`, across
+`alert-dialog`/`dialog`/`sheet`), so the pinned source no longer type-checks against the dependency
+versions that resolve at install time (`TS2339`/`TS2322`). Both are findings about the app, surfaced
+in 231ms; sample diagnostic lines for each code are recorded in `bench/real-app-bench.json`.
+
+**Turbo caches a real app's checks** — commerce warm-hits both tasks (2/2 cached, 56ms); taxonomy
+caches only the passing lint (1/2), because turbo does not cache the red typecheck until it goes
+green. Larger apps that depend on codegen (generated DB clients, content layers) need that codegen
+run first — a build-orchestration concern the 4,000-package benches above already cover, not a
+single-app one.
 
 ## Lint — oxlint, 180ms
 

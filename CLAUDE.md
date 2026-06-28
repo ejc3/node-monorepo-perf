@@ -159,6 +159,29 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `cores`/`preRunLoadAvg1` → `bench/dev-loop-bench.json`, results folded into OPTIMAL-STACK.md.
   The workspace-author core-package (universal) gate is the O(repo) case and lives in
   `optimal-gate-bench.mjs`.
+- `node scripts/real-app-bench.mjs` (`REAL_APP_ONLY=<name>` to run one) — the **real-app vet**:
+  does the per-app inner loop hold on real, larger product code, not just the synthetic tiny apps?
+  Clones real open-source Next.js App Router apps at pinned commits (vercel/commerce ~3.9k LOC,
+  shadcn/taxonomy ~7.5k LOC) and runs this repo's pinned toolchain on each: bun install (cold
+  node_modules, warm store), tsgo `--noEmit`, oxlint, and the two checks orchestrated by turbo
+  (cold then warm cache hit). Records the **finagle friction** — tsgo (TS7 preview) rejects a real
+  tsconfig's removed options (`baseUrl`/`moduleResolution:node`/`target:es5`/`downlevelIteration`)
+  before type-checking, so the bench modernizes the config and adds an ambient `*.css` decl, then
+  measures the real typecheck (time/RSS/error count + code histogram). A checker exiting non-zero on
+  TYPE errors is **data, not a bench failure** (real apps surface missing codegen + dependency
+  drift); only a signal/panic is a crash (detected numerically — a 128+signo exit, not the shell's
+  wording — across `run()`, the sampled tool runs, and the turbo runner alike). The finagled program
+  checks hand-written source only (not the app's `next build`-generated `.next/types`/`next-env.d.ts`
+  or contentlayer codegen), so it is the inner-loop source check, not the app's full `tsc` surface.
+  The cold turbo run is asserted cold (0 cached); a kept clone is reused only if it is exactly at the
+  pinned sha with a clean tree, else re-cloned, and the **measured** HEAD is recorded; the finagle's
+  config-reject time, a per-code diagnostic sample, and the inherited `skipLibCheck` are recorded so
+  the doc attributions trace to data. A partial run (`REAL_APP_ONLY` or a non-default
+  `REAL_APP_SAMPLES`) writes `bench/real-app-bench.partial.json` and never overwrites the canonical
+  two-app dataset. **Self-contained and non-destructive to the repo** — clones to a btrfs work dir
+  (`REAL_APP_WORK`, default `/mnt/fcvm-btrfs/real-app-bench`) and removes each clone on exit unless
+  `REAL_APP_KEEP=1`, so it needs no worktree; core-bound, refuses on a loaded box unless
+  `REAL_APP_ALLOW_BUSY=1` → `bench/real-app-bench.json`, folded into OPTIMAL-STACK.md + SUMMARY.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -205,9 +228,11 @@ scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
 `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
-tsgo-vs-tsc parity vet on real types and the app + lib developer O(closure) inner loops),
+tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, and a
+real-app vet running the stack on vercel/commerce + shadcn/taxonomy),
 `SUMMARY.md` (the shareable cross-role synthesis — the app and lib personas' fresh-vs-subsequent
-inner loops plus the workspace-author core-package gate, every figure traced to a `bench/*.json`).
+inner loops plus the workspace-author core-package gate and the real-app results, every figure
+traced to a `bench/*.json`).
 
 ## Measurement methodology (how the numbers stay honest)
 

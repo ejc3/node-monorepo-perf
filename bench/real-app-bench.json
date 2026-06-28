@@ -1,0 +1,163 @@
+{
+  "cores": 64,
+  "preRunLoadAvg1": 0.87,
+  "samples": 3,
+  "versions": {
+    "bun": "1.3.14",
+    "tsgo": "Version 7.0.0-dev.20260614.1",
+    "oxlint": "1.71.0",
+    "turbo": "2.9.18",
+    "node": "v22.22.0"
+  },
+  "syntheticBaseline": {
+    "app": "@demo/app-2000",
+    "tsgoMs": 168,
+    "source": "bench/dev-loop-bench.json"
+  },
+  "apps": [
+    {
+      "name": "vercel-commerce",
+      "repo": "https://github.com/vercel/commerce.git",
+      "sha": "3761e52e60df9c6a316e067dbfd7032e494d3634",
+      "source": {
+        "loc": 3896,
+        "files": 65
+      },
+      "install": {
+        "tool": "bun",
+        "ms": 553,
+        "packages": 76
+      },
+      "finagle": {
+        "appConfigRejected": true,
+        "removedOptions": [
+          "baseUrl",
+          "downlevelIteration",
+          "moduleResolution=node"
+        ],
+        "asisMs": 139,
+        "asisExit": 1,
+        "skipLibCheck": true,
+        "include": [
+          "realbench-ambient.d.ts",
+          "**/*.ts",
+          "**/*.tsx"
+        ],
+        "exclude": [
+          "node_modules",
+          ".next",
+          "dist"
+        ]
+      },
+      "tsgo": {
+        "ms": 134,
+        "samples": [
+          134,
+          135,
+          133
+        ],
+        "rssMB": 122,
+        "typeErrors": 0,
+        "errorCodes": {},
+        "errorSample": []
+      },
+      "oxlint": {
+        "version": "1.71.0",
+        "ms": 62,
+        "samples": [
+          62,
+          67,
+          58
+        ],
+        "warnings": 0,
+        "errors": 0
+      },
+      "turbo": {
+        "coldMs": 189,
+        "warmMs": 56,
+        "coldCached": 0,
+        "cached": 2,
+        "total": 2
+      }
+    },
+    {
+      "name": "shadcn-taxonomy",
+      "repo": "https://github.com/shadcn-ui/taxonomy.git",
+      "sha": "298a8857c7128a0d121e7f699dfd729f23b3966d",
+      "source": {
+        "loc": 7511,
+        "files": 125
+      },
+      "install": {
+        "tool": "bun",
+        "ms": 3381,
+        "packages": 1031
+      },
+      "finagle": {
+        "appConfigRejected": true,
+        "removedOptions": [
+          "baseUrl",
+          "moduleResolution=node",
+          "target=es5"
+        ],
+        "asisMs": 273,
+        "asisExit": 1,
+        "skipLibCheck": true,
+        "include": [
+          "realbench-ambient.d.ts",
+          "**/*.ts",
+          "**/*.tsx"
+        ],
+        "exclude": [
+          "node_modules",
+          ".next",
+          "dist"
+        ]
+      },
+      "tsgo": {
+        "ms": 231,
+        "samples": [
+          231,
+          231,
+          233
+        ],
+        "rssMB": 215,
+        "typeErrors": 13,
+        "errorCodes": {
+          "error TS2307": 7,
+          "error TS2339": 3,
+          "error TS2322": 3
+        },
+        "errorSample": [
+          "app/(docs)/docs/[[...slug]]/page.tsx(2,25): error TS2307: Cannot find module 'contentlayer/generated' or its corresponding type declarations.",
+          "app/(docs)/guides/[...slug]/page.tsx(3,27): error TS2307: Cannot find module 'contentlayer/generated' or its corresponding type declarations.",
+          "app/(docs)/guides/page.tsx(2,27): error TS2307: Cannot find module 'contentlayer/generated' or its corresponding type declarations.",
+          "components/ui/alert-dialog.tsx(14,3): error TS2339: Property 'className' does not exist on type 'AlertDialogPortalProps'.",
+          "components/ui/dialog.tsx(14,3): error TS2339: Property 'className' does not exist on type 'DialogPortalProps'.",
+          "components/ui/sheet.tsx(32,3): error TS2339: Property 'className' does not exist on type 'SheetPortalProps'.",
+          "components/ui/alert-dialog.tsx(18,32): error TS2322: Type '{ container?: DocumentFragment | Element | null | undefined; forceMount?: true | undefined; className: string; children: Element; }' is not assignable to type 'IntrinsicAttributes & AlertDialogPortalProps'.",
+          "components/ui/dialog.tsx(18,27): error TS2322: Type '{ container?: DocumentFragment | Element | null | undefined; forceMount?: true | undefined; className: string; children: Element; }' is not assignable to type 'IntrinsicAttributes & DialogPortalProps'.",
+          "components/ui/sheet.tsx(36,26): error TS2322: Type '{ container?: DocumentFragment | Element | null | undefined; forceMount?: true | undefined; className: string; children: Element; }' is not assignable to type 'IntrinsicAttributes & DialogPortalProps'."
+        ]
+      },
+      "oxlint": {
+        "version": "1.71.0",
+        "ms": 66,
+        "samples": [
+          73,
+          66,
+          62
+        ],
+        "warnings": 0,
+        "errors": 0
+      },
+      "turbo": {
+        "coldMs": 288,
+        "warmMs": 289,
+        "coldCached": 0,
+        "cached": 1,
+        "total": 2
+      }
+    }
+  ]
+}
