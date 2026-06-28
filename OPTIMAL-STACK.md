@@ -31,11 +31,21 @@ breaking type error in any of the 4,000 apps before it merges — fast.
 ## Install the workspace — bun, 20.9s
 
 `bun install` materializes the 4,400-package workspace (4,000 apps + 400 libs; 76 unique
-external deps, the rest workspace symlinks) in **20.9s** — warm store, `node_modules`
-cold, the steady-state clone/CI case. This is a one-time setup cost; revving a lib edits
-source and needs no reinstall. For contrast, pnpm's cold-resolve (no lockfile) is 233s at
-1,000:200 (`bench/install-modes-bench.json`) — about a quarter the apps and already
-minutes.
+external deps, the rest workspace symlinks) in **20.9s** — warm store, lockfile present,
+`node_modules` cold, the steady-state clone/CI case (`bench/optimal-gate-bench.json`,
+`install.storeWarm: true`). This is a one-time setup cost; revving a lib edits source and
+needs no reinstall.
+
+Which install regime matters depends on the runner. On a clean checkout (only source kept,
+`node_modules` cold — the frequent clone/CI case) bun is far ahead of pnpm at the same
+scale: `bench/install-bench.json` measures cold install (fresh `node_modules`) with bun
+~58–440× faster than pnpm-isolated (200 apps 0.11s vs 48.8s; 1,000 apps 2.3s vs 232.4s;
+2,000 apps 8.3s vs 476.8s). When everything is already cached the gap narrows to single
+digits through 1,000 apps, and at 2,000 apps pnpm-hoisted warm (4.7s) is ~2× faster than
+bun (10.1s) while pnpm-isolated warm (15.6s) is slower. So a clean-env cold install favors
+bun; a fully-warm runner can favor pnpm-hoisted. A separate operation again is pnpm's
+no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head — which is
+233s at 1,000:200 (`bench/install-modes-bench.json`).
 
 ## The optimal type-error gate — one tsgo program over the whole workspace, 1.32s
 
@@ -46,7 +56,7 @@ directly (`tsgo --noEmit -p tsconfig.whole.json`, with `@demo/*` resolved to
 across every importing app, and skips the per-lib dist builds entirely.
 
 At 4,000:400 it typechecks the whole tree in **1.32s**, peak RSS **911MB** (one process —
-the tradeoff is memory, trivial against the 135GB box). It is typecheck-only: it emits no
+the tradeoff is memory, 0.7% of the 135GB box). It is typecheck-only: it emits no
 `dist`. The timed number follows a throwaway warmup run that absorbs tsgo's binary load and
 first-touch fs caching.
 
@@ -54,15 +64,17 @@ first-touch fs caching.
 
 A breaking foundation signature (a new required parameter) turns **every** dependent app
 red: **4,000 of 4,000 apps** report `error TS2554: Expected 2 arguments, but got 1`
-(4,399 TS2554 in all — 4,000 apps + 399 dependent libs), in **1.39s**. The bench asserts
-the catch is exactly this — `appsWithErrors === 4000` and a `TS2554` sample — so a gate
-that went red for any other reason fails the run. This is "catch a type error in one of
+(4,399 TS2554 in all — 4,000 apps + 399 dependent libs), in **1.39s**. The bench requires
+every app red and at least one `TS2554` (`appsWithErrors === 4000` and a `TS2554` sample),
+not a non-zero exit alone; it does not pin the exact 4,399 total nor assert the absence of
+other codes. This is "catch a type error in one of
 the 4,000 apps before it ships," in under a second and a half.
 
 ## Does the gate survive real types, and does it agree with tsc?
 
-The gate numbers above are measured on the generated tree, whose libs are 16-line
-re-exports. A separate, self-contained vet (`scripts/typecheck-parity-bench.mjs` →
+The gate numbers above are measured on the generated tree, whose libs are 16 small modules
+(an interface plus a few functions each) re-exported through an index. A separate,
+self-contained vet (`scripts/typecheck-parity-bench.mjs` →
 `bench/typecheck-parity-bench.json`) runs the same one-program shape over a deliberately
 type-heavy tree of the same 4,000:400 scale — libs carrying recursive conditional + mapped
 types, 48-member unions, recursive path-flattening, and cross-lib type intersections.
@@ -102,7 +114,8 @@ time.
 ## Scope a non-universal rev — leaf, O(closure), 22.4s
 
 When the revved lib is **not** universal, scoping is the win. The same turbo command on a
-leaf lib (`...@demo/lib-400`, imported by ~1% of apps) runs only **237 of 4,800 tasks** in
+leaf lib (`...@demo/lib-400` — each app imports 4 of 400 libs, so a top-layer lib reaches
+~1%) runs only **237 of 4,800 tasks** in
 **22.4s** — the graph tracks that one lib's closure, not the repo. The rule: a universal
 rev → one tsgo program; a scoped rev → `turbo --filter=...<lib>` (or `--affected`).
 
@@ -133,8 +146,9 @@ fresh (first time) vs subsequent (repeat) (`bench/dev-loop-bench.json`):
   of dependents vs the app's 187-task closure) and costs more **cold** (22.8s vs 19.1s). The
   **warm** run is dominated by turbo's graph-load + input-hash + cache-restore over the
   4,400-package workspace — noisy enough that the app and lib warm gates don't order reliably
-  (this run 13.6s vs 15.2s; a prior run the reverse), and this bench does not break those costs
-  out. That floor is why the keystroke loop runs the tools directly.
+  (their sample ranges overlap: app [12.2, 15.9]s, lib [13.4, 16.6]s, medians here 15.2s vs
+  13.6s), and this bench does not break those costs out. That floor is why the keystroke loop
+  runs the tools directly.
 
 The contrast with the core-package gate is the point: a core-package rev is O(repo) (every app
 re-checks — 1.4s as one tsgo program) because the change reaches everything; a developer's
@@ -182,9 +196,10 @@ regardless — it does not read the tsconfig at all, so it takes no finagling.
 
 **The errors a standalone run surfaces are real, not tsgo faults.** commerce is **0 errors**.
 taxonomy reports **13**: 7 are `TS2307` "cannot find module" for the codegen this bench doesn't run
-(`contentlayer/generated`), and 6 are genuine **dependency drift** — Radix removed `className` from
-its Portal props (`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`, across
-`alert-dialog`/`dialog`/`sheet`), so the pinned source no longer type-checks against the dependency
+(`contentlayer/generated`), and 6 are genuine **dependency drift** — the pinned source references a
+`className` prop the resolved Radix version's Portal types no longer expose
+(`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`, across
+`alert-dialog`/`dialog`/`sheet`), so it no longer type-checks against the dependency
 versions that resolve at install time (`TS2339`/`TS2322`). Both are findings about the app, surfaced
 in 231ms; sample diagnostic lines for each code are recorded in `bench/real-app-bench.json`.
 
@@ -204,8 +219,8 @@ oxlint (native Rust) checks the whole 4,400-package source tree in **180ms** (0 
 - The one-program gate is typecheck-only — it reads lib **source** (`paths`→`src`), so it
   needs no build and emits nothing. If you also need `dist` (for deploy), that is a
   separate build; the turbo path produces it as part of its 80.1s.
-- tsgo (TS7) is stricter than tsc about module-resolution config (it rejects `baseUrl` and
-  non-relative `paths`); `tsconfig.whole.json` resolves `@demo/*` to `packages/*/src` and
+- tsgo (TS7) is stricter than tsc about module-resolution config (it rejects `baseUrl`);
+  `tsconfig.whole.json` resolves `@demo/*` to `packages/*/src` and
   sets `declaration:false` (the base config's `declaration:true` would otherwise flag JSX
   component return types as non-portable, TS2883, under `--noEmit`).
 - That `declaration:false` is a genuine coverage gap, not just config hygiene: the gate validates

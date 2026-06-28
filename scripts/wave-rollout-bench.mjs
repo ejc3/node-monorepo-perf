@@ -1,49 +1,38 @@
 #!/usr/bin/env node
-// Demonstrate, on self-contained repros, the load-bearing mechanics of advancing an internal core lib
-// through a hermetic, wave-based rollout — and the two places the clean story breaks. This is the
-// empirical backing for ROLLOUT.md. Each rung HARD-ASSERTS a stable fact; the one behavior genuinely
-// in question — bun's explicit `--frozen-lockfile` on drift (oven-sh/bun#24223) — is RECORDED with its
-// evidence rather than asserted. Setup failures (a seed install that didn't run, a missing lockfile, a
-// network/registry error) HARD-FAIL everywhere, so a failed measurement never reads as a clean result.
+// The mechanics of advancing an internal core lib through a hermetic, wave-based rollout, measured as a
+// bun-vs-pnpm head-to-head on self-contained repros. This is the empirical backing for ROLLOUT.md. bun
+// is the recommended driver: it does everything the rollout needs natively and cold-installs 58-440x
+// faster than pnpm in the clean-env case (fresh node_modules, through the 2,000-app measured ceiling;
+// bench/install-bench.json) — warm-cached runners narrow the gap and pnpm-hoisted can win fully-warm at
+// 2,000 apps. Each rung HARD-ASSERTS a stable fact; setup failures (a seed
+// install that did not run, a missing lockfile, a network/registry error) HARD-FAIL, so a failed
+// measurement never reads as a clean result. The running bun is pinned to 1.3.14 (the version the source
+// line refs in the recorded note were read against).
 //
-//   A. pnpm is the determinism boundary. A committed lockfile + `pnpm install --frozen-lockfile`
-//      yields a byte-identical resolution (the lockfile is never rewritten and the resolved version is
-//      constant across runs), and frozen FAILS CLOSED on drift (a manifest out of sync with the lock
-//      aborts with ERR_PNPM_OUTDATED_LOCKFILE). So a `^`/`*` range is inert under frozen — the
-//      lockfile, not the range form, is what makes a build reproducible.
-//   B. The bun side, measured on 1.3.14 + cross-checked against bun's source at the `bun-v1.3.14` tag.
-//      B1 explicit frozen on drift — RECORDED (does `--frozen-lockfile` fail closed? #24223 reports
-//         contexts where it does not). Classified by evidence: exit + lockfile-unchanged + the
-//         "lockfile is frozen" diagnostic.
-//      B2 CI auto-enable — ASSERTED: a bare `bun install` with CI=1 does NOT freeze (re-resolves and
-//         rewrites bun.lock). Source: frozen_lockfile is set only by --frozen-lockfile / `bun ci` /
-//         --production / bunfig; env.isCI() only disables the progress bar. pnpm, by contrast, flips
-//         its frozen default to true in CI.
-//      B3 pnpm catalog — ASSERTED: bun does not resolve a `catalog:` defined only in
-//         pnpm-workspace.yaml (it treats `catalog:` as a literal spec and fails to resolve). Source:
-//         bun reads catalogs from package.json, pnpm-workspace.yaml only via the migration path.
-//   C. The DIRECT clean wave. pnpm named catalogs (catalog:stable / catalog:next) route two cohorts to
-//      two versions of a directly-consumed dep in ONE lockfile, and repointing the stable catalog entry
-//      moves the cohort with ZERO consumer-manifest edits (measured by hashing every consumer manifest
-//      before and after).
-//   D. Catalogs reject the workspace protocol. Every workspace: form tested (*, ^, ~, ^1.0.0) aborts
-//      with ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC, so the catalog channel needs a
-//      registry-published lib, never a workspace one.
-//   E. The UNIVERSAL collapse. `pnpm pack` bakes a CONCRETE range for a lib's own internal deps into
-//      the tarball (workspace:^ -> ^1.0.0), so a consumer catalog cannot repoint that transitive edge:
-//      advancing a lib every other lib re-exports is a republish-fanout, not a one-line flip.
+//   1. Determinism boundary. The lockfile, not the range, makes a build reproducible: a committed
+//      lockfile + a frozen install pins the exact version, so a `^`/`*` range is inert.
+//        - bun: `bunfig.toml [install] frozenLockfile = true` makes a bare `bun install` fail closed on
+//          drift (one committed line; bun does not auto-enable frozen in CI, so this is how you get it).
+//        - pnpm: `--frozen-lockfile` is byte-identical across runs and fails closed on drift
+//          (ERR_PNPM_OUTDATED_LOCKFILE); pnpm flips its frozen default to true in CI.
+//   2. Lane mechanism (named catalogs). Two cohorts route to two versions in ONE lockfile, and a wave's
+//      repoint edits ZERO consumer manifests — natively on both, bun in package.json, pnpm in
+//      pnpm-workspace.yaml.
+//   3. workspace: as a catalog value. bun ACCEPTS it and links the local package; pnpm REJECTS it
+//      (ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC) for every form. bun is the more capable driver.
+//   4. Publish bakes a CONCRETE range. `bun pm pack` / `pnpm pack` rewrite a lib's internal
+//      `workspace:^` -> `^x.y.z` (and `catalog:` -> a version) in the tarball, so advancing a lib every
+//      other lib re-exports is a republish-fanout, not a one-line catalog flip — identical on both.
+//   5. The one cross-tool gotcha: bun does not read catalogs from pnpm-workspace.yaml (only package.json),
+//      so author the catalog where the driver reads it; do not mix.
 //
 //   node scripts/wave-rollout-bench.mjs
 //
 // Self-contained and non-destructive: scaffolds throwaway workspaces under the OS temp dir (never the
 // repo tree, so no worktree needed) and removes them on exit. Pins each scaffold to the public npm
 // registry for one tiny real dep (is-odd) so resolution is deterministic and auth-free — the registry
-// IDENTITY is immaterial to the pnpm/bun mechanics shown here; registry-identity behavior (CodeArtifact
-// resolution, the publish rewrite live) is covered by registry-resolution-demo.sh / per-app-workspace-
-// demo.sh. The bun source line refs in the recorded note are pinned to bun-v1.3.14, so the bench asserts
-// the running bun is that version. HARD-FAILS if any asserted mechanic stops reproducing, so a tool
-// change that alters it turns the bench red instead of letting a stale claim stand ->
-// bench/wave-rollout-bench.json.
+// IDENTITY is immaterial to the pnpm/bun mechanics shown here. HARD-FAILS if any asserted mechanic stops
+// reproducing -> bench/wave-rollout-bench.json.
 
 import { execSync } from "node:child_process";
 import {
@@ -104,9 +93,13 @@ function run(cmd, cwd, env) {
 const ver = (tool) => execSync(`${tool} --version`, { encoding: "utf8" }).trim();
 const sha = (p) => createHash("sha256").update(readFileSync(p)).digest("hex").slice(0, 16);
 const readJSON = (p) => JSON.parse(readFileSync(p, "utf8"));
-// Resolved version of a dep as actually linked into a consumer's node_modules (symlink resolves on
-// read), i.e. what the build would compile against — not what the manifest range says.
-const resolved = (dir, dep) => readJSON(join(dir, "node_modules", dep, "package.json")).version;
+// The version a consumer actually resolves, via node's own module resolution from that dir — robust
+// across pnpm's symlinked layout and bun's hoisted one (what the build would compile against).
+function resolveVer(dir, dep) {
+  const r = run(`node -p "require('${dep}/package.json').version"`, dir);
+  if (r.code !== 0) fail(`could not resolve ${dep} from ${dir}\n${r.out.slice(-300)}`);
+  return r.out.trim();
+}
 
 const PNPM_VER = (() => {
   try {
@@ -145,324 +138,447 @@ function scaffold(name, files) {
   }
   return base;
 }
-// One package.json shape for every consumer/leaf in this bench.
+const writeJSON = (p, o) => writeFileSync(p, JSON.stringify(o, null, 2));
+// One package.json shape for a consumer/leaf.
 const mf = (name, deps) => ({ name, version: "0.0.0", private: true, dependencies: deps });
 
 // =================================================================================================
-// A. pnpm is the determinism boundary: byte-identical under frozen, fail-closed on drift.
+// 1. DETERMINISM — the lockfile is the boundary; both drivers fail closed on drift.
 // =================================================================================================
-console.log("== A. pnpm frozen-lockfile: byte-identical + fail-closed ==");
-const aDir = scaffold("a-frozen-pnpm", {
-  "package.json": mf("wave-frozen", { [DEP]: FROZEN_SPEC }),
+console.log("== 1. Determinism: frozen install fails closed on drift ==");
+
+// 1a. bun: bunfig frozenLockfile=true. Seed the lock first (no bunfig), then freeze, then drift.
+const bunDet = scaffold("1a-bun-frozen", {
+  "package.json": mf("wave-bun-frozen", { [DEP]: FROZEN_SPEC }),
 });
-const aInstall = run("pnpm install --no-frozen-lockfile", aDir);
-if (aInstall.code !== 0 || !existsSync(join(aDir, "node_modules", DEP)))
+const bunSeed = run("bun install", bunDet);
+const bunLock = join(bunDet, "bun.lock");
+if (bunSeed.code !== 0 || !existsSync(bunLock))
   fail(
-    `A: initial pnpm install failed (network/registry?) exit ${aInstall.code}\n${aInstall.out.slice(-600)}`,
+    `1a: bun seed install failed / no bun.lock (network?) exit ${bunSeed.code}\n${bunSeed.out.slice(-600)}`,
   );
-const aLock = join(aDir, "pnpm-lock.yaml");
-const aV1 = resolved(aDir, DEP);
-const aHash1 = sha(aLock);
-// Two frozen installs from a wiped node_modules: the lockfile must not be rewritten and the resolved
-// version must be constant — that is the "rebuild resolves the same" property (the range is inert).
-const FROZEN_RUNS = 2;
-const aVersions = [aV1];
-const aHashes = [aHash1];
-for (let i = 0; i < FROZEN_RUNS; i++) {
-  rmSync(join(aDir, "node_modules"), { recursive: true, force: true });
-  const r = run("pnpm install --frozen-lockfile", aDir);
-  if (r.code !== 0 || !existsSync(join(aDir, "node_modules", DEP)))
-    fail(`A: frozen install #${i + 1} failed exit ${r.code}\n${r.out.slice(-600)}`);
-  aVersions.push(resolved(aDir, DEP));
-  aHashes.push(sha(aLock));
+writeFileSync(join(bunDet, "bunfig.toml"), "[install]\nfrozenLockfile = true\n");
+const bunLockBefore = sha(bunLock);
+writeJSON(
+  join(bunDet, "package.json"),
+  mf("wave-bun-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
+);
+const bunFrozen = run("bun install", bunDet); // bare install; bunfig makes it frozen
+const bunFrozenDiag = /lockfile had changes, but lockfile is frozen/i.test(bunFrozen.out);
+const bunLockChanged = !existsSync(bunLock) || sha(bunLock) !== bunLockBefore;
+const bunFailsClosed = bunFrozen.code !== 0 && !bunLockChanged && bunFrozenDiag;
+if (!bunFailsClosed)
+  fail(
+    `1a: bunfig frozen should fail closed on drift; exit ${bunFrozen.code}, lockChanged ${bunLockChanged}\n${bunFrozen.out.slice(-600)}`,
+  );
+
+// 1a (context): a bare `bun install` with CI=1 and NO bunfig does NOT auto-freeze — it re-resolves.
+// This is why the bunfig line is required (source: bun does not flip frozen in CI).
+const bunCi = scaffold("1a-bun-ci", { "package.json": mf("wave-bun-ci", { [DEP]: FROZEN_SPEC }) });
+const bunCiSeed = run("bun install", bunCi);
+const bunCiLock = join(bunCi, "bun.lock");
+if (bunCiSeed.code !== 0 || !existsSync(bunCiLock))
+  fail(`1a-ci: bun seed failed / no lock exit ${bunCiSeed.code}\n${bunCiSeed.out.slice(-600)}`);
+const bunCiBefore = sha(bunCiLock);
+writeJSON(
+  join(bunCi, "package.json"),
+  mf("wave-bun-ci", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
+);
+const bunCiRun = run("bun install", bunCi, { CI: "1" });
+const bunCiRewrote = existsSync(bunCiLock) && sha(bunCiLock) !== bunCiBefore;
+const bunCiAutoFroze =
+  bunCiRun.code !== 0 && /lockfile had changes, but lockfile is frozen/i.test(bunCiRun.out);
+if (!(bunCiRun.code === 0 && bunCiRewrote) && !bunCiAutoFroze)
+  fail(
+    `1a-ci: could not classify CI=1 bare install (exit ${bunCiRun.code}, rewrote ${bunCiRewrote})\n${bunCiRun.out.slice(-600)}`,
+  );
+if (bunCiAutoFroze)
+  fail(
+    `1a-ci: bun auto-froze under CI=1 (contradicts ${BUN_SOURCE_TAG} source)\n${bunCiRun.out.slice(-600)}`,
+  );
+
+// 1b. pnpm: --frozen-lockfile byte-identical across runs + fail closed on drift.
+const pnpmDet = scaffold("1b-pnpm-frozen", {
+  "package.json": mf("wave-pnpm-frozen", { [DEP]: FROZEN_SPEC }),
+});
+const pnpmSeed = run("pnpm install --no-frozen-lockfile", pnpmDet);
+if (pnpmSeed.code !== 0 || !existsSync(join(pnpmDet, "node_modules", DEP)))
+  fail(`1b: pnpm seed install failed exit ${pnpmSeed.code}\n${pnpmSeed.out.slice(-600)}`);
+const pnpmLock = join(pnpmDet, "pnpm-lock.yaml");
+const pnpmV1 = resolveVer(pnpmDet, DEP);
+const pnpmHash1 = sha(pnpmLock);
+const PNPM_FROZEN_RUNS = 2;
+let pnpmByteIdentical = true;
+for (let i = 0; i < PNPM_FROZEN_RUNS; i++) {
+  rmSync(join(pnpmDet, "node_modules"), { recursive: true, force: true });
+  const r = run("pnpm install --frozen-lockfile", pnpmDet);
+  if (r.code !== 0 || !existsSync(join(pnpmDet, "node_modules", DEP)))
+    fail(`1b: pnpm frozen #${i + 1} failed exit ${r.code}\n${r.out.slice(-600)}`);
+  if (resolveVer(pnpmDet, DEP) !== pnpmV1 || sha(pnpmLock) !== pnpmHash1) pnpmByteIdentical = false;
 }
-const aByteIdentical = aVersions.every((v) => v === aV1) && aHashes.every((h) => h === aHash1);
-if (!aByteIdentical) fail(`A: frozen not byte-identical: versions ${aVersions}, lock ${aHashes}`);
-// Drift: add a dependency the committed lockfile does not contain, WITHOUT regenerating the lock.
-writeFileSync(
-  join(aDir, "package.json"),
-  JSON.stringify(mf("wave-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }), null, 2),
+if (!pnpmByteIdentical) fail(`1b: pnpm frozen not byte-identical`);
+writeJSON(
+  join(pnpmDet, "package.json"),
+  mf("wave-pnpm-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
 );
-const aDrift = run("pnpm install --frozen-lockfile", aDir);
-const aDriftErr = (aDrift.out.match(/ERR_PNPM_OUTDATED_LOCKFILE/) || [])[0] || null;
-if (aDrift.code === 0 || !aDriftErr)
+// Fail-closed means BOTH: non-zero exit with the outdated-lockfile error AND the lockfile left
+// untouched (symmetric with the bun path, which also checks the lock did not change).
+const pnpmLockBeforeDrift = sha(pnpmLock);
+const pnpmDrift = run("pnpm install --frozen-lockfile", pnpmDet);
+const pnpmDriftErr = (pnpmDrift.out.match(/ERR_PNPM_OUTDATED_LOCKFILE/) || [])[0] || null;
+const pnpmFailsClosedOnDrift =
+  pnpmDrift.code !== 0 && !!pnpmDriftErr && sha(pnpmLock) === pnpmLockBeforeDrift;
+if (!pnpmFailsClosedOnDrift)
   fail(
-    `A: frozen should fail closed on drift (ERR_PNPM_OUTDATED_LOCKFILE); got exit ${aDrift.code}\n${aDrift.out.slice(-600)}`,
+    `1b: pnpm frozen should fail closed (ERR_PNPM_OUTDATED_LOCKFILE, lock unchanged) exit ${pnpmDrift.code}\n${pnpmDrift.out.slice(-600)}`,
+  );
+// pnpm auto-enables frozen in CI: a BARE `pnpm install` (no --frozen-lockfile flag) with CI set must
+// also fail closed on the same drift (non-zero + outdated-lockfile error + lock untouched) — MEASURED,
+// not assumed (symmetric with bun's 1a-ci, where bare CI=1 re-resolves). The manifest is still drifted
+// and the lockfile unchanged from the run above.
+const pnpmCiRun = run("pnpm install", pnpmDet, { CI: "true" });
+const pnpmCiFrozenErr = (pnpmCiRun.out.match(/ERR_PNPM_OUTDATED_LOCKFILE/) || [])[0] || null;
+const pnpmAutoFreezesInCi =
+  pnpmCiRun.code !== 0 && !!pnpmCiFrozenErr && sha(pnpmLock) === pnpmLockBeforeDrift;
+if (!pnpmAutoFreezesInCi)
+  fail(
+    `1b-ci: pnpm should auto-enable frozen in CI (bare install fails closed, lock unchanged) exit ${pnpmCiRun.code}\n${pnpmCiRun.out.slice(-600)}`,
   );
 console.log(
-  `  byte-identical: ${DEP}@${aV1} across ${FROZEN_RUNS} frozen runs (lock ${aHash1}); drift -> exit ${aDrift.code} (${aDriftErr})`,
+  `  bun (bunfig frozen): exit ${bunFrozen.code} fail-closed; CI=1 without bunfig re-resolves (exit ${bunCiRun.code})  |  ` +
+    `pnpm (--frozen): ${DEP}@${pnpmV1} byte-identical x${PNPM_FROZEN_RUNS}, drift -> ${pnpmDriftErr}; bare CI install -> ${pnpmCiFrozenErr}`,
 );
 
 // =================================================================================================
-// B. The bun side, measured on 1.3.14. Setup failures hard-fail; B1 recorded, B2/B3 asserted.
+// 2. LANE MECHANISM — named catalogs route cohorts + repoint with zero consumer-manifest edits.
 // =================================================================================================
-console.log("== B. bun, measured on 1.3.14 (frozen drift / CI auto-enable / pnpm catalog) ==");
-const BUN_FROZEN_DIAG = /lockfile had changes, but lockfile is frozen/i; // bun's fail-closed message
+console.log("== 2. Named-catalog lanes: route two cohorts + zero-manifest repoint ==");
 
-// B1: explicit --frozen-lockfile on an added-dep drift (RECORDED).
-const b1Dir = scaffold("b1-frozen-bun", { "package.json": mf("wave-b1", { [DEP]: FROZEN_SPEC }) });
-const b1Seed = run("bun install", b1Dir);
-const b1Lock = join(b1Dir, "bun.lock");
-if (b1Seed.code !== 0 || !existsSync(b1Lock))
-  fail(
-    `B1: bun seed install failed / no bun.lock (network?) exit ${b1Seed.code}\n${b1Seed.out.slice(-600)}`,
-  );
-const b1HashBefore = sha(b1Lock);
-writeFileSync(
-  join(b1Dir, "package.json"),
-  JSON.stringify(mf("wave-b1", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }), null, 2),
-);
-const b1 = run("bun install --frozen-lockfile", b1Dir);
-const b1LockChanged = !existsSync(b1Lock) || sha(b1Lock) !== b1HashBefore;
-const b1FailedClosed = b1.code !== 0 && !b1LockChanged && BUN_FROZEN_DIAG.test(b1.out);
-const b1FrozenDrift = {
-  exit: b1.code,
-  lockfileChanged: b1LockChanged,
-  failedClosed: b1FailedClosed,
-  diagnostic: BUN_FROZEN_DIAG.test(b1.out) ? "lockfile had changes, but lockfile is frozen" : null,
-};
-
-// B2: bare `bun install` with CI=1 on the same drift — ASSERT it does NOT auto-freeze (re-resolves).
-const b2Dir = scaffold("b2-ci-bun", { "package.json": mf("wave-b2", { [DEP]: FROZEN_SPEC }) });
-const b2Seed = run("bun install", b2Dir);
-const b2Lock = join(b2Dir, "bun.lock");
-if (b2Seed.code !== 0 || !existsSync(b2Lock))
-  fail(`B2: bun seed install failed / no bun.lock exit ${b2Seed.code}\n${b2Seed.out.slice(-600)}`);
-const b2HashBefore = sha(b2Lock);
-writeFileSync(
-  join(b2Dir, "package.json"),
-  JSON.stringify(mf("wave-b2", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }), null, 2),
-);
-const b2 = run("bun install", b2Dir, { CI: "1" });
-const b2LockRewritten = existsSync(b2Lock) && sha(b2Lock) !== b2HashBefore;
-const b2DidNotFreeze = b2.code === 0 && b2LockRewritten;
-const b2Froze = b2.code !== 0 && BUN_FROZEN_DIAG.test(b2.out);
-// Classify by evidence; an unrelated nonzero exit (network) is neither and must not pass.
-if (!b2DidNotFreeze && !b2Froze)
-  fail(
-    `B2: could not classify CI=1 bare install (exit ${b2.code}, lockRewritten ${b2LockRewritten})\n${b2.out.slice(-600)}`,
-  );
-if (!b2DidNotFreeze)
-  fail(
-    `B2: bun auto-froze under CI=1 (contradicts ${BUN_SOURCE_TAG} source); exit ${b2.code}\n${b2.out.slice(-600)}`,
-  );
-const b2CiAutoEnable = { exit: b2.code, lockfileRewritten: b2LockRewritten, autoFroze: false };
-
-// B3: a `catalog:` defined only in pnpm-workspace.yaml — ASSERT bun does not resolve it.
-const b3Dir = scaffold("b3-pnpm-catalog-bun", {
-  "package.json": mf("wave-b3", { [DEP]: "catalog:" }),
-  "pnpm-workspace.yaml": `catalog:\n  ${DEP}: ${STABLE}\n`,
+// 2a. bun native: catalogs live in the root package.json workspaces object.
+const bunLane = scaffold("2a-bun-catalog", {
+  "package.json": {
+    name: "wave-bun-catalog-root",
+    version: "0.0.0",
+    private: true,
+    workspaces: {
+      packages: ["consumers/*"],
+      catalogs: { stable: { [DEP]: STABLE }, next: { [DEP]: NEXT } },
+    },
+  },
+  "consumers/cs/package.json": mf("@wave/cs", { [DEP]: "catalog:stable" }),
+  "consumers/cn/package.json": mf("@wave/cn", { [DEP]: "catalog:next" }),
 });
-const b3 = run("bun install", b3Dir);
-const b3Resolved = b3.code === 0 && existsSync(join(b3Dir, "node_modules", DEP));
-const b3CatalogDiag = new RegExp(`${DEP}@catalog:.*failed to resolve`, "i").test(b3.out);
-if (b3Resolved)
-  fail(
-    `B3: bun resolved a pnpm-workspace.yaml catalog (contradicts ${BUN_SOURCE_TAG} source)\n${b3.out.slice(-600)}`,
-  );
-if (!b3CatalogDiag)
-  fail(
-    `B3: bun failed for a non-catalog reason (network?); expected "<dep>@catalog: failed to resolve"\n${b3.out.slice(-600)}`,
-  );
-const b3PnpmCatalog = {
-  exit: b3.code,
-  resolvedPnpmCatalog: false,
-  diagnostic: `${DEP}@catalog: failed to resolve`,
-};
-console.log(
-  `  B1 frozen+drift: exit ${b1.code} (failedClosed=${b1FrozenDrift.failedClosed})  |  ` +
-    `B2 CI=1 bare install: exit ${b2.code} (autoFroze=false, lockRewritten=${b2LockRewritten})  |  ` +
-    `B3 pnpm-yaml catalog: exit ${b3.code} (resolved=false, "failed to resolve")`,
-);
+if (run("bun install", bunLane).code !== 0) fail(`2a: bun catalog install failed`);
+const bunCs = resolveVer(join(bunLane, "consumers/cs"), DEP);
+const bunCn = resolveVer(join(bunLane, "consumers/cn"), DEP);
+if (bunCs !== STABLE || bunCn !== NEXT) fail(`2a: bun routing wrong: cs->${bunCs}, cn->${bunCn}`);
+// Hash BOTH consumer manifests before/after so "no consumer manifest edited" covers every consumer.
+const bunLaneManifests = ["cs", "cn"].map((c) => join(bunLane, `consumers/${c}/package.json`));
+const bunManifestsBefore = bunLaneManifests.map(sha);
+const bunRoot = readJSON(join(bunLane, "package.json"));
+bunRoot.workspaces.catalogs.stable[DEP] = NEXT;
+writeJSON(join(bunLane, "package.json"), bunRoot);
+if (run("bun install", bunLane).code !== 0) fail(`2a: bun repoint install failed`);
+const bunCsAfter = resolveVer(join(bunLane, "consumers/cs"), DEP);
+const bunManifestsEdited = bunLaneManifests.filter(
+  (p, i) => sha(p) !== bunManifestsBefore[i],
+).length;
+if (bunCsAfter !== NEXT || bunManifestsEdited !== 0)
+  fail(`2a: bun repoint failed: cs->${bunCsAfter}, manifests edited ${bunManifestsEdited}`);
 
-// =================================================================================================
-// C. The DIRECT clean wave: named catalogs route cohorts; repoint edits no consumer manifest.
-// =================================================================================================
-console.log("== C. named catalogs: cohort routing + zero-manifest-edit repoint ==");
-const cDir = scaffold("c-catalog", {
-  "package.json": { name: "wave-catalog-root", version: "0.0.0", private: true },
+// 2b. pnpm: named catalogs in pnpm-workspace.yaml.
+const pnpmLane = scaffold("2b-pnpm-catalog", {
+  "package.json": { name: "wave-pnpm-catalog-root", version: "0.0.0", private: true },
   "pnpm-workspace.yaml": `packages:\n  - "consumers/*"\ncatalogs:\n  stable:\n    ${DEP}: ${STABLE}\n  next:\n    ${DEP}: ${NEXT}\n`,
-  "consumers/cohort-stable/package.json": mf("@wave/cohort-stable", { [DEP]: "catalog:stable" }),
-  "consumers/cohort-next/package.json": mf("@wave/cohort-next", { [DEP]: "catalog:next" }),
+  "consumers/cs/package.json": mf("@wave/cs", { [DEP]: "catalog:stable" }),
+  "consumers/cn/package.json": mf("@wave/cn", { [DEP]: "catalog:next" }),
 });
-const cInstall = run("pnpm install --no-frozen-lockfile", cDir);
-if (cInstall.code !== 0)
-  fail(`C: catalog install failed exit ${cInstall.code}\n${cInstall.out.slice(-600)}`);
-const cStable = resolved(join(cDir, "consumers/cohort-stable"), DEP);
-const cNext = resolved(join(cDir, "consumers/cohort-next"), DEP);
-if (cStable !== STABLE || cNext !== NEXT)
-  fail(`C: routing wrong: stable->${cStable} (want ${STABLE}), next->${cNext} (want ${NEXT})`);
-// "One lockfile" is measured, not assumed: exactly one root pnpm-lock.yaml, no per-consumer lockfile,
-// and that single file records both is-odd majors.
-const cConsumerDirs = ["consumers/cohort-stable", "consumers/cohort-next"];
-const cLockText = readFileSync(join(cDir, "pnpm-lock.yaml"), "utf8");
-const cOneLockfile =
-  cConsumerDirs.every((d) => !existsSync(join(cDir, d, "pnpm-lock.yaml"))) &&
-  cLockText.includes(`${DEP}@${STABLE}`) &&
-  cLockText.includes(`${DEP}@${NEXT}`);
-if (!cOneLockfile)
-  fail(`C: expected one root lockfile holding both ${DEP}@${STABLE} and ${DEP}@${NEXT}`);
-// Repoint the stable channel to NEXT by editing ONLY the workspace yaml. Hash every consumer manifest
-// before and after so "zero manifest edits" is measured, not assumed.
-const cManifests = ["consumers/cohort-stable/package.json", "consumers/cohort-next/package.json"];
-const cBefore = cManifests.map((m) => sha(join(cDir, m)));
-const cYaml = join(cDir, "pnpm-workspace.yaml");
-const cYamlBefore = sha(cYaml);
+if (run("pnpm install --no-frozen-lockfile", pnpmLane).code !== 0)
+  fail(`2b: pnpm catalog install failed`);
+const pnpmCs = resolveVer(join(pnpmLane, "consumers/cs"), DEP);
+const pnpmCn = resolveVer(join(pnpmLane, "consumers/cn"), DEP);
+if (pnpmCs !== STABLE || pnpmCn !== NEXT)
+  fail(`2b: pnpm routing wrong: cs->${pnpmCs}, cn->${pnpmCn}`);
+// One lockfile holds both majors: a single root pnpm-lock.yaml, no per-consumer lockfile.
+const pnpmLaneLock = readFileSync(join(pnpmLane, "pnpm-lock.yaml"), "utf8");
+const pnpmOneLockfile =
+  !existsSync(join(pnpmLane, "consumers/cs/pnpm-lock.yaml")) &&
+  !existsSync(join(pnpmLane, "consumers/cn/pnpm-lock.yaml")) &&
+  pnpmLaneLock.includes(`${DEP}@${STABLE}`) &&
+  pnpmLaneLock.includes(`${DEP}@${NEXT}`);
+if (!pnpmOneLockfile) fail(`2b: expected one lockfile holding both ${DEP} majors`);
+const pnpmLaneManifests = ["cs", "cn"].map((c) => join(pnpmLane, `consumers/${c}/package.json`));
+const pnpmManifestsBefore = pnpmLaneManifests.map(sha);
 writeFileSync(
-  cYaml,
+  join(pnpmLane, "pnpm-workspace.yaml"),
   `packages:\n  - "consumers/*"\ncatalogs:\n  stable:\n    ${DEP}: ${NEXT}\n  next:\n    ${DEP}: ${NEXT}\n`,
 );
-const cRepoint = run("pnpm install --no-frozen-lockfile", cDir);
-if (cRepoint.code !== 0)
-  fail(`C: repoint install failed exit ${cRepoint.code}\n${cRepoint.out.slice(-600)}`);
-const cStableAfter = resolved(join(cDir, "consumers/cohort-stable"), DEP);
-const cManifestsEdited = cManifests.filter((m, i) => sha(join(cDir, m)) !== cBefore[i]).length;
-const cYamlChanged = sha(cYaml) !== cYamlBefore;
-if (cStableAfter !== NEXT || cManifestsEdited !== 0 || !cYamlChanged)
-  fail(
-    `C: repoint failed: stable->${cStableAfter} (want ${NEXT}); manifests edited ${cManifestsEdited} (want 0); yaml changed ${cYamlChanged}`,
-  );
+if (run("pnpm install --no-frozen-lockfile", pnpmLane).code !== 0)
+  fail(`2b: pnpm repoint install failed`);
+const pnpmCsAfter = resolveVer(join(pnpmLane, "consumers/cs"), DEP);
+const pnpmManifestsEdited = pnpmLaneManifests.filter(
+  (p, i) => sha(p) !== pnpmManifestsBefore[i],
+).length;
+if (pnpmCsAfter !== NEXT || pnpmManifestsEdited !== 0)
+  fail(`2b: pnpm repoint failed: cs->${pnpmCsAfter}, manifests edited ${pnpmManifestsEdited}`);
 console.log(
-  `  routing: stable->${DEP}@${cStable}, next->${DEP}@${cNext} (one lockfile); repoint stable->${NEXT}: ${cManifestsEdited} consumer manifests edited, workspace yaml changed ${cYamlChanged}`,
+  `  bun: cs->${bunCs} cn->${bunCn}, repoint cs->${bunCsAfter} (manifests edited ${bunManifestsEdited}/2)  |  ` +
+    `pnpm: cs->${pnpmCs} cn->${pnpmCn}, repoint cs->${pnpmCsAfter} (manifests edited ${pnpmManifestsEdited}/2)`,
 );
 
 // =================================================================================================
-// D. Catalogs reject the workspace protocol — every workspace: form, so a workspace:* core lib
-//    cannot be a catalog channel.
+// 3. workspace: AS A CATALOG VALUE — bun accepts + links local; pnpm rejects every form.
 // =================================================================================================
-console.log("== D. catalog value workspace: is rejected (every form) ==");
-const D_FORMS = ["workspace:*", "workspace:^", "workspace:~", "workspace:^1.0.0"];
-for (const form of D_FORMS) {
-  const dDir = scaffold(`d-reject-${form.replace(/[^a-z0-9]/gi, "_")}`, {
-    "package.json": { name: "wave-reject-root", version: "0.0.0", private: true },
+console.log("== 3. workspace: as a catalog value: bun accepts (links local), pnpm rejects ==");
+
+// 3a. bun: catalog value workspace:* resolves the LOCAL workspace package (sentinel proves it).
+const bunWs = scaffold("3a-bun-ws-catalog", {
+  "package.json": {
+    name: "wave-bun-ws-root",
+    version: "0.0.0",
+    private: true,
+    workspaces: {
+      packages: ["packages/*", "consumers/*"],
+      catalog: { "@wave/util": "workspace:*" },
+    },
+  },
+  "packages/util/package.json": { name: "@wave/util", version: "1.0.0", main: "index.js" },
+  "packages/util/index.js": 'module.exports = "LOCAL-UTIL";\n',
+  "consumers/app/package.json": mf("@wave/ws-app", { "@wave/util": "catalog:" }),
+});
+const bunWsInstall = run("bun install", bunWs);
+if (bunWsInstall.code !== 0)
+  fail(
+    `3a: bun should accept workspace:* in a catalog; exit ${bunWsInstall.code}\n${bunWsInstall.out.slice(-600)}`,
+  );
+const bunWsResolved = run(`node -p "require('@wave/util')"`, join(bunWs, "consumers/app"));
+if (bunWsResolved.code !== 0 || bunWsResolved.out.trim() !== "LOCAL-UTIL")
+  fail(
+    `3a: bun catalog workspace:* did not link the local package; got "${bunWsResolved.out.trim()}"`,
+  );
+
+// 3b. pnpm: every workspace: form is rejected. Record per-form rejections so "every form rejected" is
+// a measured count, not a hardcoded boolean.
+const PNPM_WS_FORMS = ["workspace:*", "workspace:^", "workspace:~", "workspace:^1.0.0"];
+let pnpmWsFormsRejected = 0;
+for (const form of PNPM_WS_FORMS) {
+  const d = scaffold(`3b-pnpm-ws-${form.replace(/[^a-z0-9]/gi, "_")}`, {
+    "package.json": { name: "wave-pnpm-ws-root", version: "0.0.0", private: true },
     "pnpm-workspace.yaml": `packages:\n  - "packages/*"\n  - "consumers/*"\ncatalog:\n  "@wave/util": "${form}"\n`,
     "packages/util/package.json": { name: "@wave/util", version: "1.0.0", private: true },
-    "consumers/app/package.json": mf("@wave/reject-app", { "@wave/util": "catalog:" }),
+    "consumers/app/package.json": mf("@wave/ws-app", { "@wave/util": "catalog:" }),
   });
-  const r = run("pnpm install --no-frozen-lockfile", dDir);
+  const r = run("pnpm install --no-frozen-lockfile", d);
   if (r.code === 0 || !/ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC/.test(r.out))
-    fail(`D: catalog value "${form}" should be rejected; got exit ${r.code}\n${r.out.slice(-600)}`);
+    fail(`3b: pnpm should reject catalog "${form}"; exit ${r.code}\n${r.out.slice(-600)}`);
+  pnpmWsFormsRejected++;
 }
 console.log(
-  `  every form rejected (${D_FORMS.join(", ")}) with ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`,
+  `  bun: workspace:* catalog -> linked LOCAL-UTIL  |  pnpm: every form rejected (${PNPM_WS_FORMS.join(", ")})`,
 );
 
 // =================================================================================================
-// E. The UNIVERSAL collapse: a published lib bakes a CONCRETE internal range into its tarball.
+// 4. PUBLISH BAKES A CONCRETE RANGE — the universal collapse, identical on both.
 // =================================================================================================
-console.log(
-  "== E. published tarball bakes a concrete range (transitive edge can't be repointed) ==",
-);
-const eDir = scaffold("e-transitive", {
-  "package.json": { name: "wave-transitive-root", version: "0.0.0", private: true },
-  "pnpm-workspace.yaml": `packages:\n  - "packages/*"\n`,
-  "packages/core/package.json": { name: "@wave/core", version: "1.0.0", main: "index.js" },
-  "packages/core/index.js": "module.exports = { v: 1 };\n",
-  // mid re-exports core, declaring it with the workspace protocol (the in-tree co-dev form).
-  "packages/mid/package.json": {
-    name: "@wave/mid",
-    version: "1.0.0",
-    main: "index.js",
-    dependencies: { "@wave/core": "workspace:^" },
+console.log("== 4. Publish bakes a concrete range (universal collapse) ==");
+// mid re-exports core via workspace:^ and pulls is-odd via catalog:; BOTH must bake to concrete in the
+// tarball while the on-disk source manifest stays untouched. extraFiles lets the pnpm case add its
+// pnpm-workspace.yaml catalog (pnpm reads catalogs there, not in package.json).
+function packMid(name, rootPkg, packCmd, extraFiles = {}) {
+  const dir = scaffold(name, {
+    "package.json": rootPkg,
+    ...extraFiles,
+    "packages/core/package.json": { name: "@wave/core", version: "2.5.0", main: "index.js" },
+    "packages/core/index.js": "module.exports = { v: 2 };\n",
+    "packages/mid/package.json": {
+      name: "@wave/mid",
+      version: "1.0.0",
+      main: "index.js",
+      dependencies: { "@wave/core": "workspace:^", [DEP]: "catalog:" },
+    },
+    "packages/mid/index.js": "module.exports = require('@wave/core');\n",
+  });
+  const inst = packCmd.install(dir);
+  if (inst.code !== 0)
+    fail(`4 (${name}): install failed exit ${inst.code}\n${inst.out.slice(-600)}`);
+  const midDir = join(dir, "packages/mid");
+  const pack = run(packCmd.pack, midDir);
+  if (pack.code !== 0) fail(`4 (${name}): pack failed exit ${pack.code}\n${pack.out.slice(-600)}`);
+  const tgz = readdirSync(midDir).find((f) => f.endsWith(".tgz"));
+  if (!tgz) fail(`4 (${name}): no tarball produced`);
+  const tar = run(`tar -xzOf ${tgz} package/package.json`, midDir);
+  if (tar.code !== 0 || !tar.out.trim())
+    fail(`4 (${name}): tar could not read tarball package.json`);
+  const tarballDeps = JSON.parse(tar.out).dependencies;
+  // The on-disk source manifest must be UNCHANGED by pack — the rewrite is tarball-only. Read it back
+  // so sourceCore/sourceDep are MEASURED, not assumed.
+  const sourceDeps = readJSON(join(midDir, "package.json")).dependencies;
+  return {
+    core: tarballDeps["@wave/core"],
+    dep: tarballDeps[DEP],
+    sourceCore: sourceDeps["@wave/core"],
+    sourceDep: sourceDeps[DEP],
+  };
+}
+const bunBake = packMid(
+  "4a-bun-pack",
+  {
+    name: "wave-bun-bake-root",
+    version: "0.0.0",
+    private: true,
+    workspaces: { packages: ["packages/*"], catalog: { [DEP]: STABLE } },
   },
-  "packages/mid/index.js": "module.exports = require('@wave/core');\n",
-});
-const eInstall = run("pnpm install --no-frozen-lockfile", eDir);
-if (eInstall.code !== 0)
-  fail(`E: transitive workspace install failed exit ${eInstall.code}\n${eInstall.out.slice(-600)}`);
-const midDir = join(eDir, "packages/mid");
-const ePack = run("pnpm pack --pack-destination .", midDir);
-if (ePack.code !== 0) fail(`E: pnpm pack failed exit ${ePack.code}\n${ePack.out.slice(-600)}`);
-const tgz = readdirSync(midDir).find((f) => f.endsWith(".tgz"));
-if (!tgz) fail(`E: no tarball produced by pnpm pack`);
-// Read the tarball's package.json without unpacking to disk; guard tar's exit before parsing.
-const eTar = run(`tar -xzOf ${tgz} package/package.json`, midDir);
-if (eTar.code !== 0 || !eTar.out.trim())
-  fail(
-    `E: tar could not read package/package.json from ${tgz} (exit ${eTar.code})\n${eTar.out.slice(-400)}`,
-  );
-const eTarballSpec = JSON.parse(eTar.out).dependencies["@wave/core"];
-const eSourceSpec = readJSON(join(midDir, "package.json")).dependencies["@wave/core"];
-if (eTarballSpec !== "^1.0.0" || eSourceSpec !== "workspace:^")
-  fail(
-    `E: expected source "workspace:^" baked to "^1.0.0" in tarball; got source "${eSourceSpec}", tarball "${eTarballSpec}"`,
-  );
+  { install: (d) => run("bun install", d), pack: "bun pm pack" },
+);
+const pnpmBake = packMid(
+  "4b-pnpm-pack",
+  { name: "wave-pnpm-bake-root", version: "0.0.0", private: true },
+  {
+    install: (d) => run("pnpm install --no-frozen-lockfile", d),
+    pack: "pnpm pack --pack-destination .",
+  },
+  { "pnpm-workspace.yaml": `packages:\n  - "packages/*"\ncatalog:\n  ${DEP}: ${STABLE}\n` },
+);
+// Assert BOTH baked edges (workspace:^ -> ^2.5.0 AND catalog: -> the concrete version) AND that pack
+// left the source manifest untouched — every recorded field is then a measured, hard-asserted fact.
+for (const [tool, b] of [
+  ["bun", bunBake],
+  ["pnpm", pnpmBake],
+]) {
+  if (b.core !== "^2.5.0")
+    fail(`4 (${tool}): expected workspace:^ baked to ^2.5.0 in the tarball, got "${b.core}"`);
+  if (b.dep !== STABLE)
+    fail(`4 (${tool}): expected catalog: baked to ${STABLE} in the tarball, got "${b.dep}"`);
+  if (b.sourceCore !== "workspace:^" || b.sourceDep !== "catalog:")
+    fail(
+      `4 (${tool}): pack mutated the source manifest (core "${b.sourceCore}", dep "${b.sourceDep}")`,
+    );
+}
 console.log(
-  `  mid source "@wave/core": "${eSourceSpec}"  ->  published tarball "@wave/core": "${eTarballSpec}" (concrete, not repointable by a consumer catalog)`,
+  `  bun: @wave/core "${bunBake.sourceCore}" -> "${bunBake.core}", ${DEP} "${bunBake.sourceDep}" -> "${bunBake.dep}"  |  ` +
+    `pnpm: @wave/core -> "${pnpmBake.core}", ${DEP} -> "${pnpmBake.dep}" (source unchanged)`,
+);
+
+// =================================================================================================
+// 5. CROSS-TOOL GOTCHA — bun does not read catalogs from pnpm-workspace.yaml (only package.json).
+// =================================================================================================
+console.log("== 5. bun does not read pnpm-workspace.yaml catalogs ==");
+const bunPnpmCat = scaffold("5-bun-pnpm-catalog", {
+  "package.json": mf("wave-bun-pnpmcat", { [DEP]: "catalog:" }),
+  "pnpm-workspace.yaml": `catalog:\n  ${DEP}: ${STABLE}\n`,
+});
+const bunPnpmCatRun = run("bun install", bunPnpmCat);
+const bunPnpmCatResolved =
+  bunPnpmCatRun.code === 0 && existsSync(join(bunPnpmCat, "node_modules", DEP));
+const bunPnpmCatDiag = new RegExp(`${DEP}@catalog:.*failed to resolve`, "i").test(
+  bunPnpmCatRun.out,
+);
+if (bunPnpmCatResolved)
+  fail(
+    `5: bun resolved a pnpm-workspace.yaml catalog (contradicts ${BUN_SOURCE_TAG} source)\n${bunPnpmCatRun.out.slice(-600)}`,
+  );
+if (!bunPnpmCatDiag)
+  fail(`5: bun failed for a non-catalog reason (network?)\n${bunPnpmCatRun.out.slice(-600)}`);
+console.log(
+  `  bun install -> "${DEP}@catalog: failed to resolve" (author bun catalogs in package.json)`,
 );
 
 // --- record ----------------------------------------------------------------------------------------
 const result = {
   claim:
-    "Hermetic core-lib rollout mechanics, measured. pnpm is the determinism boundary: a committed " +
-    "lockfile + --frozen-lockfile is byte-identical (range inert) and FAILS CLOSED on drift " +
-    "(ERR_PNPM_OUTDATED_LOCKFILE). bun (the install tool of record) does NOT auto-enable frozen in CI " +
-    "and ignores pnpm-workspace.yaml catalogs (both asserted, source-verified at bun-v1.3.14); its " +
-    "explicit frozen fails closed on the drift here but is recorded, not asserted (#24223). The DIRECT " +
-    "clean wave is pnpm named catalogs routing cohorts to versions in one lockfile, with a " +
-    "zero-consumer-manifest repoint; but a catalog value cannot be a workspace: spec (any form), and a " +
-    "published lib bakes a CONCRETE range for its internal deps into the tarball (workspace:^ -> " +
-    "^1.0.0), so advancing a UNIVERSAL lib every other lib re-exports is a republish-fanout, not a " +
-    "one-line catalog flip.",
+    "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun is the recommended " +
+    "driver: it does all of it natively and cold-installs 58-440x faster than pnpm in the clean-env case " +
+    "that recurs in practice (bench/install-bench.json; warm-cached runners narrow the gap and pnpm-hoisted " +
+    "can win fully-warm at 2,000 apps). " +
+    "Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with " +
+    "one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and " +
+    "auto-enables frozen in CI. Named catalogs route two cohorts to two versions in one lockfile and a " +
+    "repoint edits zero consumer manifests on both (bun in package.json, pnpm in pnpm-workspace.yaml). " +
+    "bun ACCEPTS workspace:* as a catalog value and links the local package; pnpm rejects every form. " +
+    "Both bake a CONCRETE range on publish (workspace:^ -> ^2.5.0), so advancing a universal lib is a " +
+    "republish-fanout. bun does not read pnpm-workspace.yaml catalogs, so author them in package.json.",
   versions: { pnpm: PNPM_VER, bun: BUN_VER, node: process.version },
   registry: REGISTRY,
-  frozenPnpm: {
-    config: "committed pnpm-lock.yaml + pnpm install --frozen-lockfile",
-    inputSpec: FROZEN_SPEC,
-    resolvedVersion: aV1,
-    frozenRuns: FROZEN_RUNS,
-    byteIdentical: aByteIdentical,
-    lockfileHash: aHash1,
-    failsClosedOnDrift: true,
-    driftError: aDriftErr,
+  speedContext: {
+    source: "bench/install-bench.json",
+    note: "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~440x at 200 apps, ~100x at 1,000, ~58x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container): bun 1.2s vs pnpm-hoisted 48.9s at 200 apps (~41x). WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 10.1s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the clean-env/cold case; pnpm-hoisted can win the fully-warm case.",
   },
-  frozenBun: {
-    measuredBunVersion: BUN_VER,
-    sourceVerifiedAt: BUN_SOURCE_TAG,
-    note:
-      "bun is the optimal-stack installer but not the rollout determinism authority. Source-verified at " +
-      BUN_SOURCE_TAG +
-      " (src/install): frozen_lockfile is set only by --frozen-lockfile / `bun ci` / --production / " +
-      "bunfig (CommandLineArguments.zig:797, PackageManagerOptions.zig:335-344,613-620); env.isCI() only " +
-      "disables the progress bar (PackageManagerOptions.zig:392), so bun does NOT auto-enable frozen in " +
-      "CI — pnpm does. bun reads catalogs from package.json (lockfile/Package.zig:1592-2011), not " +
-      "pnpm-workspace.yaml (read only via the migration path, pnpm.zig). B2/B3 below assert these; B1 " +
-      "(explicit frozen on drift) is recorded per run, since oven-sh/bun#24223 reports contexts where it " +
-      "does not fail.",
-    b1FrozenDrift, // RECORDED
-    b2CiAutoEnable, // ASSERTED: did not auto-freeze
-    b3PnpmCatalog, // ASSERTED: did not resolve the pnpm-workspace.yaml catalog
-  },
-  namedCatalogDirect: {
-    config:
-      "catalog:stable / catalog:next route two cohorts; repoint edits only pnpm-workspace.yaml",
-    dep: DEP,
-    stableSpec: STABLE,
-    nextSpec: NEXT,
-    stableResolves: cStable,
-    nextResolves: cNext,
-    oneLockfile: cOneLockfile,
-    repoint: {
-      consumerManifestsEdited: cManifestsEdited,
-      consumerManifestCount: cManifests.length,
-      workspaceYamlChanged: cYamlChanged,
-      cohortStableMovedTo: cStableAfter,
+  determinism: {
+    bun: {
+      config: "bunfig.toml [install] frozenLockfile=true; bare bun install on drift",
+      failsClosedOnDrift: bunFailsClosed,
+      exitCode: bunFrozen.code,
+      diagnostic: bunFrozenDiag ? "lockfile had changes, but lockfile is frozen" : null,
+      ciAutoEnablesFrozen: bunCiAutoFroze, // measured: CI=1 without bunfig re-resolves; bunfig is required
+      sourceVerifiedAt: BUN_SOURCE_TAG,
+      sourceNote:
+        "frozen_lockfile is set only by --frozen-lockfile / `bun ci` / --production / bunfig " +
+        "(CommandLineArguments.zig:797, PackageManagerOptions.zig:335-344,613-620); env.isCI() only " +
+        "disables the progress bar (PackageManagerOptions.zig:392).",
+    },
+    pnpm: {
+      config: "committed pnpm-lock.yaml + pnpm install --frozen-lockfile",
+      inputSpec: FROZEN_SPEC,
+      resolvedVersion: pnpmV1,
+      byteIdentical: pnpmByteIdentical,
+      frozenRuns: PNPM_FROZEN_RUNS,
+      failsClosedOnDrift: pnpmFailsClosedOnDrift, // measured: non-zero + outdated-lockfile error + lock unchanged
+      driftExitCode: pnpmDrift.code,
+      driftError: pnpmDriftErr,
+      autoEnablesFrozenInCi: pnpmAutoFreezesInCi, // measured: bare CI install fails closed on the same drift
+      ciDriftError: pnpmCiFrozenErr,
     },
   },
-  catalogRejectsWorkspace: {
-    config: "catalog value is a workspace: spec",
-    formsTested: D_FORMS,
-    allRejected: true,
-    error: "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC",
+  namedCatalogLanes: {
+    consumers: 2,
+    bun: {
+      where: "root package.json workspaces.catalogs",
+      stableResolves: bunCs,
+      nextResolves: bunCn,
+      repointConsumerManifestsEdited: bunManifestsEdited, // counted over BOTH consumers
+      cohortMovedTo: bunCsAfter,
+    },
+    pnpm: {
+      where: "pnpm-workspace.yaml catalogs",
+      stableResolves: pnpmCs,
+      nextResolves: pnpmCn,
+      oneLockfile: pnpmOneLockfile,
+      repointConsumerManifestsEdited: pnpmManifestsEdited, // counted over BOTH consumers
+      cohortMovedTo: pnpmCsAfter,
+    },
   },
-  universalCollapse: {
-    config: "pnpm pack a lib whose internal dep is workspace:^; inspect the tarball",
-    sourceSpec: eSourceSpec,
-    tarballSpec: eTarballSpec,
-    bakedConcrete: true,
+  workspaceInCatalog: {
+    bun: {
+      accepts: bunWsInstall.code === 0,
+      linkedLocal: bunWsResolved.out.trim() === "LOCAL-UTIL",
+    },
+    pnpm: {
+      rejectsEveryForm: pnpmWsFormsRejected === PNPM_WS_FORMS.length,
+      formsTested: PNPM_WS_FORMS,
+      formsRejected: pnpmWsFormsRejected,
+      error: "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC",
+    },
+  },
+  publishBakesConcrete: {
+    bun: {
+      sourceCore: bunBake.sourceCore,
+      sourceDep: bunBake.sourceDep,
+      tarballCore: bunBake.core,
+      tarballDep: bunBake.dep,
+    },
+    pnpm: {
+      sourceCore: pnpmBake.sourceCore,
+      sourceDep: pnpmBake.sourceDep,
+      tarballCore: pnpmBake.core,
+      tarballDep: pnpmBake.dep,
+    },
     implication:
-      "a consumer catalog over @wave/core cannot repoint mid's baked @wave/core range; a universal " +
-      "lib (re-exported through every other lib) must be advanced by republishing its dependents.",
+      "a consumer catalog cannot repoint a baked range inside a dependent lib's tarball; a universal " +
+      "lib re-exported through every other lib advances by republishing its dependents.",
+  },
+  bunIgnoresPnpmCatalog: {
+    resolved: bunPnpmCatResolved,
+    diagnostic: bunPnpmCatDiag ? `${DEP}@catalog: failed to resolve` : null,
   },
   reproduced: true,
 };

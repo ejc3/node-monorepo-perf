@@ -77,7 +77,7 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `node scripts/perf-matrix.mjs --apps <n> --libs <n>` — how `workspace:` spec form
   and node-linker choice move install time / footprint → `bench/perf-matrix.json`.
 - `node scripts/turbopack-bench.mjs` — `next build` vs `next build --turbopack` on
-  Next 16 (byte-identical output) → `bench/turbopack-bench.json`.
+  Next 16 (identical output size + same bundler) → `bench/turbopack-bench.json`.
 - `node scripts/fs-bench.mjs <apps>:<libs>` (default `300:100`) —
   `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
   relink time + exclusive disk → `bench/fs-bench.json`.
@@ -199,22 +199,25 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   and non-destructive** — scaffolds under the OS temp dir (never the repo tree), removes it on exit,
   needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
 - `node scripts/wave-rollout-bench.mjs` — the **rollout-mechanics vet**: the load-bearing facts for
-  advancing an internal core lib through a hermetic, wave-based rollout (writeup in ROLLOUT.md). Five
-  rungs on self-contained temp scaffolds, each HARD-ASSERTING a stable fact (bun's frozen behavior is
-  RECORDED, not asserted, since it is the property being measured): (A) pnpm is the determinism
-  boundary — committed lockfile + `--frozen-lockfile` is byte-identical across runs (the range is inert)
-  and FAILS CLOSED on drift (`ERR_PNPM_OUTDATED_LOCKFILE`); (B) bun, measured on 1.3.14 AND cross-checked
-  against bun's source at `bun-v1.3.14` — its explicit frozen does fail closed on the drift here, but it
-  does NOT auto-enable frozen in CI (only pnpm does) and ignores pnpm-workspace.yaml catalogs, so the
-  lockfile/channel of record stays pnpm; (C) the DIRECT clean wave — named catalogs (`catalog:stable`/
-  `catalog:next`) route two cohorts to two versions in one lockfile, and a repoint is one catalog entry
-  (0 of 2 consumer manifests edited, measured); (D) a catalog value cannot be a `workspace:` spec — every
-  form tested (`*`, `^`, `~`, `^1.0.0`) errors `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`, so the catalog channel needs a registry-published
-  lib; (E) the UNIVERSAL collapse — `pnpm pack` bakes a CONCRETE range (`workspace:^`→`^1.0.0`) into the
-  tarball, so a lib every other lib re-exports advances by republishing its dependents, not a one-line
-  flip. **Self-contained and non-destructive** — scaffolds throwaway workspaces under the OS temp dir,
-  pins each to public npm for one tiny real dep, removes them on exit, needs no worktree →
-  `bench/wave-rollout-bench.json`, writeup in ROLLOUT.md.
+  advancing an internal core lib through a hermetic, wave-based rollout, measured as a **bun-vs-pnpm
+  head-to-head** (writeup in ROLLOUT.md, which recommends bun: it does all of it natively and cold-installs
+  58–440× faster than pnpm, `bench/install-bench.json`). Five rungs on self-contained temp scaffolds, each
+  HARD-ASSERTING a stable fact; the bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
+  (and the script asserts it is running 1.3.14). (1) **Determinism** — the lockfile, not the range, is the
+  boundary: bun with a committed `bunfig.toml [install] frozenLockfile=true` FAILS CLOSED on drift (bare
+  `bun install` exit 1, lock unchanged) — bun does not auto-enable frozen in CI (only pnpm does), so that
+  one committed line is how you get it; pnpm `--frozen-lockfile` is byte-identical across runs and fails
+  closed (`ERR_PNPM_OUTDATED_LOCKFILE`). (2) **Named-catalog lanes** — `catalog:stable`/`catalog:next`
+  route two cohorts to two versions in one lockfile and a repoint edits 0 consumer manifests, natively on
+  both (bun in `package.json` `workspaces.catalogs`, pnpm in `pnpm-workspace.yaml`). (3) **workspace: as a
+  catalog value** — bun ACCEPTS it and links the local package; pnpm REJECTS every form
+  (`ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`). (4) **Publish bakes a CONCRETE range** —
+  `bun pm pack` / `pnpm pack` rewrite a lib's internal `workspace:^`→`^2.5.0`, so a lib every other lib
+  re-exports advances by republishing its dependents, not a one-line flip. (5) **Cross-tool gotcha** — bun
+  does not read catalogs from `pnpm-workspace.yaml`, so author them in `package.json`. **Self-contained and
+  non-destructive** — scaffolds throwaway workspaces under the OS temp dir, pins each to public npm for one
+  tiny real dep, removes them on exit, needs no worktree → `bench/wave-rollout-bench.json`, writeup in
+  ROLLOUT.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -267,10 +270,12 @@ declaration-emit caveat where the gate's `declaration:false` misses a `.d.ts` po
 `SUMMARY.md` (the shareable cross-role synthesis — the app and lib personas' fresh-vs-subsequent
 inner loops plus the workspace-author core-package gate and the real-app results, every figure
 traced to a `bench/*.json`), `ROLLOUT.md` (advancing an internal core lib through a hermetic,
-wave-based rollout — the lockfile-not-the-range determinism boundary with frozen vs not-frozen, pnpm
-vs bun as the boundary, named-catalog cohorts, the direct-clean vs universal-republish-fanout
-distinction, expand/migrate/contract for breaking changes, and gating the artifact not just the
-source; backed by `bench/wave-rollout-bench.json`).
+wave-based rollout, driven with bun — the lockfile-not-the-range determinism boundary with frozen vs
+not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
+`workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm as a
+head-to-head with bun cold-installing 58–440× faster, the direct-clean vs universal-republish-fanout
+distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source, and
+pnpm as the fallback; backed by `bench/wave-rollout-bench.json` + `bench/install-bench.json`).
 
 ## Measurement methodology (how the numbers stay honest)
 
@@ -368,6 +373,34 @@ Every commit goes through this loop before it lands — no exceptions, docs incl
    Never skip, suppress, or rationalize a finding.
 6. **`prettier --check` clean,** then commit. The message describes what's actually
    in the diff (see the global `~/.claude/CLAUDE.md` commit conventions).
+
+## Mandatory doc-sync pass
+
+Whenever a doc lands or a `bench/*.json` it cites changes, run a doc-sync pass before the
+work is "done" — no exceptions. It is the doc analogue of the per-commit review, and it is
+**mandatory**, not a nicety: docs drift out of sync with the benches and with each other,
+and the AI failure mode is leaving process-vs-result sloppiness in the prose. Fan the pass
+out across the affected docs (parallel agents / a workflow, per the worktree guidance below),
+each doc getting all four lenses, then verify every finding and fix the root cause:
+
+1. **Fairness / no-bias.** Every tool-vs-tool comparison is like-for-like (same scale, same
+   regime). Flag any contrast that pits one tool's best case against another's worst, any
+   claim stronger than the data, any superlative not backed by a `bench/*.json`. State both
+   sides; a real advantage of the non-recommended option is reported, not buried.
+2. **No process archeology / hedging.** State results, not the path to them. No "assumed vs
+   verified", "measured vs not measured", "honest limitations", apologetic caveats, or
+   internal-iteration narration. A plain sourced limitation stated as a fact is fine.
+3. **Number-tracing.** Every figure traces to a `bench/*.json` field; extrapolations beyond
+   the measured ceiling are labeled as such. Read the cited JSON and confirm, don't trust.
+4. **Loose ends + cross-doc sync.** No dangling/stale references; no internal contradictions.
+   Keep the cross-doc spine in sync: the **README "Findings by area" front-door index** links
+   every current companion doc, the new finding is folded into `SUMMARY.md`/`OPTIMAL-STACK.md`
+   where it belongs, and the **`## Data of record`** doc list above names the new doc + bench.
+
+Run `codex exec -s read-only` as the independent second reviewer on each doc (fact-check every
+claim against the scripts and `bench/*.json`), same as the per-commit loop. Gather any
+genuinely open questions (decisions only the owner can make, or unmeasured extensions) into a
+short list and surface them rather than silently resolving them.
 
 ## Working in this repo
 
