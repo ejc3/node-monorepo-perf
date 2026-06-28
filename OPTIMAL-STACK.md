@@ -3,13 +3,14 @@
 Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), the real-types parity
 vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), the developer inner loops
 `bench/dev-loop-bench.json` (run at 4000:400), the real-app vet `bench/real-app-bench.json`,
-`bench/env.json`.
+the declaration-emit caveat `bench/decl-emit-caveat.json`, `bench/env.json`.
 Reproduce: `node scripts/optimal-gate-bench.mjs 4000:400` (in a dedicated git worktree —
 the bench overwrites the root `package.json` and regenerates the tree, so it refuses to
 run in the primary tree); `node scripts/typecheck-parity-bench.mjs 4000:400:8` (self-contained
 — scaffolds a throwaway workspace under the temp dir, needs no worktree); `node
 scripts/dev-loop-bench.mjs 4000:400` (also in a worktree); `node scripts/real-app-bench.mjs`
-(self-contained — clones real apps to a btrfs work dir, needs no worktree).
+(self-contained — clones real apps to a btrfs work dir, needs no worktree); `node
+scripts/decl-emit-caveat.mjs` (self-contained — scaffolds a throwaway workspace, needs no worktree).
 
 One native-compiled tool per job — no slower baseline in the measured loop:
 
@@ -207,6 +208,18 @@ oxlint (native Rust) checks the whole 4,400-package source tree in **180ms** (0 
   non-relative `paths`); `tsconfig.whole.json` resolves `@demo/*` to `packages/*/src` and
   sets `declaration:false` (the base config's `declaration:true` would otherwise flag JSX
   component return types as non-portable, TS2883, under `--noEmit`).
+- That `declaration:false` is a genuine coverage gap, not just config hygiene: the gate validates
+  the code but not the published `.d.ts`. A declaration-portability error — an exported value whose
+  inferred type comes from a transitive dep nested under another package's `node_modules` — passes
+  the gate (tsgo and tsc, 0 errors) yet is flagged the moment `declaration:true` is set, with **no
+  emit needed** (tsc `TS2742` / tsgo `TS2883`), and again by the dist-emitting build. The boundary
+  is `declaration` off-vs-on, not check-vs-emit. Flipping `declaration:true` on the whole-program
+  gate isn't free, though — per the previous bullet it floods JSX component return types with TS2883
+  — so `.d.ts` validation is left to the per-package build, where each lib's declaration is checked
+  in isolation. The synthetic 4,000:400 libs don't have this geometry (their exports carry explicit
+  return types), so the measured gate misses nothing here; it is a latent hazard for real published
+  libraries, shown on a constructed repro (`bench/decl-emit-caveat.json`). The fast gate complements
+  the build, it doesn't replace it.
 - bun ignores pnpm `catalog:` catalogs, so the bench resolves them to concrete versions
   before installing (`workspace:*` specs are left intact — bun understands those). bun's
   own catalog format is the catalog-preserving option, not exercised here.
