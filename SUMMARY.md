@@ -100,6 +100,29 @@ Everything else is either O(closure) (a developer's day) or O(repo) but small in
 whole typecheck 1.3s, whole lint 0.18s. The core-package gate is O(repo) in *what it checks*
 but 1.4s in wall time.
 
+## Does it hold on real, larger apps?
+
+The benches above use deliberately tiny synthetic apps. Run the same stack against two real
+open-source Next.js apps cloned at pinned commits (`bench/real-app-bench.json`; tsgo and oxlint are
+medians of 3, bun install and turbo single runs):
+
+| app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm       |
+| --------------- | ----------- | ------------- | ----------------- | ------ | ----------------------- |
+| vercel/commerce | 65 / 3.9k   | 553ms (76)    | **134ms** / 122MB | 62ms   | 189 → **56ms** (2 of 2) |
+| shadcn/taxonomy | 125 / 7.5k  | 3381ms (1031) | **231ms** / 215MB | 66ms   | 288 → 289ms (1 of 2)    |
+
+The per-app typecheck stayed in the low hundreds of ms for both apps, including the real 7.5k-LOC
+one. The friction is config, not speed: **tsgo (a preview) refuses to start on a
+real Next tsconfig**, erroring in 139–273ms on options it has removed (both apps trip `baseUrl` and
+`moduleResolution: node`; commerce also `downlevelIteration`, taxonomy also `target: es5`); wiring a
+real app in means modernizing the config and adding an ambient `*.css` declaration. The finagled
+program checks the app's hand-written source, not its `next build`-generated types, so it is the
+inner-loop source check, not the app's full `tsc` surface. After that, commerce checks clean (0
+errors); taxonomy shows 13 — 7 for codegen this bench doesn't run
+(`contentlayer/generated`), 6 for genuine dependency drift (Radix dropped `className` from its Portal
+props — `AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`). Turbo caches a clean app's
+checks (commerce warm 56ms, 2 of 2); it won't cache taxonomy's red typecheck until it goes green.
+
 ## Caveats on the tools
 
 - **tsgo is a preview build.** It does not emit `dist` (the turbo path uses tsc via `^build`

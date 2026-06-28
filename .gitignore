@@ -19,6 +19,8 @@ pnpm-lock.yaml
 # Benchmark scratch (committed results live in bench/*.json + bench/charts)
 /bench/raw/
 /bench/tc/
+# transient: a partial real-app-bench run (REAL_APP_ONLY / non-default samples) — never the record
+/bench/real-app-bench.partial.json
 .DS_Store
 .vercel
 
