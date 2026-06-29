@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="832" height="1457" viewBox="0 0 832 1457" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
-<rect width="832" height="1457" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="832" height="1754" viewBox="0 0 832 1754" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="832" height="1754" fill="#ffffff"/>
 <text x="28" y="40" font-size="22" font-weight="700" fill="#1f2328">Tooling head-to-head — wall time</text>
 <text x="28" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or, last, one tool's situations). Fastest cell green; others show how many times slower.</text>
 <text x="28" y="80" font-size="13" fill="#57606a">Machine: 64-core host. Every number traces to the cited bench JSON.</text>
@@ -165,4 +165,37 @@
 <text x="399" y="1375" font-size="11" fill="#0a0d12" text-anchor="middle">×31 slower</text>
 <text x="28" y="1404" font-size="11" fill="#57606a">Source: bench/install-modes-bench.json</text>
 <text x="28" y="1419" font-size="11" fill="#57606a">One tool, many situations: cheapest in green, others relative to it.</text>
+<text x="28" y="1449" font-size="16" font-weight="700" fill="#1f2328">Lint — ESLint vs oxlint (800 files)</text>
+<rect x="28" y="1467" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="40" y="1497" font-size="12" font-weight="600" fill="#57606a">scenario</text>
+<rect x="318" y="1467" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="399" y="1497" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">ESLint</text>
+<rect x="480" y="1467" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="561" y="1497" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">oxlint</text>
+<rect x="28" y="1517" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1550" font-size="14" fill="#1f2328">syntactic (524 vs 567 rules)</text>
+<rect x="318" y="1517" width="162" height="56" fill="rgb(191,107,27)" stroke="#ffffff"/>
+<text x="399" y="1541" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">12.0s</text>
+<text x="399" y="1560" font-size="11" fill="#0a0d12" text-anchor="middle">×63 slower</text>
+<rect x="480" y="1517" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="561" y="1541" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
+<text x="561" y="1560" font-size="11" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="28" y="1573" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1606" font-size="14" fill="#1f2328">syntactic, ESLint --cache</text>
+<rect x="318" y="1573" width="162" height="56" fill="rgb(173,149,23)" stroke="#ffffff"/>
+<text x="399" y="1597" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">1.9s</text>
+<text x="399" y="1616" font-size="11" fill="#0a0d12" text-anchor="middle">×10 slower</text>
+<rect x="480" y="1573" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="561" y="1597" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
+<text x="561" y="1616" font-size="11" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="28" y="1629" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1662" font-size="14" fill="#1f2328">type-aware</text>
+<rect x="318" y="1629" width="162" height="56" fill="rgb(180,150,21)" stroke="#ffffff"/>
+<text x="399" y="1653" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.5s</text>
+<text x="399" y="1672" font-size="11" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<rect x="480" y="1629" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="561" y="1653" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.40s</text>
+<text x="561" y="1672" font-size="11" fill="#ffffff" text-anchor="middle">fastest</text>
+<text x="28" y="1701" font-size="11" fill="#57606a">Source: bench/lint-bench.json</text>
+<text x="28" y="1716" font-size="11" fill="#57606a">ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha).</text>
 </svg>
