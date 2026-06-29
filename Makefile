@@ -74,5 +74,6 @@ lockfile-bench: ## decompose install: resolve (--lockfile-only) vs verify vs ful
 lib-rev-bench: ## rev a universal lib: workspace-dep vs npm-dep cost, tsc vs tsgo (APPS:LIBS)
 	node scripts/lib-rev-bench.mjs $(APPS):$(LIBS)
 
-clean: ## Remove generated workspace + caches
-	rm -rf apps packages out .turbo node_modules/.cache/turbo examples/diamond
+clean: ## Reset worktree: restore patched tracked files, wipe generated tree + bench scratch (add KILL=1 to stop strays)
+	node scripts/clean-state.mjs --wipe $(if $(KILL),--kill,)
+	rm -rf examples/diamond

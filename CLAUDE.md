@@ -313,6 +313,27 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `TURBO_CACHE_DIR`, keeps all scratch under gitignored `.ci-cache/` removed on every exit path; run in a
   linked git worktree → `bench/ci-cache-bench.json`, writeup in LIMITS.md ("Remote cache: amortizing the
   O(repo) cold start") + SUMMARY.md.
+- `node scripts/editor-loop-bench.mjs` (`EDITOR_APPS_SCALES`/`EDITOR_CLOSURE_SCALES`/`EDITOR_TARGET_INDEX`/
+  `EDITOR_COLD_SAMPLES`/`EDITOR_SAMPLES`, `EDITOR_ALLOW_BUSY=1`) — the **editor inner-loop vet**: the
+  language-server cost the build benches miss. Races `tsserver` (`node typescript/lib/tsserver.js`,
+  Content-Length command protocol) vs `tsgo --lsp --stdio` (native-preview LSP, JSON-RPC), opening ONE app's
+  `page.tsx` on the generated workspace. Cross-package nav resolves to SOURCE build-free — patches
+  `tsconfig.base.json` `paths` `@demo/*`→`packages/*/src` (relative, no `baseUrl` — tsgo removed it), so
+  opening the app pulls its real dependency closure (65 libs / 1,123 files at 4,000:300) into the server, not
+  dist stubs. Measures coldOpenMs (spawn→first def, startup-inclusive for both: tsgo = initMs + didOpen→def),
+  peak RSS (continuous sampler), and the warm keystroke loop (def / completion / hover, median of
+  `EDITOR_SAMPLES`). Two sweeps establish O(closure) from both sides: APPS (libs fixed, apps 500→4,000 →
+  closure byte-identical, asserted; cost flat ⇒ not O(repo)) and CLOSURE (apps fixed, libs 100→300 → closure
+  grows; cost rises ⇒ O(closure)). Discipline: a fresh server per cold sample; the cold def must resolve to
+  the EXACT `packages/<lib>/src/index.ts` (an unresolved import resolves to the import line — the bug a "0
+  locations" check misses) with 0 fatal diagnostics fetched via each server's REAL channel (tsserver
+  `semanticDiagnosticsSync`; tsgo is a PULL-diagnostics server, so `textDocument/diagnostic` — a
+  publishDiagnostics push for the opened file would be vacuous); every warm hover must name the symbol;
+  completion is reported with its item count, not scored (the servers return different set sizes). Load-guarded
+  (tsgo is parallel; refuses unless `EDITOR_ALLOW_BUSY=1`); fewer samples / non-default scales →
+  `editor-loop-bench.partial.json`. Destructive (regenerates the tree, patches the tracked `tsconfig.base.json`
+  with a validated `.bench.bak` self-heal) so it runs in a linked git worktree → `bench/editor-loop-bench.json`,
+  writeup in LIMITS.md ("Editor / language server, measured") + SUMMARY.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -331,6 +352,13 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   visible to Turbo's hashing for a run (see lessons). Imported by `measure.mjs`,
   `axis-bench.mjs`, `dev-sim.mjs` (`sweep.mjs` shells out to `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs` — workspace scaffolding.
+- `scripts/clean-state.mjs` — the definitive worktree reset + the startup guard the
+  generate-and-measure benches share. `ensureCleanState(root)`: restores any tracked file left
+  patched (from its `*.bench.bak`) AFTER refusing if another bench is already running in this
+  worktree (the anti-concurrency rule, enforced not just documented). As a CLI (`make clean`):
+  `node scripts/clean-state.mjs [--wipe] [--kill]` — reports/kills stray bench procs, restores
+  baks, and with `--wipe` removes the generated tree + bench scratch (never `node_modules`, never a
+  committed `bench/*.json`). Imported by `editor-loop-bench.mjs`.
 - `scripts/diamond-demo.sh` (the `make diamond` driver) → `scripts/diamond-scaffold.mjs` —
   CodeArtifact publish + diamond-deps / `workspace:`-override demo.
 - `scripts/per-app-workspace-demo.sh` (the `make per-app` driver) — scaffolds two
@@ -363,7 +391,10 @@ scaling table + dev-sim), `TOOLING.md`
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
-task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation boundary),
+task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation boundary; plus
+"Editor / language server, measured" — the editor inner-loop project-load + RSS from
+`bench/editor-loop-bench.json`: tsserver vs tsgo LSP cold-open/warm-loop, O(closure) from both
+sweeps),
 `OPTIMIZATIONS.md` (incl. §1.2.1 the device layer under fs-bench, `bench/fs-iops-bench.json`),
 `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the

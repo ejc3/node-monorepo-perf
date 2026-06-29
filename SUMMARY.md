@@ -86,6 +86,23 @@ across every importing app, so it skips the 400 per-library dist builds the orch
 does — that is the ~60× gap (1.32s vs 80.1s). It is typecheck-only; a deploy that needs `dist`
 runs the turbo path.
 
+### Opening the editor — O(closure) too
+
+Before any keystroke loop, the language server loads the project, and that cost tracks the opened
+app's closure, not the repo: opening one app (65 libs / 1,123 files) stays flat as the repo grows 8×
+(500 → 4,000 apps) and rises only with the closure (628 → 1,123 files). The two servers a developer
+would use (`bench/editor-loop-bench.json`, tsgo `7.0.0-dev.20260614.1`):
+
+| metric                        | tsserver | tsgo LSP        |
+| ----------------------------- | -------- | --------------- |
+| cold open (spawn → first def) | 1,620ms  | **86ms** (18.8×) |
+| peak RSS                      | 380MB    | **275MB** (1.4×) |
+| warm go-to-def / hover        | 1ms / 1ms | 0ms / 2ms      |
+
+(4,000 apps / 300 libs.) The cost is all in the cold open — once warm, both resolve cross-package
+go-to-def to the exact lib source in ≤2ms. tsgo's native LSP cuts the one part that scales (project
+load) by ~19× and uses ~30% less memory. Detail in [LIMITS.md](LIMITS.md).
+
 ## What stays expensive
 
 Two operations are genuinely O(repo) and cannot be scoped away:
