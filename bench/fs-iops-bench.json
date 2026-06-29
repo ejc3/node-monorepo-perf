@@ -1,0 +1,89 @@
+{
+  "generatedBy": "scripts/fs-iops-bench.mjs",
+  "measuredAt": "2026-06-28T21:32:44.284Z",
+  "host": {
+    "cores": 64,
+    "loadavg1": 22.2,
+    "kernel": "6.18.3-fcvm-8ee6c35df0e1",
+    "totalMemGiB": 125.5
+  },
+  "fio": {
+    "bs": "4k",
+    "size": "1G",
+    "iodepth": 16,
+    "runtimeS": 6,
+    "direct": true
+  },
+  "smallFiles": {
+    "count": 5000,
+    "bytes": 512
+  },
+  "targets": [
+    {
+      "label": "home",
+      "root": "/home/ubuntu",
+      "fstype": "ext4",
+      "device": "/dev/nvme2n1p1",
+      "randread": {
+        "engine": "libaio",
+        "qd": 16,
+        "iops": 3498,
+        "bwMiBs": 13.7,
+        "p99us": 5669
+      },
+      "randwrite": {
+        "engine": "libaio",
+        "qd": 16,
+        "iops": 3144,
+        "bwMiBs": 12.3,
+        "p99us": 8290
+      },
+      "smallFiles": {
+        "files": 5000,
+        "bytes": 512,
+        "createMs": 120.4,
+        "createFilesPerSec": 41517,
+        "fsyncMs": 15293.8,
+        "fsyncFilesPerSec": 327
+      }
+    },
+    {
+      "label": "btrfs",
+      "root": "/mnt/fcvm-btrfs",
+      "fstype": "btrfs",
+      "device": "/dev/nvme0n1",
+      "randread": {
+        "engine": "libaio",
+        "qd": 16,
+        "iops": 123628,
+        "bwMiBs": 482.9,
+        "p99us": 241
+      },
+      "randwrite": {
+        "engine": "libaio",
+        "qd": 16,
+        "iops": 14486,
+        "bwMiBs": 56.6,
+        "p99us": 1581
+      },
+      "smallFiles": {
+        "files": 5000,
+        "bytes": 512,
+        "createMs": 91.7,
+        "createFilesPerSec": 54536,
+        "fsyncMs": 968.7,
+        "fsyncFilesPerSec": 5162
+      }
+    }
+  ],
+  "likeForLike": true,
+  "ratios": {
+    "note": "btrfs-over-home: >1 favors btrfs (p99 uses a/b since lower latency is better)",
+    "randreadIops": 35.3,
+    "randwriteIops": 4.6,
+    "smallFileCreate": 1.31,
+    "smallFileFsync": 15.79,
+    "randreadP99": 23.5,
+    "randwriteP99": 5.2
+  }
+}

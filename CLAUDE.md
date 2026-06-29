@@ -81,6 +81,16 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `node scripts/fs-bench.mjs <apps>:<libs>` (default `300:100`) —
   `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
   relink time + exclusive disk → `bench/fs-bench.json`.
+- `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default working
+  tree vs `/mnt/fcvm-btrfs`) — the device layer under fs-bench: 4K random read/write
+  IOPS + p99 at `O_DIRECT` (no page cache) and a small-file burst (buffered create-only
+  vs per-file `fsync`), per mount with fstype/device. Shows the btrfs NVMe faster in
+  every regime — ~35× random-read IOPS and ~16× per-file-fsync throughput of the
+  working-tree NVMe — while a buffered create burst is within ~1.3× (page-cache-bound,
+  matching fs-bench's equal relink). Asserts engine/qd parity across targets (else marks
+  `likeForLike:false`, omits ratios); refuses on a loaded box (`FS_IOPS_ALLOW_BUSY=1`)
+  → `bench/fs-iops-bench.json`, folded into OPTIMIZATIONS.md §1.2.1. Requires `fio` +
+  `findmnt`; self-contained, cleans up on exit.
 
 ### Developer experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>` — simulate D devs each
