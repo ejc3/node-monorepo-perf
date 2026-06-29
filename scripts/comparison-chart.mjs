@@ -174,22 +174,31 @@ const fmtS = (ms) => {
 };
 const fmtMult = (m) => "×" + (m < 10 ? m.toFixed(1) : Math.round(m));
 
-// Per-cell colour on ONE global log scale (so x2 and x440 read consistently across every section).
-const STOPS = [
-  [0.0, [26, 127, 55]], // green  (fastest)
-  [0.45, [201, 153, 17]], // amber
-  [1.0, [176, 42, 42]], // red    (much slower)
+// Per-cell colour as a function of how many times slower the cell is than the fastest in its
+// comparison. Anchored at specific MULTIPLES and interpolated in log-multiple space, so the same
+// multiple is the same colour in every section (x2 and x440 read consistently). The green band is
+// deliberately NARROW — by 2x slower a cell is already full amber, not a shade of green — so the drop
+// off green is steep, then it ramps through orange to red.
+const RAMP = [
+  [1, [26, 127, 55]], // fastest — green
+  [2, [214, 168, 28]], // 2x slower — amber/gold (clearly off green)
+  [10, [198, 98, 28]], // ~10x — orange
+  [100, [176, 42, 42]], // 100x+ — red (clamped)
 ];
 const lerp = (a, b, t) => Math.round(a + (b - a) * t);
 const rampRGB = (mult) => {
-  if (mult <= 1.0001) return [26, 127, 55];
-  const t = Math.min(1, Math.log10(mult) / Math.log10(450)); // 450x ~= the measured ceiling (cold install)
-  let i = 0;
-  while (i < STOPS.length - 2 && t > STOPS[i + 1][0]) i++;
-  const [t0, c0] = STOPS[i];
-  const [t1, c1] = STOPS[i + 1];
-  const f = (t - t0) / (t1 - t0);
-  return [lerp(c0[0], c1[0], f), lerp(c0[1], c1[1], f), lerp(c0[2], c1[2], f)];
+  if (mult <= 1.0001) return RAMP[0][1];
+  const m = Math.min(mult, RAMP[RAMP.length - 1][0]); // clamp at the red anchor
+  const lm = Math.log10(m);
+  for (let i = 0; i < RAMP.length - 1; i++) {
+    const [m0, c0] = RAMP[i];
+    const [m1, c1] = RAMP[i + 1];
+    if (m <= m1) {
+      const f = (lm - Math.log10(m0)) / (Math.log10(m1) - Math.log10(m0));
+      return [lerp(c0[0], c1[0], f), lerp(c0[1], c1[1], f), lerp(c0[2], c1[2], f)];
+    }
+  }
+  return RAMP[RAMP.length - 1][1];
 };
 const rgbCss = ([r, g, b]) => `rgb(${r},${g},${b})`;
 const relLum = ([r, g, b]) => {
@@ -201,10 +210,10 @@ const contrast = (l1, l2) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.0
 const DARK_INK = [10, 13, 18];
 const DARK_INK_L = relLum(DARK_INK);
 // Pick whichever ink contrasts MORE with the cell, so a cell never gets the worse-legibility colour
-// (a fixed luminance threshold picks dark ink on mid greens where white actually reads better). The
-// green→amber mid-tone band caps solid-ink contrast at ~4.4:1 against either ink — intrinsic to those
-// hues — so a couple of transition cells land just under WCAG AA 4.5 on the 11px sub-label; the bold
-// 16px number clears large-text AA (3:1) there, and the cell colour itself also encodes the value.
+// (a fixed luminance threshold picks dark ink on mid tones where white actually reads better). The
+// orange→red mid-tone band (~15–20× slower) caps solid-ink contrast at ~4.4:1 against either ink —
+// intrinsic to those hues — so a cell there can land just under WCAG AA 4.5 on the 11px sub-label; the
+// bold 16px number clears large-text AA (3:1), and the cell colour itself also encodes the value.
 const inkFor = (rgb) => {
   const L = relLum(rgb);
   return contrast(L, DARK_INK_L) >= contrast(L, 1) ? "#0a0d12" : "#ffffff";
