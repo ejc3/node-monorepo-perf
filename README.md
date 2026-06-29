@@ -186,7 +186,7 @@ bun and tsgo win their head-to-heads, but the margin depends on the regime. A fu
 
 ![tooling head-to-head: install (bun vs pnpm), typecheck (tsc vs tsgo), build (Next vs Vite), pnpm install situations, and lint (ESLint vs oxlint)](bench/charts/tool-comparison.svg)
 
-> High-resolution raster of the chart above (300 DPI, for slides/printing): [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
+> High-resolution PNG of the chart above: [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
 
 | area | headline finding | docs |
 |---|---|---|
