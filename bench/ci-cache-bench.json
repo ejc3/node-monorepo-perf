@@ -1,0 +1,184 @@
+{
+  "about": "centralized (remote) cache economics: does a shared Turborepo cache bring the CI cold start down? Every CI runner starts with an empty LOCAL cache, so without a centralized cache every run pays the cold compute; a remote cache lets the second-and-later runner RESTORE an artifact someone already built. Measured head-to-head per task and scale: coldNoRemote (pure compute, NO remote — the no-cache cost every runner pays, the baseline the speedup is taken against), coldSeed (the first runner: compute + upload to populate the cache), warmLocal (same-machine floor), remote-restore (a fresh runner restoring from the shared cache); plus the bytes a fresh runner downloads, partial invalidation (a remote cache only helps the tasks an edit did not touch: a leaf edit restores most, a universal-foundation edit restores none), and the fleet amortization. coldNoRemote/coldSeed assert 0 cached, warm-local and remote-restore assert all cached; the partial rung proves the prime fully populated the remote (clean restore = all cached) then asserts leaf-recompute < foundation-recompute (= total); speedup is asserted (restore < coldNoRemote).",
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 0.38,
+    "coreBound": true
+  },
+  "versions": {
+    "node": "v22.22.0",
+    "turbo": "2.9.18",
+    "remoteCacheServer": "turborepo-remote-cache@2.11.2"
+  },
+  "remoteCache": {
+    "transport": "localhost HTTP (turborepo-remote-cache, STORAGE_PROVIDER=local)",
+    "port": 41150,
+    "note": "localhost: restore time is the protocol + (de)compression floor with NO network latency. bytesTransferred is recorded so network cost is estimable (~bytes / bandwidth + RTT)."
+  },
+  "samples": {
+    "cold": 2,
+    "buildCold": 1,
+    "restore": 3
+  },
+  "concurrency": "100%",
+  "seedNote": "per cell, seedUploadMs = coldSeedMs - coldNoRemoteMs is the first runner's one-time upload to populate the cache. On localhost it is within run-to-run compute noise (it can be <= 0); the real seed cost over a network is bytesTransferred / bandwidth. It is paid ONCE per artifact and amortized across every later runner.",
+  "headline": [
+    {
+      "task": "typecheck",
+      "scale": "300:100",
+      "apps": 300,
+      "libs": 100,
+      "totalTasks": 500,
+      "coldNoRemoteMs": 23551,
+      "coldSeedMs": 23930,
+      "seedUploadMs": 379,
+      "warmLocalMs": 1784,
+      "restoreMs": 1888,
+      "speedupVsCold": 12.5,
+      "bytesTransferred": 190040,
+      "coldNoRemoteSamples": [
+        23594,
+        23508
+      ],
+      "warmLocalSamples": [
+        1586,
+        1784,
+        1879
+      ],
+      "restoreSamples": [
+        1726,
+        1888,
+        2050
+      ]
+    },
+    {
+      "task": "typecheck",
+      "scale": "1000:200",
+      "apps": 1000,
+      "libs": 200,
+      "totalTasks": 1400,
+      "coldNoRemoteMs": 67217,
+      "coldSeedMs": 67293,
+      "seedUploadMs": 76,
+      "warmLocalMs": 5190,
+      "restoreMs": 5900,
+      "speedupVsCold": 11.4,
+      "bytesTransferred": 451258,
+      "coldNoRemoteSamples": [
+        67164,
+        67269
+      ],
+      "warmLocalSamples": [
+        6015,
+        5190,
+        4646
+      ],
+      "restoreSamples": [
+        6021,
+        5900,
+        5174
+      ]
+    },
+    {
+      "task": "build",
+      "scale": "300:100",
+      "apps": 300,
+      "libs": 100,
+      "totalTasks": 400,
+      "coldNoRemoteMs": 62654,
+      "coldSeedMs": 61856,
+      "seedUploadMs": -798,
+      "warmLocalMs": 1998,
+      "restoreMs": 4032,
+      "speedupVsCold": 15.5,
+      "bytesTransferred": 247016255,
+      "coldNoRemoteSamples": [
+        62654
+      ],
+      "warmLocalSamples": [
+        2133,
+        1998,
+        1811
+      ],
+      "restoreSamples": [
+        4463,
+        4032,
+        3715
+      ]
+    }
+  ],
+  "partialInvalidation": {
+    "scale": "300:100",
+    "apps": 300,
+    "libs": 100,
+    "task": "typecheck",
+    "totalTasks": 500,
+    "leaf": {
+      "lib": "@demo/lib-100",
+      "ms": 4418,
+      "total": 500,
+      "restored": 486,
+      "recomputed": 14
+    },
+    "foundation": {
+      "lib": "@demo/lib-001",
+      "ms": 25969,
+      "total": 500,
+      "restored": 0,
+      "recomputed": 500
+    },
+    "note": "The restored/recomputed COUNTS are the evidence; the .ms is the fresh-runner wall-time (restore the unaffected from remote + recompute the affected + re-upload), measured on localhost, so it is a rough wall-time, not a clean compute number. leaf edit: a remote cache restores the unaffected majority and recomputes only the edited lib's closure. Universal-foundation edit: every task is affected, so the cache restores nothing — someone pays the full cold rebuild. A remote cache helps the second consumer of an UNCHANGED artifact; it cannot help when an edit changes everything."
+  },
+  "amortization": {
+    "basis": {
+      "task": "typecheck",
+      "scale": "1000:200",
+      "coldNoRemoteMs": 67217,
+      "coldSeedMs": 67293,
+      "restoreMs": 5900
+    },
+    "runners": [
+      {
+        "R": 1,
+        "withoutCacheMs": 67217,
+        "withCacheMs": 67293,
+        "amortizedPerRunnerMs": 67293,
+        "fleetSpeedup": 1
+      },
+      {
+        "R": 2,
+        "withoutCacheMs": 134434,
+        "withCacheMs": 73193,
+        "amortizedPerRunnerMs": 36597,
+        "fleetSpeedup": 1.8
+      },
+      {
+        "R": 5,
+        "withoutCacheMs": 336085,
+        "withCacheMs": 90893,
+        "amortizedPerRunnerMs": 18179,
+        "fleetSpeedup": 3.7
+      },
+      {
+        "R": 10,
+        "withoutCacheMs": 672170,
+        "withCacheMs": 120393,
+        "amortizedPerRunnerMs": 12039,
+        "fleetSpeedup": 5.6
+      },
+      {
+        "R": 50,
+        "withoutCacheMs": 3360850,
+        "withCacheMs": 356393,
+        "amortizedPerRunnerMs": 7128,
+        "fleetSpeedup": 9.4
+      }
+    ],
+    "note": "ARITHMETIC from the measured primitives, not separately timed. Without a centralized cache R runners each pay coldNoRemote; with one, the first pays coldSeed (compute + upload) and the other R-1 pay restore. Per-runner cost converges to the restore time as the fleet grows. restore is the localhost floor (no network latency) — over a real network add each runner's download (~bytesTransferred / bandwidth + RTT, see remoteCache.note), so the real fleet speedup is somewhat lower than this localhost arithmetic."
+  },
+  "notes": [
+    "coldNoRemote is the honest no-centralized-cache cost (pure compute, no remote); it is the baseline the restore speedup is taken against. coldSeed is the first runner's cost (compute + upload), paid once.",
+    "`turbo run typecheck` cold also builds dependency dists (typecheck dependsOn ^build in turbo.json), so a typecheck cell is the realistic CI job (build deps + typecheck), not typecheck in isolation; its remote artifacts are the lib dists + empty typecheck markers, while a build cell also caches the apps' .next outputs (the bytesTransferred contrast).",
+    "remote-restore is measured on localhost; it is the lower bound on a real remote cache. The win is real either way: a fresh runner restores instead of recomputing."
+  ]
+}

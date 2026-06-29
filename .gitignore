@@ -28,3 +28,6 @@ pnpm-lock.yaml
 tsconfig.whole.json
 bun.lock
 bun.lockb
+
+# ci-cache-bench scratch (remote-cache server store + log)
+/.ci-cache/
