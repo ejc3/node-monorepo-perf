@@ -86,7 +86,13 @@ const sh = (cmd, args, opts = {}) =>
 
 const findmnt = (path, field) => {
   const r = sh("findmnt", ["-no", field, "--target", path]);
-  return (r.stdout || "").trim() || "unknown";
+  const v = (r.stdout || "").trim();
+  // The doc cites exact device names and fstypes; a blank result must fail, not become "unknown".
+  if (!v)
+    throw new Error(
+      `findmnt could not resolve ${field} for ${path} (exit ${r.status}); the device/fstype claims require it`,
+    );
+  return v;
 };
 
 // One fio random-IO run. Prefer libaio (real queue depth); fall back to psync if libaio is absent.
@@ -230,6 +236,22 @@ out.likeForLike = engineSet.size === 1;
 if (!out.likeForLike) {
   console.warn(
     `[fs-iops] WARNING: fio engine/qd differed across runs (${[...engineSet].join(", ")}); ratios omitted — the IOPS comparison would not be like-for-like.`,
+  );
+}
+
+// engineSet.size === 1 also holds if EVERY target fell back to psync/qd1 — internally comparable, but
+// the doc's headline cites libaio queue depth 16. So when the headline ratios would be emitted, fail
+// rather than publish qd1 numbers under a qd16 claim.
+const headlineIsLibaio = out.targets.every(
+  (t) =>
+    t.randread.engine === "libaio" &&
+    t.randwrite.engine === "libaio" &&
+    t.randread.qd === FIO.iodepth &&
+    t.randwrite.qd === FIO.iodepth,
+);
+if (out.targets.length === 2 && out.likeForLike && !headlineIsLibaio) {
+  throw new Error(
+    `fio fell back below libaio/qd${FIO.iodepth} on all targets (${[...engineSet].join(", ")}); the doc's queue-depth-16 headline would be unbacked`,
   );
 }
 
