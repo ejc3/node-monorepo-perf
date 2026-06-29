@@ -137,6 +137,15 @@ checks (commerce warm 56ms, 2 of 2); it won't cache taxonomy's red typecheck unt
   parity proof.
 - **bun ignores pnpm `catalog:` catalogs**, so they are resolved to concrete versions before a
   bun install (`workspace:*` specs are left intact).
+- **bun is adoptable but not a strict safety superset of pnpm** (`bench/bun-safety-bench.json`,
+  bun 1.3.14 vs pnpm 10, head-to-head). Two real gaps: bun's built-in trusted allowlist runs some
+  registry `postinstall` scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed
+  strict-peer knob (pnpm `strict-peer-dependencies=true` exits 1; none of bun's env / `.npmrc` /
+  `bunfig.toml` knobs flip its exit). pnpm's isolation also surfaces a phantom import bun's hoist
+  hides. The rest is parity — a `file:` dep's `postinstall` is blocked by default on both, a missing
+  peer is auto-installed by both at their defaults, both warn on a version mismatch, and bun
+  authenticates to CodeArtifact via the same scoped `.npmrc` as pnpm. Full treatment in
+  ROLLOUT.md → "Adoption safety, vetted."
 - The focused-gate **warm** numbers carry turbo's per-invocation graph-load + cache-restore
   cost over the 4,400-package workspace and are noisy run-to-run (reported as medians of 3) —
   noisy enough that the app and lib warm gates don't order reliably between runs. That floor is

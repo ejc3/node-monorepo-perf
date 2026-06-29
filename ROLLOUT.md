@@ -47,8 +47,34 @@ pnpm is a complete fallback that does the same mechanics, and it ships two guard
 `bunfig.toml` line). The other is a genuine pnpm safety edge: pnpm rejects a `workspace:` spec as a catalog
 value, ruling out a foot-gun bun allows — bun is more permissive there, not more guarded. Neither blocks the
 rollout on bun, and on a clean/cold checkout the ~41–440× install gap outweighs both; the catalog-validation
-strictness is a real, if minor, point for pnpm. Pick pnpm only if you specifically want those defaults and will pay the
-install cost; otherwise the answer is bun.
+strictness is a real, if minor, point for pnpm. A full safety vet (next subsection) finds two further bun
+gaps, one more pnpm safety edge (phantom isolation), and otherwise parity. Pick pnpm only if you
+specifically want those defaults and will pay the install cost; otherwise the answer is bun.
+
+### Adoption safety, vetted: two real gaps, the rest parity
+
+bun is adoptable, but it is not a strict safety superset of pnpm. A head-to-head vet of a bun install vs a
+pnpm install (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 10) finds **two genuine bun gaps**, **one
+pnpm safety edge**, and otherwise parity:
+
+- **Lifecycle scripts — bun's built-in allowlist.** A local `file:` dependency's `postinstall` is blocked
+  by default on **both** (bun prints "Blocked N postinstall. Run `bun pm untrusted`"; pnpm "Ignored build
+  scripts ... Run pnpm approve-builds"). The gap is bun's built-in *trusted allowlist*: a registry dep on
+  that list (esbuild) has its `postinstall` run by bun without opt-in, where pnpm 10 blocks all build
+  scripts until approved. Bound it by auditing `bun pm untrusted` after install.
+- **No fail-closed strict-peer knob.** pnpm `strict-peer-dependencies=true` turns a peer-version mismatch
+  into a hard failure (exit 1, `ERR_PNPM_PEER_DEP_ISSUES`); none of bun's three plausible knobs (the
+  `npm_config_strict_peer_dependencies` env var, `.npmrc strict-peer-dependencies`, `bunfig.toml [install]
+  strictPeerDependencies`) flips its exit. bun *warns* on a mismatch (on stderr) but cannot gate on it.
+- **Phantom dependency (pnpm's edge).** An undeclared transitive import resolves under bun's hoisted layout
+  but fails under pnpm's strict isolation, which surfaces the missing declaration — a latent break bun
+  hides and pnpm catches.
+
+The rest is parity, which is what makes bun adoptable: a missing peer is auto-installed by both at their
+defaults (pnpm's `auto-install-peers` defaults to true, so it is not a bun-only behavior), both warn on a
+version mismatch, and bun authenticates to a private CodeArtifact registry through the same scoped `.npmrc`
+form the repo's demos use — a `bun publish` + `bun install` round-trip against the real `@ejc3` registry,
+host-verified (an absent package returns 404 from the CodeArtifact host, not 401, not a npmjs fall-through).
 
 ## The one idea: the lockfile is the determinism boundary, not the range form
 
@@ -245,6 +271,11 @@ pnpm does every mechanic above and ships two guardrails on by default that bun m
 - **pnpm rejects a `workspace:` spec as a catalog value** (measured, `workspaceInCatalog.pnpm`:
   `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC` for `workspace:*`, `workspace:^`, `workspace:~`,
   `workspace:^1.0.0`); bun accepts it. pnpm's stricter validation rules out one foot-gun bun allows.
+
+Beyond these two rollout defaults, the adoption-safety vet above adds three more pnpm safety edges
+(`bench/bun-safety-bench.json`): pnpm default-denies registry build scripts where bun runs its built-in
+allowlist, pnpm has a fail-closed strict-peer mode bun lacks, and pnpm's isolation surfaces a phantom
+import bun's hoist hides. None blocks the rollout on bun; all are real points for pnpm.
 
 pnpm's named catalogs (in `pnpm-workspace.yaml`) route cohorts and repoint with zero consumer edits
 identically (measured, `namedCatalogLanes.pnpm`: `stable`→1.0.0 / `next`→3.0.0 in one lockfile, repoint

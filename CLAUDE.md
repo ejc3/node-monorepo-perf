@@ -228,6 +228,31 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   non-destructive** — scaffolds throwaway workspaces under the OS temp dir, pins each to public npm for one
   tiny real dep, removes them on exit, needs no worktree → `bench/wave-rollout-bench.json`, writeup in
   ROLLOUT.md.
+- `node scripts/bun-safety-bench.mjs` (`BUN_SAFETY_NO_CA=1` to skip the CodeArtifact rung) — the
+  **bun-adoption-safety vet**: de-risks ROLLOUT.md's bun recommendation by measuring whether a bun install
+  is as SAFE as pnpm's (not as fast — speed stays in `install-bench.json`), as a **bun-1.3.14-vs-pnpm-10
+  head-to-head** built to surface where bun is WORSE. Behaviors are MEASURED and recorded (booleans / exit
+  codes / signal strings); only measurement-validity invariants are asserted (the tool ran without a crash,
+  the install resolved), so an unplanned bun problem becomes data, not a red bench. Four rungs on
+  self-contained temp scaffolds (no worktree): (A) **lifecycle scripts** — a local `file:` dep's postinstall
+  is BLOCKED by default on both (mainProbe: the generated file is absent), each printing a remediation hint;
+  the asymmetry is bun's built-in trusted ALLOWLIST, which runs esbuild's postinstall (each tool's own
+  self-report — pnpm "Ignored build scripts", bun `bun pm untrusted` — since esbuild ships its binary via a
+  platform optionalDependency, so a binary-presence proof can't tell run from blocked) where pnpm 10 blocks
+  it. (C) **peer resolution** — both warn on a version mismatch (bun on stderr; `run()` merges `2>&1` so the
+  stderr-only warning is captured) and both auto-install a missing peer at their defaults (pnpm
+  `auto-install-peers` defaults to true), probed via whether the PLUGIN resolves its peer, not root
+  visibility (which is the hoist-vs-isolation layout, = rung D) — parity; the one gap is the fail-closed
+  knob: pnpm `strict-peer-dependencies=true` exits 1, none of bun's three knobs (env / `.npmrc` /
+  `bunfig.toml`) flips its exit. (D) **phantom dependency** — an undeclared transitive import resolves under
+  bun's hoist, fails under pnpm's isolation (pnpm's edge). (B) **CodeArtifact auth** — a publish + install
+  round-trip against the real `@ejc3` registry, host-verified (absent package → 404 from the CA host, not
+  401); the install is bun vs pnpm, the publish is bun vs npm (pnpm has no native publisher, disclosed via
+  `publishCmd`); `sameAuthPathAsPnpm` requires both round-trips + host-verify + the 404 proof; self-cleaning
+  (deletes only this run's FIXED version, re-listed to confirm — tri-state so a list failure never reads as
+  clean); skips to `bun-safety-bench.partial.json` without AWS creds. Net: 2 genuine bun gaps, 1 pnpm
+  advantage, the rest parity → `bench/bun-safety-bench.json`, folded into ROLLOUT.md ("Adoption safety,
+  vetted") + SUMMARY.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -287,8 +312,11 @@ wave-based rollout, driven with bun — the lockfile-not-the-range determinism b
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm as a
 head-to-head with bun cold-installing 58–440× faster, the direct-clean vs universal-republish-fanout
-distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source, and
-pnpm as the fallback; backed by `bench/wave-rollout-bench.json` + `bench/install-bench.json`).
+distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source,
+the "Adoption safety, vetted" subsection — bun is adoptable but not a strict safety superset (two real
+gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer knob; plus pnpm's
+phantom-isolation edge; the rest parity), and pnpm as the fallback; backed by
+`bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json`).
 
 ## Measurement methodology (how the numbers stay honest)
 

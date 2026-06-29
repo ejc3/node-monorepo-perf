@@ -1,0 +1,179 @@
+{
+  "claim": "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), while bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces. The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.",
+  "versions": {
+    "node": "v22.22.0",
+    "npm": "10.9.4",
+    "pnpm": "10.29.1",
+    "bun": "1.3.14"
+  },
+  "registries": {
+    "public": "https://registry.npmjs.org/",
+    "codeArtifact": "https://ejc3-928413605543.d.codeartifact.us-west-2.amazonaws.com/npm/npm/ (@ejc3)"
+  },
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 0.56,
+    "coreBound": false,
+    "note": "behavioral assertions + I/O/network-bound context; not gated on load"
+  },
+  "sourceVerifiedAt": "bun-v1.3.14",
+  "rungsReproduced": {
+    "lifecycle": true,
+    "peer": true,
+    "phantom": true,
+    "codeArtifact": true
+  },
+  "lifecycleScripts": {
+    "localFileDep": {
+      "bun": {
+        "exit": 0,
+        "ran": false,
+        "runtimeDetail": "MODULE_NOT_FOUND",
+        "blockedByDefault": true,
+        "remediationHint": true,
+        "signal": "Blocked 1 postinstall. Run `bun pm untrusted` for details."
+      },
+      "pnpm": {
+        "exit": 0,
+        "ran": false,
+        "runtimeDetail": "MODULE_NOT_FOUND",
+        "blockedByDefault": true,
+        "remediationHint": true,
+        "signal": "Ignored build scripts: needsbuild-probe@file:../tarballs/needsbuild-prob   │"
+      },
+      "neitherRunsByDefault": true,
+      "bothBlockAndWarn": true,
+      "note": "a LOCAL file: dependency's postinstall is BLOCKED by default on BOTH tools (mainProbe: the postinstall-generated file is absent on both), and both print a remediation hint in the install output: bun 'Blocked N postinstall. Run `bun pm untrusted`' (allow via `bun pm trust`); pnpm 'Ignored build scripts ... Run pnpm approve-builds'. bun's built-in trusted ALLOWLIST (esbuild et al., rung A2) is the one place bun runs a dep's script without opt-in"
+    },
+    "registryTrusted": {
+      "dep": "esbuild@0.24.0",
+      "bun": {
+        "exit": 0,
+        "blocked": false,
+        "signal": "esbuild not listed by `bun pm untrusted` (bun reports it ran)"
+      },
+      "pnpm": {
+        "exit": 0,
+        "blocked": true,
+        "signal": "Ignored build scripts: esbuild@0.24.0.                                     │"
+      },
+      "parityOnRegistryTrustedDep": false,
+      "note": "bun runs the postinstall by default (esbuild is on bun's built-in trusted list); pnpm 10 blocks it — bun is MORE permissive on real registry deps"
+    }
+  },
+  "peerDependencies": {
+    "mismatch": {
+      "bun": {
+        "exit": 0,
+        "warned": true,
+        "pluginResolvesIsOdd": "3.0.0"
+      },
+      "pnpm": {
+        "exit": 0,
+        "warned": true,
+        "pluginResolvesIsOdd": "3.0.0"
+      },
+      "bothWarn": true,
+      "pnpmStrict": {
+        "exit": 1,
+        "error": "ERR_PNPM_PEER_DEP_ISSUES"
+      },
+      "bunStrict": {
+        "hasKnob": false,
+        "mechanismsTried": [
+          {
+            "mech": "npm_config_strict_peer_dependencies (env)",
+            "exit": 0,
+            "failedClosed": false
+          },
+          {
+            "mech": ".npmrc strict-peer-dependencies",
+            "exit": 0,
+            "failedClosed": false
+          },
+          {
+            "mech": "bunfig.toml [install] strictPeerDependencies",
+            "exit": 0,
+            "failedClosed": false
+          }
+        ]
+      },
+      "note": "both warn on a peer-version mismatch (bun on stderr, pnpm on stdout); the asymmetry is the fail-closed knob: pnpm strict-peer-dependencies=true -> exit 1 (ERR_PNPM_PEER_DEP_ISSUES), while none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit"
+    },
+    "missingPeer": {
+      "bun": {
+        "exit": 0,
+        "pluginWorks": true,
+        "rootSeesIsOdd": true,
+        "layout": "hoisted (is-odd at root node_modules)"
+      },
+      "pnpm": {
+        "exit": 0,
+        "pluginWorks": true,
+        "rootSeesIsOdd": false,
+        "layout": "isolated (is-odd under .pnpm, not at root)"
+      },
+      "bothAutoInstall": true,
+      "note": "a missing peer is auto-installed by BOTH at their defaults (pnpm's auto-install-peers defaults to true), so the plugin resolves its peer on both. The only difference is layout: bun hoists is-odd to the root (which can then phantom-require it — rung D), pnpm keeps it isolated under .pnpm (root cannot). Not a bun safety downside."
+    }
+  },
+  "phantomDependency": {
+    "bun": {
+      "phantomResolves": true,
+      "layout": "hoisted node_modules",
+      "detail": "3.0.1"
+    },
+    "pnpm": {
+      "phantomResolves": false,
+      "layout": "isolated (symlinked .pnpm)",
+      "detail": "MODULE_NOT_FOUND"
+    },
+    "pnpmSafetyEdge": true,
+    "note": "an undeclared transitive import resolving is a latent break (it vanishes when the transitive dep is deduped away); under pnpm's strict isolation the phantom `require('is-odd')` fails (the missing declaration surfaces), under bun's hoisted layout it resolves (the break stays hidden)"
+  },
+  "codeArtifactAuth": {
+    "skipped": false,
+    "bun": {
+      "publishCmd": "bun publish",
+      "npmrcForm": "@scope:registry + //host:_authToken (scoped .npmrc, diamond-demo form)",
+      "publishOk": true,
+      "publishHostVerified": true,
+      "installOk": true,
+      "resolvedVersion": "0.0.1-safety",
+      "runtimeOk": true
+    },
+    "pnpm": {
+      "publishCmd": "npm publish --userconfig .npmrc",
+      "npmrcForm": "@scope:registry + //host:_authToken (scoped .npmrc, diamond-demo form)",
+      "publishOk": true,
+      "publishHostVerified": true,
+      "installOk": true,
+      "resolvedVersion": "0.0.1-safety",
+      "runtimeOk": true
+    },
+    "sameAuthPathAsPnpm": true,
+    "authProof": {
+      "method": "absent package -> 404 from the CodeArtifact host (no whoami endpoint)",
+      "is404": true,
+      "is401": false,
+      "hostVerified": true,
+      "ok": true
+    },
+    "note": "bun reaches CodeArtifact via the same scoped .npmrc form the repo's demos use; the install round-trip is bun vs pnpm, but the publish is bun vs npm (pnpm has no native publisher — see publishCmd)",
+    "throwawayPackages": [
+      "@ejc3/bun-safety-bun",
+      "@ejc3/bun-safety-pnpm"
+    ],
+    "selfCleaned": true
+  },
+  "downsidesFound": {
+    "bun": [
+      "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 10 blocks all build scripts until approved",
+      "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1)"
+    ],
+    "pnpm": [
+      "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves"
+    ]
+  },
+  "reproduced": true
+}
