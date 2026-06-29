@@ -15,8 +15,10 @@
 //   - cold = no lockfile present, full resolve + link against the warm global
 //     content store (no network download); warm = lockfile present,
 //     node_modules removed, relink only
-//   - one truly-cold pass uses a fresh pnpm store + cleared bun cache (real
-//     network), checked
+//   - one truly-cold pass uses a fresh pnpm store AND a fresh metadata cache-dir
+//     (so pnpm re-fetches registry metadata, matching bun's `bun pm cache rm`),
+//     real network; the fresh cache-dir is asserted populated so a silently-ignored
+//     flag can't let a metadata-warm number read as cold
 //   - host stats: CPU% (cores) and peak RSS per install
 //   - results persisted after each scale
 //
@@ -27,6 +29,7 @@ import { spawnSync } from "node:child_process";
 import {
   rmSync,
   mkdirSync,
+  mkdtempSync,
   writeFileSync,
   readFileSync,
   readdirSync,
@@ -35,7 +38,7 @@ import {
   closeSync,
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
-import { homedir, cpus } from "node:os";
+import { homedir, cpus, tmpdir } from "node:os";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const DIR = "/tmp/pm-bench";
@@ -293,8 +296,14 @@ for (const { apps, libs } of SCALES) {
 
 const { apps: fa, libs: fl } = SCALES[0];
 setup(fa, fl);
-const coldStore = "/tmp/pm-bench-coldstore";
-rmSync(coldStore, { recursive: true, force: true });
+// Per-run temp dirs (not fixed /tmp paths) so a second install-bench in another git
+// worktree — the project's encouraged parallel pattern — can't collide on the store/cache.
+const coldStore = mkdtempSync(join(tmpdir(), "pm-bench-store-"));
+// Symmetrically with bun's `bun pm cache rm` below, pnpm must also start metadata-cold: a
+// fresh --store-dir clears only the CONTENT store, leaving the registry METADATA cache
+// (cache-dir, default ~/.cache/pnpm) warm, which would put the two sides in different cold
+// regimes. Pin a fresh cache-dir so pnpm re-fetches metadata too, matching bun.
+const coldCache = mkdtempSync(join(tmpdir(), "pm-bench-cache-"));
 rmNM();
 rmLocks();
 const tcPnpm = timedInstall("pnpm", [
@@ -302,8 +311,18 @@ const tcPnpm = timedInstall("pnpm", [
   "--config.node-linker=hoisted",
   "--store-dir",
   coldStore,
+  `--config.cache-dir=${coldCache}`,
 ]);
 verifyComplete();
+// The metadata-cold claim hinges on --config.cache-dir taking effect. If a future pnpm stops
+// honoring it, pnpm silently falls back to the warm ~/.cache/pnpm metadata and the truly-cold
+// number drops to its metadata-WARM value — a regression that would read as a fast clean pass.
+// Assert pnpm actually populated the fresh cache, or the truly-cold pnpm number is meaningless.
+if (!existsSync(coldCache) || readdirSync(coldCache).length === 0)
+  throw new Error(
+    `pnpm wrote nothing to the fresh cache-dir ${coldCache} — --config.cache-dir not honored; ` +
+      `the truly-cold pnpm number would be metadata-warm, not cold.`,
+  );
 const cc = spawnSync(BUN, ["pm", "cache", "rm"], { cwd: DIR, encoding: "utf8" });
 if (cc.status !== 0) {
   const tail = ((cc.stderr || "") + (cc.stdout || "")).slice(-1000);
@@ -316,6 +335,7 @@ rmLocks();
 const tcBun = timedInstall(BUN, ["install"]);
 verifyComplete();
 rmSync(coldStore, { recursive: true, force: true });
+rmSync(coldCache, { recursive: true, force: true });
 out.trulyCold = { apps: fa, libs: fl, pnpmHoistedMs: tcPnpm.ms, bunMs: tcBun.ms };
 persist();
 console.log(

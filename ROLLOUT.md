@@ -27,8 +27,11 @@ large (`bench/install-bench.json`, fresh `node_modules`, warm store):
 
 Measured to 2,000 apps; the 4,000-app target is beyond `install-bench.json`'s ceiling, and bun's per-app
 cold cost rises with scale, so the ratio at 4,000 is below the 58× floor (extrapolation, not measured). With
-the package **store** also cold — the truest fresh-container case — the floor is lower but still decisive:
-bun 1.2s vs pnpm-hoisted 48.9s at 200 apps (~41×, `install-bench.json` `trulyCold`).
+the package **store** also cold — the truest fresh-container case — bun stays ahead, but this path is
+network-bound and a single sample: bun 3.1s vs pnpm-hoisted 23.6s at 200 apps (`install-bench.json`
+`trulyCold`). It downloads every package and its metadata, so the exact multiple varies with the network and
+isn't directly comparable to the warm-store cold table above — the reproducible figures are the warm-store
+cold ratios.
 
 **Warm install — everything cached.** When the store and `node_modules` are both warm, the gap narrows.
 Through 1,000 apps both are single-digit seconds (at 1,000: bun 2.5s, pnpm-isolated 7.4s, pnpm-hoisted 3.0s).
@@ -36,7 +39,7 @@ At 2,000 apps the regimes cross: bun warm 10.1s, pnpm-isolated 15.6s, and **pnpm
 faster than bun**. On a fully warm runner at the top of the range, pnpm-hoisted wins the install; bun's
 advantage is specifically the cold path.
 
-So drive with bun: the clean-env cold install is the frequent case and bun wins it by ~41–440×, and bun does
+So drive with bun: the clean-env cold install is the frequent case and bun wins it by ~58–440×, and bun does
 every rollout mechanic natively. Where a runner stays fully warm the install gap is small (and pnpm-hoisted
 can edge bun) — there the choice rests on the mechanics, not install speed. Every wave still drives installs
 on cold/clean runners (the all-app gate, every deploy, every developer pulling the new version), so this is
@@ -46,7 +49,7 @@ pnpm is a complete fallback that does the same mechanics, and it ships two guard
 (below). One closes on bun with a single committed line (pnpm auto-enables frozen in CI; bun needs the
 `bunfig.toml` line). The other is a genuine pnpm safety edge: pnpm rejects a `workspace:` spec as a catalog
 value, ruling out a foot-gun bun allows — bun is more permissive there, not more guarded. Neither blocks the
-rollout on bun, and on a clean/cold checkout the ~41–440× install gap outweighs both; the catalog-validation
+rollout on bun, and on a clean/cold checkout the ~58–440× install gap outweighs both; the catalog-validation
 strictness is a real, if minor, point for pnpm. A full safety vet (next subsection) finds two further bun
 gaps, one more pnpm safety edge (phantom isolation), and otherwise parity. Pick pnpm only if you
 specifically want those defaults and will pay the install cost; otherwise the answer is bun.
@@ -283,7 +286,7 @@ identically (measured, `namedCatalogLanes.pnpm`: `stable`→1.0.0 / `next`→3.0
 moves the cohort with 0 of 2 manifests edited), and `pnpm pack` bakes the same concrete range
 (`publishBakesConcrete.pnpm`). The whole rollout is available on pnpm.
 
-The cost is install speed on cold/clean checkouts — the frequent case: ~41–440× slower (the table above).
+The cost is install speed on cold/clean checkouts — the frequent case: ~58–440× slower (the table above).
 On a fully warm runner the gap is small and pnpm-hoisted can match or beat bun, so there pnpm's two defaults
 (auto-frozen CI, stricter catalog validation) are a real point in its favor; on cold/clean runners they do
 not outweigh the install gap.

@@ -255,6 +255,20 @@ if (out.targets.length === 2 && out.likeForLike && !headlineIsLibaio) {
   );
 }
 
+// Distinct-device guard: a two-filesystem comparison is only meaningful if the targets live on
+// DIFFERENT devices. If /mnt/fcvm-btrfs is an unmounted leftover dir, findmnt resolves the enclosing
+// mount = the same SOURCE as the working tree, fio runs the same workload twice, every ratio
+// collapses to ~1.0, and likeForLike passes vacuously. Fail loud before emitting ratios.
+if (out.targets.length === 2) {
+  const [a, b] = out.targets;
+  out.distinctDevices = a.device !== b.device;
+  if (!out.distinctDevices) {
+    throw new Error(
+      `both targets resolve to ${a.device} (${a.fstype}); is ${b.root} actually mounted? a same-device comparison records ratios of ~1.0`,
+    );
+  }
+}
+
 // Ratios between the first two targets (the doc's headline), only when there are exactly two AND the
 // runs are comparable. For IOPS/throughput >1 favors the second target; for p99 latency lower is
 // better, so a/b is used so that >1 still favors the second target — consistent with the note.

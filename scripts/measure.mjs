@@ -18,8 +18,16 @@
 // gathered after install when --fs-stats is passed (can be slow at 10k).
 
 import { execSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, statSync, rmSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+  rmSync,
+  mkdirSync,
+  readdirSync,
+} from "node:fs";
+import { join, dirname } from "node:path";
 import { enterSourceVisible } from "./_source-visible.mjs";
 
 const argv = process.argv.slice(2);
@@ -109,6 +117,47 @@ function statInt(script) {
   return v;
 }
 
+// Resolve `dep` from `dir` by walking node_modules upward, STOPPING at ROOT — an
+// ambient parent node_modules must not satisfy verification for a partial install.
+function resolvesFrom(dir, dep) {
+  let d = dir;
+  for (;;) {
+    if (existsSync(join(d, "node_modules", dep, "package.json"))) return true;
+    if (d === ROOT) return false;
+    const u = dirname(d);
+    if (u === d) return false;
+    d = u;
+  }
+}
+// Post-install completeness check (mirrors install-bench's verifyComplete): every
+// package under apps/* and packages/* must resolve all its declared dependencies
+// AND devDependencies. Returns an error string on a miss, or null when complete.
+// A pnpm install can exit 0 yet be partial, so this keeps a silently-incomplete
+// install from recording a clean ms/lockfile-size datapoint.
+function verifyInstallComplete() {
+  const missing = [];
+  for (const group of ["apps", "packages"]) {
+    const groupDir = join(ROOT, group);
+    if (!existsSync(groupDir)) continue;
+    for (const name of readdirSync(groupDir)) {
+      const pkgDir = join(groupDir, name);
+      if (!existsSync(join(pkgDir, "package.json"))) continue;
+      const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+      const deps = [
+        ...Object.keys(pkg.dependencies || {}),
+        ...Object.keys(pkg.devDependencies || {}),
+      ];
+      for (const dep of deps) {
+        if (!resolvesFrom(pkgDir, dep) && missing.length < 20) missing.push(`${pkgDir} -> ${dep}`);
+      }
+    }
+  }
+  if (missing.length) {
+    return `INCOMPLETE install, unresolved deps:\n${missing.slice(0, 10).join("\n")}`;
+  }
+  return null;
+}
+
 const rec = {
   label: LABEL,
   apps: APPS,
@@ -164,14 +213,28 @@ if (!abort && PHASES.includes("install")) {
   const r = timed("install", () => sh("pnpm install"));
   rec.phases.install = { ms: r.ms, ok: r.ok };
   if (!r.ok) abort = true;
-  // lockfile size — only from a SUCCESSFUL install (a failed/partial install must
-  // not become a clean lockfile-size datapoint).
-  if (r.ok && existsSync(join(ROOT, "pnpm-lock.yaml"))) {
+  // Completeness check AFTER the timed install (so it isn't counted): a `pnpm
+  // install` that exits 0 can still be partial. Verify every app/lib resolves all
+  // its declared deps + devDeps; on any miss mark the phase failed and abort —
+  // don't record a clean ms/lockfile-size datapoint for a silently-partial install.
+  if (r.ok) {
+    const incomplete = verifyInstallComplete();
+    if (incomplete) {
+      rec.phases.install.ok = false;
+      rec.phases.install.error = incomplete.split("\n")[0];
+      abort = true;
+      console.warn(`[${LABEL}] install FAILED completeness check; skipping dependent phases:`);
+      console.warn(incomplete);
+    }
+  }
+  // lockfile size — only from a SUCCESSFUL, COMPLETE install (a failed/partial
+  // install must not become a clean lockfile-size datapoint).
+  if (rec.phases.install.ok && existsSync(join(ROOT, "pnpm-lock.yaml"))) {
     const buf = readFileSync(join(ROOT, "pnpm-lock.yaml"));
     rec.phases.install.lockfileBytes = buf.length;
     rec.phases.install.lockfileLines = (buf.toString().match(/\n/g) || []).length;
   }
-  if (r.ok && FS_STATS) {
+  if (rec.phases.install.ok && FS_STATS) {
     // full-tree footprint via strict statInt. du -sb is apparent size (sum of
     // file sizes), so name it apparentBytes rather than claiming on-disk blocks.
     timed("fs-stats", () => {
@@ -260,6 +323,22 @@ if (!abort && PHASES.includes("typecheck")) {
 // ---- focus build (one app + its lib closure) ----
 if (!abort && PHASES.includes("focus")) {
   rmSync(join(ROOT, ".turbo"), { recursive: true, force: true });
+  // Build outputs survive a .turbo clear (turbo.json even excludes .next/cache
+  // from its outputs), so a standalone focus run on an already-built tree would
+  // let `next build` read apps/<app>/.next/cache as warm. Remove the app/lib build
+  // outputs too, so focus.ms is genuinely from-scratch regardless of phase
+  // selection. In a full sweep these don't exist before focus (no app build ran;
+  // lib builds are non-incremental), so this leaves a full-sweep number unchanged.
+  for (const [group, name] of [
+    ["apps", ".next"],
+    ["apps", "dist"],
+    ["packages", "dist"],
+  ]) {
+    const groupDir = join(ROOT, group);
+    if (!existsSync(groupDir)) continue;
+    for (const pkg of readdirSync(groupDir))
+      rmSync(join(groupDir, pkg, name), { recursive: true, force: true });
+  }
   const r = timed(`focus build ${sampleApp}...`, () =>
     sh(
       `pnpm exec turbo run build --filter=${sampleApp}... --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,

@@ -233,6 +233,7 @@ console.log(JSON.stringify(out, null, 2));
 // behave as claimed (don't just record a regressed result).
 const checks = [
   ["catalog shields manifests (0 changed)", out.catalogBump.manifestsChanged === 0],
+  ["catalog bump propagates to the lockfile", out.catalogBump.lockfile.added > 0],
   ["pinning/skew edits per-app manifests", out.pinnedBump.manifestsChanged === out.pinnedBump.apps],
   ["adding a dep churns the lockfile", out.churnOneDep.lockfile.added > 0],
   [

@@ -7,7 +7,8 @@
 //
 //   node scripts/comparison-chart.mjs
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -86,7 +87,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/install-bench.json",
-    note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. Fresh container = cold store too.",
+    note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. Fresh container = cold store too — network-bound, a single sample, not directly comparable to the warm-store rows.",
   },
   {
     title: "Typecheck — tsc vs tsgo",
@@ -315,3 +316,25 @@ writeFileSync(p, out.join("\n") + "\n");
 console.log(
   `wrote ${p} — ${SECTIONS.length} sections, ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)} scenario rows`,
 );
+
+// Rasterize a high-resolution PNG in the SAME step that writes the SVG, so the committed PNG
+// (linked from the README) can never drift from the SVG: regenerating the chart regenerates both.
+// Skip with a warning if ImageMagick's `convert` isn't installed — a local run without it still
+// produces the SVG, and CI installs ImageMagick so the PNG is always refreshed there.
+const png = join("bench/charts", "tool-comparison.png");
+const conv = spawnSync(
+  "convert",
+  ["-density", "300", "-background", "white", p, "-flatten", "-depth", "8", png],
+  { encoding: "utf8" },
+);
+if (conv.error || conv.status !== 0)
+  console.warn(
+    `! PNG NOT rasterized: ImageMagick \`convert\` ${conv.error ? "not found" : `exited ${conv.status}`}. ` +
+      `The SVG is updated but ${png} may now be STALE — install ImageMagick and re-run before committing.`,
+  );
+else if (!existsSync(png) || statSync(png).size === 0)
+  // convert reported success but produced nothing usable — don't let a silent miss leave a stale PNG.
+  console.warn(
+    `! \`convert\` exited 0 but ${png} is missing/empty — it may be STALE; re-run to refresh.`,
+  );
+else console.log(`wrote ${png} — 300 DPI raster of the SVG`);

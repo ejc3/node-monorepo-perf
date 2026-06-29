@@ -8,7 +8,7 @@
   "registry": "https://registry.npmjs.org/",
   "speedContext": {
     "source": "bench/install-bench.json",
-    "note": "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~440x at 200 apps, ~100x at 1,000, ~58x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container): bun 1.2s vs pnpm-hoisted 48.9s at 200 apps (~41x). WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 10.1s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the clean-env/cold case; pnpm-hoisted can win the fully-warm case."
+    "note": "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~440x at 200 apps, ~100x at 1,000, ~58x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 3.1s vs pnpm-hoisted 23.6s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 10.1s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the clean-env/cold case; pnpm-hoisted can win the fully-warm case."
   },
   "determinism": {
     "bun": {

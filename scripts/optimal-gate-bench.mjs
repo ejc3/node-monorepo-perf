@@ -377,9 +377,14 @@ try {
   console.log(`  gate: ${leaf.ms}ms, ran ${leaf.ran}/${leaf.total}`);
 
   // ---- oxlint: the native-speed lint layer -------------------------------------
-  // oxlint exits non-zero when it finds lint problems; that is a completed run, not a
-  // failure, so record the time and the finding count. Only a timeout / no-output is
-  // "did not complete".
+  // A completed oxlint run exits 0 (clean / warnings only) or 1 (error-level findings); classify
+  // by EXIT CODE, not by a summary line — oxlint's human reporter prints one line per diagnostic
+  // and no "Found N" total, so a summary regex never matches. A missing binary (exit 127), usage
+  // error (exit 2), panic, or timeout (SIGTERM) is NOT a completed run and must NOT read as a fast
+  // clean lint pass. `findings` is exact on exit 0: oxlint's default rules trigger 0 diagnostics
+  // (warnings or errors) on this generated re-export tree, so 0 is the full count, not just the
+  // error-level subset. On exit 1 the human reporter carries no parseable total, so findings is null
+  // (real-app-bench, where a real codebase yields warnings, uses -f json to count every diagnostic).
   console.log("\n## lint: oxlint across the workspace");
   const t0 = process.hrtime.bigint();
   let oxlint;
@@ -393,13 +398,21 @@ try {
     };
   } catch (e) {
     const ms = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
-    const text = (e.stdout || "") + (e.stderr || "");
-    const m2 = text.match(/Found (\d+) warning|(\d+) problem/);
     if (e.signal === "SIGTERM") {
       oxlint = { tool: "oxlint", ran: false, ms, note: "timed out (120s)" };
+    } else if (e.status === 1) {
+      // exit 1 = oxlint ran and found error-level problems: a completed, timed run. The human
+      // reporter carries no parseable total, so record that it ran rather than a (false) count.
+      oxlint = { tool: "oxlint", ran: true, ms, findings: null };
     } else {
-      // non-zero exit with output = lint findings: a real, timed run
-      oxlint = { tool: "oxlint", ran: true, ms, findings: m2 ? +(m2[1] || m2[2]) : null };
+      // exit 127 (missing binary) / 2 (usage/config) / panic / other = the lint pass did not
+      // complete — record it as such, don't let a crash read as success.
+      oxlint = {
+        tool: "oxlint",
+        ran: false,
+        ms,
+        note: `exited ${e.status ?? e.signal ?? "?"} without completing`,
+      };
     }
   }
   result.lint = oxlint;

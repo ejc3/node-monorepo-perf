@@ -83,15 +83,15 @@
 <rect x="28" y="512" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="545" font-size="14" fill="#1f2328">Fresh container · 200 apps</text>
 <rect x="318" y="512" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="399" y="536" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">1.2s</text>
+<text x="399" y="536" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">3.1s</text>
 <text x="399" y="555" font-size="11" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="512" width="162" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="561" y="545" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<rect x="642" y="512" width="162" height="56" fill="rgb(194,121,24)" stroke="#ffffff"/>
-<text x="723" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">48.9s</text>
-<text x="723" y="555" font-size="11" fill="#0a0d12" text-anchor="middle">×41 slower</text>
+<rect x="642" y="512" width="162" height="56" fill="rgb(156,146,27)" stroke="#ffffff"/>
+<text x="723" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">23.6s</text>
+<text x="723" y="555" font-size="11" fill="#0a0d12" text-anchor="middle">×7.7 slower</text>
 <text x="28" y="584" font-size="11" fill="#57606a">Source: bench/install-bench.json</text>
-<text x="28" y="599" font-size="11" fill="#57606a">Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. Fresh container = cold store too.</text>
+<text x="28" y="599" font-size="11" fill="#57606a">Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. Fresh container = cold store too — network-bound, a single sample, not directly comparable to the warm-store rows.</text>
 <text x="28" y="629" font-size="16" font-weight="700" fill="#1f2328">Typecheck — tsc vs tsgo</text>
 <rect x="28" y="647" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="677" font-size="12" font-weight="600" fill="#57606a">scenario</text>

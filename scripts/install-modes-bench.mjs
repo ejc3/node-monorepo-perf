@@ -17,7 +17,15 @@
 // Writes bench/install-modes-bench.json. Self-contained in /tmp.
 
 import { spawnSync } from "node:child_process";
-import { rmSync, mkdirSync, writeFileSync, copyFileSync, existsSync, readFileSync } from "node:fs";
+import {
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+  copyFileSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+} from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
@@ -50,6 +58,50 @@ function timed(args) {
   const t0 = process.hrtime.bigint();
   sh("pnpm", args);
   return Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
+}
+// Resolve `dep` from `dir` by walking node_modules upward, STOPPING at the
+// benchmark workspace root (DIR) — an ambient parent node_modules must not
+// satisfy verification for an incomplete install.
+function resolvesFrom(dir, dep) {
+  let d = dir;
+  for (;;) {
+    if (existsSync(join(d, "node_modules", dep, "package.json"))) return true;
+    if (d === DIR) return false;
+    const u = dirname(d);
+    if (u === d) return false;
+    d = u;
+  }
+}
+// Every package under apps/* and packages/* must resolve all its declared deps
+// AND devDeps; assert the package count too, so a degenerate/empty workspace
+// can't be timed as a clean install. A pnpm exit 0 can still be partial.
+function verifyComplete() {
+  const pkgDirs = [];
+  for (const group of ["apps", "packages"]) {
+    const groupDir = join(DIR, group);
+    if (!existsSync(groupDir)) continue;
+    for (const name of readdirSync(groupDir)) {
+      const pkgDir = join(groupDir, name);
+      if (existsSync(join(pkgDir, "package.json"))) pkgDirs.push(pkgDir);
+    }
+  }
+  if (pkgDirs.length !== APPS + LIBS)
+    throw new Error(
+      `degenerate workspace: found ${pkgDirs.length} packages, expected ${APPS + LIBS} (${APPS} apps + ${LIBS} libs)`,
+    );
+  const missing = [];
+  for (const pkgDir of pkgDirs) {
+    const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
+    const deps = [
+      ...Object.keys(pkg.dependencies || {}),
+      ...Object.keys(pkg.devDependencies || {}),
+    ];
+    for (const dep of deps) {
+      if (!resolvesFrom(pkgDir, dep) && missing.length < 20) missing.push(`${pkgDir} -> ${dep}`);
+    }
+  }
+  if (missing.length)
+    throw new Error(`INCOMPLETE install, unresolved deps:\n${missing.slice(0, 10).join("\n")}`);
 }
 
 // setup: pnpm-native catalog/workspace specs (no rewrite)
@@ -95,6 +147,10 @@ const frozenColdStoreMs = timed([
 rmNM();
 rmSync(LF, { force: true });
 const coldResolveMs = timed(["install", PI]);
+// After A the lockfile + node_modules are present again — the canonical complete
+// state. Verify it AFTER the timer (so the check isn't counted): every package
+// must resolve all its deps, else a silently-partial install reads as a fast time.
+verifyComplete();
 
 // After A, the lockfile + node_modules are present again. Now the case that
 // actually matters: a DEPENDENCY CHANGE against the existing lockfile. pnpm should
@@ -121,8 +177,23 @@ const depChangeAddOneMs = timed(["install", PI]);
 writeFileSync(oneApp, oneAppOrig);
 sh("pnpm", ["install", PI]);
 
-// E. bump one catalog version (a shared dep used by every package)
-const wsBumped = wsOrig.replace(/^(\s*typescript:\s*).*$/m, "$15.8.3");
+// E. bump one catalog version (a shared dep used by every package). Assert the
+// bump SEMANTICALLY changes the version — a spec that re-resolves to the same
+// version makes pnpm a no-op and would time a degenerate "bump" as a fast clean
+// number. Strip range markers from both sides before comparing.
+const TS_BUMP = "5.8.3";
+const wsTsMatch = wsOrig.match(/^\s*typescript:\s*(.+?)\s*$/m);
+if (!wsTsMatch) throw new Error("catalog typescript line not found in pnpm-workspace.yaml");
+const stripRange = (v) =>
+  v
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/^[\^~>=<\s]+/, "");
+if (stripRange(wsTsMatch[1]) === stripRange(TS_BUMP))
+  throw new Error(
+    `catalog typescript bump is a no-op: current "${wsTsMatch[1]}" resolves to the same version as "${TS_BUMP}"; pick a different bump target`,
+  );
+const wsBumped = wsOrig.replace(/^(\s*typescript:\s*).*$/m, `$1${TS_BUMP}`);
 if (wsBumped === wsOrig)
   throw new Error("catalog typescript line not found in pnpm-workspace.yaml");
 writeFileSync(wsPath, wsBumped);

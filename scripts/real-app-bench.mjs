@@ -386,6 +386,11 @@ for (const t of targets) {
 
   const size = sourceSize(dir);
   console.log(`  source: ${size.files} ts/tsx files, ${size.loc} LOC`);
+  // The finagled tsgo program includes ['**/*.ts','**/*.tsx']; if the clone has 0 hand-written source
+  // files the program is empty and `tsgo --noEmit` exits 0 with 0 errors — a clean typecheck of
+  // nothing. Refuse so a future target whose layout doesn't match can't record a meaningless pass.
+  if (size.files === 0)
+    throw new Error(`${t.name}: 0 source ts/tsx files — empty typecheck scope.`);
   // Pristine manifest, captured before any bun install / oxlint add mutates it — restored on exit
   // so a kept (REAL_APP_KEEP) clone is left clean (HEAD==sha, no diff) and can be reused as-is.
   // Register the restore NOW (before the first install writes a lockfile), so a crash anywhere in
@@ -430,16 +435,51 @@ for (const t of targets) {
   );
   if (tsgoErrors) console.log(`    codes: ${JSON.stringify(errorCodes(tsgo.out))}`);
 
-  // oxlint (config-agnostic): add our pinned version to the app and run it over the source.
-  run(`${BUN} add -d oxlint@${OXLINT_VER}`, dir);
-  const ox = medianRun(`${bin0(dir, "oxlint")} ${t.lintDir || "."}`, dir);
+  // oxlint (config-agnostic): add our pinned version to the app and run it over the source. Parse the
+  // STRUCTURED -f json report (oxlint's human format carries no "N warnings" summary line, so the old
+  // regex silently read 0/0 regardless of findings). Guards: the add must succeed; oxlint must exit
+  // with a lint code (0 clean / 1 findings — not 127 missing-binary / 2 usage / a panic); the report
+  // must parse; and it must report linting >0 files — so a missing binary, a format change, or an
+  // over-ignored no-op fails loud instead of recording a clean 0/0.
+  const oxAdd = run(`${BUN} add -d oxlint@${OXLINT_VER}`, dir);
+  if (oxAdd.code !== 0)
+    throw new Error(
+      `${t.name}: bun add oxlint failed (exit ${oxAdd.code}):\n${oxAdd.out.slice(-600)}`,
+    );
+  const ox = medianRun(`${bin0(dir, "oxlint")} -f json ${t.lintDir || "."}`, dir);
+  if (ox.code < 0 || ox.code > 1)
+    throw new Error(
+      `${t.name}: oxlint exit ${ox.code} (expected a lint code 0/1) — did it run?\n${ox.out.slice(-600)}`,
+    );
   const oxFindings = (() => {
-    const w = (ox.out.match(/(\d+)\s+warning/i) || [])[1];
-    const e = (ox.out.match(/(\d+)\s+error/i) || [])[1];
-    return { warnings: w ? +w : 0, errors: e ? +e : 0 };
+    let j;
+    try {
+      j = JSON.parse(ox.out);
+    } catch {
+      j = null;
+    }
+    if (!j || !Array.isArray(j.diagnostics))
+      throw new Error(
+        `${t.name}: oxlint -f json unparseable (format changed?):\n${ox.out.slice(-600)}`,
+      );
+    if (!(j.number_of_files > 0))
+      throw new Error(
+        `${t.name}: oxlint linted ${j.number_of_files} files — empty/over-ignored scope.`,
+      );
+    let warnings = 0,
+      errors = 0;
+    for (const d of j.diagnostics)
+      if (
+        String(d.severity || "")
+          .toLowerCase()
+          .startsWith("err")
+      )
+        errors++;
+      else warnings++;
+    return { warnings, errors, files: j.number_of_files };
   })();
   console.log(
-    `  oxlint: ${ox.ms}ms (warnings ${oxFindings.warnings}, errors ${oxFindings.errors})`,
+    `  oxlint: ${ox.ms}ms (warnings ${oxFindings.warnings}, errors ${oxFindings.errors}, ${oxFindings.files} files)`,
   );
 
   // turbo: wire the two checks into a turbo.json + package scripts, run COLD then WARM (cache hit).
@@ -534,6 +574,7 @@ for (const t of targets) {
       samples: ox.samples,
       warnings: oxFindings.warnings,
       errors: oxFindings.errors,
+      files: oxFindings.files,
     },
     turbo: {
       coldMs: tCold.ms,
