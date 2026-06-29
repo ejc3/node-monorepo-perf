@@ -14,7 +14,7 @@ These are irreducibly O(repo): scoping and caching reduce *execution*, but the c
 
 4. **Materializing the whole tree (inodes/disk).** Installing all 20k apps creates a `node_modules` per package. Isolated-linker symlinks measured 4,211 at 300/100 (full-tree) → hundreds of thousands at 20k, plus the `.pnpm` store. Building all apps' output: 40 Next apps = 156 MB → 20k ≈ 78 GB of `.next`; inodes can exhaust a modest filesystem. Focus (prune/deploy) avoids this per-app, but a full local checkout or a build-everything CI job pays it. Levers: `node-linker=pnp` (no `node_modules`), don't build everything.
 
-5. **Editor / language server.** tsserver loading a 20k-package project means multi-GB memory and slow cross-package IntelliSense/go-to-def. Not captured by build benchmarks; it is the felt daily cost. Mitigations (open a sub-tree, sparse-checkout, pnp + editor SDK) are partial — the project graph is still large.
+5. **Editor / language server.** Opening *one app* is O(closure), not O(repo) — measured: the language server's project-load tracks the opened app's dependency closure (65 libs / 1,123 files), flat as the repo grows 8× (see "Editor / language server, measured" below; tsgo's native LSP opens that closure ~19× faster than tsserver — 86ms vs 1.6s — and with ~30% less memory). But opening the *whole* workspace as a single project at 20k is genuinely O(repo): a multi-GB program with slow cross-package IntelliSense/go-to-def. Mitigations (open a sub-tree, sparse-checkout, pnp + editor SDK) scope it back to a closure; they are partial only if you must hold the whole graph open at once.
 
 6. **git at 20k.** ~130k+ source files (20k apps × ~6 + 300 libs × ~16). `git status`/`checkout`/`clone` are O(worktree); without `fsmonitor` + `sparse-checkout` + partial clone they degrade. It scales, but needs Scalar-style setup.
 
@@ -55,9 +55,29 @@ Per-runner cost converges toward the restore time (5.9s) as the fleet grows. (re
 
 This is §3's blast radius from the cache's side: scope an edit and the cache absorbs the rest; touch a foundation and the cache is worthless — someone pays the full cold rebuild. That is why foundation changes are rare-by-policy, not cache-able.
 
+## Editor / language server, measured
+
+Opening the monorepo in an editor pays a cost the build benches don't capture: before it can answer a keystroke, the language server loads a project. This races the two servers a developer actually uses — `tsserver` (what VS Code ships) and `tsgo --lsp` (TypeScript's native-preview LSP) — opening one app's `page.tsx` (which imports several libs) and timing the felt cold open (spawn → first go-to-definition, startup included), the warm keystroke loop, and peak memory. Cross-package navigation resolves to source build-free (tsconfig `paths` → `packages/*/src`, no `baseUrl`), so opening the app pulls its real dependency closure (65 libs / 1,123 files at 4,000:300) into the server — the heavy case, not declaration stubs (`bench/editor-loop-bench.json`; tsgo `7.0.0-dev.20260614.1`, TypeScript 5.9.3; 64-core box; cold open the median of 3 fresh-process runs, warm ops the median of 5):
+
+| metric                        | tsserver | tsgo LSP | ratio |
+| ----------------------------- | -------- | -------- | ----- |
+| cold open (spawn → first def) | 1,620ms  | 86ms     | 18.8× |
+| peak RSS                      | 380MB    | 275MB    | 1.4×  |
+| warm go-to-def                | 1ms      | 0ms      | —     |
+| warm hover                    | 1ms      | 2ms      | —     |
+
+(4,000 apps / 300 libs.) The whole difference is in the **cold open**: tsgo loads the same closure ~19× faster and with ~30% less memory. Once warm, both answer go-to-def and hover in ≤2ms — the per-keystroke ops are not the bottleneck, project load is. Both resolve the cross-package definition to the exact lib source (`packages/lib-026/src/index.ts`) with zero fatal diagnostics, so this is a working editor, not a broken one. (Completion is not a like-for-like latency race — at the same position the servers return different completion-set sizes, tsgo 6,247 items vs tsserver 1,009 — so it is recorded with its item count, not scored.)
+
+**It is O(closure), not O(repo) — the same shape as the rest of the stack**, shown from both sides:
+
+- **Apps grow, closure fixed** (300 libs; 500 → 4,000 apps): the opened app's closure stays 65 libs / 1,123 files (asserted identical across the sweep), and the cost is flat — tsserver cold open 1,619 → 1,614 → 1,620ms, RSS ~380MB; tsgo 84 → 86ms. 8× the repo, ~1.0× the cost ⇒ the editor does **not** load the repo.
+- **Closure grows** (2,000 apps; 100 → 200 → 300 libs): the opened app's closure grows 628 → 1,033 → 1,123 files, and the cost rises with it — tsserver cold open 1,393 → 1,561 → 1,614ms, peak RSS 355 → 380MB; tsgo 80 → 84ms, 238 → 272MB. Cost tracks the closure ⇒ O(closure).
+
+So the editor's project-load cost is bounded by what one app imports, not by repo size — the same lever as everywhere else: scope the open to one app's closure, and a faster server (tsgo's native LSP) cuts the one cost that scales by ~19×. The ceiling (§1, item 5) is unchanged: opening the *whole* workspace as a single project at 20k still means a multi-GB, repo-sized program — the escape is to not open it all at once.
+
 ## What we should still quantify
 
-Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild. Gaps:
+Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild, editor project-load + RSS (tsserver vs tsgo LSP). Gaps:
 
 1. Direct lockfile measurement at 10k/20k — lines, MB, and pnpm parse time per install. Lockfile *size* is measured through 4,000 apps (`results.json`); the resolve-vs-verify split (`lockfile-bench`) goes to 2,000; the 20k figure in §1 is extrapolated from the 200→4,000 trend.
 2. Turbo graph-load in isolation — `turbo run build --dry` time (planning only, no execution or cache restore) vs scale, distinct from §2's measured fully-cached floor (which also pays the cache restore).
@@ -66,7 +86,6 @@ Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun),
 5. `node-linker=pnp` — install time + footprint + tooling compatibility vs isolated/hoisted. The isolated and hoisted full-tree `node_modules` counts are measured (TOOLING.md); `pnp` is not.
 6. Cold onboarding — fresh `git clone` + `pnpm install` for a new dev at 10k/20k.
 7. Peak memory under `--concurrency=100%` typecheck/build (OOM risk: 64 × tsc/next workers).
-8. tsserver/IDE project-load time + RSS at scale (semi-manual).
 
 ## Gotchas this build hit
 
