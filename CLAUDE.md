@@ -33,6 +33,9 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `generate.mjs --universal K` — make the lowest K libs a pure-sink foundation tier that
   every app and every other lib depends on (the `@acme/core` everyone imports); revving
   one has a whole-repo blast radius. Used by `lib-rev-bench.mjs`. 0 = none (default).
+- `generate.mjs --test-task` — emit a per-package `node:test` smoke test + a `test` script
+  in every package (the root `turbo.json` `test` task has no task deps, so a `turbo run test`
+  isolates the test axis from build). Off by default. Used by `test-axis-bench.mjs`.
 - `make clean` — remove generated apps/packages, `out`, `.turbo`, `node_modules/.cache/turbo`, diamond example.
 
 ### Core operations (the O(repo)-vs-O(closure) thesis, one command each)
@@ -56,6 +59,21 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 ### Decomposition / axes
 - `node scripts/axis-bench.mjs` — separate the apps axis from the libs axis
   (install scales with apps; focus tracks libs/closure) → `bench/axis-bench.json`.
+- `node scripts/test-axis-bench.mjs` (`TEST_AXIS_SCALES`/`BLAST_SCALE`/`GATE_SAMPLES` knobs;
+  default scales `300:100 1000:200`, blast `1000:200`) — the missing TEST-execution axis,
+  built with `generate.mjs --test-task`. Whole-repo `turbo run test` (O(repo), one task per
+  package) vs a focused `--filter=<app>...` (O(closure)), cold then warm; the edit-location
+  blast radius (universal foundation vs leaf, via `--filter=...<lib>` as a git-free `--affected`
+  stand-in, with a mid-layer point); and the structural sharding benefit (`ceil(total/N)`).
+  The `test` task has no deps, so it isolates test-task selection + per-task runner cost from
+  the build axis; the per-package body is a trivial `node:test` smoke test, so cold/warm ms are
+  Turbo-orchestration + `node --test`-startup bound (the test-task COUNT and its scaling is the
+  finding, not suite runtime). Cold clears every cache + stops any ambient turbo daemon and
+  asserts 0 cached; warm asserts all cached; the O(closure) contrasts are STRUCTURALLY asserted
+  (focus < whole; universal foundation === every package; leaf < foundation); core-bound, records
+  `cores`/`preRunLoadAvg1`, refuses on a loaded box unless `TEST_AXIS_ALLOW_BUSY=1`. Run in a git
+  worktree (regenerates the tree) → `bench/test-axis-bench.json`, folded into LIMITS.md + the
+  README "Findings by area".
 - `make lockfile-bench` — split install into resolve (`--lockfile-only`) vs verify
   vs full, per `SCALES` → `bench/lockfile-bench.json`.
 - `node scripts/install-modes-bench.mjs <apps>:<libs>` (default `1000:200`) —
@@ -299,8 +317,9 @@ generator from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, typecheck, build,
 pnpm install-situations) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
-(install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo)),
-`OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
+(install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo),
+incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius,
+`bench/test-axis-bench.json`), `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
 tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
 real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the

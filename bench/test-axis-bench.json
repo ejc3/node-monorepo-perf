@@ -1,0 +1,194 @@
+{
+  "about": "the TEST-execution axis: whole-repo `turbo run test` (O(repo)) vs a focused `--filter=<app>...` (O(closure)), cold then warm, per scale, plus the edit-location blast radius and the structural sharding benefit. The `test` task has no task deps, so this isolates test-task selection + per-task runner cost from the build axis; the per-package body is a trivial node:test smoke test, so the wall-clock is Turbo orchestration + `node --test` startup per selected package, not real test logic. The structural test-task COUNTS are the primary evidence (the axis shape); cold/warm ms are the secondary, overhead-bound signal. Cold asserts 0 cached, warm asserts all cached, and the O(closure) contrasts are structurally asserted (focus < whole; universal foundation selects every package; leaf < foundation).",
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 3.73,
+    "coreBound": true
+  },
+  "versions": {
+    "node": "v22.22.0",
+    "turbo": "2.9.18"
+  },
+  "samples": 3,
+  "concurrency": "100%",
+  "scales": [
+    {
+      "label": "300:100",
+      "apps": 300,
+      "libs": 100,
+      "whole": {
+        "testTasks": 400,
+        "totalTasks": 400,
+        "coldMs": 5769,
+        "warmMs": 1595,
+        "coldSamples": [
+          5769,
+          5925,
+          5584
+        ],
+        "warmSamples": [
+          1535,
+          1755,
+          1595
+        ],
+        "coldCached": {
+          "cached": 0,
+          "total": 400
+        },
+        "warmCached": {
+          "cached": 400,
+          "total": 400
+        }
+      },
+      "focus": {
+        "testTasks": 27,
+        "totalTasks": 27,
+        "coldMs": 1570,
+        "warmMs": 1044,
+        "coldSamples": [
+          1493,
+          1570,
+          1674
+        ],
+        "warmSamples": [
+          1236,
+          964,
+          1044
+        ],
+        "coldCached": {
+          "cached": 0,
+          "total": 27
+        },
+        "warmCached": {
+          "cached": 27,
+          "total": 27
+        }
+      },
+      "focusClosures": [
+        {
+          "app": "@demo/app-001",
+          "testTasks": 11
+        },
+        {
+          "app": "@demo/app-150",
+          "testTasks": 27
+        },
+        {
+          "app": "@demo/app-300",
+          "testTasks": 75
+        }
+      ]
+    },
+    {
+      "label": "1000:200",
+      "apps": 1000,
+      "libs": 200,
+      "whole": {
+        "testTasks": 1200,
+        "totalTasks": 1200,
+        "coldMs": 15053,
+        "warmMs": 5360,
+        "coldSamples": [
+          14295,
+          15053,
+          15146
+        ],
+        "warmSamples": [
+          5360,
+          4054,
+          5485
+        ],
+        "coldCached": {
+          "cached": 0,
+          "total": 1200
+        },
+        "warmCached": {
+          "cached": 1200,
+          "total": 1200
+        }
+      },
+      "focus": {
+        "testTasks": 124,
+        "totalTasks": 124,
+        "coldMs": 4220,
+        "warmMs": 2563,
+        "coldSamples": [
+          4220,
+          4604,
+          3984
+        ],
+        "warmSamples": [
+          2356,
+          2563,
+          2621
+        ],
+        "coldCached": {
+          "cached": 0,
+          "total": 124
+        },
+        "warmCached": {
+          "cached": 124,
+          "total": 124
+        }
+      },
+      "focusClosures": [
+        {
+          "app": "@demo/app-0001",
+          "testTasks": 56
+        },
+        {
+          "app": "@demo/app-0500",
+          "testTasks": 124
+        },
+        {
+          "app": "@demo/app-1000",
+          "testTasks": 105
+        }
+      ]
+    }
+  ],
+  "blastRadius": {
+    "scale": "1000:200",
+    "apps": 1000,
+    "libs": 200,
+    "foundation": {
+      "lib": "@demo/lib-001",
+      "testTasks": 1200,
+      "coldMs": 14279
+    },
+    "mid": {
+      "lib": "@demo/lib-100",
+      "testTasks": 558
+    },
+    "leaf": {
+      "lib": "@demo/lib-200",
+      "testTasks": 21,
+      "coldMs": 2980
+    },
+    "note": "editing the universal foundation selects every package's test (O(repo)); a mid-layer lib fewer; a leaf only its dependents (O(closure)). `--filter=...<lib>` is the git-free equivalent of `--affected` after editing <lib>."
+  },
+  "sharding": {
+    "scale": "1000:200",
+    "totalTestTasks": 1200,
+    "shards": [
+      {
+        "shards": 2,
+        "perShardTestTasks": 600
+      },
+      {
+        "shards": 4,
+        "perShardTestTasks": 300
+      },
+      {
+        "shards": 8,
+        "perShardTestTasks": 150
+      }
+    ],
+    "note": "ARITHMETIC, not a measured wall-time: per-shard test-task count = ceil(total / N). The test task has no deps, so whole-repo test tasks are independent and shard with ~linear speedup across machines — the O(repo) mitigation, distinct from --filter which shrinks the task set itself."
+  },
+  "notes": [
+    "cold/warm ms are Turbo-orchestration + `node --test` startup bound (trivial smoke body), not real test runtime; the test-task COUNT and its scaling is the finding.",
+    "flaky-retry is out of scope: retry is a test-runner feature (node --test has none by default), not a property of Turbo's test-task axis.",
+    "a real `test` that imported built deps would add a `^build` edge and the build cost (the build axis, measured separately); this bench deliberately decouples them to isolate the test axis."
+  ]
+}

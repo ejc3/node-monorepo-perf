@@ -13,6 +13,9 @@
     "typecheck:tsgo": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "test": {
+      "outputs": []
     }
   }
 }
