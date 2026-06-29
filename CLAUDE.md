@@ -271,6 +271,28 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   clean); skips to `bun-safety-bench.partial.json` without AWS creds. Net: 2 genuine bun gaps, 1 pnpm
   advantage, the rest parity → `bench/bun-safety-bench.json`, folded into ROLLOUT.md ("Adoption safety,
   vetted") + SUMMARY.md.
+- `node scripts/ci-cache-bench.mjs` (`CI_CACHE_SCALES`/`BUILD_SCALE`/`PARTIAL_SCALE`, `CI_CACHE_PORT`,
+  `CI_CACHE_ALLOW_BUSY=1`) — the **centralized (remote) cache economics vet**: does a shared Turborepo
+  cache bring the CI cold start down? Every CI runner starts with an empty local cache, so without a
+  shared cache each pays the full cold compute. The bench starts its own pinned `turborepo-remote-cache`
+  server (on localhost, so restore is the protocol + decompress floor with NO network latency;
+  `bytesTransferred` is recorded so network cost is estimable) and measures, per task and scale, four
+  distinct columns: **coldNoRemote** (pure compute, no remote — the no-cache cost every runner pays, the
+  baseline the speedup is taken against), **coldSeed** (the first runner: compute + upload to populate
+  the cache; the seed overhead vs coldNoRemote is within compute noise on localhost), **warmLocal**
+  (same-machine floor), **remote-restore** (a fresh runner restoring). Plus the **partial-invalidation**
+  rung (`--universal 1`): after proving a clean restore is complete, a leaf edit vs a universal-foundation
+  edit, reported as restored-from-cache vs recomputed task COUNTS (a remote cache only helps the tasks an
+  edit did not touch); and the **fleet amortization** arithmetic (R runners: 1 seeds, R−1 restore →
+  per-runner cost converges to the restore time). Discipline: cold is actually cold (daemon stopped,
+  local + .turbo + outputs + remote store wiped per cold sample), source made visible to Turbo
+  (enterSourceVisible), coldNoRemote/coldSeed assert 0 cached and warmLocal/restore assert all cached,
+  the partial prime is proven complete (clean restore = all cached) and the leaf/foundation contrast is
+  structurally asserted; true median; load-guarded (refuses on a loaded box unless `CI_CACHE_ALLOW_BUSY=1`).
+  Self-contained: starts/tears down its own server, regenerates the tree per scale, pins
+  `TURBO_CACHE_DIR`, keeps all scratch under gitignored `.ci-cache/` removed on every exit path; run in a
+  linked git worktree → `bench/ci-cache-bench.json`, writeup in LIMITS.md ("Remote cache: amortizing the
+  O(repo) cold start") + SUMMARY.md.
 
 ### Deploy / publish
 - `make deploy-vercel` — prune one `APP` to a minimal subtree, deploy to Vercel, time it.
@@ -318,8 +340,11 @@ generator from that warning + cleanup). `comparison-chart.mjs` renders the
 pnpm install-situations) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo),
-incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius,
-`bench/test-axis-bench.json`), `OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
+incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
+(`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
+centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
+task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation boundary),
+`OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
 tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
 real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the
