@@ -272,10 +272,11 @@ pnpm does every mechanic above and ships two guardrails on by default that bun m
   `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC` for `workspace:*`, `workspace:^`, `workspace:~`,
   `workspace:^1.0.0`); bun accepts it. pnpm's stricter validation rules out one foot-gun bun allows.
 
-Beyond these two rollout defaults, the adoption-safety vet above adds three more pnpm safety edges
-(`bench/bun-safety-bench.json`): pnpm default-denies registry build scripts where bun runs its built-in
-allowlist, pnpm has a fail-closed strict-peer mode bun lacks, and pnpm's isolation surfaces a phantom
-import bun's hoist hides. None blocks the rollout on bun; all are real points for pnpm.
+Beyond these two rollout defaults, the adoption-safety vet above adds three more points for pnpm
+(`bench/bun-safety-bench.json`): two are bun gaps — pnpm default-denies registry build scripts where bun
+runs its built-in allowlist, and pnpm has a fail-closed strict-peer mode bun lacks — and one is a
+pnpm-unique safety edge: pnpm's isolation surfaces a phantom import bun's hoist hides. None blocks the
+rollout on bun; all are real points for pnpm.
 
 pnpm's named catalogs (in `pnpm-workspace.yaml`) route cohorts and repoint with zero consumer edits
 identically (measured, `namedCatalogLanes.pnpm`: `stable`→1.0.0 / `next`→3.0.0 in one lockfile, repoint

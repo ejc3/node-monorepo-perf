@@ -344,7 +344,8 @@ incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radi
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
 task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation boundary),
-`OPTIMIZATIONS.md`, `GROUNDING.md` (industry-best-practice sourcing),
+`OPTIMIZATIONS.md` (incl. §1.2.1 the device layer under fs-bench, `bench/fs-iops-bench.json`),
+`GROUNDING.md` (industry-best-practice sourcing),
 `OPTIMAL-STACK.md` (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
 tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
 real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the
@@ -360,7 +361,12 @@ distinction, expand/migrate/contract for breaking changes, gating the artifact n
 the "Adoption safety, vetted" subsection — bun is adoptable but not a strict safety superset (two real
 gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer knob; plus pnpm's
 phantom-isolation edge; the rest parity), and pnpm as the fallback; backed by
-`bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json`).
+`bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json`),
+`FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
+per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison),
+`WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
+collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),
+`REVIEW.md` (the static-check / type-check / two-reviewer quality pipeline every change runs through).
 
 ## Measurement methodology (how the numbers stay honest)
 
