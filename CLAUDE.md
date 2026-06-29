@@ -92,6 +92,26 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
+- `node scripts/lint-bench.mjs` (`LINT_FILES`/`LINT_SAMPLES`, `LINT_ALLOW_BUSY=1`) — ESLint vs
+  oxlint on one generated corpus (default 800 `.ts`/`.tsx` files), matched so the number is engine
+  speed not coverage breadth. oxlint runs STANDALONE at its full native capability (all plugins +
+  all categories; `--type-aware` via `oxlint-tsgolint` for the type-aware row); ESLint is pointed
+  at oxlint's OWN rule set — `eslint-plugin-oxlint`'s coverage map is INVERTED to enable in ESLint
+  the rules it can run (registered plugin, non-type-checked), so ESLint runs a STRICT SUBSET (524
+  rules) of oxlint's coverage — oxlint itself actively ran 567 — recorded, conservative since ESLint
+  does no MORE work (the two counts aren't a 1:1 tally across the tools' separate rule namespaces, so
+  the claim is "subset", not "567 > 524"). Numbers are wall-clock on a many-core box where oxlint is multithreaded and ESLint is
+  single-process (ratio scales with cores); the type-aware row is mostly the tsgo-vs-tsc substrate
+  (both build a TS program; oxlint via tsgolint, ESLint via tsc), cross-ref TYPECHECKERS.md. Three
+  passes: syntactic (ESLint noCache/cache vs oxlint single run), type-aware (ts-eslint type-checked
+  vs `oxlint --type-aware`), layered (`eslint-plugin-oxlint` residual). A like-for-like parity FIXTURE
+  (5 curated rules) hard-fails unless BOTH flag exactly that set; the syntactic and type-aware passes
+  additionally hard-fail unless their seeded rules (no-var/eqeqeq; no-floating-promises) appear with
+  no fatal diagnostics, and EVERY timed run (incl. layered, whose residual may legitimately be 0)
+  hard-fails unless it exited with a lint code (0/1) and linted all `FILES` files — so a
+  misconfigured/no-op/partial run can't read as a fast number. Self-contained (OS temp dir, no worktree), load-guarded, versions
+  recorded → `bench/lint-bench.json`, writeup in TOOLING.md ("Lint: ESLint vs oxlint"); folded into
+  the README tool-comparison chart.
 - `node scripts/perf-matrix.mjs --apps <n> --libs <n>` — how `workspace:` spec form
   and node-linker choice move install time / footprint → `bench/perf-matrix.json`.
 - `node scripts/turbopack-bench.mjs` — `next build` vs `next build --turbopack` on
@@ -337,9 +357,9 @@ isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 it can't regenerate this run rather than deleting it (it exempts charts owned by another
 generator from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, typecheck, build,
-pnpm install-situations) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
+pnpm install-situations, lint) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
-(install / build / typechecker comparisons), `LIMITS.md` (what stays O(repo),
+(install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per

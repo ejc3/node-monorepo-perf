@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-06-29T06:56:25.821Z",
+  "env": {
+    "node": "v22.22.0",
+    "platform": "linux",
+    "cores": 64,
+    "os": "Linux 6.18.3-fcvm-8ee6c35df0e1"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 0.29,
+  "corpus": {
+    "files": 800,
+    "tsxFraction": 0.25
+  },
+  "versions": {
+    "eslint": "9.39.4",
+    "@eslint/js": "9.39.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.62.0",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-import": "2.32.0",
+    "eslint-plugin-unicorn": "56.0.1",
+    "eslint-plugin-promise": "7.3.0",
+    "eslint-plugin-n": "17.24.0",
+    "eslint-plugin-jsdoc": "50.8.0",
+    "eslint-plugin-oxlint": "1.71.0",
+    "oxlint": "1.71.0",
+    "oxlint-tsgolint": "0.23.0"
+  },
+  "findingsParity": {
+    "curatedRules": [
+      "no-debugger",
+      "no-var",
+      "eqeqeq",
+      "no-constant-condition",
+      "no-self-compare"
+    ],
+    "eslintFindings": 5,
+    "oxlintFindings": 5,
+    "eslintRuleNames": [
+      "eqeqeq",
+      "no-constant-condition",
+      "no-debugger",
+      "no-self-compare",
+      "no-var"
+    ],
+    "oxlintRuleNames": [
+      "eqeqeq",
+      "no-constant-condition",
+      "no-debugger",
+      "no-self-compare",
+      "no-var"
+    ],
+    "exactMatch": true
+  },
+  "syntactic": {
+    "note": "oxlint runs its FULL native set; ESLint runs the subset of oxlint-covered rules it can (registered plugin, non-type-checked). ESLint's set is smaller, so the ratio is conservative — oxlint checks more and is still faster. Times exclude a discarded warmup (steady-state, not disk-cold).",
+    "oxlintCoveredRuleCount": 850,
+    "eslintMatchedRuleCount": 524,
+    "oxlintActiveRuleCount": 567,
+    "oxlintFilesLinted": 800,
+    "eslint": {
+      "noCacheMs": 12032,
+      "cacheMs": 1923,
+      "findings": 22349,
+      "samples": [
+        12032,
+        12080,
+        11735
+      ]
+    },
+    "oxlint": {
+      "runMs": 190,
+      "findings": 18793,
+      "samples": [
+        190,
+        197,
+        188
+      ]
+    },
+    "eslintNoCacheVsOxlint": 63.3,
+    "eslintCacheVsOxlint": 10.1
+  },
+  "typeAware": {
+    "note": "ESLint = typescript-eslint type-checked rules (builds the TS program). oxlint = --type-aware (oxlint-tsgolint, alpha; 59/61 ts-eslint type-aware rules; needs TS7+) on its full config, so oxlint also runs its whole native set in that time — conservative. Both flag no-floating-promises.",
+    "eslint": {
+      "ms": 4489,
+      "findings": 2120,
+      "exit": 1,
+      "samples": [
+        4489,
+        4419,
+        4561
+      ]
+    },
+    "oxlint": {
+      "ms": 397,
+      "findings": 19313,
+      "exit": 0,
+      "samples": [
+        399,
+        397,
+        390
+      ]
+    },
+    "speedup": 11.3
+  },
+  "layered": {
+    "note": "ESLint recommended + typescript-eslint, with eslint-plugin-oxlint turning off oxlint-covered rules — the residual a team still needs ESLint for.",
+    "eslintResidualMs": 2511,
+    "residualFindings": 0,
+    "samples": [
+      2518,
+      2500,
+      2511
+    ]
+  }
+}

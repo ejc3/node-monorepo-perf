@@ -16,6 +16,7 @@ const TB = read("bench/typecheck-bench.json");
 const PAR = read("bench/typecheck-parity-bench.json");
 const BB = read("bench/build-bench.json");
 const IM = read("bench/install-modes-bench.json");
+const LB = read("bench/lint-bench.json");
 const byScale = Object.fromEntries(IB.scales.map((s) => [`${s.apps}x${s.libs}`, s]));
 const inst = (scale, tool, regime) => byScale[scale][tool][regime];
 
@@ -130,6 +131,27 @@ const SECTIONS = [
     ],
     source: "bench/install-modes-bench.json",
     note: "One tool, many situations: cheapest in green, others relative to it.",
+  },
+  {
+    title: `Lint — ESLint vs oxlint (${LB.corpus.files.toLocaleString("en-US")} files)`,
+    compareAxis: "row",
+    cols: [
+      { k: "eslint", label: "ESLint" },
+      { k: "oxlint", label: "oxlint" },
+    ],
+    rows: [
+      [
+        `syntactic (${LB.syntactic.eslintMatchedRuleCount} vs ${LB.syntactic.oxlintActiveRuleCount} rules)`,
+        { eslint: LB.syntactic.eslint.noCacheMs, oxlint: LB.syntactic.oxlint.runMs },
+      ],
+      [
+        "syntactic, ESLint --cache",
+        { eslint: LB.syntactic.eslint.cacheMs, oxlint: LB.syntactic.oxlint.runMs },
+      ],
+      ["type-aware", { eslint: LB.typeAware.eslint.ms, oxlint: LB.typeAware.oxlint.ms }],
+    ],
+    source: "bench/lint-bench.json",
+    note: "ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha).",
   },
 ];
 
