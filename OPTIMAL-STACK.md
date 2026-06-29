@@ -164,8 +164,8 @@ Next.js App Router apps at pinned commits and runs them through this repo's pinn
 
 **The config is the friction.** tsgo (TS7 preview) refuses to start on a real Next tsconfig: it
 errors — before type-checking anything — on options it has removed. commerce trips `baseUrl`,
-`moduleResolution: node`, `downlevelIteration` (139ms to bail); taxonomy trips `baseUrl`,
-`moduleResolution: node`, `target: es5` (273ms). Wiring a real app into tsgo therefore means
+`moduleResolution: node`, `downlevelIteration` (136ms to bail); taxonomy trips `baseUrl`,
+`moduleResolution: node`, `target: es5` (268ms). Wiring a real app into tsgo therefore means
 modernizing the config (drop those, `baseUrl`→`paths: {"*": ["./*"]}`, `moduleResolution: bundler`)
 and adding an ambient declaration for CSS/asset side-effect imports (the `*.css` decl that
 `next build` codegen normally supplies). After that, tsgo type-checks the real source.
@@ -184,15 +184,16 @@ runs after a warmup; bun install and turbo cold/warm are single runs; the synthe
 | app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm           |
 | --------------- | ----------- | ------------- | ----------------- | ------ | --------------------------- |
 | synthetic tiny  | 1 page      | —             | 168ms / 187MB     | ~60ms  | —                           |
-| vercel/commerce | 65 / 3.9k   | 553ms (76)    | **134ms** / 122MB | 62ms   | 189 → **56ms** (2/2 cached) |
-| shadcn/taxonomy | 125 / 7.5k  | 3381ms (1031) | **231ms** / 215MB | 66ms   | 288 → 289ms (1/2 cached)    |
+| vercel/commerce | 65 / 3.9k   | 543ms (76)    | **128ms** / 123MB | 62ms   | 190 → **56ms** (2/2 cached) |
+| shadcn/taxonomy | 125 / 7.5k  | 3370ms (1031) | **229ms** / 220MB | 79ms   | 290 → 293ms (1/2 cached)    |
 
 The per-app typecheck stayed in the low hundreds of ms for both apps, including the real 7.5k-LOC
 one. (It is not a controlled LOC curve: the synthetic number checks lib **source** in-program,
 while these real apps' deps are `skipLibCheck`'d `.d.ts` — `skipLibCheck` being the apps' own
 tsconfig setting, recorded per app — which is why a 3.9k-LOC real app can check faster than a
-synthetic one. The claim is only that all stay in the low hundreds of ms.) oxlint is ~60ms
-regardless — it does not read the tsconfig at all, so it takes no finagling.
+synthetic one. The claim is only that all stay in the low hundreds of ms.) oxlint is ~60–80ms
+regardless — it does not read the tsconfig at all, so it takes no finagling; it flags 6 warnings on
+commerce and 20 on taxonomy (0 errors), recorded in `bench/real-app-bench.json`.
 
 **The errors a standalone run surfaces are real, not tsgo faults.** commerce is **0 errors**.
 taxonomy reports **13**: 7 are `TS2307` "cannot find module" for the codegen this bench doesn't run
@@ -201,7 +202,7 @@ taxonomy reports **13**: 7 are `TS2307` "cannot find module" for the codegen thi
 (`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`, across
 `alert-dialog`/`dialog`/`sheet`), so it no longer type-checks against the dependency
 versions that resolve at install time (`TS2339`/`TS2322`). Both are findings about the app, surfaced
-in 231ms; sample diagnostic lines for each code are recorded in `bench/real-app-bench.json`.
+in 229ms; sample diagnostic lines for each code are recorded in `bench/real-app-bench.json`.
 
 **Turbo caches a real app's checks** — commerce warm-hits both tasks (2/2 cached, 56ms); taxonomy
 caches only the passing lint (1/2), because turbo does not cache the red typecheck until it goes

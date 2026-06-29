@@ -66,21 +66,38 @@ function timedBuild() {
   const rss = (stats.match(/Maximum resident set size[^:]*:\s*(\d+)/) || [])[1];
   return { ms, cpuPct: cpu ? +cpu : null, rssMB: rss ? Math.round(+rss / 1024) : null };
 }
-function outputBytes(glob) {
-  const r = spawnSync(
-    "bash",
-    [
-      "-c",
-      `find apps -mindepth 2 -maxdepth 2 -type d -name '${glob}' -exec du -sb {} + 2>/dev/null | awk '{s+=$1} END {print s+0}'`,
-    ],
-    { cwd: REPO, encoding: "utf8" },
-  );
-  const n = parseInt((r.stdout || "0").trim(), 10) || 0;
-  if (n === 0)
+// Sum the shipped build output across apps/*/<glob>. For Next we subtract apps/*/.next/cache — the
+// persistent build cache, which is NOT a deployment artifact (turbo.json itself excludes it via
+// "!.next/cache/**"). Counting it would inflate Next's "output" against Vite's cache-free dist
+// (Vite's cache lives in node_modules/.vite) and make the cross-framework size ratio not
+// like-for-like. excludeChild is matched at exactly one level below <glob> (path
+// "*/<glob>/<excludeChild>"), so only the top-level .next/cache is removed, not any nested dir.
+function outputBytes(glob, excludeChild) {
+  const sumBytes = (findExpr) => {
+    const r = spawnSync(
+      "bash",
+      [
+        "-c",
+        `find apps -mindepth 2 ${findExpr} -exec du -sb {} + 2>/dev/null | awk '{s+=$1} END {print s+0}'`,
+      ],
+      { cwd: REPO, encoding: "utf8" },
+    );
+    return parseInt((r.stdout || "0").trim(), 10) || 0;
+  };
+  const total = sumBytes(`-maxdepth 2 -type d -name '${glob}'`);
+  if (total === 0)
     throw new Error(`no build output found for apps/*/${glob} (build produced nothing?)`);
+  const excluded = excludeChild
+    ? sumBytes(`-mindepth 3 -maxdepth 3 -type d -path '*/${glob}/${excludeChild}'`)
+    : 0;
+  const n = total - excluded;
+  if (n <= 0)
+    throw new Error(
+      `apps/*/${glob} net output is ${n}B after excluding ${excludeChild} (cache larger than output? measurement broken)`,
+    );
   return n;
 }
-function benchOne(framework, glob) {
+function benchOne(framework, glob, excludeChild) {
   run(
     "node",
     [
@@ -100,10 +117,10 @@ function benchOne(framework, glob) {
   run("pnpm", ["install", "--config.confirm-modules-purge=false"], "install");
   rmSync(join(REPO, ".turbo"), { recursive: true, force: true });
   const t = timedBuild();
-  return { framework, ...t, outputBytes: outputBytes(glob) };
+  return { framework, ...t, outputBytes: outputBytes(glob, excludeChild) };
 }
 
-const next = benchOne("next", ".next");
+const next = benchOne("next", ".next", "cache");
 console.log(
   `next: ${next.ms}ms, ${next.cpuPct}%cpu, output ${(next.outputBytes / 1e6).toFixed(1)}MB`,
 );

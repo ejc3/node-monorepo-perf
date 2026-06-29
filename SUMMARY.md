@@ -131,12 +131,12 @@ medians of 3, bun install and turbo single runs):
 
 | app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm       |
 | --------------- | ----------- | ------------- | ----------------- | ------ | ----------------------- |
-| vercel/commerce | 65 / 3.9k   | 553ms (76)    | **134ms** / 122MB | 62ms   | 189 → **56ms** (2 of 2) |
-| shadcn/taxonomy | 125 / 7.5k  | 3381ms (1031) | **231ms** / 215MB | 66ms   | 288 → 289ms (1 of 2)    |
+| vercel/commerce | 65 / 3.9k   | 543ms (76)    | **128ms** / 123MB | 62ms   | 190 → **56ms** (2 of 2) |
+| shadcn/taxonomy | 125 / 7.5k  | 3370ms (1031) | **229ms** / 220MB | 79ms   | 290 → 293ms (1 of 2)    |
 
 The per-app typecheck stayed in the low hundreds of ms for both apps, including the real 7.5k-LOC
 one. The friction is config, not speed: **tsgo (a preview) refuses to start on a
-real Next tsconfig**, erroring in 139–273ms on options it has removed (both apps trip `baseUrl` and
+real Next tsconfig**, erroring in 136–268ms on options it has removed (both apps trip `baseUrl` and
 `moduleResolution: node`; commerce also `downlevelIteration`, taxonomy also `target: es5`); wiring a
 real app in means modernizing the config and adding an ambient `*.css` declaration. The finagled
 program checks the app's hand-written source, not its `next build`-generated types, so it is the

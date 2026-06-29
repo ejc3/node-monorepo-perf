@@ -83,7 +83,7 @@
   "trulyCold": {
     "apps": 200,
     "libs": 100,
-    "pnpmHoistedMs": 48937,
-    "bunMs": 1192
+    "pnpmHoistedMs": 23635,
+    "bunMs": 3083
   }
 }

@@ -272,7 +272,11 @@ function lifecycleRegistry(tool) {
   let blocked, signal;
   if (tool === "pnpm") {
     // pnpm self-reports a blocked script as "Ignored build scripts: ...esbuild" in the install output.
-    blocked = /Ignored build scripts:[^\n]*esbuild/i.test(r.out);
+    // Detect the block from the header alone (as A1 does); pnpm wraps long names onto following lines,
+    // so confirm esbuild with [\s\S] (esbuild is the sole dep here) — a wrapped name must not read as
+    // "not blocked".
+    blocked =
+      /Ignored build scripts/i.test(r.out) && /Ignored build scripts[\s\S]*esbuild/i.test(r.out);
     signal = (r.out.match(/Ignored build scripts:[^\n]*/i) || ["(none)"])[0].trim();
   } else {
     // bun lists every script it blocked under `bun pm untrusted`; absence there is bun's report that it
@@ -365,7 +369,13 @@ const mismatchDeps = { [ISODD]: "3.0.0", oddplugin: `file:${oddTgz}` };
 const mmBun = peerCase("bun", mismatchDeps, BUN_NPMRC, false);
 const mmPnpm = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, false);
 const mmPnpmStrict = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, true);
-// bun strict-peer: try all three plausible fail-closed knobs; "has knob" iff ANY flips the exit non-zero.
+// bun strict-peer: try all three plausible fail-closed knobs; "has knob" iff ANY fails closed for a
+// PEER reason. failedClosed must be ATTRIBUTABLE to the peer mismatch — a non-zero exit from a
+// resolve/parse/network error is not bun "failing closed on peers" — so require a peer marker in the
+// output AND that it is not such an error, else an unrelated bun failure would falsely read as a knob.
+const PEER_MARKER = /peer/i;
+const NON_PEER_INSTALL_ERR =
+  /ENOTFOUND|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|getaddrinfo|ENOENT|EACCES|JSONParse|SyntaxError|failed to (download|fetch)/i;
 const bunStrictMechs = [
   { mech: "npm_config_strict_peer_dependencies (env)", npmrc: BUN_NPMRC, env: true, files: {} },
   {
@@ -387,7 +397,8 @@ const bunStrictMechs = [
     c.npmrc,
   );
   const r = install.bun(dir, c.env ? { npm_config_strict_peer_dependencies: "true" } : {});
-  return { mech: c.mech, exit: r.code, failedClosed: r.code !== 0 };
+  const failedClosed = r.code !== 0 && PEER_MARKER.test(r.out) && !NON_PEER_INSTALL_ERR.test(r.out);
+  return { mech: c.mech, exit: r.code, failedClosed };
 });
 const bunHasStrictPeerKnob = bunStrictMechs.some((x) => x.failedClosed);
 // missing peer: consumer declares only the plugin — both auto-install it at their defaults
@@ -652,7 +663,7 @@ if (
   );
 if (
   result.peerDependencies.mismatch.bunStrict.hasKnob === false &&
-  result.peerDependencies.mismatch.pnpmStrict.exit !== 0
+  result.peerDependencies.mismatch.pnpmStrict.error
 )
   bunDownsides.push(
     "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1)",

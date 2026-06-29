@@ -1,0 +1,88 @@
+name: charts
+
+# Keeps the committed tool-comparison chart in sync with the bench data, and keeps the high-resolution
+# PNG (linked from the README) freshly rendered rather than hand-maintained.
+#
+# The SVG is a deterministic function of the cited bench/*.json, so it is byte-gated: change a bench
+# dataset without re-rendering and CI fails. The PNG is a raster of that SVG whose exact bytes depend
+# on the ImageMagick version, so it is NOT byte-gated across environments. Instead the job deletes the
+# committed PNG and re-renders it (via scripts/comparison-chart.mjs, which writes the SVG and PNG
+# together): if `convert` fails the PNG is absent and the validation step fails (a convert failure
+# can't pass a stale PNG), and on a push to main the freshly-rendered PNG is committed back, so the
+# committed raster always tracks the gated SVG instead of relying on a contributor to re-render it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bench/*.json"
+      - "bench/charts/tool-comparison.svg"
+      - "bench/charts/tool-comparison.png"
+      - "scripts/comparison-chart.mjs"
+      - ".github/workflows/charts.yml"
+  pull_request:
+    paths:
+      - "bench/*.json"
+      - "bench/charts/tool-comparison.svg"
+      - "bench/charts/tool-comparison.png"
+      - "scripts/comparison-chart.mjs"
+      - ".github/workflows/charts.yml"
+
+permissions:
+  contents: write # the commit-refreshed-PNG step pushes to main (no-op on pull_request)
+
+jobs:
+  comparison-chart:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install ImageMagick + librsvg (SVG raster delegate)
+        run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
+
+      - name: Re-render the chart (delete the PNG first so a convert failure can't pass a stale one)
+        run: |
+          rm -f bench/charts/tool-comparison.png
+          node scripts/comparison-chart.mjs
+
+      - name: Fail if the committed SVG drifted from the bench data
+        run: |
+          if ! git diff --exit-code -- bench/charts/tool-comparison.svg; then
+            echo "::error::bench/charts/tool-comparison.svg is out of date. Run 'make comparison-chart' and commit the result."
+            exit 1
+          fi
+
+      - name: Require a freshly-rendered PNG (absent => convert failed)
+        run: |
+          test -s bench/charts/tool-comparison.png || { echo "::error::convert did not produce a PNG"; exit 1; }
+          dims=$(identify -format '%wx%h %m' bench/charts/tool-comparison.png)
+          echo "PNG: $dims"
+          case "$dims" in
+            *" PNG") ;;
+            *) echo "::error::not a PNG: $dims"; exit 1 ;;
+          esac
+
+      - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if ! git diff --quiet -- bench/charts/tool-comparison.png; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add bench/charts/tool-comparison.png
+            git commit -m "CI: re-render tool-comparison.png from the SVG [skip ci]"
+            # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
+            # the build (the PNG was still validated above; refresh it locally with make comparison-chart).
+            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart' and commit it"
+          fi
+
+      - name: Upload the freshly-rendered PNG (PR builds)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tool-comparison-png
+          path: bench/charts/tool-comparison.png
+          if-no-files-found: error

@@ -302,6 +302,10 @@ function turbo(task, filter, { warm } = {}) {
   if (!tm || !cm) throw new Error(`could not parse turbo summary: ${cmd}\n${out.slice(-1500)}`);
   const total = +tm[2];
   const cached = +cm[1];
+  if (total === 0)
+    throw new Error(
+      `turbo selected no tasks (a no-op gate reads as a clean 0): ${cmd}\n${out.slice(-1500)}`,
+    );
   if (!warm && cached !== 0)
     throw new Error(`expected a cold run but ${cached}/${total} were cached: ${cmd}`);
   if (warm && cached !== total)

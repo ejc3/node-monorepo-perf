@@ -5,15 +5,15 @@
   "pnpm": "10.29.1",
   "next": "Next.js v16.2.9",
   "nextBuild": {
-    "ms": 2623,
-    "bundleBytes": 3901046,
-    "dotNextBytes": 3901410,
+    "ms": 2605,
+    "bundleBytes": 3901006,
+    "dotNextBytes": 3901370,
     "bundlerReported": "turbopack"
   },
   "nextBuildTurboFlag": {
-    "ms": 2686,
-    "bundleBytes": 3901046,
-    "dotNextBytes": 3901410,
+    "ms": 2606,
+    "bundleBytes": 3901006,
+    "dotNextBytes": 3901370,
     "bundlerReported": "turbopack"
   },
   "bothTurbopack": true,

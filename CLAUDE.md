@@ -385,7 +385,15 @@ isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 it can't regenerate this run rather than deleting it (it exempts charts owned by another
 generator from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, typecheck, build,
-pnpm install-situations, lint) from the comparison benches, embedded in the README. Docs: `README.md` (overview +
+pnpm install-situations, lint) from the comparison benches, embedded in the README, and in the same step
+rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
+linked below the SVG) so a chart regeneration regenerates both — `make comparison-chart` regenerates both.
+The `.github/workflows/charts.yml` CI job re-renders both from the committed bench data and byte-gates the
+SVG (deterministic) against drift; for the PNG (whose bytes are ImageMagick-version dependent, so not
+byte-gated) it deletes the committed PNG before re-rendering (a `convert` failure then leaves it absent and
+fails the validation step rather than passing a stale one) and, on a push to `main`, commits the
+freshly-rendered PNG back — so the committed raster tracks the gated SVG instead of relying on a contributor
+to re-render it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
@@ -438,7 +446,7 @@ where it applies — not all are universal (noted inline):
 - **Warm-store, comparable installs.** The install-comparison benches
   (`install-bench`, `lockfile-bench`, `axis-bench`, `perf-matrix`) pre-warm the
   package store before measuring, so "warm" means warm-store; `install-bench`'s
-  "truly-cold" pass uses a fresh store + network.
+  "truly-cold" pass uses a fresh store + fresh metadata cache + network.
 - **Source must be visible to Turbo.** The generated apps/packages are gitignored,
   and Turbo respects `.gitignore` for input hashing — so without intervention it
   hashes nothing, making warm-cache and edit-rebuild numbers false cache hits and

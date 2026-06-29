@@ -156,6 +156,15 @@ function importMethod(ws) {
   return "copy (or reflink not detectable via filefrag)";
 }
 
+// Native materialization for a filesystem (and for an operator label that names
+// one): btrfs reflinks (CoW), every other hardlink-capable fs hardlinks. Keyed
+// to the same btrfs special-case the footprint accounting above uses.
+const nativeMethod = (fs) => (fs === "btrfs" ? "reflink" : "hardlink");
+// Reduce an importMethod() string to its kind; anything else (copy/unknown) is a
+// degenerate fallback.
+const methodKind = (m) =>
+  m.startsWith("reflink") ? "reflink" : m.startsWith("hardlink") ? "hardlink" : "copy";
+
 const out = { apps: APPS, libs: LIBS, targets: [] };
 for (const { label, root } of TARGETS) {
   if (!existsSync(root)) {
@@ -171,6 +180,13 @@ for (const { label, root } of TARGETS) {
     mkdirSync(store, { recursive: true });
     const fstype = fsType(root);
     console.log(`\n# ${label} (${fstype}) at ${root}`);
+    // The label must name the measured fstype's regime; a mislabeled target
+    // (e.g. an "ext4" label on a btrfs mount) is not a like-for-like datapoint.
+    if (nativeMethod(label) !== nativeMethod(fstype))
+      throw new Error(
+        `target "${label}" at ${root} is ${fstype} (${nativeMethod(fstype)} regime) — ` +
+          `relabel it to match the mount`,
+      );
 
     setup(ws);
     // Warm the store (fetch + first materialize). Discarded — network is FS-independent.
@@ -221,6 +237,14 @@ for (const { label, root } of TARGETS) {
     ) {
       method = `reflink (CoW; ${(btrfsExclusiveBytes / 1e6).toFixed(1)}MB exclusive of ${(apparentBytes / 1e6).toFixed(0)}MB apparent → shared with store)`;
     }
+    // The comparison IS reflink-vs-hardlink: the detected materialization must be
+    // the fstype's native method, else a silent copy/hardlink fallback would read
+    // as a clean datapoint.
+    if (methodKind(method) !== nativeMethod(fstype))
+      throw new Error(
+        `${label} (${fstype}) at ${root}: expected ${nativeMethod(fstype)} but materialized as ` +
+          `"${method}" — a silent fallback is not a like-for-like datapoint`,
+      );
     const storeBytes = statInt(`du -sb ${JSON.stringify(store)} | awk '{print $1}'`);
 
     const rec = {
@@ -246,6 +270,16 @@ for (const { label, root } of TARGETS) {
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+}
+
+// Two targets must actually differ (reflink vs hardlink), else it is not a
+// comparison.
+if (out.targets.length >= 2) {
+  const kinds = new Set(out.targets.map((t) => methodKind(t.importMethod)));
+  if (kinds.size < 2)
+    throw new Error(
+      `all targets materialized via ${[...kinds].join(", ")} — fs-bench compares reflink vs hardlink`,
+    );
 }
 
 mkdirSync(join(REPO, "bench"), { recursive: true });

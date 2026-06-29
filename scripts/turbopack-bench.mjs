@@ -75,6 +75,21 @@ setup();
 // build the app's closure once (libs emit dist that the app imports)
 sh(TURBO, ["run", "build", `--filter=${target}...`, "--output-logs=errors-only"]);
 
+function detectBundler(out) {
+  // Next prints a version banner like "▲ Next.js 16.2.9 (Turbopack)"; the bundler marker on that
+  // banner line is the authoritative signal. Anchor to the VERSION banner specifically (a "Next.js"
+  // followed by a version number), not any line mentioning "Next.js" (e.g. a "reserved Next.js
+  // pages" warning) and not a bare substring of the whole log that the echoed --turbopack flag could
+  // trip. Require an EXPLICIT marker and return null otherwise: a banner that names neither bundler
+  // is an unrecognized format the caller throws on — never default to "webpack", which would let a
+  // marker-less Turbopack build read as webpack and record a spurious webpack-vs-turbopack speedup.
+  const banner = out.split("\n").find((line) => /Next\.js\s+v?\d/i.test(line));
+  if (!banner) return null;
+  if (/turbopack/i.test(banner)) return "turbopack";
+  if (/webpack/i.test(banner)) return "webpack";
+  return null;
+}
+
 function build(turbopack) {
   rmSync(join(appDir, ".next"), { recursive: true, force: true });
   const args = ["build", ...(turbopack ? ["--turbopack"] : [])];
@@ -87,12 +102,17 @@ function build(turbopack) {
   const cache = existsSync(cacheDir)
     ? statInt(`du -sb ${JSON.stringify(cacheDir)} | awk '{print $1}'`)
     : 0;
-  const usedTurbopack = /turbopack/i.test(out);
+  const bundlerReported = detectBundler(out);
+  if (!bundlerReported)
+    throw new Error(
+      `\`next ${args.join(" ")}\` — could not identify the bundler from Next's banner ` +
+        `(no Turbopack/webpack marker); update turbopack-bench's detectBundler for this Next version`,
+    );
   return {
     ms,
     bundleBytes: total - cache,
     dotNextBytes: total,
-    bundlerReported: usedTurbopack ? "turbopack" : "webpack",
+    bundlerReported,
   };
 }
 
@@ -111,8 +131,16 @@ const out = {
   nextBuild, // `next build`
   nextBuildTurboFlag, // `next build --turbopack`
 };
+// Declare the no-op only on a real no-op: both banners report Turbopack AND the shipped
+// output is byte-identical. Compare bundleBytes (.next minus the non-shipped build cache),
+// not dotNextBytes — .next/cache is the least-deterministic part of a build, so two genuine
+// Turbopack builds can differ there by a few bytes; the shipped bundle is what "identical
+// output" means. Either signal alone is insufficient — a banner match without identical
+// output isn't a no-op, and identical bytes without a banner match could be two degenerate builds.
 out.bothTurbopack =
-  nextBuild.bundlerReported === "turbopack" && nextBuildTurboFlag.bundlerReported === "turbopack";
+  nextBuild.bundlerReported === "turbopack" &&
+  nextBuildTurboFlag.bundlerReported === "turbopack" &&
+  nextBuild.bundleBytes === nextBuildTurboFlag.bundleBytes;
 if (out.bothTurbopack) {
   // No webpack production path on Next 16 → no meaningful webpack-vs-turbopack ratio.
   out.note =
@@ -120,6 +148,18 @@ if (out.bothTurbopack) {
   out.buildSpeedup = null;
   out.bundleSizeDeltaPct = null;
 } else {
+  // A webpack-vs-turbopack ratio is only meaningful as a real contrast: exactly
+  // one build reported Turbopack AND the output differs. Anything else would be a
+  // vacuous speedup over two equivalent runs — refuse it instead of recording it.
+  const turbopackCount = [nextBuild, nextBuildTurboFlag].filter(
+    (b) => b.bundlerReported === "turbopack",
+  ).length;
+  if (turbopackCount !== 1 || nextBuild.bundleBytes === nextBuildTurboFlag.bundleBytes)
+    throw new Error(
+      `refusing a webpack-vs-turbopack ratio that isn't a real contrast: bundlers ` +
+        `${nextBuild.bundlerReported}/${nextBuildTurboFlag.bundlerReported}, bundle ` +
+        `${nextBuild.bundleBytes}/${nextBuildTurboFlag.bundleBytes} bytes`,
+    );
   out.buildSpeedup =
     nextBuildTurboFlag.ms > 0 ? +(nextBuild.ms / nextBuildTurboFlag.ms).toFixed(2) : null;
   out.bundleSizeDeltaPct =

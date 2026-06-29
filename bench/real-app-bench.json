@@ -1,6 +1,6 @@
 {
   "cores": 64,
-  "preRunLoadAvg1": 0.87,
+  "preRunLoadAvg1": 0.23,
   "samples": 3,
   "versions": {
     "bun": "1.3.14",
@@ -25,7 +25,7 @@
       },
       "install": {
         "tool": "bun",
-        "ms": 553,
+        "ms": 543,
         "packages": 76
       },
       "finagle": {
@@ -35,7 +35,7 @@
           "downlevelIteration",
           "moduleResolution=node"
         ],
-        "asisMs": 139,
+        "asisMs": 136,
         "asisExit": 1,
         "skipLibCheck": true,
         "include": [
@@ -50,13 +50,13 @@
         ]
       },
       "tsgo": {
-        "ms": 134,
+        "ms": 128,
         "samples": [
-          134,
-          135,
-          133
+          133,
+          127,
+          128
         ],
-        "rssMB": 122,
+        "rssMB": 123,
         "typeErrors": 0,
         "errorCodes": {},
         "errorSample": []
@@ -65,15 +65,16 @@
         "version": "1.71.0",
         "ms": 62,
         "samples": [
-          62,
-          67,
-          58
+          71,
+          58,
+          62
         ],
-        "warnings": 0,
-        "errors": 0
+        "warnings": 6,
+        "errors": 0,
+        "files": 67
       },
       "turbo": {
-        "coldMs": 189,
+        "coldMs": 190,
         "warmMs": 56,
         "coldCached": 0,
         "cached": 2,
@@ -90,7 +91,7 @@
       },
       "install": {
         "tool": "bun",
-        "ms": 3381,
+        "ms": 3370,
         "packages": 1031
       },
       "finagle": {
@@ -100,7 +101,7 @@
           "moduleResolution=node",
           "target=es5"
         ],
-        "asisMs": 273,
+        "asisMs": 268,
         "asisExit": 1,
         "skipLibCheck": true,
         "include": [
@@ -115,13 +116,13 @@
         ]
       },
       "tsgo": {
-        "ms": 231,
+        "ms": 229,
         "samples": [
-          231,
-          231,
-          233
+          229,
+          213,
+          231
         ],
-        "rssMB": 215,
+        "rssMB": 220,
         "typeErrors": 13,
         "errorCodes": {
           "error TS2307": 7,
@@ -142,18 +143,19 @@
       },
       "oxlint": {
         "version": "1.71.0",
-        "ms": 66,
+        "ms": 79,
         "samples": [
-          73,
-          66,
-          62
+          60,
+          79,
+          90
         ],
-        "warnings": 0,
-        "errors": 0
+        "warnings": 20,
+        "errors": 0,
+        "files": 132
       },
       "turbo": {
-        "coldMs": 288,
-        "warmMs": 289,
+        "coldMs": 290,
+        "warmMs": 293,
         "coldCached": 0,
         "cached": 1,
         "total": 2
