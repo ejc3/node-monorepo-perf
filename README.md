@@ -186,6 +186,8 @@ bun and tsgo win their head-to-heads, but the margin depends on the regime. A fu
 
 ![tooling head-to-head: install (bun vs pnpm), typecheck (tsc vs tsgo), build (Next vs Vite), pnpm install situations, and lint (ESLint vs oxlint)](bench/charts/tool-comparison.svg)
 
+> High-resolution raster of the chart above (300 DPI, for slides/printing): [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
+
 | area | headline finding | docs |
 |---|---|---|
 | **Install cost** | pnpm cold install is resolve-bound and ~linear: 48.8s → 476.8s (200 → 2,000 apps). bun installs the same dependency set 58–440× faster. The cold resolve is rare when the lockfile is committed: at 1,000 apps a frozen install is 7–9s and a one-dependency change ~10s; only a missing lockfile pays the full cold install (~16 min at 4,000 apps), which the resolve dominates (98% at 2,000 apps, the largest scale measured). | [FEASIBILITY](FEASIBILITY.md), [TOOLING](TOOLING.md) |
