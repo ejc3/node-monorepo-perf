@@ -164,3 +164,87 @@ A like-for-like parity proof gates the run: a fixture seeded with five rules bot
 
 **What ESLint is still for.** Run `eslint-plugin-oxlint` to turn off the rules oxlint covers, and ESLint lints only the *residual* — rules with no oxlint port. On this corpus the residual found **0** (its seeded violations are all oxlint-covered). In practice that residual is the handful of plugin rules oxlint has not ported yet; the layered setup — oxlint on the hot path, a thin ESLint pass for the rest — is the migration path, and with the type-aware alpha covering 59/61 type-aware rules it keeps shrinking.
 
+
+## Vite+ (`vp`): the task runner and tool layer, priced (`scripts/vite-task-bench.mjs`, `scripts/vite-plus-tools-bench.mjs`)
+
+Vite+ is VoidZero's unified toolchain CLI — one `vp` binary wrapping Rolldown-powered Vite,
+Vitest, Oxlint, and **Vite Task**, a Rust monorepo task runner that competes directly with
+Turborepo. It went MIT with the March 2026 alpha and stayed MIT through Cloudflare's
+acquisition of VoidZero ([beta announcement](https://voidzero.dev/posts/announcing-vite-plus-beta),
+[license](https://voidzero.dev/posts/voidzero-cloudflare)); v0.2.2 (beta) is measured here.
+Remote caching is on its 1.0 roadmap and unshipped, so nothing below compares against
+`ci-cache-bench`'s remote-restore economics.
+
+### Task orchestration: Vite Task vs Turborepo (`bench/vite-task-bench.json`)
+
+The two runners execute the identical dep-free `typecheck:tsgo` task set (same generated
+DAG, same tsgo binary, same pnpm-installed tree, concurrency pinned to 64 on both,
+cold/warm asserted from each runner's own summary). The mechanism difference is the
+finding: turbo hashes **declared inputs** and respects `.gitignore` (its rungs run under
+the source-visibility workaround); Vite Task **fs-traces what each task actually reads**
+(LD_PRELOAD/seccomp) — it cached the fully gitignored generated tree with zero config
+(probed with `git check-ignore`, all-cached warm asserted).
+
+| rung (whole repo / focused) | turbo 2.9.18 | vp 0.2.2 |
+|---|---|---|
+| whole cold, 300:100 (400 tasks) | **8.7s** | 27.0s (~3.1× — tracing overhead is per-task) |
+| whole cold, 1,000:200 (1,200 tasks) | **31.5s** | 117.3s (~3.7×) |
+| whole warm, 300:100 / 1,000:200 | **1.8s / 5.0s** | 3.7s / 10.8s (~2×) |
+| focused cold (one app + closure) | 2.2s / 3.4s | **1.8s / 1.8s** |
+| focused warm, 300:100 / 1,000:200 | 1.2s / 3.0s | **0.85s / 0.86s** |
+| whole-repo `test` (node --test), cold / warm at 1,000:200 | 15.3s / 4.9s | **12.9s / 0.95s** |
+
+The split is clean. Whole-repo typecheck, turbo wins by 2–3.7×: vp pays fs-tracing and
+fingerprint verification per task, and that cost scales with each task's traced read set
+(the tsgo tasks read their whole source closure; the tiny `test` tasks read almost
+nothing, and there vp's warm whole-repo run is 5× *faster* than turbo's). Focused, vp
+wins and stays **flat across a 3× repo growth** (400 → 1,200 tasks; 0.85s → 0.86s) while turbo's focused
+warm grows with the repo (1.2s → 3.0s — the graph-load + hashing floor LIMITS.md
+documents as O(repo)); vp's focused loop behaves O(closure).
+
+**Cache correctness on a cross-package edit** (1,000:200, both caches warm, one lib
+source file edited): vp recomputed exactly the 559 tasks whose traced reads contain the
+edited file — correct closure invalidation with zero task configuration. turbo recomputed
+1 of 1,200 — only the edited lib, its 558 dependents left stale — because with the
+dep-free task shape both runners compare on, turbo's package-scoped input hashing has no
+cross-package edge to propagate through. That is a structural property of the shape, not
+a turbo bug: turbo's native mechanisms are `dependsOn: ["^build"]` (propagates through
+the build chain, at the price of scheduling builds) or `globalDependencies` (invalidates
+everything); per-dependent propagation without one of those is not expressible.
+
+**The tracer's boundary — self-mutating tasks:** vp refuses to cache any task that
+writes a file it also read. `next build` is structurally uncacheable under vp (recorded:
+`Not cached: read and wrote 'apps/app-0501/.next/server/chunks/...'`), and `vite build`
+hits the same refusal under the task cache — while turbo caches the same Next build via
+declared outputs (cold 11.0s → warm 3.6s for one app's closure). `tsc --noEmit` with
+`incremental: true` is likewise refused (it rewrites its own `.tsbuildinfo`); the bench
+strips `incremental` so the compared task is side-effect-clean on both runners.
+
+### The tool layer: `vp check` and `vp build` (`bench/vite-plus-tools-bench.json`)
+
+**`vp check --no-fmt`** (oxlint + tsgolint type errors in one pass) vs the same pinned
+engines run separately, on a 920-file source-only corpus (positive control: all engines
+flag a seeded type error; file counts asserted per run for vp check and oxlint, the tsgo
+program's corpus completeness once via an untimed `--listFiles` pass):
+
+| invocation | median |
+|---|---|
+| `vp check --no-fmt` (one pass) | 2.44s |
+| `oxlint --type-aware --type-check` (identical engines, standalone) | **1.88s** |
+| this repo's gate shape: `oxlint` + one whole-program `tsgo --noEmit` | **0.77s** (0.34 + 0.43) |
+
+The one-pass wrapper is *slower* than its own engines run standalone, and 3.2× slower
+than the optimal-gate shape (a different type-check model — one tsgo program over lib
+source vs per-file typed lint — reported as context, not like-for-like).
+
+**`vp build` vs `vite build`** on one generated Vite app (40:24): byte-identical `dist`
+(pnpm resolved the core's vite range to the same 8.0.16), so the 856ms-vs-546ms delta is
+the `vp` wrapper itself (~1.6×). The task-cached build (`vp run --cache build`) is
+refused for input modification — the same tracer boundary as Next.
+
+Net: on this repo's stack the Vite+ integration layer costs time at every measured point
+except the focused loop (cold and warm, both scales) and small-read-set tasks, where Vite Task's O(closure)
+behavior beats turbo's O(repo) warm floor — and its fs-traced cache is the first measured
+runner that is both correct on gitignored source with zero config and correct on
+cross-package edits with zero task config, at the price of refusing self-mutating tasks
+(both frameworks' bundler builds) and 2–3.7× whole-repo cold/warm overhead.

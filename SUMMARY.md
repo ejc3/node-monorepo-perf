@@ -124,7 +124,14 @@ Two operations are genuinely O(repo) and cannot be scoped away:
   `bench/pnp-compat-bench.json`); the node-modules linker has no such boundary. As a
   rollout driver yarn is vetted alongside bun and pnpm — all five mechanics native,
   including a CI auto-immutable default bun lacks (`bench/yarn-rollout-bench.json`,
-  [ROLLOUT.md](ROLLOUT.md)).
+  [ROLLOUT.md](ROLLOUT.md)). Vite+'s task runner is priced against turbo on identical
+  task sets: turbo wins the whole-repo typecheck by 2–3.7× (the small-read-set test axis
+  flips to vp), Vite Task wins the focused warm loop and stays flat across 3× repo
+  growth (0.86s vs turbo's 3.0s at 1,000 apps) with an
+  fs-traced cache that invalidates cross-package edits correctly with zero config — but
+  it cannot cache `next build`, and `vp check`/`vp build` cost more than the tools they
+  wrap (`bench/vite-task-bench.json`, `bench/vite-plus-tools-bench.json`,
+  [TOOLING.md](TOOLING.md)).
 - **A whole-repo dist build** (release-everything) scales with package count.
 
 The whole-repo **build and typecheck** are **amortized across a CI fleet by a remote cache** — install is amortized separately (warm store + committed lockfile, above), not by Turborepo's cache. Every runner starts with an empty local cache, but after the first seeds the shared cache, each later runner *restores* turbo's task outputs instead of recomputing: a whole-repo typecheck drops 23.6s → 1.9s (12.5×) at 300:100 and 67.2s → 5.9s (11.4×) at 1,000:200, a build 62.7s → 4.0s (15.5×) at 300:100 (a single cold sample) (`bench/ci-cache-bench.json`, restore measured over a localhost cache — a real network adds each runner's download, ≤0.5 MB for a typecheck but 247 MB for a build). Restore is itself O(repo) — it skips task execution but still pays Turbo's graph-load + hashing (≈ the warm-cache floor) — so the speedup holds near 11–12× as the repo grows rather than widening, while the absolute time saved grows (≈22s → 61s). Across a 10-runner fleet building the same closure the per-runner cost amortizes ~5.6× (1,000:200 typecheck basis; a real fleet builds different commits, so less). The cache helps only the second-and-later consumer of an *unchanged* artifact — a leaf edit lets a fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500.
