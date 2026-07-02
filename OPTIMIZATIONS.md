@@ -30,7 +30,7 @@ nodeLinker: isolated   # default — strict, deduped, symlink farm
 # nodeLinker: pnp      # NO node_modules at all; eliminates the inode cost, highest tooling risk
 ```
 - Use **`hoisted`** for symlink-incompatible tooling (some bundlers, RN, certain serverless packagers).
-- Use **`pnp`** (+ `symlink: false`) to kill the symlink farm entirely when your toolchain tolerates Plug'n'Play.
+- Use **`pnp`** (+ `symlink: false`) to kill the symlink farm entirely when your toolchain tolerates Plug'n'Play. The PnP layout's footprint is measured via yarn 4 (the same layout contract, `install-bench.json`): 64 materialized entries (unplugged native packages) plus a 0.8–3.5 MB `.pnp.cjs` at 200–2,000 apps; pnpm's own pnp linker is not measured here.
 
 ### 1.2 `package-import-method` on copy-on-write filesystems
 How files land in `node_modules`. The default `auto` tries reflink clone → hardlink → copy. Measured here on both filesystems (`scripts/fs-bench.mjs`, `bench/fs-bench.json`; 300 apps / 100 libs, warm store): on **ext4** pnpm **hardlinks** into `node_modules` (shared inode with the store); on **btrfs** it **reflinks** (CoW clone) — confirmed by `btrfs filesystem du`, which shows `node_modules` holding only **0.4 MB exclusive of 338 MB apparent** (≈100% shared extents with the store). Warm-store relink time (a forced `--offline` install, so it's pure store→`node_modules` materialization) was equal within noise: ext4 2.9s vs btrfs 3.1s. The CoW path costs nothing extra and gives independent inodes, so a file edited in `node_modules` can't corrupt the store the way a hardlink can. No configuration needed; forcing `clone` only matters if detection is wrong.
@@ -213,7 +213,7 @@ Verified here (`scripts/focus-install-bench.mjs`):
 2. **`turbo prune` is complete but omits root configs**: 0 of 15 closure packages missing from `out/full`, pruned lockfile 876/3969 lines, and the docker-flow build succeeds — after copying `tsconfig.base.json` (prune doesn't ship it; apps extend it). [turborepo#7732](https://github.com/vercel/turborepo/issues/7732)'s internal-dep omission did not reproduce (§4.1).
 
 3. **Next 16 builds with Turbopack** (`scripts/turbopack-bench.mjs`): `next build` and `next build --turbopack` produced identical output size and the same bundler (2.6s, 3.90 MB on Next 16.2.9) — Turbopack is the default and `--turbopack` is a no-op. The bundler is not a tunable variable on Next 16.
-4. **The `isolated` linker is inode-heavy** — measured **50,159** `node_modules` entries vs hoisted's **21,914** at 2,000 apps (`install-bench.json`), ~3× the symlinks (4,211 vs 1,459 at 300/100, `perf-matrix.json`), and **86,749 entries / 49,712 symlinks** at 4,000 apps (`results.json`). At ~10k packages this dominates filesystem/inode pressure — watch `df -i`; `hoisted` roughly halves the entries and `pnp` eliminates `node_modules` entirely.
+4. **The `isolated` linker is inode-heavy** — measured **50,159** `node_modules` entries vs hoisted's **21,914** at 2,000 apps (`install-bench.json`), ~3× the symlinks (4,211 vs 1,459 at 300/100, `perf-matrix.json`), and **86,749 entries / 49,712 symlinks** at 4,000 apps (`results.json`). At ~10k packages this dominates filesystem/inode pressure — watch `df -i`; `hoisted` roughly halves the entries, and the PnP layout shrinks it to almost nothing (yarn 4 measured: **64** unplugged entries + a 0.8–3.5 MB `.pnp.cjs`, `install-bench.json`).
 
 ---
 

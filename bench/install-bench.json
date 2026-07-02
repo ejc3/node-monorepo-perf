@@ -1,30 +1,53 @@
 {
   "hostCores": 64,
+  "yarnVersion": "4.17.0",
+  "perScaleOrder": [
+    "pnpmIsolated",
+    "pnpmHoisted",
+    "bun",
+    "yarnNm",
+    "yarnPnp"
+  ],
   "scales": [
     {
       "apps": 200,
       "libs": 100,
       "depEdgesVerified": 2649,
       "pnpmIsolated": {
-        "coldMs": 48776,
-        "coldCpuPct": 131,
-        "coldRssMB": 825,
-        "warmMs": 2329,
+        "coldMs": 47785,
+        "coldCpuPct": 130,
+        "coldRssMB": 779,
+        "warmMs": 2290,
         "nmEntries": 15691
       },
       "pnpmHoisted": {
-        "coldMs": 47103,
-        "coldCpuPct": 132,
-        "coldRssMB": 907,
-        "warmMs": 1450,
+        "coldMs": 46746,
+        "coldCpuPct": 131,
+        "coldRssMB": 903,
+        "warmMs": 1411,
         "nmEntries": 12246
       },
       "bun": {
-        "coldMs": 111,
-        "coldCpuPct": 230,
-        "coldRssMB": 42,
-        "warmMs": 118,
+        "coldMs": 134,
+        "coldCpuPct": 225,
+        "coldRssMB": 43,
+        "warmMs": 123,
         "nmEntries": 15409
+      },
+      "yarnNm": {
+        "coldMs": 3157,
+        "coldCpuPct": 152,
+        "coldRssMB": 933,
+        "warmMs": 2803,
+        "nmEntries": 11210
+      },
+      "yarnPnp": {
+        "coldMs": 1670,
+        "coldCpuPct": 143,
+        "coldRssMB": 610,
+        "warmMs": 1314,
+        "nmEntries": 64,
+        "pnpCjsBytes": 820806
       }
     },
     {
@@ -32,25 +55,40 @@
       "libs": 200,
       "depEdgesVerified": 11898,
       "pnpmIsolated": {
-        "coldMs": 232393,
+        "coldMs": 229503,
         "coldCpuPct": 134,
-        "coldRssMB": 907,
-        "warmMs": 7434,
+        "coldRssMB": 938,
+        "warmMs": 7286,
         "nmEntries": 31123
       },
       "pnpmHoisted": {
-        "coldMs": 227103,
-        "coldCpuPct": 134,
-        "coldRssMB": 933,
-        "warmMs": 2960,
+        "coldMs": 227259,
+        "coldCpuPct": 133,
+        "coldRssMB": 992,
+        "warmMs": 2959,
         "nmEntries": 16578
       },
       "bun": {
-        "coldMs": 2260,
-        "coldCpuPct": 43,
-        "coldRssMB": 72,
-        "warmMs": 2463,
+        "coldMs": 2238,
+        "coldCpuPct": 42,
+        "coldRssMB": 73,
+        "warmMs": 2566,
         "nmEntries": 29941
+      },
+      "yarnNm": {
+        "coldMs": 4387,
+        "coldCpuPct": 158,
+        "coldRssMB": 1017,
+        "warmMs": 4029,
+        "nmEntries": 12110
+      },
+      "yarnPnp": {
+        "coldMs": 2320,
+        "coldCpuPct": 151,
+        "coldRssMB": 666,
+        "warmMs": 2068,
+        "nmEntries": 64,
+        "pnpCjsBytes": 2036746
       }
     },
     {
@@ -58,32 +96,55 @@
       "libs": 300,
       "depEdgesVerified": 23350,
       "pnpmIsolated": {
-        "coldMs": 476798,
+        "coldMs": 471243,
         "coldCpuPct": 141,
-        "coldRssMB": 1011,
-        "warmMs": 15581,
+        "coldRssMB": 1023,
+        "warmMs": 15193,
         "nmEntries": 50159
       },
       "pnpmHoisted": {
-        "coldMs": 453603,
+        "coldMs": 456721,
         "coldCpuPct": 142,
-        "coldRssMB": 1157,
-        "warmMs": 4716,
+        "coldRssMB": 1161,
+        "warmMs": 4667,
         "nmEntries": 21914
       },
       "bun": {
-        "coldMs": 8266,
-        "coldCpuPct": 23,
-        "coldRssMB": 98,
-        "warmMs": 10107,
+        "coldMs": 7548,
+        "coldCpuPct": 26,
+        "coldRssMB": 97,
+        "warmMs": 9476,
         "nmEntries": 47877
+      },
+      "yarnNm": {
+        "coldMs": 6215,
+        "coldCpuPct": 153,
+        "coldRssMB": 1093,
+        "warmMs": 5858,
+        "nmEntries": 13210
+      },
+      "yarnPnp": {
+        "coldMs": 3177,
+        "coldCpuPct": 149,
+        "coldRssMB": 723,
+        "warmMs": 2924,
+        "nmEntries": 64,
+        "pnpCjsBytes": 3536266
       }
     }
   ],
   "trulyCold": {
     "apps": 200,
     "libs": 100,
-    "pnpmHoistedMs": 23635,
-    "bunMs": 3083
+    "pnpmHoistedMs": 24027,
+    "bunMs": 1192,
+    "yarnNmMs": 9278,
+    "yarnPnpMs": 7730,
+    "order": [
+      "pnpm-hoisted",
+      "bun",
+      "yarn-nm",
+      "yarn-pnp"
+    ]
   }
 }

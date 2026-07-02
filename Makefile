@@ -65,8 +65,10 @@ per-app: ## Per-app workspaces: transitive per-app divergence + workspace:^ pack
 registry-resolution: ## Resolution cases a/b/c: registry vs override vs workspace:* (live, CodeArtifact)
 	bash scripts/registry-resolution-demo.sh
 
-install-bench: ## pnpm (isolated+hoisted) vs bun install across SCALES
-	node scripts/install-bench.mjs "$(SCALES)"
+# no SCALES passthrough: the script's own default is the canonical scale matrix the docs
+# and the comparison chart cite; any other scales write install-bench.partial.json
+install-bench: ## pnpm (isolated+hoisted) vs bun vs yarn 4 (nm+PnP) install at the canonical scales
+	node scripts/install-bench.mjs
 
 build-bench: ## full Next vs Vite build at APPS/LIBS
 	node scripts/build-bench.mjs $(APPS) $(LIBS)

@@ -109,11 +109,17 @@ Two operations are genuinely O(repo) and cannot be scoped away:
 
 - **Install** of the whole workspace (~21s, warm store) — paid on a clean clone or in CI.
   pnpm's no-lockfile cold-resolve (lockfile authoring) is a different operation and scale —
-  233s at 1,000:200 (`bench/install-modes-bench.json`). The same-scale bun-vs-pnpm head-to-head
-  (`bench/install-bench.json`, to 2,000 apps): cold (fresh `node_modules`, the clean-checkout
-  case) bun is ~58–440× faster; warm (cached) the gap narrows to single digits by 1,000 apps,
-  and at 2,000 apps bun warm 10.1s vs pnpm-isolated 15.6s while pnpm-hoisted warm 4.7s is ~2×
-  faster than bun.
+  233s at 1,000:200 (`bench/install-modes-bench.json`). The same-scale head-to-head
+  (`bench/install-bench.json`, to 2,000 apps): on a full re-resolve (no lockfile, fresh
+  `node_modules`) bun is ~62–357× faster than pnpm — a clean checkout carries the committed
+  lockfile and pays the warm row instead; warm (cached) the gap narrows to single digits by
+  1,000 apps, and at 2,000 apps bun warm 9.5s vs pnpm-isolated 15.2s while pnpm-hoisted warm
+  4.7s is ~2× faster than bun. yarn 4 (same dataset) scales flatter than bun: fastest cold
+  at 2,000 apps (PnP 3.2s, node-modules 6.2s vs bun 7.5s), and yarn-PnP specifically is the
+  fastest warm install at 1,000–2,000 apps (2.1s, 2.9s — yarn's node-modules linker trails
+  pnpm-hoisted warm). The install figures elsewhere in this summary were measured with bun
+  as the installer; the bun-vs-yarn reconciliation is in
+  [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 - **A whole-repo dist build** (release-everything) scales with package count.
 
 The whole-repo **build and typecheck** are **amortized across a CI fleet by a remote cache** — install is amortized separately (warm store + committed lockfile, above), not by Turborepo's cache. Every runner starts with an empty local cache, but after the first seeds the shared cache, each later runner *restores* turbo's task outputs instead of recomputing: a whole-repo typecheck drops 23.6s → 1.9s (12.5×) at 300:100 and 67.2s → 5.9s (11.4×) at 1,000:200, a build 62.7s → 4.0s (15.5×) at 300:100 (a single cold sample) (`bench/ci-cache-bench.json`, restore measured over a localhost cache — a real network adds each runner's download, ≤0.5 MB for a typecheck but 247 MB for a build). Restore is itself O(repo) — it skips task execution but still pays Turbo's graph-load + hashing (≈ the warm-cache floor) — so the speedup holds near 11–12× as the repo grows rather than widening, while the absolute time saved grows (≈22s → 61s). Across a 10-runner fleet building the same closure the per-runner cost amortizes ~5.6× (1,000:200 typecheck basis; a real fleet builds different commits, so less). The cache helps only the second-and-later consumer of an *unchanged* artifact — a leaf edit lets a fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500.

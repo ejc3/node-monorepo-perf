@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The mechanics of advancing an internal core lib through a hermetic, wave-based rollout, measured as a
 // bun-vs-pnpm head-to-head on self-contained repros. This is the empirical backing for ROLLOUT.md. bun
-// is the recommended driver: it does everything the rollout needs natively and cold-installs 58-440x
-// faster than pnpm in the clean-env case (fresh node_modules, through the 2,000-app measured ceiling;
+// is the recommended driver: it does everything the rollout needs natively and cold-installs 62-357x
+// faster than pnpm on a full re-resolve (no lockfile, fresh node_modules, through the 2,000-app measured ceiling;
 // bench/install-bench.json) — warm-cached runners narrow the gap and pnpm-hoisted can win fully-warm at
 // 2,000 apps. Each rung HARD-ASSERTS a stable fact; setup failures (a seed
 // install that did not run, a missing lockfile, a network/registry error) HARD-FAIL, so a failed
@@ -487,8 +487,8 @@ console.log(
 const result = {
   claim:
     "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun is the recommended " +
-    "driver: it does all of it natively and cold-installs 58-440x faster than pnpm in the clean-env case " +
-    "that recurs in practice (bench/install-bench.json; warm-cached runners narrow the gap and pnpm-hoisted " +
+    "driver: it does all of it natively and cold-installs 62-357x faster than pnpm on a full re-resolve " +
+    "(no usable lockfile — a wave's catalog repoint re-resolves incrementally with the lockfile present, a smaller operation; bench/install-bench.json; warm-cached runners narrow the gap and pnpm-hoisted " +
     "can win fully-warm at 2,000 apps). " +
     "Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with " +
     "one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and " +
@@ -501,7 +501,7 @@ const result = {
   registry: REGISTRY,
   speedContext: {
     source: "bench/install-bench.json",
-    note: "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~440x at 200 apps, ~100x at 1,000, ~58x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 3.1s vs pnpm-hoisted 23.6s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 10.1s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the clean-env/cold case; pnpm-hoisted can win the fully-warm case.",
+    note: "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~357x at 200 apps, ~103x at 1,000, ~62x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 1.2s vs pnpm-hoisted 24.0s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 9.5s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the no-lockfile cold case; pnpm-hoisted can win the fully-warm case.",
   },
   determinism: {
     bun: {
