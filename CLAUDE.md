@@ -149,6 +149,46 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   tsc/turbo/oxlint work); ms fields are single yarn-exec samples, diagnostic only →
   `bench/pnp-compat-bench.json`, folded into TOOLING.md ("yarn PnP toolchain
   compatibility, priced") + OPTIMAL-STACK/LIMITS.
+- `node scripts/vite-task-bench.mjs` (`VITE_TASK_SCALES` default `"300:100 1000:200"`,
+  `VP_SAMPLES` 3, `VITE_TASK_ALLOW_BUSY=1`) — **Vite Task (Vite+ `vp run`) vs Turborepo**
+  on the identical dep-free `typecheck:tsgo` task set (derived per-package
+  tsconfig.tsgo.json: incremental off — Vite Task refuses to cache a task that writes a
+  file it read — rootDir widened, `@demo/*`→lib-source paths; turbo.json `dependsOn: []`
+  patch — root package.json and turbo.json bak'd/restored, the derived tsconfigs are
+  gitignored scratch; the test-axis isolation pattern). Whole-repo + focused,
+  cold (single sample, after an untimed turbo `--dry=json` warmup) + warm (median of
+  VP_SAMPLES, all-cached AND same-task-set asserted from each runner's own summary),
+  runner order alternating per scale, env scrubbed then pinned per runner (turbo
+  CI-absent; vp CI=true + closed stdin — it prompts and hangs a pipe otherwise), vp
+  `--parallel` (flat, matching the dep-free semantics turbo gets from dependsOn []),
+  concurrency = cores on both. Rungs: the gitignore contrast (turbo under
+  enterSourceVisible; vp on the plain gitignored tree, `git check-ignore`-probed,
+  all-cached warm asserted — its fs-traced cache is gitignore-blind); edit-invalidation
+  (both caches re-warmed and asserted, one lib src edit → vp recomputes exactly the
+  tasks that read the file, turbo recomputes 1 — structural to the dep-free shape,
+  framed as such); the self-mutating boundary (`next build`: turbo caches via declared
+  outputs, vp refuses — per-task verdict from the app's own `--last-details` entry,
+  exit-gated; a fully-refused run prints no X/Y summary, parsed accordingly); the test
+  axis (`turbo run test` vs `vp run -r test`). benchOutput persist/promote (progress
+  survives a late fail; canonical promote cleans the partial). Destructive (regenerates
+  the tree, patches package.json/turbo.json) → linked git worktree only →
+  `bench/vite-task-bench.json`, writeup in TOOLING.md ("Vite+ ... priced") + LIMITS §2.
+- `node scripts/vite-plus-tools-bench.mjs` (`TOOLS_SAMPLES` 3, `VITE_TOOLS_ALLOW_BUSY=1`)
+  — the **Vite+ tool layer** on self-contained temp scaffolds (non-destructive, no
+  worktree): CHECK — one-pass `vp check --no-fmt` (typeAware+typeCheck) vs the SAME
+  pinned engines standalone (`oxlint --type-aware --type-check`; pins asserted against
+  the installed vite-plus's own dependencies) vs this repo's gate shape (oxlint + one
+  whole-program tsgo, labeled a different type-check model), on a source-only corpus
+  (`@demo/*`→src paths, lib tsconfigs check-only — vp check's type-aware pass lints
+  every file in the type program, so built dist would pollute the corpus), file counts
+  exactly asserted (vp counts the root vite.config.ts too, +1), positive control per
+  engine (a seeded type error must be flagged), tsgo program completeness via an untimed
+  `--listFiles` pass. BUILD — `vp build` vs `vite build` on one generated Vite app
+  (40:24), dist hashed for an identity verdict (recorded, not asserted), the bundled
+  vite resolved from INSIDE vite-plus-core (realpath), plus the task-cached build row
+  (`vp run --cache build` cold/repeat; an input-modification refusal is the recorded
+  finding — vite build hits the same tracer boundary as next build) →
+  `bench/vite-plus-tools-bench.json`, folded into TOOLING.md + OPTIMAL-STACK.md.
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
@@ -462,7 +502,7 @@ to re-render it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
-toolchain-compat pricing from `bench/pnp-compat-bench.json`), `LIMITS.md` (what stays O(repo),
+toolchain-compat pricing from `bench/pnp-compat-bench.json` and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per

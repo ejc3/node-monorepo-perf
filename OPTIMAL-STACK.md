@@ -61,6 +61,18 @@ no such boundary (five-way install table in [TOOLING.md](TOOLING.md)). A separat
 pnpm's no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head —
 which is 233s at 1,000:200 (`bench/install-modes-bench.json`).
 
+The integrated alternative is measured: Vite+'s `vp check` (oxlint + tsgolint in one
+pass) takes 2.44s on a 920-file corpus where this stack's gate shape — `oxlint` plus one
+whole-program `tsgo --noEmit` — takes 0.77s, and slower than its own engines run
+standalone (1.88s), so the separate-tools stack stands (`bench/vite-plus-tools-bench.json`).
+Its task runner is the interesting piece: Vite Task loses whole-repo typecheck runs to
+turbo by 2–3.7× (the small-read-set test axis flips to vp) but wins the focused warm
+loop and stays flat as the repo grows (0.85s → 0.86s across 3× more tasks, vs turbo's
+O(repo) 1.2s → 3.0s), with an fs-traced cache that is
+correct on gitignored source and cross-package edits with zero config — and structurally
+unable to cache `next build` (`bench/vite-task-bench.json`, table in
+[TOOLING.md](TOOLING.md)).
+
 ## The optimal type-error gate — one tsgo program over the whole workspace, 1.32s
 
 For a **universal** rev every app must re-check, so there is nothing to scope away. The

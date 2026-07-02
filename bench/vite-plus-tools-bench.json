@@ -1,0 +1,76 @@
+{
+  "versions": {
+    "vitePlus": "0.2.2",
+    "oxlint": "1.72.0",
+    "oxlintTsgolint": "0.24.0",
+    "tsgo": "7.0.0-dev.20260614.1",
+    "node": "v22.22.0"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 3.37,
+  "samples": 3,
+  "rungs": {
+    "check": {
+      "vpCheckOnePass": {
+        "medianMs": 2435,
+        "samplesMs": [
+          2435,
+          2435,
+          2455
+        ]
+      },
+      "oxlintTypeAware": {
+        "medianMs": 1882,
+        "samplesMs": [
+          1882,
+          1878,
+          1882
+        ]
+      },
+      "optimalGateShape": {
+        "note": "different type-check model (one tsgo program over lib source vs tsgolint per-file typed lint) — context, not like-for-like",
+        "oxlintMs": 342,
+        "tsgoWholeMs": 426,
+        "sequentialMs": 768
+      },
+      "corpusFiles": {
+        "lintable": 920,
+        "vpCheckWithRootConfig": 921
+      }
+    },
+    "build": {
+      "app": "app-01",
+      "workspaceVite": "8.0.16",
+      "vpBundledVite": "8.0.16",
+      "viteBuild": {
+        "medianMs": 546,
+        "samplesMs": [
+          543,
+          548,
+          546
+        ]
+      },
+      "vpBuild": {
+        "medianMs": 856,
+        "samplesMs": [
+          856,
+          853,
+          868
+        ]
+      },
+      "distIdentical": true,
+      "distFiles": {
+        "vite": 2,
+        "vp": 2
+      },
+      "distDifferingSample": [],
+      "vpTaskCachedBuild": {
+        "coldMs": 784,
+        "repeatMs": 764,
+        "repeatHits": null,
+        "repeatServedFromCache": false,
+        "inputModificationRefusal": "vp run: @demo/app-01#build not cached because it modified its input. (Run `vp run --last-details` for full details)"
+      }
+    }
+  }
+}

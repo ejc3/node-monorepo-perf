@@ -28,6 +28,9 @@ pnpm-lock.yaml
 /bench/container-install-bench.partial.json
 # transient: a smoke editor-loop-bench run (fewer samples / non-default scales) — never the record
 /bench/editor-loop-bench.partial.json
+# transient: non-canonical vite-plus bench runs — never the record
+/bench/vite-task-bench.partial.json
+/bench/vite-plus-tools-bench.partial.json
 # transient: editor-loop-bench's tsconfig.base.json backup (removed on exit; self-heals a hard kill)
 /tsconfig.base.json.bench.bak
 .DS_Store

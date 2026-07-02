@@ -54,7 +54,11 @@ export const writeYarnRc = (dir, linker, opts) =>
 // against the repo's pnpm-workspace.yaml so tools without the pnpm catalog: protocol
 // read the same dependency set, with a pnpm-workspace.yaml (read by pnpm) AND a
 // package.json "workspaces" field (read by bun, yarn, and npm).
-export function scaffoldWorkspace(repoRoot, dir, { apps, libs, modules = 12, name = "bench" }) {
+export function scaffoldWorkspace(
+  repoRoot,
+  dir,
+  { apps, libs, modules = 12, name = "bench", extraArgs = [] },
+) {
   const node = (args) => {
     const r = spawnSync("node", args, { cwd: dir, encoding: "utf8", maxBuffer: 1 << 26 });
     if (r.status !== 0)
@@ -69,6 +73,7 @@ export function scaffoldWorkspace(repoRoot, dir, { apps, libs, modules = 12, nam
     "--modules",
     String(modules),
     "--clean",
+    ...extraArgs,
   ]);
   for (const group of ["apps", "packages"])
     node([
