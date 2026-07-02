@@ -533,6 +533,7 @@ phantom-isolation edge in single-package projects — workspaces are parity; the
 `bench/container-install-bench.json` + `bench/yarn-rollout-bench.json`),
 `FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
 per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison),
+`STORIES.md` (the independently-published model as user stories — app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 `WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),
 `REVIEW.md` (the static-check / type-check / two-reviewer quality pipeline every change runs through).
