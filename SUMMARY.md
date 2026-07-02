@@ -167,7 +167,8 @@ checks (commerce warm 56ms, 2 of 2); it won't cache taxonomy's red typecheck unt
   registry `postinstall` scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed
   strict-peer knob (pnpm `strict-peer-dependencies=true` exits 1; none of bun's env / `.npmrc` /
   `bunfig.toml` knobs flip its exit). pnpm's isolation also surfaces a phantom import bun's hoist
-  hides. The rest is parity — a `file:` dep's `postinstall` is blocked by default on both, a missing
+  hides in single-package projects — in workspaces bun 1.3's isolated default blocks it too
+  (parity). The rest is parity — a `file:` dep's `postinstall` is blocked by default on both, a missing
   peer is auto-installed by both at their defaults, both warn on a version mismatch, and bun
   authenticates to CodeArtifact via the same scoped `.npmrc` as pnpm. Full treatment in
   ROLLOUT.md → "Adoption safety, vetted."

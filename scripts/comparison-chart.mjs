@@ -14,13 +14,14 @@ import { join } from "node:path";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
 const IB = read("bench/install-bench.json");
+const CI = read("bench/container-install-bench.json");
 const TB = read("bench/typecheck-bench.json");
 const PAR = read("bench/typecheck-parity-bench.json");
 const BB = read("bench/build-bench.json");
 const IM = read("bench/install-modes-bench.json");
 const LB = read("bench/lint-bench.json");
 const byScale = Object.fromEntries(IB.scales.map((s) => [`${s.apps}x${s.libs}`, s]));
-const inst = (scale, tool, regime) => byScale[scale][tool][regime];
+const inst = (scale, tool, state) => byScale[scale][tool][state];
 // trulyCold is read by direct property access below — unlike the per-scale tools, where
 // a missing key fails loud inside inst() — and the cell renderer draws null/undefined as
 // the same "—" used for intentionally-unmeasured cells. Assert the measured fields exist
@@ -30,9 +31,16 @@ for (const k of ["pnpmHoistedMs", "bunMs", "yarnNmMs", "yarnPnpMs"])
     throw new Error(
       `bench/install-bench.json trulyCold.${k} is missing — re-run install-bench before charting`,
     );
+// same protection for the container bench's cells
+for (const t of ["pnpm", "bun", "yarnNm", "yarnPnp", "npm"])
+  for (const v of ["freshRunner", "cacheRestored"])
+    if (typeof CI.tools?.[t]?.[v]?.medianMs !== "number")
+      throw new Error(
+        `bench/container-install-bench.json tools.${t}.${v}.medianMs is missing — re-run container-install-bench before charting`,
+      );
 
 // Install section columns: k = cell key, tool = the bench/install-bench.json key. The six
-// cold/warm rows are a pure regimes x scales cross-product over these five tools, so they
+// cold/warm rows are a pure states x scales cross-product over these five tools, so they
 // are generated — a new tool or scale is one edit, and no hand-copied row can carry a
 // stale key that renders a plausible wrong number.
 const INSTALL_COLS = [
@@ -59,10 +67,10 @@ const SECTIONS = [
       ...[
         ["coldMs", "Cold"],
         ["warmMs", "Warm"],
-      ].flatMap(([regime, rLabel]) =>
+      ].flatMap(([state, rLabel]) =>
         INSTALL_SCALES.map(([scale, sLabel]) => [
           `${rLabel} · ${sLabel}`,
-          Object.fromEntries(INSTALL_COLS.map((c) => [c.k, inst(scale, c.tool, regime)])),
+          Object.fromEntries(INSTALL_COLS.map((c) => [c.k, inst(scale, c.tool, state)])),
         ]),
       ),
       [
@@ -82,6 +90,41 @@ const SECTIONS = [
     ],
     source: "bench/install-bench.json",
     note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of hoisted).",
+  },
+  {
+    title: `CI-runner install — frozen from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps, fresh podman container per sample)`,
+    compareAxis: "row",
+    cols: [
+      { k: "bun", label: "bun" },
+      { k: "pnpm", label: "pnpm" },
+      { k: "ynm", label: "yarn\nnode-modules" },
+      { k: "ypnp", label: "yarn\nPnP" },
+      { k: "npm", label: "npm" },
+    ],
+    rows: [
+      [
+        "Fresh runner (empty caches, network)",
+        {
+          bun: CI.tools.bun.freshRunner.medianMs,
+          pnpm: CI.tools.pnpm.freshRunner.medianMs,
+          ynm: CI.tools.yarnNm.freshRunner.medianMs,
+          ypnp: CI.tools.yarnPnp.freshRunner.medianMs,
+          npm: CI.tools.npm.freshRunner.medianMs,
+        },
+      ],
+      [
+        "Cache restored",
+        {
+          bun: CI.tools.bun.cacheRestored.medianMs,
+          pnpm: CI.tools.pnpm.cacheRestored.medianMs,
+          ynm: CI.tools.yarnNm.cacheRestored.medianMs,
+          ypnp: CI.tools.yarnPnp.cacheRestored.medianMs,
+          npm: CI.tools.npm.cacheRestored.medianMs,
+        },
+      ],
+    ],
+    source: "bench/container-install-bench.json",
+    note: "Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.",
   },
   {
     title: "Typecheck — tsc vs tsgo",

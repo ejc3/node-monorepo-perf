@@ -24,6 +24,8 @@ pnpm-lock.yaml
 # transient: an install-bench run at non-canonical scales, and a canonical run's in-progress
 # persistence (promoted to install-bench.json only on completion) — never the record
 /bench/install-bench.partial.json
+# transient: same contract for the podman frozen-install bench
+/bench/container-install-bench.partial.json
 # transient: a smoke editor-loop-bench run (fewer samples / non-default scales) — never the record
 /bench/editor-loop-bench.partial.json
 # transient: editor-loop-bench's tsconfig.base.json backup (removed on exit; self-heals a hard kill)

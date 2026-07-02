@@ -94,6 +94,29 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   at the canonical scales `200:100 1000:200 2000:300` → `bench/install-bench.json`; any other
   scales (and any run's in-progress state) go to gitignored `install-bench.partial.json`, promoted
   on completion only.
+- `node scripts/container-install-bench.mjs` (canonical `1000:200`, `CONTAINER_INSTALL_SAMPLES`
+  default 5) — the **CI-runner install** install-bench's cold column deliberately omits: a FROZEN
+  install from the committed lockfile, per tool (pnpm/bun `--frozen-lockfile`, yarn-nm/yarn-PnP
+  `--immutable`, `npm ci`), each sample in a fresh podman container (hermetic env,
+  `--http-proxy=false`, digest-pinned node image with the pinned toolchain baked in and
+  version-asserted at build). Two variants: **freshRunner** (empty caches, real network) and
+  **cacheRestored** (per-tool persistent volume, pre-warmed once and ASSERTED populated).
+  Discipline: ws/ and cache/ are subdirs of ONE mounted volume (link(2)/FICLONE fail EXDEV across
+  separate mounts, so any two-mount geometry would silently force pnpm/bun into their copy
+  fallback — pnpm's copy-fallback warning is captured per cell as evidence); lockfiles are
+  authored in-container by the pinned tools; the npm tree rewrites `workspace:*`→`*` (npm has no
+  workspace: protocol) and its lockfile is asserted to link internal deps locally, not from the
+  registry; the fail-closed contract is MEASURED per tool (a drift rung mutates a manifest and
+  records the rejection); samples are round-rotated (default 5 = every tool takes every position),
+  timed inside the container by GNU time with the copy/verify/hash outside the window, verified by
+  the shared `scripts/_verify-install.cjs`, lockfile hash asserted unchanged; non-canonical scale
+  or sample count → gitignored `container-install-bench.partial.json` (promoted on completion
+  only; a leftover partial refuses a concurrent run) → `bench/container-install-bench.json`.
+- Shared install-bench internals: `scripts/_pins.mjs` (the pinned pnpm/bun/yarn versions + the
+  digest-pinned node image both install benches import), `scripts/_pm-bench-lib.mjs` (env scrub,
+  yarn rc knobs, workspace scaffold, yarn CLI fetch, median, partial→promote record protection,
+  load guard), `scripts/_verify-install.cjs` (the ONE completeness verifier: nm walk + PnP
+  resolver, require()-able in-container and spawnable as a CLI).
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
@@ -128,7 +151,7 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   tree vs `/mnt/fcvm-btrfs`) — the device layer under fs-bench: 4K random read/write
   IOPS + p99 at `O_DIRECT` (no page cache) and a small-file burst (buffered create-only
   vs per-file `fsync`), per mount with fstype/device. Shows the btrfs NVMe faster in
-  every regime — ~35× random-read IOPS and ~16× per-file-fsync throughput of the
+  every access pattern — ~35× random-read IOPS and ~16× per-file-fsync throughput of the
   working-tree NVMe — while a buffered create burst is within ~1.3× (page-cache-bound,
   matching fs-bench's equal relink). Asserts engine/qd parity across targets (else marks
   `likeForLike:false`, omits ratios); refuses on a loaded box (`FS_IOPS_ALLOW_BUSY=1`)
@@ -287,8 +310,11 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `auto-install-peers` defaults to true), probed via whether the PLUGIN resolves its peer, not root
   visibility (which is the hoist-vs-isolation layout, = rung D) — parity; the one gap is the fail-closed
   knob: pnpm `strict-peer-dependencies=true` exits 1, none of bun's three knobs (env / `.npmrc` /
-  `bunfig.toml`) flips its exit. (D) **phantom dependency** — an undeclared transitive import resolves under
-  bun's hoist, fails under pnpm's isolation (pnpm's edge). (B) **CodeArtifact auth** — a publish + install
+  `bunfig.toml`) flips its exit. (D) **phantom dependency** — an undeclared transitive import, probed from a
+  single-package project (resolves under bun's hoist, fails under pnpm's isolation — pnpm's edge)
+  AND from a workspace member (bun 1.3 workspaces default to the isolated linker: fails on both,
+  parity — so the edge is a single-package finding), each behind a declared-dep positive control
+  and an ancestry-clean guard. (B) **CodeArtifact auth** — a publish + install
   round-trip against the real `@ejc3` registry, host-verified (absent package → 404 from the CA host, not
   401); the install is bun vs pnpm, the publish is bun vs npm (pnpm has no native publisher, disclosed via
   `publishCmd`); `sameAuthPathAsPnpm` requires both round-trips + host-verify + the 404 proof; self-cleaning
@@ -389,8 +415,9 @@ isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 (deterministically for a given dataset); it keeps and warns about a doc-linked chart
 it can't regenerate this run rather than deleting it (it exempts charts owned by another
 generator from that warning + cleanup). `comparison-chart.mjs` renders the
-`bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, typecheck, build,
-pnpm install-situations, lint) from the comparison benches, embedded in the README, and in the same step
+`bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, CI-runner frozen
+install from `bench/container-install-bench.json`, typecheck, build, pnpm
+install-situations, lint) from the comparison benches, embedded in the README, and in the same step
 rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
 linked below the SVG) so a chart regeneration regenerates both — `make comparison-chart` regenerates both.
 The `.github/workflows/charts.yml` CI job re-renders both from the committed bench data and byte-gates the
@@ -400,7 +427,8 @@ fails the validation step rather than passing a stale one) and, on a push to `ma
 freshly-rendered PNG back — so the committed raster tracks the gated SVG instead of relying on a contributor
 to re-render it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
-(install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`), `LIMITS.md` (what stays O(repo),
+(install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
+and the five-way CI-runner frozen install from `bench/container-install-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
@@ -424,7 +452,8 @@ head-to-head with bun cold-installing 62–357× faster, the direct-clean vs uni
 distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source,
 the "Adoption safety, vetted" subsection — bun is adoptable but not a strict safety superset (two real
 gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer knob; plus pnpm's
-phantom-isolation edge; the rest parity), and pnpm as the fallback; backed by
+phantom-isolation edge in single-package projects — workspaces are parity; the rest parity), and pnpm
+as the fallback; backed by
 `bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json`),
 `FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
 per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison),
@@ -455,7 +484,7 @@ where it applies — not all are universal (noted inline):
   fresh scratch dir (asserted populated afterward) + network. `install-bench` also
   scrubs each tool's ambient config env (`YARN_*`, `BUN_*`, `PNPM_*`, `npm_config_*`)
   per timed run — ambient env overrides even explicit rc files and would silently
-  flip one tool into a different cache regime.
+  flip one tool into a different cache state.
 - **Source must be visible to Turbo.** The generated apps/packages are gitignored,
   and Turbo respects `.gitignore` for input hashing — so without intervention it
   hashes nothing, making warm-cache and edit-rebuild numbers false cache hits and
@@ -543,7 +572,7 @@ out across the affected docs (parallel agents / a workflow, per the worktree gui
 each doc getting all four lenses, then verify every finding and fix the root cause:
 
 1. **Fairness / no-bias.** Every tool-vs-tool comparison is like-for-like (same scale, same
-   regime). Flag any contrast that pits one tool's best case against another's worst, any
+   install state). Flag any contrast that pits one tool's best case against another's worst, any
    claim stronger than the data, any superlative not backed by a `bench/*.json`. State both
    sides; a real advantage of the non-recommended option is reported, not buried.
 2. **No process archeology / hedging.** State results, not the path to them. No "assumed vs

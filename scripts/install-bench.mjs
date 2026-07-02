@@ -60,8 +60,20 @@ import {
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir, cpus, tmpdir } from "node:os";
+import { YARN_VERSION } from "./_pins.mjs";
+import {
+  yarnEnv,
+  bunEnv,
+  pnpmEnv,
+  writeYarnRc as writeYarnRcTo,
+  scaffoldWorkspace,
+  fetchYarnCli,
+  benchOutput,
+} from "./_pm-bench-lib.mjs";
+import verifyLib from "./_verify-install.cjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
+const VERIFY_CLI = join(REPO, "scripts", "_verify-install.cjs");
 // Per-run temp root: the workspace, the /usr/bin/time stats file, and the install log
 // all live under one mkdtemp dir, so two install-bench runs in parallel git worktrees
 // (the project's encouraged pattern) can't overwrite each other's workspace config
@@ -69,7 +81,6 @@ const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const RUN_DIR = mkdtempSync(join(tmpdir(), "pm-bench-"));
 const DIR = join(RUN_DIR, "ws");
 const BUN = join(homedir(), ".bun/bin/bun");
-const YARN_VERSION = "4.17.0";
 const CORES = cpus().length;
 const TIMEFILE = join(RUN_DIR, "time.txt");
 const LOGFILE = join(RUN_DIR, "install.log");
@@ -108,11 +119,6 @@ const SCALES = SCALES_ARG.split(/\s+/).map((s) => {
   return { apps: +a, libs: +l };
 });
 
-function node(args) {
-  const r = spawnSync("node", args, { cwd: DIR, encoding: "utf8", maxBuffer: 1 << 26 });
-  if (r.status !== 0)
-    throw new Error(`node ${args.join(" ")} failed:\n${(r.stderr || "").slice(-1000)}`);
-}
 // timed install via `/usr/bin/time -v -o STATS`; child output -> LOG file (no
 // in-memory buffering). Throws on failure with the log tail. Returns {ms,cpuPct,rssMB}.
 // `env`, when given, is the COMPLETE child environment (not merged over process.env) —
@@ -162,188 +168,32 @@ function entries() {
   if (!Number.isFinite(n)) throw new Error(`node_modules entry count was non-numeric: ${r.stdout}`);
   return n;
 }
-// Resolve `dep` from `dir` by walking node_modules upward, STOPPING at the
-// benchmark workspace root (DIR) — an ambient /tmp/node_modules or parent
-// node_modules must not satisfy verification for an incomplete install.
-function resolvesFrom(dir, dep) {
-  let d = dir;
-  for (;;) {
-    if (existsSync(join(d, "node_modules", dep, "package.json"))) return true;
-    if (d === DIR) return false;
-    const u = dirname(d);
-    if (u === d) return false;
-    d = u;
-  }
-}
-// Every package under apps/* and packages/* with its declared dependency AND
-// devDependency edges (a partial/prod-mode install that dropped typescript/types
-// would otherwise pass as "complete"). This is the ONE edge enumeration both
-// verifiers consume, so their coverage is identical by construction — a walk bug
-// can't make the PnP verifier silently weaker than the node_modules one.
-function collectEdges() {
-  const edges = [];
-  for (const group of ["apps", "packages"]) {
-    const groupDir = join(DIR, group);
-    if (!existsSync(groupDir)) continue;
-    for (const name of readdirSync(groupDir)) {
-      const pkgDir = join(groupDir, name);
-      if (!existsSync(join(pkgDir, "package.json"))) continue;
-      const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8"));
-      for (const dep of [
-        ...Object.keys(pkg.dependencies || {}),
-        ...Object.keys(pkg.devDependencies || {}),
-      ])
-        edges.push([pkgDir, dep]);
-    }
-  }
-  // an empty walk would let every verifier pass vacuously — that is a wrong tree,
-  // never a verified install
-  if (edges.length === 0)
-    throw new Error(`collectEdges found no dependency edges under ${DIR} — wrong/missing tree`);
-  return edges;
-}
-function verifyComplete() {
-  // Every package must resolve all its declared deps, not just a single sample app.
-  const missing = [];
-  const edges = collectEdges();
-  for (const [pkgDir, dep] of edges) {
-    if (!resolvesFrom(pkgDir, dep)) {
-      if (missing.length < 20) missing.push(`${pkgDir} -> ${dep}`);
-    }
-  }
-  if (missing.length) {
-    throw new Error(`INCOMPLETE install, unresolved deps:\n${missing.slice(0, 10).join("\n")}`);
-  }
-  return edges.length;
-}
-// Fetch the pinned yarn 4 standalone CLI from the @yarnpkg/cli-dist npm tarball into a
-// per-run temp dir and assert `node yarn.js --version` reports exactly YARN_VERSION —
-// a wrong or corrupt CLI must fail here, not produce numbers attributed to 4.x.
-function fetchYarn() {
-  const dir = mkdtempSync(join(tmpdir(), "pm-bench-yarncli-"));
-  TEMP_DIRS.push(dir);
-  const pack = spawnSync("npm", ["pack", `@yarnpkg/cli-dist@${YARN_VERSION}`, "--silent"], {
-    cwd: dir,
-    encoding: "utf8",
-    maxBuffer: 1 << 26,
-  });
-  if (pack.error)
-    throw new Error(
-      `cannot spawn npm (${pack.error.code || pack.error.message}) — npm is required to fetch the pinned yarn CLI`,
-    );
-  if (pack.status !== 0)
-    throw new Error(
-      `npm pack @yarnpkg/cli-dist@${YARN_VERSION} failed (status ${pack.status}):\n${(pack.stderr || "").slice(-1000)}`,
-    );
-  const tgz = (pack.stdout || "").trim().split("\n").pop();
-  if (!tgz || !tgz.endsWith(".tgz"))
-    throw new Error(
-      `npm pack printed no tarball filename (got "${tgz}") — cannot extract the yarn CLI`,
-    );
-  const tar = spawnSync("tar", ["-xzf", tgz], { cwd: dir, encoding: "utf8" });
-  if (tar.error) throw new Error(`cannot spawn tar (${tar.error.code || tar.error.message})`);
-  if (tar.status !== 0)
-    throw new Error(`extracting ${tgz} failed:\n${(tar.stderr || "").slice(-1000)}`);
-  const js = join(dir, "package", "bin", "yarn.js");
-  const v = spawnSync("node", [js, "--version"], { cwd: dir, encoding: "utf8" });
-  const reported = (v.stdout || "").trim();
-  if (v.error || v.status !== 0 || reported !== YARN_VERSION)
-    throw new Error(
-      `yarn CLI verification failed: expected ${YARN_VERSION}, got "${reported}" (status ${v.status})`,
-    );
-  return js;
-}
-// yarn reads only .yarnrc.yml (not .npmrc / pnpm-workspace.yaml) — but ambient YARN_*
-// env vars OVERRIDE the project .yarnrc.yml, so every yarn invocation also runs under
-// yarnEnv() below. The rc pins every measurement-critical knob explicitly rather than
-// trusting defaults: enableImmutableInstalls off (cold runs delete yarn.lock, and yarn
-// auto-enables immutable in CI); enableHardenedMode off (yarn 4 auto-enables it — an
-// implicit --check-resolutions --refresh-lockfile with per-package registry traffic —
-// on public-repo GitHub PR jobs); enableGlobalCache on (its default: zips live in the
-// shared global cache, yarn's analogue of the pnpm store — project-local zips would be
-// deleted by rmNM and turn every run network-cold); enableScripts false (yarn 4's own
-// default, and the same block-dependency-build-scripts posture as pnpm 10's default);
-// telemetry off.
-const writeYarnRc = (linker) =>
-  writeFileSync(
-    join(DIR, ".yarnrc.yml"),
-    [
-      `nodeLinker: ${linker}`,
-      "enableTelemetry: false",
-      "enableImmutableInstalls: false",
-      "enableHardenedMode: false",
-      "enableGlobalCache: true",
-      "enableScripts: false",
-      "",
-    ].join("\n"),
-  );
-// Ambient tool config env silently flips a tool's measured regime: YARN_* overrides even
-// an explicit .yarnrc.yml (verified on 4.17: YARN_NODE_LINKER beats the rc), a stray
-// BUN_INSTALL_CACHE_DIR redirects bun's cache, and pnpm/bun both read npm_config_* —
-// e.g. YARN_ENABLE_GLOBAL_CACHE=false would make every yarn run network-cold while
-// pnpm/bun stay warm-store, with nothing throwing. Every timed install therefore runs
-// under an env stripped of its tool's config vars, plus only the overrides the bench
-// itself sets. (File-based config — .npmrc, .yarnrc.yml — is controlled by the bench's
-// per-run workspace dir instead.)
-const scrubEnv = (prefixes, overrides) => ({
-  ...Object.fromEntries(
-    // case-insensitive: npm-config env handling accepts NPM_CONFIG_* as well as
-    // npm_config_*, so an uppercase ambient var must not slip through the scrub
-    Object.entries(process.env).filter(
-      ([k]) => !prefixes.some((p) => k.toUpperCase().startsWith(p.toUpperCase())),
-    ),
-  ),
-  ...overrides,
-});
-const yarnEnv = (overrides) => scrubEnv(["YARN_"], overrides);
-const bunEnv = (overrides) => scrubEnv(["BUN_", "npm_config_"], overrides);
-const pnpmEnv = (overrides) => scrubEnv(["PNPM_", "npm_config_"], overrides);
-// PnP has no per-package node_modules to walk — resolution is a table in .pnp.cjs. Verify
-// completeness through that table in a child node process: every edge from collectEdges()
-// (the same list the node_modules verifier checks) must resolve via resolveToUnqualified,
-// and the resolved location — mapped back through resolveVirtual, since peer-dep packages
-// resolve to __virtual__ paths that never exist literally on disk — must be an on-disk,
-// non-empty zip or a workspace dir. A dangling table entry (zip missing or truncated to
-// zero bytes) therefore fails verification, same as a missing node_modules dir would for
-// the other layouts. The edge list rides on STDIN: at 2,000 apps it is ~1.5 MB of JSON,
-// past Linux's 128 KB per-argument limit, so it can't be embedded in the -e script.
+// Completeness is gated by the SHARED verifier (scripts/_verify-install.cjs) — the one
+// copy of the contract this bench and container-install-bench both enforce: every
+// package resolves all its declared deps AND devDeps, node_modules walked upward
+// stopping at the workspace root.
+const verifyComplete = () => verifyLib.verifyNm(DIR);
+// The pinned yarn CLI fetch and the measurement-critical .yarnrc.yml knob list live in
+// the shared lib (scripts/_pm-bench-lib.mjs), so this bench and container-install-bench
+// cannot drift apart on either. Ambient YARN_* env OVERRIDES the rc (verified on 4.17:
+// YARN_NODE_LINKER beats it), so every yarn invocation also runs under yarnEnv().
+const fetchYarn = () => {
+  const parent = mkdtempSync(join(tmpdir(), "pm-bench-yarncli-"));
+  TEMP_DIRS.push(parent);
+  return fetchYarnCli(parent, YARN_VERSION);
+};
+const writeYarnRc = (linker) => writeYarnRcTo(DIR, linker);
+// PnP has no per-package node_modules to walk — resolution is a table in .pnp.cjs.
+// Verify through the SHARED verifier's pnp mode, spawned as a child (requiring another
+// project's .pnp.cjs into this process would be a foreign resolver in the bench's own
+// runtime): every declared edge must resolve via resolveToUnqualified, virtual paths
+// mapped back, targets on-disk and non-empty. The child walks the same tree with the
+// same collectEdges the nm mode uses, so coverage is identical by construction; the
+// parent still cross-checks the reported edge count against its own walk.
 function verifyCompletePnp() {
-  const pnpFile = join(DIR, ".pnp.cjs");
-  if (!existsSync(pnpFile)) throw new Error("PnP install left no .pnp.cjs — nothing to verify");
-  const edges = collectEdges();
-  const script = `
-    const { existsSync, statSync, readFileSync } = require("fs");
-    const pnp = require(${JSON.stringify(pnpFile)});
-    const edges = JSON.parse(readFileSync(0, "utf8"));
-    const missing = [];
-    for (const [pkgDir, dep] of edges) {
-      try {
-        const loc = pnp.resolveToUnqualified(dep, pkgDir + "/");
-        // null = Node builtin name (considerBuiltins) — nothing installed to verify, so
-        // fail closed with a message naming the cause rather than a bare null deref
-        if (loc === null) throw new Error("resolved to null (Node-builtin name?)");
-        const phys =
-          typeof pnp.resolveVirtual === "function" ? pnp.resolveVirtual(loc) || loc : loc;
-        const zi = phys.indexOf(".zip/");
-        const target = zi === -1 ? phys : phys.slice(0, zi + 4);
-        if (!existsSync(target)) throw new Error("resolved target missing on disk: " + target);
-        if (zi !== -1 && statSync(target).size === 0)
-          throw new Error("cache zip is empty: " + target);
-      } catch (e) {
-        if (missing.length < 20)
-          missing.push(pkgDir + " -> " + dep + " (" + String(e.message || e).slice(0, 120) + ")");
-      }
-    }
-    if (missing.length) {
-      console.error(missing.slice(0, 10).join("\\n"));
-      process.exit(1);
-    }
-    console.log("EDGES " + edges.length);
-  `;
-  const r = spawnSync("node", ["-e", script], {
-    cwd: DIR,
+  const expected = verifyLib.collectEdges(DIR).length;
+  const r = spawnSync("node", [VERIFY_CLI, DIR, "pnp"], {
     encoding: "utf8",
-    input: JSON.stringify(edges),
     maxBuffer: 1 << 26,
   });
   if (r.error)
@@ -355,45 +205,18 @@ function verifyCompletePnp() {
       `INCOMPLETE PnP install, unresolved deps:\n${((r.stderr || "") + (r.stdout || "")).slice(-1500)}`,
     );
   const m = (r.stdout || "").match(/EDGES (\d+)/);
-  if (!m || +m[1] !== edges.length)
+  if (!m || +m[1] !== expected)
     throw new Error(
-      `PnP verifier checked ${m ? m[1] : "no"} edges, expected ${edges.length}:\n${((r.stdout || "") + (r.stderr || "")).slice(-500)}`,
+      `PnP verifier checked ${m ? m[1] : "no"} edges, expected ${expected}:\n${((r.stdout || "") + (r.stderr || "")).slice(-500)}`,
     );
-  return edges.length;
+  return expected;
 }
 function setup(apps, libs) {
   rmSync(DIR, { recursive: true, force: true });
   mkdirSync(DIR, { recursive: true });
-  node([
-    join(REPO, "scripts/generate.mjs"),
-    "--apps",
-    String(apps),
-    "--libs",
-    String(libs),
-    "--modules",
-    "12",
-    "--clean",
-  ]);
-  node([
-    join(REPO, "scripts/rewrite-protocols.mjs"),
-    "--dir",
-    "apps",
-    "--catalog",
-    join(REPO, "pnpm-workspace.yaml"),
-  ]);
-  node([
-    join(REPO, "scripts/rewrite-protocols.mjs"),
-    "--dir",
-    "packages",
-    "--catalog",
-    join(REPO, "pnpm-workspace.yaml"),
-  ]);
-  writeFileSync(join(DIR, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
-  writeFileSync(
-    join(DIR, "package.json"),
-    JSON.stringify({ name: "pm-bench", private: true, workspaces: ["apps/*", "packages/*"] }) +
-      "\n",
-  );
+  // the shared scaffold (generate + decatalog + workspace files) — one workload
+  // definition for this bench and container-install-bench
+  scaffoldWorkspace(REPO, DIR, { apps, libs, name: "pm-bench" });
 }
 // Remove EVERY manager's project-local materialized state: the root virtual store and
 // every per-package node_modules (the isolated linker symlinks apps/*/node_modules and
@@ -438,11 +261,9 @@ const out = {
   scales: [],
   trulyCold: null,
 };
-const persist = () => writeFileSync(join(REPO, PROGRESS_JSON), JSON.stringify(out, null, 2));
-const promote = () => {
-  writeFileSync(join(REPO, FINAL_JSON), JSON.stringify(out, null, 2));
-  if (FINAL_JSON !== PROGRESS_JSON) rmSync(join(REPO, PROGRESS_JSON), { force: true });
-};
+const { persist: persistTo, promote: promoteTo } = benchOutput(REPO, PROGRESS_JSON, FINAL_JSON);
+const persist = () => persistTo(out);
+const promote = () => promoteTo(out);
 
 console.log(`host: ${CORES} cores`);
 const YARNJS = fetchYarn();
@@ -616,7 +437,7 @@ verifyComplete();
 assertPopulated(join(coldYarnGlobal, "cache"), "yarn zip cache (YARN_GLOBAL_FOLDER)");
 assertPopulated(join(coldYarnGlobal, "metadata"), "yarn metadata store (YARN_GLOBAL_FOLDER)");
 // yarn PnP — yarn's default linker and its faster one at every measured scale; skipping
-// it here would exclude exactly one tool's best configuration from this regime.
+// it here would exclude exactly one tool's best configuration from this pass.
 const coldYarnGlobalPnp = freshDir("yarn-global-pnp");
 writeYarnRc("pnp");
 rmNM();

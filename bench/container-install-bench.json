@@ -1,0 +1,394 @@
+{
+  "scale": {
+    "apps": 1000,
+    "libs": 200
+  },
+  "measures": "frozen install from the committed lockfile, each sample in a fresh podman container (hermetic env, --http-proxy=false; workspace and store/cache are subdirs of one mounted volume \u2014 same mount, so store links work; timed inside the container)",
+  "image": {
+    "ref": "docker.io/library/node@sha256:c601a46abb4d2ab80a9dc3da208d50d1122642d53f17a101926ace71e5a9bf1c",
+    "tag": "localhost/pm-container-install-bench:pnpm10.29.1-bun1.3.14-yarn4.17.0",
+    "id": "b9a99c18cb6c",
+    "node": "v22.23.1",
+    "npm": "10.9.8"
+  },
+  "versions": {
+    "pnpm": "10.29.1",
+    "bun": "1.3.14",
+    "yarn": "4.17.0"
+  },
+  "host": {
+    "cores": 64,
+    "preRunLoadAvg1": 0.88,
+    "networkBackend": "netavark"
+  },
+  "samplesPerCell": 5,
+  "rotation": "round-robin across the tool list; the exact per-sample order is recorded in sampleOrder",
+  "notes": [
+    "lifecycle scripts run at each tool's default: npm ci RUNS dependency scripts; pnpm 10 and yarn 4 block them; bun runs only its built-in allowlist \u2014 npm's cells include any script work (--no-audit/--no-fund strip only npm's advisory network add-ons, which are not part of installing)",
+    "npm has no workspace: protocol; its tree rewrites internal workspace:* specifiers to * and the authored package-lock.json is asserted to link them to the local workspace (npmTreeRewrites)",
+    "freshRunner is network-live through rootless podman's user-mode network stack (host.networkBackend); samples after the first fetch of a tarball ride a warmed CDN edge, so the recorded spread understates a genuinely different network path \u2014 not directly comparable to install-bench's host-network truly-cold pass",
+    "cacheRestored keeps the tool's cache/ subdir across samples in a persistent per-tool volume (pre-warmed once, asserted non-empty, entry count recorded); the lockfile is present in both variants",
+    "pnpm runs its default isolated linker; install-bench's warm rows show the hoisted linker relinks faster at this scale \u2014 not measured in containers",
+    "workspace and store/cache are subdirectories of ONE mounted volume: link(2)/FICLONE fail EXDEV across separate mounts even on one filesystem, so a two-volume or bind-mount geometry would force pnpm/bun into their per-file copy fallback \u2014 pnpm's copy-fallback warning is captured per cell (copyFallbackSeen) as evidence the link path held"
+  ],
+  "npmTreeRewrites": 4498,
+  "failClosed": {
+    "pnpm": {
+      "rejected": true,
+      "exit": 1,
+      "lockUnchanged": true
+    },
+    "bun": {
+      "rejected": true,
+      "exit": 1,
+      "lockUnchanged": true
+    },
+    "yarnNm": {
+      "rejected": true,
+      "exit": 1,
+      "lockUnchanged": true
+    },
+    "yarnPnp": {
+      "rejected": true,
+      "exit": 1,
+      "lockUnchanged": true
+    },
+    "npm": {
+      "rejected": true,
+      "exit": 1,
+      "lockUnchanged": true
+    }
+  },
+  "sampleOrder": [
+    {
+      "variant": "freshRunner",
+      "sample": 1,
+      "order": [
+        "pnpm",
+        "bun",
+        "yarnNm",
+        "yarnPnp",
+        "npm"
+      ]
+    },
+    {
+      "variant": "freshRunner",
+      "sample": 2,
+      "order": [
+        "bun",
+        "yarnNm",
+        "yarnPnp",
+        "npm",
+        "pnpm"
+      ]
+    },
+    {
+      "variant": "freshRunner",
+      "sample": 3,
+      "order": [
+        "yarnNm",
+        "yarnPnp",
+        "npm",
+        "pnpm",
+        "bun"
+      ]
+    },
+    {
+      "variant": "freshRunner",
+      "sample": 4,
+      "order": [
+        "yarnPnp",
+        "npm",
+        "pnpm",
+        "bun",
+        "yarnNm"
+      ]
+    },
+    {
+      "variant": "freshRunner",
+      "sample": 5,
+      "order": [
+        "npm",
+        "pnpm",
+        "bun",
+        "yarnNm",
+        "yarnPnp"
+      ]
+    },
+    {
+      "variant": "cacheRestored",
+      "sample": 1,
+      "order": [
+        "pnpm",
+        "bun",
+        "yarnNm",
+        "yarnPnp",
+        "npm"
+      ]
+    },
+    {
+      "variant": "cacheRestored",
+      "sample": 2,
+      "order": [
+        "bun",
+        "yarnNm",
+        "yarnPnp",
+        "npm",
+        "pnpm"
+      ]
+    },
+    {
+      "variant": "cacheRestored",
+      "sample": 3,
+      "order": [
+        "yarnNm",
+        "yarnPnp",
+        "npm",
+        "pnpm",
+        "bun"
+      ]
+    },
+    {
+      "variant": "cacheRestored",
+      "sample": 4,
+      "order": [
+        "yarnPnp",
+        "npm",
+        "pnpm",
+        "bun",
+        "yarnNm"
+      ]
+    },
+    {
+      "variant": "cacheRestored",
+      "sample": 5,
+      "order": [
+        "npm",
+        "pnpm",
+        "bun",
+        "yarnNm",
+        "yarnPnp"
+      ]
+    }
+  ],
+  "tools": {
+    "pnpm": {
+      "freshRunner": {
+        "medianMs": 8940,
+        "samplesMs": [
+          8730,
+          8720,
+          8960,
+          9000,
+          8940
+        ],
+        "cpuPct": 189,
+        "rssMB": 1392,
+        "load1PerSample": [
+          1.23,
+          1.62,
+          1.47,
+          1.34,
+          1.76
+        ],
+        "copyFallbackSeen": false
+      },
+      "cacheVolumeEntries": 10160,
+      "cacheRestored": {
+        "medianMs": 7050,
+        "samplesMs": [
+          7000,
+          7100,
+          7050,
+          7060,
+          7010
+        ],
+        "cpuPct": 192,
+        "rssMB": 973,
+        "load1PerSample": [
+          1.71,
+          1.74,
+          1.72,
+          1.51,
+          1.41
+        ],
+        "copyFallbackSeen": false
+      }
+    },
+    "bun": {
+      "freshRunner": {
+        "medianMs": 900,
+        "samplesMs": [
+          900,
+          890,
+          900,
+          890,
+          900
+        ],
+        "cpuPct": 420,
+        "rssMB": 288,
+        "load1PerSample": [
+          1.23,
+          1.38,
+          1.43,
+          1.79,
+          1.76
+        ],
+        "copyFallbackSeen": false,
+        "bunStoreDirSeen": true
+      },
+      "cacheVolumeEntries": 10984,
+      "cacheRestored": {
+        "medianMs": 400,
+        "samplesMs": [
+          410,
+          390,
+          390,
+          400,
+          400
+        ],
+        "cpuPct": 435,
+        "rssMB": 64,
+        "load1PerSample": [
+          1.71,
+          1.7,
+          1.67,
+          1.51,
+          1.37
+        ],
+        "copyFallbackSeen": false,
+        "bunStoreDirSeen": true
+      }
+    },
+    "yarnNm": {
+      "freshRunner": {
+        "medianMs": 6450,
+        "samplesMs": [
+          6540,
+          6370,
+          6370,
+          6540,
+          6450
+        ],
+        "cpuPct": 233,
+        "rssMB": 3133,
+        "load1PerSample": [
+          1.28,
+          1.47,
+          1.6,
+          1.81,
+          1.8
+        ],
+        "copyFallbackSeen": false
+      },
+      "cacheVolumeEntries": 289,
+      "cacheRestored": {
+        "medianMs": 4210,
+        "samplesMs": [
+          4220,
+          4190,
+          4220,
+          4200,
+          4210
+        ],
+        "cpuPct": 153,
+        "rssMB": 978,
+        "load1PerSample": [
+          1.65,
+          1.64,
+          1.68,
+          1.47,
+          1.34
+        ],
+        "copyFallbackSeen": false
+      }
+    },
+    "yarnPnp": {
+      "freshRunner": {
+        "medianMs": 4440,
+        "samplesMs": [
+          4490,
+          4440,
+          4410,
+          4470,
+          4360
+        ],
+        "cpuPct": 269,
+        "rssMB": 3087,
+        "load1PerSample": [
+          1.49,
+          1.67,
+          1.56,
+          1.48,
+          2.22
+        ],
+        "copyFallbackSeen": false
+      },
+      "cacheVolumeEntries": 289,
+      "cacheRestored": {
+        "medianMs": 2190,
+        "samplesMs": [
+          2200,
+          2190,
+          2170,
+          2190,
+          2170
+        ],
+        "cpuPct": 149,
+        "rssMB": 639,
+        "load1PerSample": [
+          1.6,
+          1.59,
+          1.68,
+          1.61,
+          1.34
+        ],
+        "copyFallbackSeen": false
+      }
+    },
+    "npm": {
+      "freshRunner": {
+        "medianMs": 10430,
+        "samplesMs": [
+          10290,
+          10630,
+          10530,
+          10430,
+          10390
+        ],
+        "cpuPct": 131,
+        "rssMB": 387,
+        "load1PerSample": [
+          1.42,
+          1.64,
+          1.47,
+          1.4,
+          1.7
+        ],
+        "copyFallbackSeen": false
+      },
+      "cacheVolumeEntries": 193,
+      "cacheRestored": {
+        "medianMs": 9650,
+        "samplesMs": [
+          9650,
+          9520,
+          9680,
+          9640,
+          9730
+        ],
+        "cpuPct": 134,
+        "rssMB": 702,
+        "load1PerSample": [
+          1.67,
+          1.5,
+          1.53,
+          1.6,
+          1.39
+        ],
+        "copyFallbackSeen": false
+      }
+    }
+  },
+  "depEdgesVerified": 11898
+}

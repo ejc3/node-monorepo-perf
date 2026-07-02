@@ -77,7 +77,7 @@ So the editor's project-load cost is bounded by what one app imports, not by rep
 
 ## What we should still quantify
 
-Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild, editor project-load + RSS (tsserver vs tsgo LSP). Gaps:
+Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP; plus the five-way frozen CI-runner install incl. npm in fresh podman containers, `container-install-bench.json`), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild, editor project-load + RSS (tsserver vs tsgo LSP). Gaps:
 
 1. Direct lockfile measurement at 10k/20k — lines, MB, and pnpm parse time per install. Lockfile *size* is measured through 4,000 apps (`results.json`); the resolve-vs-verify split (`lockfile-bench`) goes to 2,000; the 20k figure in §1 is extrapolated from the 200→4,000 trend.
 2. Turbo graph-load in isolation — `turbo run build --dry` time (planning only, no execution or cache restore) vs scale, distinct from §2's measured fully-cached floor (which also pays the cache restore).

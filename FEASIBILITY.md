@@ -91,6 +91,11 @@ pnpm reuses locked versions and re-resolves only the delta
 | frozen, warm store (returning machine / CI) | 7.4s | 3% |
 | frozen, cold store (new CI runner) | 9.2s | 4% |
 
+The new-CI-runner row is corroborated and extended per tool in fresh podman containers
+(`container-install-bench.json`, same scale, frozen install, empty caches, real network):
+pnpm 8.9s, bun **0.9s**, yarn-PnP 4.4s, yarn node-modules 6.5s, npm 10.4s — table in
+[TOOLING.md](TOOLING.md).
+
 So a one-dep change is ~10s and a fresh clone / cold CI runner is ~7–9s (frozen);
 only the no-lockfile case is the 233s/16-min resolve. The exception is a **catalog
 bump** (51.3s): it re-resolves that shared dep across every importer — cheap in
