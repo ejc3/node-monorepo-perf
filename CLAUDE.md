@@ -88,7 +88,12 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `bench/lockfile-merge-bench.json`.
 
 ### Tool comparisons
-- `make install-bench` — pnpm (isolated + hoisted) vs bun, cold/warm/truly-cold → `bench/install-bench.json`.
+- `make install-bench` — pnpm (isolated + hoisted) vs bun vs yarn 4 (node-modules + PnP, pinned
+  standalone CLI, `YARN_*` env scrubbed, PnP completeness verified through `.pnp.cjs`),
+  cold/warm/truly-cold (each tool's store+metadata redirected to fresh dirs, asserted populated)
+  at the canonical scales `200:100 1000:200 2000:300` → `bench/install-bench.json`; any other
+  scales (and any run's in-progress state) go to gitignored `install-bench.partial.json`, promoted
+  on completion only.
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
@@ -249,7 +254,7 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `node scripts/wave-rollout-bench.mjs` — the **rollout-mechanics vet**: the load-bearing facts for
   advancing an internal core lib through a hermetic, wave-based rollout, measured as a **bun-vs-pnpm
   head-to-head** (writeup in ROLLOUT.md, which recommends bun: it does all of it natively and cold-installs
-  58–440× faster than pnpm, `bench/install-bench.json`). Five rungs on self-contained temp scaffolds, each
+  62–357× faster than pnpm, `bench/install-bench.json`). Five rungs on self-contained temp scaffolds, each
   HARD-ASSERTING a stable fact; the bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
   (and the script asserts it is running 1.3.14). (1) **Determinism** — the lockfile, not the range, is the
   boundary: bun with a committed `bunfig.toml [install] frozenLockfile=true` FAILS CLOSED on drift (bare
@@ -415,7 +420,7 @@ traced to a `bench/*.json`), `ROLLOUT.md` (advancing an internal core lib throug
 wave-based rollout, driven with bun — the lockfile-not-the-range determinism boundary with frozen vs
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm as a
-head-to-head with bun cold-installing 58–440× faster, the direct-clean vs universal-republish-fanout
+head-to-head with bun cold-installing 62–357× faster, the direct-clean vs universal-republish-fanout
 distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source,
 the "Adoption safety, vetted" subsection — bun is adoptable but not a strict safety superset (two real
 gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer knob; plus pnpm's
@@ -446,7 +451,11 @@ where it applies — not all are universal (noted inline):
 - **Warm-store, comparable installs.** The install-comparison benches
   (`install-bench`, `lockfile-bench`, `axis-bench`, `perf-matrix`) pre-warm the
   package store before measuring, so "warm" means warm-store; `install-bench`'s
-  "truly-cold" pass uses a fresh store + fresh metadata cache + network.
+  "truly-cold" pass redirects each tool's content store AND registry metadata to a
+  fresh scratch dir (asserted populated afterward) + network. `install-bench` also
+  scrubs each tool's ambient config env (`YARN_*`, `BUN_*`, `PNPM_*`, `npm_config_*`)
+  per timed run — ambient env overrides even explicit rc files and would silently
+  flip one tool into a different cache regime.
 - **Source must be visible to Turbo.** The generated apps/packages are gitignored,
   and Turbo respects `.gitignore` for input hashing — so without intervention it
   hashes nothing, making warm-cache and edit-rebuild numbers false cache hits and

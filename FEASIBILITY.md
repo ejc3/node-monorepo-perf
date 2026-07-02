@@ -130,13 +130,15 @@ where there is no shared lockfile or graph.
 Turborepo supports pnpm, npm, yarn, and bun, all at its Stable tier
 ([support policy](https://turborepo.dev/docs/support-policy)); **bun is not
 required**. The resolve dominates pnpm's install, and bun's install is much faster
-(`install-bench.json`, cold install):
+(`install-bench.json`, cold install; yarn 4 is measured in the same dataset and
+also beats pnpm at every scale — fastest of all at 2,000 apps, PnP 3.2s — see the
+five-way table in [TOOLING.md](TOOLING.md)):
 
 | scale | pnpm isolated | bun | ratio |
 |---|---|---|---|
-| 200 apps | 48.8s | 0.11s | ~440× |
-| 1,000 apps | 232.4s | 2.3s | ~100× |
-| 2,000 apps | 476.8s | 8.3s | ~58× |
+| 200 apps | 47.8s | 0.13s | ~357× |
+| 1,000 apps | 229.5s | 2.2s | ~103× |
+| 2,000 apps | 471.2s | 7.5s | ~62× |
 
 Both package managers can do the strict setup; the difference is install speed vs
 how long the strict toolchain has existed. bun 1.3+ has an isolated linker (default
@@ -194,18 +196,21 @@ Cells not benchmarked on bun are marked *(unverified)*.
 | semver-internal resolves from registry | yes (`link-workspace-packages=false`) | `workspace:` → local; plain-semver local-vs-registry behavior *(verify on your bun)* |
 | isolated linker (no phantom deps) | yes (default) | yes (default for workspaces, [docs](https://bun.com/docs/pm/isolated-installs)) |
 | lockfile merge conflicts auto-resolved | yes, measured (253→0) | `bun.lock` ([docs](https://bun.com/docs/pm/lockfile)) *(auto-resolve not benchmarked here)* |
-| whole-workspace cold install at scale | slow (16 min @4k); resolve-once, frozen elsewhere | 58–440× faster install (measured) |
+| whole-workspace cold install at scale | slow (16 min @4k); resolve-once, frozen elsewhere | 62–357× faster install (measured) |
 
 The two paths, side by side (no recommendation):
 
 - **pnpm** does the independently-published + catalogs + workspace setup as the
 model pnpm documents, with the strict isolated linker; cost is the whole-workspace
 resolve (16 min cold @4k) and the inode-heavy linker.
-- **bun** exposes the same capabilities with 58–440× faster installs; cost is that
+- **bun** exposes the same capabilities with 62–357× faster installs; cost is that
 the isolated+catalog path is newer (1.3, 2025) and hit the bugs above, and the
 *(unverified)* rows are untested here.
-- **npm / yarn** work with Turborepo but have no catalogs, so the centralize-shared
-axis becomes manual version-pinning.
+- **npm** works with Turborepo but has no catalogs, so the centralize-shared axis
+becomes manual version-pinning. **yarn 4** has catalogs (the 4.17.0 CLI this repo
+benchmarks bundles the catalog plugin) and the fastest measured cold install at
+2,000 apps (`install-bench.json`, table in [TOOLING.md](TOOLING.md)); its rollout
+mechanics are not vetted here the way bun's and pnpm's are ([ROLLOUT.md](ROLLOUT.md)).
 
 *(If you meant Buck2 / Bazel rather than bun — a build system, not a package
 manager — it would replace Turborepo's task orchestration, not pnpm; a separate
@@ -228,7 +233,7 @@ skew windows short.
 | situation | direction |
 |---|---|
 | apps share libs, want one-version-everywhere + cross-package refactors | shared pnpm workspace + Turborepo, with remote cache + prune + catalogs |
-| same, but install/resolve time dominates | same, with bun for installs (accepting the 1.3 strict-mode caveats) |
+| same, but install/resolve time dominates | same, with bun (accepting the 1.3 strict-mode caveats) or yarn 4 for installs — yarn is the fastest measured cold install at 2,000 apps, bun below that scale (`install-bench.json`) |
 | many apps, weak sharing | shard into several smaller workspaces (cap each lockfile/graph) |
 | apps independent (no shared libs / no version coherence) | polyrepo / separate installs — no global lockfile or graph |
 
@@ -240,8 +245,9 @@ typecheck ~1–2 min — both rare and cacheable; daily loop seconds.
 233s. These are bearable only if remote cache + prune keep them rare; the isolated
 linker uses 86,749 `node_modules` entries / 49,712 symlinks at this size
 (`results.json`), so `df -i` is worth watching — hoisted roughly halves the
-entries (21,914 vs 50,159 at 2,000 apps, `install-bench.json`); `pnp` removes
-`node_modules` entirely (not benchmarked here).
+entries (21,914 vs 50,159 at 2,000 apps, `install-bench.json`); yarn PnP removes
+`node_modules` entirely (measured: 64 entries — unplugged native packages only —
+plus a 3.5 MB `.pnp.cjs` at 2,000 apps, same dataset).
 - **10,000–20,000 packages (extrapolated from the ~linear trend):** lockfile
 ~360k–720k lines (154k at 4,300 pkgs ≈ 36 lines/pkg), cold install and cold
 typecheck in the tens of minutes. At this

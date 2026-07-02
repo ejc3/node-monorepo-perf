@@ -12,44 +12,52 @@ behaviors are cross-checked against bun's source at the `bun-v1.3.14` tag.
 ## The recommendation: drive the rollout with bun
 
 bun runs the entire rollout natively — frozen-lockfile determinism, named-catalog version channels, the
-`workspace:` link for co-development, and the concrete-range publish rewrite — and it wins the install case
-that recurs in practice: a clean checkout where only the source is kept. Use bun.
+`workspace:` link for co-development, and the concrete-range publish rewrite — and against pnpm, the other
+driver vetted here, it wins the full re-resolve by ~62–357×. (yarn 4 is the faster installer at the top of
+the measured range — fastest cold and warm at 2,000 apps, `bench/install-bench.json` — but its rollout
+mechanics are not vetted in this doc.) Use bun.
 
-**Cold install — the clean-env case.** Teams routinely start from a checkout with only source retained:
-`node_modules` gone (a fresh CI container, a new clone, a wiped tree). That cold install is where the gap is
-large (`bench/install-bench.json`, fresh `node_modules`, warm store):
+**Cold install — the full re-resolve.** With no usable lockfile — authoring it fresh, or after a change
+that invalidates it — the install pays the full dependency resolve, and that is where the gap is large
+(`bench/install-bench.json`, no lockfile, fresh `node_modules`, warm store):
 
 | workspace | pnpm (isolated) cold | bun cold | bun is |
 |---|---|---|---|
-| 200 apps / 100 libs | 48.8s | 0.11s | ~440× |
-| 1,000 apps / 200 libs | 232.4s | 2.3s | ~100× |
-| 2,000 apps / 300 libs | 476.8s | 8.3s | ~58× |
+| 200 apps / 100 libs | 47.8s | 0.13s | ~357× |
+| 1,000 apps / 200 libs | 229.5s | 2.2s | ~103× |
+| 2,000 apps / 300 libs | 471.2s | 7.5s | ~62× |
 
 Measured to 2,000 apps; the 4,000-app target is beyond `install-bench.json`'s ceiling, and bun's per-app
-cold cost rises with scale, so the ratio at 4,000 is below the 58× floor (extrapolation, not measured). With
-the package **store** also cold — the truest fresh-container case — bun stays ahead, but this path is
-network-bound and a single sample: bun 3.1s vs pnpm-hoisted 23.6s at 200 apps (`install-bench.json`
-`trulyCold`). It downloads every package and its metadata, so the exact multiple varies with the network and
-isn't directly comparable to the warm-store cold table above — the reproducible figures are the warm-store
+cold cost rises with scale, so the ratio at 4,000 is below the 62× floor (extrapolation, not measured). With
+the package **store** also cold and still no lockfile — the bench's truly-cold pass — bun stays ahead, but
+this path is network-bound and a single sample: bun 1.2s vs pnpm-hoisted 24.0s at 200 apps
+(`install-bench.json` `trulyCold`). It downloads every package and its metadata, so the exact multiple varies with the network and
+isn't directly comparable to the warm-store cold table above — the like-for-like figures are the warm-store
 cold ratios.
 
 **Warm install — everything cached.** When the store and `node_modules` are both warm, the gap narrows.
-Through 1,000 apps both are single-digit seconds (at 1,000: bun 2.5s, pnpm-isolated 7.4s, pnpm-hoisted 3.0s).
-At 2,000 apps the regimes cross: bun warm 10.1s, pnpm-isolated 15.6s, and **pnpm-hoisted warm 4.7s — ~2×
-faster than bun**. On a fully warm runner at the top of the range, pnpm-hoisted wins the install; bun's
-advantage is specifically the cold path.
+Through 1,000 apps both are single-digit seconds (at 1,000: bun 2.6s, pnpm-isolated 7.3s, pnpm-hoisted 3.0s).
+At 2,000 apps they cross: bun warm 9.5s, pnpm-isolated 15.2s, and **pnpm-hoisted warm 4.7s — ~2×
+faster than bun**. On a fully warm runner at the top of the range, pnpm-hoisted wins the bun-vs-pnpm
+install comparison; bun's advantage is specifically the cold path.
 
-So drive with bun: the clean-env cold install is the frequent case and bun wins it by ~58–440×, and bun does
-every rollout mechanic natively. Where a runner stays fully warm the install gap is small (and pnpm-hoisted
-can edge bun) — there the choice rests on the mechanics, not install speed. Every wave still drives installs
-on cold/clean runners (the all-app gate, every deploy, every developer pulling the new version), so this is
-the per-wave tax across the fleet.
+So drive with bun: when the resolve path is exercised bun is far faster (~62–357× on the full re-resolve,
+1.2s vs 24.0s in the single truly-cold sample), and bun does every rollout mechanic natively. Where a
+runner stays fully warm with an unchanged lockfile the install gap is small (and pnpm-hoisted can edge bun)
+— there the choice rests on the mechanics, not install speed. A rollout exercises both paths: each wave's
+catalog repoint re-resolves the changed lockfile entries (an incremental re-resolve with the lockfile
+present — smaller than the full-re-resolve table), and every fresh container or new clone re-materializes
+`node_modules` from the committed lockfile (the warm rows above with a cached store; with a cold store the
+nearest measured point is the truly-cold sample, which additionally re-resolves with no lockfile). (yarn 4, measured in the same dataset, beats pnpm's cold install at
+every measured scale, beats bun's at 2,000 apps, and is the fastest warm install outright at 1,000–2,000
+apps — `bench/install-bench.json`, table in [TOOLING.md](TOOLING.md) — but the rollout mechanics in this
+doc were vetted bun-vs-pnpm only; yarn is not evaluated as a rollout driver here.)
 
 pnpm is a complete fallback that does the same mechanics, and it ships two guardrails bun does not default to
 (below). One closes on bun with a single committed line (pnpm auto-enables frozen in CI; bun needs the
 `bunfig.toml` line). The other is a genuine pnpm safety edge: pnpm rejects a `workspace:` spec as a catalog
 value, ruling out a foot-gun bun allows — bun is more permissive there, not more guarded. Neither blocks the
-rollout on bun, and on a clean/cold checkout the ~58–440× install gap outweighs both; the catalog-validation
+rollout on bun, and where installs exercise the resolve path the ~62–357× full-re-resolve gap outweighs both; the catalog-validation
 strictness is a real, if minor, point for pnpm. A full safety vet (next subsection) finds two further bun
 gaps, one more pnpm safety edge (phantom isolation), and otherwise parity. Pick pnpm only if you
 specifically want those defaults and will pay the install cost; otherwise the answer is bun.
@@ -286,10 +294,10 @@ identically (measured, `namedCatalogLanes.pnpm`: `stable`→1.0.0 / `next`→3.0
 moves the cohort with 0 of 2 manifests edited), and `pnpm pack` bakes the same concrete range
 (`publishBakesConcrete.pnpm`). The whole rollout is available on pnpm.
 
-The cost is install speed on cold/clean checkouts — the frequent case: ~58–440× slower (the table above).
-On a fully warm runner the gap is small and pnpm-hoisted can match or beat bun, so there pnpm's two defaults
-(auto-frozen CI, stricter catalog validation) are a real point in its favor; on cold/clean runners they do
-not outweigh the install gap.
+The cost is install speed wherever the resolve path is exercised: ~62–357× slower on a full re-resolve
+(the table above). On a runner carrying the committed lockfile the gap is small and pnpm-hoisted can match
+or beat bun, so there pnpm's two defaults (auto-frozen CI, stricter catalog validation) are a real point in
+its favor; where re-resolves recur they do not outweigh the install gap.
 Choose pnpm when your runners stay warm and you want its defaults; otherwise drive with bun and set the
 two-line equivalent.
 

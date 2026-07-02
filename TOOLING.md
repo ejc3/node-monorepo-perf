@@ -1,38 +1,49 @@
 # Tooling comparisons: install and build
 
-## Install: bun vs pnpm (`scripts/install-bench.mjs`)
+## Install: bun vs pnpm vs yarn 4 (`scripts/install-bench.mjs`)
 
-Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). pnpm-isolated is pnpm's default; pnpm-hoisted matches bun's flat `node_modules`, so the manager is compared at the same layout.
+Environment in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB). Each manager runs at its own workspace default plus, for pnpm and yarn, the alternate linker: pnpm-isolated (pnpm's default) and pnpm-hoisted (flat); bun's workspace default, which since bun 1.3 is the isolated layout (a `node_modules/.bun` store — its entry counts land near pnpm-isolated's, not the flat layouts'); yarn 4.17.0 under `node-modules` (flat — the layout match for pnpm-hoisted) and under PnP (yarn's default: no `node_modules` at all, a `.pnp.cjs` resolution table over global-cache zips, with only native packages materialized under `.yarn/unplugged`).
 
-The three states: **cold** = no lockfile present (full resolve + link against the warm content store, no network); **warm** = lockfile present, `node_modules` removed (relink); **truly-cold** (the pass below the table) = the network-cold case.
+The three states: **cold** = no lockfile present (full resolve + link against the warm content store — package content is already local, though the network is not blocked and each tool may still revalidate registry metadata per its own policy); **warm** = lockfile present, `node_modules` removed (relink); **truly-cold** (the pass below the table) = the network-cold case.
 
-Reset discipline: each scale is generated fresh, the whole `node_modules` tree (root + every per-package dir) and the lockfile are removed before each measurement, and the store is pre-warmed once so a "cold" install reflects warm-store work rather than a cache-order artifact. Every install is verified complete afterward — every app and lib must resolve all its declared dependencies and devDependencies, or the bench throws.
+Reset discipline: each scale is generated fresh, the whole `node_modules` tree (root + every per-package dir), yarn's `.pnp.*`/`.yarn` project state, and the lockfile are removed before each measurement, and each tool's global store is pre-warmed once so a "cold" install reflects warm-store work rather than a cache-order artifact. Each tool's ambient config env (`YARN_*`, `BUN_*`, `PNPM_*`, `npm_config_*`) is stripped for its timed runs so a stray host setting can't silently move or disable its cache. Every install is verified complete afterward — every app and lib must resolve all its declared dependencies and devDependencies (for PnP, through the `.pnp.cjs` resolver, with each resolved zip present and non-empty on disk) — or the bench throws.
 
-Columns: CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full-tree `node_modules` footprint (root virtual store + every per-package tree).
+Columns: CPU% and peak RSS are from `/usr/bin/time -v`; `nm entries` is the full-tree `node_modules` footprint (root virtual store + every per-package tree). yarn-PnP's 64 entries are its unplugged native packages (sharp, `@img/*`, `@next/swc`); its resolution table `.pnp.cjs` is 0.8–3.5 MB across these scales.
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
-| 200 / 100 | pnpm isolated | 48.8s | 2.3s | 131% | 825 MB | 15,691 |
-| | pnpm hoisted | 47.1s | 1.4s | 132% | 907 MB | 12,246 |
-| | bun | 0.11s | 0.12s | 230% | 42 MB | 15,409 |
-| 1,000 / 200 | pnpm isolated | 232.4s | 7.4s | 134% | 907 MB | 31,123 |
-| | pnpm hoisted | 227.1s | 3.0s | 134% | 933 MB | 16,578 |
-| | bun | 2.3s | 2.5s | 43% | 72 MB | 29,941 |
-| 2,000 / 300 | pnpm isolated | 476.8s | 15.6s | 141% | 1,011 MB | 50,159 |
-| | pnpm hoisted | 453.6s | 4.7s | 142% | 1,157 MB | 21,914 |
-| | bun | 8.3s | 10.1s | 23% | 98 MB | 47,877 |
+| 200 / 100 | pnpm isolated | 47.8s | 2.3s | 130% | 779 MB | 15,691 |
+| | pnpm hoisted | 46.7s | 1.4s | 131% | 903 MB | 12,246 |
+| | bun | 0.13s | 0.12s | 225% | 43 MB | 15,409 |
+| | yarn node-modules | 3.2s | 2.8s | 152% | 933 MB | 11,210 |
+| | yarn PnP | 1.7s | 1.3s | 143% | 610 MB | 64 |
+| 1,000 / 200 | pnpm isolated | 229.5s | 7.3s | 134% | 938 MB | 31,123 |
+| | pnpm hoisted | 227.3s | 3.0s | 133% | 992 MB | 16,578 |
+| | bun | 2.2s | 2.6s | 42% | 73 MB | 29,941 |
+| | yarn node-modules | 4.4s | 4.0s | 158% | 1,017 MB | 12,110 |
+| | yarn PnP | 2.3s | 2.1s | 151% | 666 MB | 64 |
+| 2,000 / 300 | pnpm isolated | 471.2s | 15.2s | 141% | 1,023 MB | 50,159 |
+| | pnpm hoisted | 456.7s | 4.7s | 142% | 1,161 MB | 21,914 |
+| | bun | 7.5s | 9.5s | 26% | 97 MB | 47,877 |
+| | yarn node-modules | 6.2s | 5.9s | 153% | 1,093 MB | 13,210 |
+| | yarn PnP | 3.2s | 2.9s | 149% | 723 MB | 64 |
 
-Truly-cold (fresh pnpm store + fresh metadata cache + cleared bun cache, real network) at 200/100: pnpm-hoisted 23.6s, bun 3.1s. This downloads every package and its metadata, so it is network-bound and a single sample — a different regime from the warm-store cold column above (which links from the host's large shared store), and not directly comparable to it. bun stays faster; treat the exact multiple as approximate.
+Truly-cold (each tool's content store and registry metadata redirected to a fresh scratch dir, real network — and no lockfile, so this includes the full resolve) at 200/100: pnpm-hoisted 24.0s, bun 1.2s, yarn node-modules 9.3s, yarn PnP 7.7s. This downloads every package and its metadata, so it is network-bound and a single sample per tool, taken sequentially in the fixed order pnpm → bun → yarn-nm → yarn-PnP — a network path warmed by the earlier tools' downloads can favor the later ones. It is a different starting state from the warm-store cold column above (which links from the host's shared store), and not directly comparable to it. bun is fastest here; treat the exact multiples as approximate.
 
 Reading it:
-- pnpm cold install is ~linear in package count (48.8s → 476.8s, 10× apps); bun has a far smaller constant (0.11s → 8.3s) — roughly 440× faster cold than pnpm's default isolated at 200/100, ~100× at 1,000, ~58× at 2,000 (against the matched-layout pnpm-hoisted the ratios are ~424× / ~100× / ~55×). The gap isn't just a warm cache: even truly-cold (fresh store + metadata, real network) bun stays faster (3.1s vs 23.6s in one sample), though that path is network-bound — see the note above.
-- Warm relink (lockfile present) is where the linker shows up: pnpm-hoisted relinks in 4.7s at 2,000 vs pnpm-isolated's 15.6s — recreating the isolated symlink farm is a real warm-relink cost. bun's warm (10.1s) lands near its cold (8.3s) at 2,000.
-- Cold install time is within ~5% across isolated/hoisted (resolution-bound); the isolated layout's costs are footprint (50,159 vs 21,914 `node_modules` entries at 2,000) and that warm-relink time, not cold-install time.
-- pnpm uses ~1.3–1.4 cores (install is largely serial) and up to ~1.2 GB RSS; bun stays under 100 MB. Each figure is a single measured run (large installs are measured once).
+- pnpm cold install is ~linear in package count (47.8s → 471.2s, 10× apps); bun has a far smaller constant (0.13s → 7.5s) — roughly 357× faster cold than pnpm's default isolated at 200/100, ~103× at 1,000, ~62× at 2,000 (pnpm-hoisted is within ~3% of isolated, so its ratios track). The gap isn't just a warm cache: truly-cold (fresh store + metadata, real network) bun stays faster (1.2s vs 24.0s in one sample), though that path is network-bound — see the note above.
+- yarn's cold cost grows much more slowly than pnpm's (3.2s → 6.2s node-modules; 1.7s → 3.2s PnP), so the bun-vs-yarn ordering flips with scale: bun is faster at 200 apps (0.13s vs 1.7s) and effectively tied with yarn-PnP at 1,000 (2.24s vs 2.32s), while at 2,000 apps **yarn is the fastest cold install** — PnP 3.2s and node-modules 6.2s vs bun's 7.5s.
+- Warm relink (lockfile present) is where the linker shows up: pnpm-hoisted relinks in 4.7s at 2,000 vs pnpm-isolated's 15.2s — recreating the isolated symlink farm is a real warm-relink cost. bun's warm (9.5s) lands above its cold (7.5s) at 2,000. yarn-PnP's warm is the fastest at 1,000 and 2,000 apps (2.1s, 2.9s) — with no `node_modules` to materialize, warm is mostly rewriting `.pnp.cjs`.
+- Cold install time is within ~3% across pnpm isolated/hoisted (resolution-bound); the isolated layout's costs are footprint (50,159 vs 21,914 `node_modules` entries at 2,000) and that warm-relink time, not cold-install time.
+- Footprint: yarn-PnP materializes almost nothing per project (64 unplugged entries + a 0.8–3.5 MB `.pnp.cjs`; packages stay zipped in the shared global cache). Among the `node_modules` layouts at 2,000 apps, yarn-nm writes the fewest entries (13,210), pnpm-hoisted 21,914, bun/pnpm-isolated ~48–50k.
+- bun's cold CPU% collapses with scale (225% → 42% → 26%): at 2,000 apps most of bun's cold wall time is blocked on filesystem work, consistent with materializing its isolated layout (its ~48k `node_modules` entries at 2,000 apps sit near pnpm-isolated's 50k). Its warm single samples land slightly above its cold at 1,000 and 2,000 apps (2.6s vs 2.2s; 9.5s vs 7.5s) — sub-10s single runs whose ordering is within run-to-run variation.
+- pnpm shows a reverse surprise: its truly-cold install below (24.0s — empty store, empty metadata cache, real downloads) undercuts its warm-store cold here (46.7s, same scale and linker). The difference tracks the registry-metadata cache, not the content store: a no-lockfile resolve against a warm metadata cache re-parses large cached full packuments (the cached `next` packument alone is 25 MB) at full CPU, while a metadata-cold resolve fetches the far smaller abbreviated packuments from the registry. With the lockfile committed (the warm row and every frozen install) no resolve happens and none of this cost is paid.
+- pnpm and yarn use ~1.3–1.6 cores (install is largely serial) with ~0.6–1.2 GB peak RSS; bun stays under 100 MB. Each figure is a single measured run (large installs are measured once), taken in a fixed per-scale order — pnpm isolated, pnpm hoisted, bun, yarn nm, yarn PnP — recorded in the JSON.
 
 Methodology:
-- bun ignores `pnpm-workspace.yaml` and the `catalog:` protocol, so the bench runs a decataloged copy with a `package.json` `"workspaces"` field both tools read — a like-for-like dependency set.
-- bun's `node_modules` is hoisted (flat); pnpm-isolated is a symlinked virtual store that prevents phantom dependencies. The speed comparison is like-for-like at matched layout (pnpm-hoisted vs bun); the strictness guarantees differ.
+- bun and yarn ignore `pnpm-workspace.yaml` and the pnpm `catalog:` protocol, so the bench runs a decataloged copy carrying both a `pnpm-workspace.yaml` (which pnpm reads) and a `package.json` `"workspaces"` field (which bun and yarn read) — a like-for-like dependency set.
+- Two layout families are in play: isolated stores that prevent phantom dependencies (pnpm-isolated's symlinked virtual store; bun's `node_modules/.bun`, its workspace default) and flat trees (pnpm-hoisted, yarn-nm). yarn PnP is stricter still — no `node_modules`, resolution only through declared edges — and that contract is also its compatibility cost: a tool that reads `node_modules` directly needs PnP support or unplugging. pnpm also ships its own pnp linker, not measured here (LIMITS gap #5).
+- yarn is the pinned 4.17.0 standalone CLI from the `@yarnpkg/cli-dist` tarball run as `node yarn.js`, with `enableImmutableInstalls`/`enableHardenedMode` pinned off (both are CI-conditional defaults that would change the measured work), `enableGlobalCache` pinned on (its default), and `enableScripts: false` pinned (yarn 4's own default). Dependency build scripts are blocked by default on pnpm 10 and yarn 4 alike; bun blocks them except for its built-in allowlist.
 - Install only; Next/Vite/tsc run on Node either way.
 
 ### Specifier form and node-linker (`scripts/perf-matrix.mjs`)

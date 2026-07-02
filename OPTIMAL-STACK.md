@@ -36,16 +36,24 @@ external deps, the rest workspace symlinks) in **20.9s** — warm store, lockfil
 `install.storeWarm: true`). This is a one-time setup cost; revving a lib edits source and
 needs no reinstall.
 
-Which install regime matters depends on the runner. On a clean checkout (only source kept,
-`node_modules` cold — the frequent clone/CI case) bun is far ahead of pnpm at the same
-scale: `bench/install-bench.json` measures cold install (fresh `node_modules`) with bun
-~58–440× faster than pnpm-isolated (200 apps 0.11s vs 48.8s; 1,000 apps 2.3s vs 232.4s;
-2,000 apps 8.3s vs 476.8s). When everything is already cached the gap narrows to single
-digits through 1,000 apps, and at 2,000 apps pnpm-hoisted warm (4.7s) is ~2× faster than
-bun (10.1s) while pnpm-isolated warm (15.6s) is slower. So a clean-env cold install favors
-bun; a fully-warm runner can favor pnpm-hoisted. A separate operation again is pnpm's
-no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head — which is
-233s at 1,000:200 (`bench/install-modes-bench.json`).
+Which install case matters depends on the runner. When the workspace must be fully
+re-resolved — no usable lockfile, `node_modules` cold (`bench/install-bench.json`'s cold
+column) — bun is far ahead of pnpm at the same scale: ~62–357× faster than pnpm-isolated
+(200 apps 0.13s vs 47.8s; 1,000 apps 2.2s vs 229.5s; 2,000 apps 7.5s vs 471.2s). A
+clone/CI checkout carries the committed lockfile and pays the warm/relink row instead
+(the steady-state case the paragraph above measures at 4,000:400). When everything is already cached the gap narrows to single
+digits by 1,000 apps (bun warm 2.6s vs pnpm-isolated 7.3s), and at 2,000 apps pnpm-hoisted
+warm (4.7s) is ~2× faster than bun (9.5s) while pnpm-isolated warm (15.2s) is slower.
+yarn 4, measured in the same dataset, scales flatter than bun: cold it is behind at 200
+apps (PnP 1.7s vs bun 0.13s), effectively tied at 1,000 (2.32s vs 2.24s), and the fastest
+tool at 2,000 (PnP 3.2s, node-modules 6.2s vs bun 7.5s); warm, yarn-PnP is the fastest
+outright at 1,000–2,000 apps (2.1s, 2.9s). Every bench in this doc (the onboarding
+install, the dev loops, the gates) was measured with bun as the installer, and bun wins
+or ties the cold install through 1,000 apps — but at the top of the measured range yarn
+wins the install itself, cold and warm; a yarn-driven variant of this stack is not
+evaluated here (five-way install table in [TOOLING.md](TOOLING.md)). A separate operation again is
+pnpm's no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head —
+which is 233s at 1,000:200 (`bench/install-modes-bench.json`).
 
 ## The optimal type-error gate — one tsgo program over the whole workspace, 1.32s
 

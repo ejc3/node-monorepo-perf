@@ -77,20 +77,20 @@ So the editor's project-load cost is bounded by what one app imports, not by rep
 
 ## What we should still quantify
 
-Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild, editor project-load + RSS (tsserver vs tsgo LSP). Gaps:
+Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP), typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim, Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker, remote-cache restore-vs-rebuild, editor project-load + RSS (tsserver vs tsgo LSP). Gaps:
 
 1. Direct lockfile measurement at 10k/20k — lines, MB, and pnpm parse time per install. Lockfile *size* is measured through 4,000 apps (`results.json`); the resolve-vs-verify split (`lockfile-bench`) goes to 2,000; the 20k figure in §1 is extrapolated from the 200→4,000 trend.
 2. Turbo graph-load in isolation — `turbo run build --dry` time (planning only, no execution or cache restore) vs scale, distinct from §2's measured fully-cached floor (which also pays the cache restore).
 3. Foundation-change rebuild *time*: the `test`-task selection is measured by COUNT (`bench/test-axis-bench.json`: foundation re-tests 1,200 vs a leaf's 21 at 1,000:200), and its cold wall-clock bounds Turbo orchestration + node startup (14.3s vs 3.0s) — but over trivial smoke bodies; the remote-cache side is measured at 300:100 (a universal-foundation edit restores 0 of 500 and recomputes the lot, ~26s — see "Remote cache: amortizing the O(repo) cold start"). Still open: real test-suite runtime, the *build* wall-clock (count 1,080), and the cold wall-clock at the 1,080-package scale.
 4. `pnpm install --filter app...` at scale. Its materialization scoping is confirmed (1 of 80 apps linked, `focus-install-bench`); the open part is install time + footprint vs `turbo prune` at 10k/20k.
-5. `node-linker=pnp` — install time + footprint + tooling compatibility vs isolated/hoisted. The isolated and hoisted full-tree `node_modules` counts are measured (TOOLING.md); `pnp` is not.
+5. PnP tooling compatibility, and pnpm's own `node-linker=pnp`. Yarn PnP's install time + footprint are measured (TOOLING.md: 3.2s cold at 2,000 apps, 64 materialized entries + a 3.5 MB `.pnp.cjs`); still open are how the repo's toolchain (Next, tsc/tsgo, editors) behaves under PnP resolution, and pnpm's pnp linker.
 6. Cold onboarding — fresh `git clone` + `pnpm install` for a new dev at 10k/20k.
 7. Peak memory under `--concurrency=100%` typecheck/build (OOM risk: 64 × tsc/next workers).
 
 ## Gotchas this build hit
 
 - Turbo input hashing **and** `turbo prune` respect `.gitignore`; generated, gitignored source is invisible to both (`--use-gitignore=false` for prune; move `.gitignore` aside for dev-sim).
-- `catalog:` is pnpm-only — Vercel's framework detector, npm, and bun do not understand it ("No Next.js version detected"; bun ignores it).
+- `catalog:` entries in `pnpm-workspace.yaml` are read only by pnpm — Vercel's framework detector, npm, bun, and yarn do not read them ("No Next.js version detected"; bun ignores it). bun and yarn 4 have their own catalog support, authored in `package.json` (bun measured in `bench/wave-rollout-bench.json`; yarn's is not exercised here).
 - `turbo prune` does not copy root configs packages reference via `../../` (e.g. `tsconfig.base.json`).
 - `pnpm install --filter app...` scopes what it *materializes* (1 of 80 apps linked, `focus-install-bench`) but still resolves the one shared, whole-workspace lockfile; for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
 - `workspace:*` deploys the in-tree source at its local version, not a published version (rewrite happens only on `pnpm publish`).

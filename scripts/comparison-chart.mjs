@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Render a model-comparison-style heatmap of the repo's like-for-like tool head-to-heads, in stacked
-// sections so each comparison keeps COMPATIBLE columns: Install (bun vs pnpm isolated vs hoisted),
-// Typecheck (tsc vs tsgo), Build (Next vs Vite), and pnpm install-situations (compared down the column).
+// sections so each comparison keeps COMPATIBLE columns: Install (bun vs pnpm isolated/hoisted vs
+// yarn node-modules/PnP), Typecheck (tsc vs tsgo), Build (Next vs Vite), and pnpm install-situations
+// (compared down the column).
 // Per cell the FASTEST is green and the rest show how many times slower (x N). Deterministic from the
 // cited bench/*.json (no hand numbers) -> bench/charts/tool-comparison.svg.
 //
@@ -20,74 +21,67 @@ const IM = read("bench/install-modes-bench.json");
 const LB = read("bench/lint-bench.json");
 const byScale = Object.fromEntries(IB.scales.map((s) => [`${s.apps}x${s.libs}`, s]));
 const inst = (scale, tool, regime) => byScale[scale][tool][regime];
+// trulyCold is read by direct property access below — unlike the per-scale tools, where
+// a missing key fails loud inside inst() — and the cell renderer draws null/undefined as
+// the same "—" used for intentionally-unmeasured cells. Assert the measured fields exist
+// so a stale or partial dataset can't render a missing measurement as "not applicable".
+for (const k of ["pnpmHoistedMs", "bunMs", "yarnNmMs", "yarnPnpMs"])
+  if (typeof IB.trulyCold?.[k] !== "number")
+    throw new Error(
+      `bench/install-bench.json trulyCold.${k} is missing — re-run install-bench before charting`,
+    );
+
+// Install section columns: k = cell key, tool = the bench/install-bench.json key. The six
+// cold/warm rows are a pure regimes x scales cross-product over these five tools, so they
+// are generated — a new tool or scale is one edit, and no hand-copied row can carry a
+// stale key that renders a plausible wrong number.
+const INSTALL_COLS = [
+  { k: "bun", label: "bun", tool: "bun" },
+  { k: "iso", label: "pnpm\nisolated", tool: "pnpmIsolated" },
+  { k: "hoist", label: "pnpm\nhoisted", tool: "pnpmHoisted" },
+  { k: "ynm", label: "yarn\nnode-modules", tool: "yarnNm" },
+  { k: "ypnp", label: "yarn\nPnP", tool: "yarnPnp" },
+];
+const INSTALL_SCALES = [
+  ["200x100", "200 apps"],
+  ["1000x200", "1,000 apps"],
+  ["2000x300", "2,000 apps"],
+];
 
 // compareAxis "row" = fastest across the columns in a row (tool head-to-head). "col" = cheapest down a
 // column (situations within one tool). Either way a cell's number is its multiple of that best.
 const SECTIONS = [
   {
-    title: "Install the workspace — bun vs pnpm",
+    title: "Install the workspace — bun vs pnpm vs yarn",
     compareAxis: "row",
-    cols: [
-      { k: "bun", label: "bun" },
-      { k: "iso", label: "pnpm\nisolated" },
-      { k: "hoist", label: "pnpm\nhoisted" },
-    ],
+    cols: INSTALL_COLS,
     rows: [
+      ...[
+        ["coldMs", "Cold"],
+        ["warmMs", "Warm"],
+      ].flatMap(([regime, rLabel]) =>
+        INSTALL_SCALES.map(([scale, sLabel]) => [
+          `${rLabel} · ${sLabel}`,
+          Object.fromEntries(INSTALL_COLS.map((c) => [c.k, inst(scale, c.tool, regime)])),
+        ]),
+      ),
       [
-        "Cold · 200 apps",
+        // scale derived from the JSON, not hand-typed — a re-run at a different first
+        // scale must change this label, not silently keep "200 apps" over new numbers.
+        // "Cold store + no lockfile", not "fresh container": the pass deletes the
+        // lockfile, and a real fresh container/CI checkout keeps the committed one.
+        `Cold store + no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
         {
-          bun: inst("200x100", "bun", "coldMs"),
-          iso: inst("200x100", "pnpmIsolated", "coldMs"),
-          hoist: inst("200x100", "pnpmHoisted", "coldMs"),
+          bun: IB.trulyCold.bunMs,
+          iso: null,
+          hoist: IB.trulyCold.pnpmHoistedMs,
+          ynm: IB.trulyCold.yarnNmMs,
+          ypnp: IB.trulyCold.yarnPnpMs,
         },
-      ],
-      [
-        "Cold · 1,000 apps",
-        {
-          bun: inst("1000x200", "bun", "coldMs"),
-          iso: inst("1000x200", "pnpmIsolated", "coldMs"),
-          hoist: inst("1000x200", "pnpmHoisted", "coldMs"),
-        },
-      ],
-      [
-        "Cold · 2,000 apps",
-        {
-          bun: inst("2000x300", "bun", "coldMs"),
-          iso: inst("2000x300", "pnpmIsolated", "coldMs"),
-          hoist: inst("2000x300", "pnpmHoisted", "coldMs"),
-        },
-      ],
-      [
-        "Warm · 200 apps",
-        {
-          bun: inst("200x100", "bun", "warmMs"),
-          iso: inst("200x100", "pnpmIsolated", "warmMs"),
-          hoist: inst("200x100", "pnpmHoisted", "warmMs"),
-        },
-      ],
-      [
-        "Warm · 1,000 apps",
-        {
-          bun: inst("1000x200", "bun", "warmMs"),
-          iso: inst("1000x200", "pnpmIsolated", "warmMs"),
-          hoist: inst("1000x200", "pnpmHoisted", "warmMs"),
-        },
-      ],
-      [
-        "Warm · 2,000 apps",
-        {
-          bun: inst("2000x300", "bun", "warmMs"),
-          iso: inst("2000x300", "pnpmIsolated", "warmMs"),
-          hoist: inst("2000x300", "pnpmHoisted", "warmMs"),
-        },
-      ],
-      [
-        "Fresh container · 200 apps",
-        { bun: IB.trulyCold.bunMs, iso: null, hoist: IB.trulyCold.pnpmHoistedMs },
       ],
     ],
     source: "bench/install-bench.json",
-    note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. Fresh container = cold store too — network-bound, a single sample, not directly comparable to the warm-store rows.",
+    note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of hoisted).",
   },
   {
     title: "Typecheck — tsc vs tsgo",
@@ -295,15 +289,28 @@ for (const sec of SECTIONS) {
     });
     y += ROW_H;
   });
-  // Section source, then any note on its own line (a full, accurate note can be long — keep it off the
-  // source line so it never runs past the SVG width).
+  // Section source, then any note word-wrapped to the drawable width (11px sans averages
+  // ~5.6px/char) — a full, accurate note can be long, and an unwrapped <text> line runs
+  // past the SVG edge and renders clipped in browsers and in the rasterized PNG.
   y += 16;
   T.push(
     `<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc("Source: " + sec.source)}</text>`,
   );
   if (sec.note) {
-    y += 15;
-    T.push(`<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc(sec.note)}</text>`);
+    const noteChars = Math.floor((W - PAD * 2) / 5.6);
+    const lines = [];
+    let line = "";
+    for (const word of sec.note.split(" ")) {
+      if (line && line.length + 1 + word.length > noteChars) {
+        lines.push(line);
+        line = word;
+      } else line = line ? `${line} ${word}` : word;
+    }
+    if (line) lines.push(line);
+    for (const ln of lines) {
+      y += 15;
+      T.push(`<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc(ln)}</text>`);
+    }
   }
   y += 30;
 }
