@@ -144,6 +144,34 @@ lockfile. The escape hatch exists so the publish ceremony never has to be the de
 loop ([WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §4–5: overriding one lib, and
 switching one app without changing the others).
 
+## 11. Sam's team owns ui AND an app — and never waits for a publish
+
+> As a team that builds both the design system and its flagship app, we want the app on
+> the lib's HEAD permanently, so a publish cycle is never between us and our own code.
+
+Sam's team doesn't just ship `@acme/ui` — they also own `brand-portal`, the app that
+exercises every component. Waiting for their own publish cycle to see their own change
+would be absurd, so both live in the team's workspace and the app declares the dep
+permanently as `"@acme/ui": "workspace:^"` — resolution from the sibling source, always
+HEAD, publish not involved. Everyone else's app keeps `"^1.9.0"` from the registry:
+**the same lib lives both lives at once**, and switching one consumer to `workspace:`
+changes nothing for the others (demonstrated:
+[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §5; the resolution rule is §1's table —
+only the `workspace:` protocol forces the local link).
+
+What the team gets: `brand-portal` is ui's **permanent canary**. A breaking change shows
+up in the app's typecheck *before Sam's PR merges* — the pre-merge gate the published
+model structurally lacks (story 5's blind spot, closed for this one consumer). Sam
+refactors component internals and fixes the app in the same commit, atomically.
+
+What the team gives up, stated plainly: `brand-portal` **cannot lag** its own lib —
+there is no version to stay on; it rides HEAD or the dep leaves the workspace. Its
+reproducibility for ui comes from the git SHA plus a build, not from a lockfile pin (the
+lockfile records a link, story 5), so the app's CI always builds ui from source. And the
+no-wait privilege stops at the workspace boundary: every *other* team still waits for
+Sam's publish (stories 3 and 4) — this story removes the ceremony only between a team
+and its own code.
+
 ---
 
 ## When `file:` enters the model
@@ -151,7 +179,7 @@ switching one app without changing the others).
 Some teams in this model also carry `file:` dependencies — a path or tarball on disk
 instead of a registry package. Three stories about where that helps and where it bites.
 
-## 11. Maya vendors a patched tarball to stop waiting
+## 12. Maya vendors a patched tarball to stop waiting
 
 > As an app developer blocked on a lib fix (story 4), I want the fix today, so I vendor
 > a patched build until the real release lands.
@@ -164,7 +192,7 @@ The discipline that has to come with it: a `file:` dep has no semver, so nothing
 ever tell her an upgrade exists. She files a ticket to revert to `"^1.9.1"` the day it
 ships; vendored tarballs without a removal ticket fossilize.
 
-## 12. A helper lib that never gets published
+## 13. A helper lib that never gets published
 
 > As an app developer with app-private helpers, I want to factor code out without
 > adopting the whole publish ceremony, so I keep an unpublished lib next to the app.
@@ -179,7 +207,7 @@ sibling checkout, but every consumer's CI would have to materialize that other r
 the same relative path. The real choices are copy-paste drift or graduating the helpers
 to a published `@acme/*` package (story 6's ceremony, applied).
 
-## 13. Priya's onboarding rule about `file:` postinstalls
+## 14. Priya's onboarding rule about `file:` postinstalls
 
 > As a platform engineer, I want no surprise script execution from local deps, so I
 > rely on the measured default and say so in onboarding docs.
