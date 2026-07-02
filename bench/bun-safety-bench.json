@@ -1,5 +1,5 @@
 {
-  "claim": "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), while bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces. The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.",
+  "claim": "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), while in SINGLE-PACKAGE projects bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces (in workspaces bun 1.3's isolated default blocks the phantom too — parity there). The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.",
   "versions": {
     "node": "v22.22.0",
     "npm": "10.9.4",
@@ -12,7 +12,7 @@
   },
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 0.56,
+    "preRunLoadAvg1": 0.31,
     "coreBound": false,
     "note": "behavioral assertions + I/O/network-bound context; not gated on load"
   },
@@ -129,7 +129,20 @@
       "detail": "MODULE_NOT_FOUND"
     },
     "pnpmSafetyEdge": true,
-    "note": "an undeclared transitive import resolving is a latent break (it vanishes when the transitive dep is deduped away); under pnpm's strict isolation the phantom `require('is-odd')` fails (the missing declaration surfaces), under bun's hoisted layout it resolves (the break stays hidden)"
+    "note": "an undeclared transitive import resolving is a latent break (it vanishes when the transitive dep is deduped away); under pnpm's strict isolation the phantom `require('is-odd')` fails (the missing declaration surfaces), under bun's hoisted layout it resolves (the break stays hidden)",
+    "workspace": {
+      "bun": {
+        "phantomResolves": false,
+        "layout": "isolated (node_modules/.bun store — bun 1.3's workspace default)",
+        "detail": "MODULE_NOT_FOUND"
+      },
+      "pnpm": {
+        "phantomResolves": false,
+        "layout": "isolated (symlinked .pnpm)",
+        "detail": "MODULE_NOT_FOUND"
+      },
+      "note": "same probe as above but from a workspace member; bun 1.3 workspaces default to the isolated linker, so the hoisted-layout phantom edge is a single-package finding, not a workspace one — whichever way this measures"
+    }
   },
   "codeArtifactAuth": {
     "skipped": false,
@@ -172,7 +185,7 @@
       "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1)"
     ],
     "pnpm": [
-      "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves"
+      "(pnpm advantage, single-package projects only) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves; in a WORKSPACE bun 1.3's isolated default blocks the phantom too — parity there"
     ]
   },
   "reproduced": true

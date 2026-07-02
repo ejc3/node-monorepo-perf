@@ -58,6 +58,56 @@ Does the `workspace:` spec form or the linker mode change install perf? Cold ins
 
 The specifier form is install-neutral (a 0.5% single-run difference; identical `node_modules` and lockfile line count, the versioned variant's lockfile marginally larger in bytes from its explicit version strings). node-linker barely changes install *time* here (resolution-bound), but the isolated layout has ~3× more symlinks (4,211 vs 1,459, full-tree) and ~36% more `node_modules` entries — the inode cost that grows with package count. So choose the form for publish semantics and the linker for strictness/footprint, not for install speed.
 
+## The CI-runner install: frozen, in a fresh container (`scripts/container-install-bench.mjs`)
+
+What a real CI runner actually pays — a checkout carrying the **committed lockfile**, installed frozen
+(`pnpm --frozen-lockfile`, `bun --frozen-lockfile`, `yarn --immutable`, `npm ci`) — measured in true
+isolation: every sample runs in a fresh rootless-podman container (hermetic env, digest-pinned node
+image with the pinned toolchain baked in), at 1,000 apps / 200 libs, median of 5 samples in a
+round-rotated tool order (every tool takes every position once). Two variants: **fresh runner** =
+empty caches, real network (registry metadata + downloads); **cache restored** = the tool's
+store/cache persisted in a volume across samples, pre-warmed once and asserted populated. npm is
+included as the baseline (npm has no `workspace:` protocol, so its tree carries `*` for internal
+deps; its lockfile is asserted to link them locally, not from the registry). pnpm runs its
+default isolated linker here; install-bench's warm rows show the hoisted linker relinks faster
+at this scale, and it is not measured in containers.
+
+| tool | fresh runner | cache restored | fresh CPU | fresh peak RSS |
+|---|---|---|---|---|
+| bun | **0.9s** | **0.4s** | 420% | 288 MB |
+| yarn PnP | 4.4s | 2.2s | 269% | 3,087 MB |
+| yarn node-modules | 6.5s | 4.2s | 233% | 3,133 MB |
+| pnpm | 8.9s | 7.0s | 189% | 1,392 MB |
+| npm | 10.4s | 9.7s | 131% | 387 MB |
+
+Reading it:
+- **bun wins this case outright** — 0.9s fresh (10× pnpm, 12× npm) and 0.4s with a restored
+  cache. The warm-store yarn-overtakes-bun crossover in the table above does not appear here.
+  Across the two harnesses at 1,000 apps, yarn-PnP and pnpm reproduce (2.1s↔2.2s;
+  9.2s↔8.9s) while bun's container cells land well below its host warm row (0.4s vs 2.6s) —
+  both datasets stand as recorded; the frozen flag and the container filesystem differ from
+  the host warm pass.
+- A restored dependency cache helps each tool differently: bun −56%, yarn-PnP −51%, yarn-nm −35%,
+  pnpm −21%, npm −7%. The lockfile (not the cache) is what removes the resolve; the cache only
+  removes downloads.
+- The **fail-closed contract holds on all five**: a drift rung mutates a manifest and every
+  tool rejects it (exit 1) with the lockfile untouched (`failClosed`).
+- pnpm's 8.9s fresh corroborates `install-modes-bench`'s host-side "frozen, cold store" 9.2s at
+  the same scale — two independent harnesses, one number.
+- Spreads are tight (bun 890–900ms; pnpm 8.7–9.0s across 5 network-live samples), and the samples
+  share a warmed CDN edge after the first fetch — a genuinely different network path can be slower
+  than these medians.
+
+Methodology: the workspace and the tool's store/cache are **subdirectories of one mounted volume**
+— `link(2)`/`FICLONE` fail `EXDEV` across two mounts even on one backing filesystem, so any
+two-mount geometry silently forces pnpm/bun into their per-file copy fallback (pnpm's own
+copy-fallback warning is captured per cell as evidence the link path held: `copyFallbackSeen:
+false` everywhere). Lockfiles are authored in-container by the pinned tools, so no host tool
+version or rc file can shape them. Lifecycle scripts run at each tool's default (npm runs them;
+pnpm 10 and yarn 4 block; bun allowlists) — disclosed in the JSON notes; the timed window is
+measured inside the container by GNU time, with the tree copy, verification (the shared
+`_verify-install.cjs` contract), and lockfile-hash check outside it.
+
 ## Build: Next vs Vite (`scripts/build-bench.mjs`)
 
 Full `turbo run build` of 40 apps + 24 libs, concurrency 12, 64-core machine. Next is App Router (SSR/RSC); Vite is a client SPA, so this compares build tooling and output, not equivalent features.

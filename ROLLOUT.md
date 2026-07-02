@@ -47,8 +47,10 @@ runner stays fully warm with an unchanged lockfile the install gap is small (and
 — there the choice rests on the mechanics, not install speed. A rollout exercises both paths: each wave's
 catalog repoint re-resolves the changed lockfile entries (an incremental re-resolve with the lockfile
 present — smaller than the full-re-resolve table), and every fresh container or new clone re-materializes
-`node_modules` from the committed lockfile (the warm rows above with a cached store; with a cold store the
-nearest measured point is the truly-cold sample, which additionally re-resolves with no lockfile). (yarn 4, measured in the same dataset, beats pnpm's cold install at
+`node_modules` from the committed lockfile — the case now measured directly in fresh podman containers
+(`bench/container-install-bench.json`, 1,000 apps, frozen install): bun 0.9s vs pnpm 8.9s with empty
+caches and real downloads, 0.4s vs 7.0s with a restored dependency cache — bun wins that case outright
+(five-way table in [TOOLING.md](TOOLING.md)). (yarn 4, measured in `install-bench.json`'s warm-store dataset, beats pnpm's cold install at
 every measured scale, beats bun's at 2,000 apps, and is the fastest warm install outright at 1,000–2,000
 apps — `bench/install-bench.json`, table in [TOOLING.md](TOOLING.md) — but the rollout mechanics in this
 doc were vetted bun-vs-pnpm only; yarn is not evaluated as a rollout driver here.)
@@ -59,7 +61,7 @@ pnpm is a complete fallback that does the same mechanics, and it ships two guard
 value, ruling out a foot-gun bun allows — bun is more permissive there, not more guarded. Neither blocks the
 rollout on bun, and where installs exercise the resolve path the ~62–357× full-re-resolve gap outweighs both; the catalog-validation
 strictness is a real, if minor, point for pnpm. A full safety vet (next subsection) finds two further bun
-gaps, one more pnpm safety edge (phantom isolation), and otherwise parity. Pick pnpm only if you
+gaps, one more pnpm safety edge (phantom isolation — single-package projects only; workspaces are parity), and otherwise parity. Pick pnpm only if you
 specifically want those defaults and will pay the install cost; otherwise the answer is bun.
 
 ### Adoption safety, vetted: two real gaps, the rest parity
@@ -77,9 +79,11 @@ pnpm safety edge**, and otherwise parity:
   into a hard failure (exit 1, `ERR_PNPM_PEER_DEP_ISSUES`); none of bun's three plausible knobs (the
   `npm_config_strict_peer_dependencies` env var, `.npmrc strict-peer-dependencies`, `bunfig.toml [install]
   strictPeerDependencies`) flips its exit. bun *warns* on a mismatch (on stderr) but cannot gate on it.
-- **Phantom dependency (pnpm's edge).** An undeclared transitive import resolves under bun's hoisted layout
-  but fails under pnpm's strict isolation, which surfaces the missing declaration — a latent break bun
-  hides and pnpm catches.
+- **Phantom dependency (pnpm's edge — single-package projects only).** An undeclared transitive import
+  resolves under bun's hoisted layout in a single-package project but fails under pnpm's strict isolation,
+  which surfaces the missing declaration. In a **workspace** — this repo's subject — bun 1.3 defaults to
+  its isolated linker (`node_modules/.bun`) and the same probe fails on both tools
+  (`phantomDependency.workspace`): parity there, so the edge applies only to single-package projects.
 
 The rest is parity, which is what makes bun adoptable: a missing peer is auto-installed by both at their
 defaults (pnpm's `auto-install-peers` defaults to true, so it is not a bun-only behavior), both warn on a
@@ -286,8 +290,9 @@ pnpm does every mechanic above and ships two guardrails on by default that bun m
 Beyond these two rollout defaults, the adoption-safety vet above adds three more points for pnpm
 (`bench/bun-safety-bench.json`): two are bun gaps — pnpm default-denies registry build scripts where bun
 runs its built-in allowlist, and pnpm has a fail-closed strict-peer mode bun lacks — and one is a
-pnpm-unique safety edge: pnpm's isolation surfaces a phantom import bun's hoist hides. None blocks the
-rollout on bun; all are real points for pnpm.
+pnpm-unique safety edge: pnpm's isolation surfaces a phantom import bun's hoist hides in single-package
+projects (in workspaces bun's isolated default blocks it too). None blocks the rollout on bun; all are
+real points for pnpm.
 
 pnpm's named catalogs (in `pnpm-workspace.yaml`) route cohorts and repoint with zero consumer edits
 identically (measured, `namedCatalogLanes.pnpm`: `stable`→1.0.0 / `next`→3.0.0 in one lockfile, repoint

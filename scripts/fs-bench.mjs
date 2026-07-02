@@ -180,11 +180,11 @@ for (const { label, root } of TARGETS) {
     mkdirSync(store, { recursive: true });
     const fstype = fsType(root);
     console.log(`\n# ${label} (${fstype}) at ${root}`);
-    // The label must name the measured fstype's regime; a mislabeled target
+    // The label must name the measured fstype's native import method; a mislabeled target
     // (e.g. an "ext4" label on a btrfs mount) is not a like-for-like datapoint.
     if (nativeMethod(label) !== nativeMethod(fstype))
       throw new Error(
-        `target "${label}" at ${root} is ${fstype} (${nativeMethod(fstype)} regime) — ` +
+        `target "${label}" at ${root} is ${fstype} (${nativeMethod(fstype)} import method) — ` +
           `relabel it to match the mount`,
       );
 

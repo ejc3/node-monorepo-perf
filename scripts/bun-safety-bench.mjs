@@ -21,15 +21,17 @@
 //   C  peer resolution — version mismatch and a missing peer. Both warn on a mismatch and both
 //      auto-install a missing peer at their defaults (parity); the one gap is the fail-closed knob —
 //      pnpm strict-peer-dependencies=true exits 1, none of bun's three plausible knobs flips its exit.
-//   D  phantom dependency — an undeclared transitive import: resolves under bun's hoisted layout,
-//      fails under pnpm's strict isolation (pnpm's safety edge).
+//   D  phantom dependency — an undeclared transitive import, probed from BOTH a single-package
+//      project (bun's hoisted layout: resolves, vs pnpm isolation: fails — pnpm's safety edge)
+//      and a workspace member (bun 1.3 workspaces default to the isolated linker, so whether the
+//      edge survives there is measured, not inferred).
 //
 // Self-contained: scaffolds under the OS temp dir, removed on exit; the CodeArtifact rung publishes a
 // fixed throwaway version fresh (pre-deleting any leftover) and deletes it on exit. Needs no worktree.
 
 import { execSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import os from "node:os";
 
@@ -80,11 +82,30 @@ const ver = (tool) => execSync(`${tool} --version`, { encoding: "utf8" }).trim()
 
 // Presence probe: is `dep` installed/resolvable from `dir`? Resolves its package.json (present iff the
 // package materialized) — the right signal for "did this dep land" (phantom dep, missing peer, version).
-function runtimeProbe(dir, dep) {
+function runtimeProbe(dir, dep, env) {
   const code = `try{const v=require(${JSON.stringify(dep + "/package.json")}).version;process.stdout.write("OK "+v)}catch(e){process.stdout.write("FAIL "+(e.code||e.message))}`;
-  const r = run(`node -e ${JSON.stringify(code)}`, dir);
+  const r = run(`node -e ${JSON.stringify(code)}`, dir, env);
   const ok = r.out.startsWith("OK ");
   return { ok, detail: r.out.replace(/^(OK|FAIL) /, "").trim() };
+}
+// For the phantom rung the probe's resolution walk must see ONLY the scaffold's layout:
+// a host NODE_PATH (or a stray node_modules in the tmpdir ancestry — Node's upward walk
+// does not stop at the scaffold root) could satisfy the undeclared require for BOTH
+// tools and silently destroy the layout contrast. NODE_PATH is scrubbed, and the
+// ancestry is asserted clean before the rung runs.
+const PROBE_ENV = { NODE_PATH: "" };
+function assertProbeAncestryClean(root, dep) {
+  let d = root;
+  for (;;) {
+    if (existsSync(join(d, "node_modules", dep)))
+      fail(
+        `${join(d, "node_modules", dep)} exists in the scaffold's directory ancestry — it would ` +
+          `satisfy the phantom probe for BOTH tools; remove it and re-run`,
+      );
+    const u = dirname(d);
+    if (u === d) break;
+    d = u;
+  }
 }
 // Main-entry probe: does `require(dep)` (the package main) load? For the lifecycle rung the main needs
 // a file the postinstall generates, so this loads iff the postinstall actually RAN (package.json alone
@@ -453,6 +474,7 @@ console.log(
 console.log(
   "== D. phantom dependency: undeclared transitive import (bun hoist resolves, pnpm isolation blocks) ==",
 );
+assertProbeAncestryClean(ROOT, ISODD);
 // a package that DECLARES is-odd but whose consumer does NOT; the consumer then imports is-odd directly.
 const phantomTgz = mkTarball(
   "usesodd",
@@ -468,7 +490,11 @@ function phantomCase(tool, npmrc) {
   );
   const r = install[tool](dir, {});
   if (r.code !== 0) fail(`D ${tool} install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
-  const probe = runtimeProbe(dir, ISODD); // can the consumer require an UNDECLARED dep?
+  // positive control: the DECLARED dep must resolve, or a broken install would read as
+  // "isolation blocked the phantom"
+  const declared = runtimeProbe(dir, "usesodd", PROBE_ENV);
+  if (!declared.ok) fail(`D ${tool}: declared dep usesodd does not resolve (${declared.detail})`);
+  const probe = runtimeProbe(dir, ISODD, PROBE_ENV); // can the consumer require an UNDECLARED dep?
   return { exit: r.code, phantomResolves: probe.ok, detail: probe.detail };
 }
 const dBun = phantomCase("bun", `registry=${REGISTRY}\n`);
@@ -487,9 +513,66 @@ result.phantomDependency = {
   pnpmSafetyEdge: dPnpm.phantomResolves === false && dBun.phantomResolves === true,
   note: "an undeclared transitive import resolving is a latent break (it vanishes when the transitive dep is deduped away); under pnpm's strict isolation the phantom `require('is-odd')` fails (the missing declaration surfaces), under bun's hoisted layout it resolves (the break stays hidden)",
 };
+// The single-package case above runs bun's hoisted layout. In a WORKSPACE bun 1.3
+// defaults to its isolated linker (a node_modules/.bun store), so the same undeclared
+// import may no longer resolve — measured here rather than inferred: a one-member
+// workspace whose member declares only usesodd, then imports is-odd (undeclared).
+function phantomWorkspaceCase(tool, npmrc) {
+  const dir = scaffold(
+    `D-ws-${tool}`,
+    {
+      "package.json": {
+        name: `d-ws-${tool}`,
+        version: "0.0.0",
+        private: true,
+        workspaces: ["pkgs/*"],
+      },
+      "pkgs/consumer/package.json": mf("consumer", { usesodd: `file:${phantomTgz}` }),
+    },
+    npmrc,
+  );
+  if (tool === "pnpm") writeFileSync(join(dir, "pnpm-workspace.yaml"), 'packages:\n  - "pkgs/*"\n');
+  const r = install[tool](dir, {});
+  if (r.code !== 0) fail(`D-ws ${tool} install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
+  const member = join(dir, "pkgs", "consumer");
+  // positive control: the member's DECLARED dep must resolve, or an install that failed
+  // to materialize the member would read as "the isolated linker blocked the phantom" —
+  // the interesting result for the wrong reason
+  const declared = runtimeProbe(member, "usesodd", PROBE_ENV);
+  if (!declared.ok)
+    fail(
+      `D-ws ${tool}: declared dep usesodd does not resolve from the member (${declared.detail})`,
+    );
+  const probe = runtimeProbe(member, ISODD, PROBE_ENV);
+  return {
+    phantomResolves: probe.ok,
+    detail: probe.detail,
+    bunStoreDir: existsSync(join(dir, "node_modules", ".bun")),
+  };
+}
+const dwBun = phantomWorkspaceCase("bun", `registry=${REGISTRY}\n`);
+const dwPnpm = phantomWorkspaceCase("pnpm", PNPM_NPMRC);
+result.phantomDependency.workspace = {
+  bun: {
+    phantomResolves: dwBun.phantomResolves,
+    layout: dwBun.bunStoreDir
+      ? "isolated (node_modules/.bun store — bun 1.3's workspace default)"
+      : "hoisted node_modules",
+    detail: dwBun.detail,
+  },
+  pnpm: {
+    phantomResolves: dwPnpm.phantomResolves,
+    layout: "isolated (symlinked .pnpm)",
+    detail: dwPnpm.detail,
+  },
+  note: "same probe as above but from a workspace member; bun 1.3 workspaces default to the isolated linker, so the hoisted-layout phantom edge is a single-package finding, not a workspace one — whichever way this measures",
+};
 result.rungsReproduced.phantom = true;
 console.log(
   `  phantom: bun resolves undeclared dep=${dBun.phantomResolves} | pnpm resolves=${dPnpm.phantomResolves} -> pnpm safety edge=${result.phantomDependency.pnpmSafetyEdge}`,
+);
+console.log(
+  `  phantom (workspace member): bun resolves=${dwBun.phantomResolves} (.bun store=${dwBun.bunStoreDir}) | pnpm resolves=${dwPnpm.phantomResolves}`,
 );
 
 // =================================================================================================
@@ -670,7 +753,9 @@ if (
   );
 if (result.phantomDependency.pnpmSafetyEdge === true)
   pnpmDownsides.push(
-    "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves",
+    result.phantomDependency.workspace.bun.phantomResolves === false
+      ? "(pnpm advantage, single-package projects only) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves; in a WORKSPACE bun 1.3's isolated default blocks the phantom too — parity there"
+      : "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's layout resolves in both single-package projects and workspaces",
   );
 if (
   result.codeArtifactAuth &&
@@ -684,8 +769,21 @@ if (
 result.downsidesFound = { bun: bunDownsides, pnpm: pnpmDownsides };
 const allReproduced = Object.values(result.rungsReproduced).every(Boolean);
 result.reproduced = allReproduced;
+// the phantom clause is derived from the MEASURED booleans of both scaffolds (single-
+// package + workspace, both tools), so the claim can never contradict the data recorded
+// in the same file
+const wsBun = result.phantomDependency.workspace.bun.phantomResolves;
+const wsPnpm = result.phantomDependency.workspace.pnpm.phantomResolves;
+const phantomClause =
+  result.phantomDependency.pnpmSafetyEdge === true
+    ? wsBun === false && wsPnpm === false
+      ? "while in SINGLE-PACKAGE projects bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces (in workspaces bun 1.3's isolated default blocks the phantom too — parity there)"
+      : `while bun's layout resolves phantom (undeclared) imports that pnpm's isolation surfaces in single-package projects (workspace measurement: bun resolves=${wsBun}, pnpm resolves=${wsPnpm} — see phantomDependency.workspace)`
+    : "and the phantom-import probe did not reproduce a pnpm isolation edge this run (see phantomDependency)";
 result.claim =
-  "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), while bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces. The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.";
+  "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), " +
+  phantomClause +
+  ". The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.";
 
 mkdirSync(join(process.cwd(), "bench"), { recursive: true });
 // honor the partial-guard convention: a skipped rung never overwrites the canonical dataset

@@ -501,7 +501,7 @@ const result = {
   registry: REGISTRY,
   speedContext: {
     source: "bench/install-bench.json",
-    note: "Regime matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~357x at 200 apps, ~103x at 1,000, ~62x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 1.2s vs pnpm-hoisted 24.0s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 9.5s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the no-lockfile cold case; pnpm-hoisted can win the fully-warm case.",
+    note: "The install state matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~357x at 200 apps, ~103x at 1,000, ~62x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 1.2s vs pnpm-hoisted 24.0s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 9.5s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the no-lockfile cold case; pnpm-hoisted can win the fully-warm case.",
   },
   determinism: {
     bun: {

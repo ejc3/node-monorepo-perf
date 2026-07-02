@@ -10,7 +10,7 @@
 //   - a small-file burst (5,000 x 512B), the metadata shape a node_modules materialization is:
 //     buffered create-only (page cache, what an install actually pays) and a per-file fsync variant
 //     (durable, isolated to the target device — no global sync)
-// so a doc can state both regimes honestly.
+// so a doc can state both cases honestly.
 //
 //   node scripts/fs-iops-bench.mjs
 //   FS_TARGETS="home:/home/ubuntu btrfs:/mnt/fcvm-btrfs" node scripts/fs-iops-bench.mjs
@@ -149,7 +149,7 @@ function fioRand(dir, mode) {
   throw new Error(lastErr || `fio ${mode} failed`);
 }
 
-// Small-file burst — the metadata shape a node_modules materialization is. Two regimes:
+// Small-file burst — the metadata shape a node_modules materialization is. Two cases:
 //   create: buffered tiny writes through the page cache (what an install actually pays).
 //   fsync:  open+write+fsync+close each file — durable, isolated to THIS device (no global sync),
 //           i.e. the fsync-barrier throughput (git objects, sqlite, etc.).
