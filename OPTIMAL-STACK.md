@@ -40,8 +40,11 @@ Which install case matters depends on the runner. When the workspace must be ful
 re-resolved — no usable lockfile, `node_modules` cold (`bench/install-bench.json`'s cold
 column) — bun is far ahead of pnpm at the same scale: ~62–357× faster than pnpm-isolated
 (200 apps 0.13s vs 47.8s; 1,000 apps 2.2s vs 229.5s; 2,000 apps 7.5s vs 471.2s). A
-clone/CI checkout carries the committed lockfile and pays the warm/relink row instead
-(the steady-state case the paragraph above measures at 4,000:400). When everything is already cached the gap narrows to single
+clone on a machine with a warm store carries the committed lockfile and pays the
+warm/relink row instead (the steady-state case the paragraph above measures at
+4,000:400); a fresh CI runner (empty caches) pays the frozen container-install row,
+where bun wins outright — 0.9s vs pnpm 8.9s at 1,000 apps
+(`bench/container-install-bench.json`). When everything is already cached the gap narrows to single
 digits by 1,000 apps (bun warm 2.6s vs pnpm-isolated 7.3s), and at 2,000 apps pnpm-hoisted
 warm (4.7s) is ~2× faster than bun (9.5s) while pnpm-isolated warm (15.2s) is slower.
 yarn 4, measured in the same dataset, scales flatter than bun: cold it is behind at 200
@@ -50,8 +53,11 @@ tool at 2,000 (PnP 3.2s, node-modules 6.2s vs bun 7.5s); warm, yarn-PnP is the f
 outright at 1,000–2,000 apps (2.1s, 2.9s). Every bench in this doc (the onboarding
 install, the dev loops, the gates) was measured with bun as the installer, and bun wins
 or ties the cold install through 1,000 apps — but at the top of the measured range yarn
-wins the install itself, cold and warm; a yarn-driven variant of this stack is not
-evaluated here (five-way install table in [TOOLING.md](TOOLING.md)). A separate operation again is
+wins the install itself, cold and warm. A yarn-PnP variant of THIS stack is measured to
+not run: tsgo and `next build` fail under PnP while tsc/turbo/oxlint work — pass/fail
+probes on a 20-app/10-lib tree with a node-modules control, resolver behavior rather
+than a scale effect (`bench/pnp-compat-bench.json`) — yarn's node-modules linker carries
+no such boundary (five-way install table in [TOOLING.md](TOOLING.md)). A separate operation again is
 pnpm's no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head —
 which is 233s at 1,000:200 (`bench/install-modes-bench.json`).
 

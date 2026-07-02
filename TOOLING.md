@@ -42,9 +42,29 @@ Reading it:
 
 Methodology:
 - bun and yarn ignore `pnpm-workspace.yaml` and the pnpm `catalog:` protocol, so the bench runs a decataloged copy carrying both a `pnpm-workspace.yaml` (which pnpm reads) and a `package.json` `"workspaces"` field (which bun and yarn read) — a like-for-like dependency set.
-- Two layout families are in play: isolated stores that prevent phantom dependencies (pnpm-isolated's symlinked virtual store; bun's `node_modules/.bun`, its workspace default) and flat trees (pnpm-hoisted, yarn-nm). yarn PnP is stricter still — no `node_modules`, resolution only through declared edges — and that contract is also its compatibility cost: a tool that reads `node_modules` directly needs PnP support or unplugging. pnpm also ships its own pnp linker, not measured here (LIMITS gap #5).
+- Two layout families are in play: isolated stores that prevent phantom dependencies (pnpm-isolated's symlinked virtual store; bun's `node_modules/.bun`, its workspace default) and flat trees (pnpm-hoisted, yarn-nm). yarn PnP is stricter still — no `node_modules`, resolution only through declared edges — and that contract is also its compatibility cost, measured below ("yarn PnP toolchain compatibility, priced"): tsc/turbo/oxlint run under PnP on this stack; tsgo and `next build` do not. pnpm also ships its own pnp linker, not measured here (LIMITS gap #5).
 - yarn is the pinned 4.17.0 standalone CLI from the `@yarnpkg/cli-dist` tarball run as `node yarn.js`, with `enableImmutableInstalls`/`enableHardenedMode` pinned off (both are CI-conditional defaults that would change the measured work), `enableGlobalCache` pinned on (its default), and `enableScripts: false` pinned (yarn 4's own default). Dependency build scripts are blocked by default on pnpm 10 and yarn 4 alike; bun blocks them except for its built-in allowlist.
 - Install only; Next/Vite/tsc run on Node either way.
+
+## yarn PnP toolchain compatibility, priced (`scripts/pnp-compat-bench.mjs`)
+
+The PnP compatibility cost stated qualitatively above, measured on this repo's own stack: one
+generated workspace (20 apps / 10 libs) installed twice by the same pinned yarn — PnP and
+node-modules (the control) — with every tool run through yarn in both trees. A tool that fails
+both trees is a scaffold problem (the bench hard-fails); a tool that passes the control and
+fails under PnP is the finding (`bench/pnp-compat-bench.json`).
+
+| tool | under PnP | under node-modules (control) |
+|---|---|---|
+| oxlint (whole tree) | works | works |
+| tsc (lib build; yarn's builtin TypeScript patch) | works | works |
+| turbo focused typecheck (build closure + typecheck) | works | works |
+| tsgo | **fails** (`TS2503: Cannot find namespace 'React'` and `TS2307: Cannot find module '@demo/lib-06'` — neither `@types` discovery nor workspace-import resolution goes through PnP) | works |
+| `next build` | **fails** (`We couldn't find the Next.js package (next/package.json) from the project directory` — Turbopack cannot locate the next package in a tree with no node_modules to walk; the failure persists with `turbopack.root` explicitly pinned in both trees) | works |
+
+So yarn-PnP's install wins carry a concrete boundary on this stack: the classic pipeline
+(tsc + turbo + oxlint) runs unchanged, and the optimal-stack tools (tsgo, Next's build) do
+not run under PnP — under yarn's node-modules linker no such caveat applies.
 
 ### Specifier form and node-linker (`scripts/perf-matrix.mjs`)
 

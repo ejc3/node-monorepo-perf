@@ -26,26 +26,29 @@ export const bunEnv = (overrides) => scrubEnv(["BUN_", "npm_config_"], overrides
 export const pnpmEnv = (overrides) => scrubEnv(["PNPM_", "npm_config_"], overrides);
 
 // yarn reads only .yarnrc.yml — but every measurement-critical knob is pinned explicitly
-// rather than trusting defaults: enableImmutableInstalls (yarn auto-enables immutable in
+// rather than trusting defaults: npmRegistryServer (yarn ignores .npmrc, so a user-level
+// ~/.yarnrc.yml registry would otherwise silently retarget every scaffold);
+// enableImmutableInstalls (yarn auto-enables immutable in
 // CI — an env-dependent hard failure when a bench deletes the lockfile; benches that DO
-// want immutable pass --immutable explicitly); enableHardenedMode (yarn 4 auto-enables it
+// want immutable pass --immutable explicitly; yarn-rollout-bench's determinism rung sets
+// pinImmutable:false because yarn's own CI default IS its measurement); enableHardenedMode
+// (yarn 4 auto-enables it
 // — an implicit --check-resolutions --refresh-lockfile with per-package registry traffic
 // — on public-repo GitHub PR jobs); enableGlobalCache (its default: zips live in the
 // shared global cache, yarn's analogue of the pnpm store); enableScripts false (yarn 4's
 // own default, the same block-dependency-build-scripts posture as pnpm 10); telemetry off.
-export const writeYarnRc = (dir, linker) =>
-  writeFileSync(
-    join(dir, ".yarnrc.yml"),
-    [
-      `nodeLinker: ${linker}`,
-      "enableTelemetry: false",
-      "enableImmutableInstalls: false",
-      "enableHardenedMode: false",
-      "enableGlobalCache: true",
-      "enableScripts: false",
-      "",
-    ].join("\n"),
-  );
+export const yarnRcLines = (linker, { pinImmutable = true, extraLines = [] } = {}) => [
+  `nodeLinker: ${linker}`,
+  'npmRegistryServer: "https://registry.npmjs.org"',
+  "enableTelemetry: false",
+  ...(pinImmutable ? ["enableImmutableInstalls: false"] : []),
+  "enableHardenedMode: false",
+  "enableGlobalCache: true",
+  "enableScripts: false",
+  ...extraLines,
+];
+export const writeYarnRc = (dir, linker, opts) =>
+  writeFileSync(join(dir, ".yarnrc.yml"), [...yarnRcLines(linker, opts), ""].join("\n"));
 
 // The generated benchmark workspace: N apps + M libs (generate.mjs), decataloged
 // against the repo's pnpm-workspace.yaml so tools without the pnpm catalog: protocol
