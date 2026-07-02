@@ -164,13 +164,30 @@ up in the app's typecheck *before Sam's PR merges* — the pre-merge gate the pu
 model structurally lacks (story 5's blind spot, closed for this one consumer). Sam
 refactors component internals and fixes the app in the same commit, atomically.
 
+Transitively the arrangement compounds. ui's own `"@acme/core": "workspace:^"` resolves
+as a workspace link too, so the app rides HEAD of ui's **entire internal closure**, and
+the canary property widens with it: a breaking change in core turns `brand-portal` red
+before *core's* PR merges — where the registry world would need two releases in
+topological order (story 7's fanout) to even deliver it. For external transitives the
+shared workspace lockfile means the app runs *exactly* the `date-fns` ui's own tests ran
+against — the lib-tested-at-one-resolution, consumer-runs-another gap that registry
+consumers live with cannot form here, and neither can story 9's diamonds (one lockfile +
+the catalog = one version everywhere). Linked is still not importable: under the isolated
+linker the app cannot `import "@acme/core"` without declaring it, even with core fully
+resolved in the tree for ui (workspace phantom imports fail on pnpm and bun alike,
+`bench/bun-safety-bench.json` rung D).
+
 What the team gives up, stated plainly: `brand-portal` **cannot lag** its own lib —
 there is no version to stay on; it rides HEAD or the dep leaves the workspace. Its
 reproducibility for ui comes from the git SHA plus a build, not from a lockfile pin (the
 lockfile records a link, story 5), so the app's CI always builds ui from source. And the
 no-wait privilege stops at the workspace boundary: every *other* team still waits for
 Sam's publish (stories 3 and 4) — this story removes the ceremony only between a team
-and its own code.
+and its own code. The same is true transitively: the app cannot take new ui while
+lagging core, and cannot hold any transitive at a version the workspace didn't choose —
+per-app transitive divergence is exactly the capability that requires a separate
+workspace and lockfile ([WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §7). Transitive
+freedom and the no-wait property are the same coin, opposite faces.
 
 ---
 
