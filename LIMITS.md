@@ -83,18 +83,18 @@ Measured so far: gen, install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/y
 2. Turbo graph-load in isolation — `turbo run build --dry` time (planning only, no execution or cache restore) vs scale, distinct from §2's measured fully-cached floor (which also pays the cache restore).
 3. Foundation-change rebuild *time*: the `test`-task selection is measured by COUNT (`bench/test-axis-bench.json`: foundation re-tests 1,200 vs a leaf's 21 at 1,000:200), and its cold wall-clock bounds Turbo orchestration + node startup (14.3s vs 3.0s) — but over trivial smoke bodies; the remote-cache side is measured at 300:100 (a universal-foundation edit restores 0 of 500 and recomputes the lot, ~26s — see "Remote cache: amortizing the O(repo) cold start"). Still open: real test-suite runtime, the *build* wall-clock (count 1,080), and the cold wall-clock at the 1,080-package scale.
 4. `pnpm install --filter app...` at scale. Its materialization scoping is confirmed (1 of 80 apps linked, `focus-install-bench`); the open part is install time + footprint vs `turbo prune` at 10k/20k.
-5. PnP tooling compatibility, and pnpm's own `node-linker=pnp`. Yarn PnP's install time + footprint are measured (TOOLING.md: 3.2s cold at 2,000 apps, 64 materialized entries + a 3.5 MB `.pnp.cjs`); still open are how the repo's toolchain (Next, tsc/tsgo, editors) behaves under PnP resolution, and pnpm's pnp linker.
+5. pnpm's own `node-linker=pnp`. Yarn PnP's install time + footprint are measured (TOOLING.md: 3.2s cold at 2,000 apps, 64 materialized entries + a 3.5 MB `.pnp.cjs`), and its toolchain compatibility is now measured too (`pnp-compat-bench.json`: tsc/turbo/oxlint work; tsgo and `next build` fail with the node-modules control passing). Still open: editors under PnP, and pnpm's pnp linker.
 6. Cold onboarding — fresh `git clone` + `pnpm install` for a new dev at 10k/20k.
 7. Peak memory under `--concurrency=100%` typecheck/build (OOM risk: 64 × tsc/next workers).
 
 ## Gotchas this build hit
 
 - Turbo input hashing **and** `turbo prune` respect `.gitignore`; generated, gitignored source is invisible to both (`--use-gitignore=false` for prune; move `.gitignore` aside for dev-sim).
-- `catalog:` entries in `pnpm-workspace.yaml` are read only by pnpm — Vercel's framework detector, npm, bun, and yarn do not read them ("No Next.js version detected"; bun ignores it). bun and yarn 4 have their own catalog support, authored in `package.json` (bun measured in `bench/wave-rollout-bench.json`; yarn's is not exercised here).
+- `catalog:` entries in `pnpm-workspace.yaml` are read only by pnpm — Vercel's framework detector, npm, bun, and yarn do not read them ("No Next.js version detected"; bun ignores it). bun's catalog support is authored in `package.json` (measured in `bench/wave-rollout-bench.json`); yarn 4's lives in `.yarnrc.yml` (measured in `bench/yarn-rollout-bench.json` — it reads neither foreign home).
 - `turbo prune` does not copy root configs packages reference via `../../` (e.g. `tsconfig.base.json`).
 - `pnpm install --filter app...` scopes what it *materializes* (1 of 80 apps linked, `focus-install-bench`) but still resolves the one shared, whole-workspace lockfile; for a self-contained per-app lockfile use `pnpm deploy` / `turbo prune`.
 - `workspace:*` deploys the in-tree source at its local version, not a published version (rewrite happens only on `pnpm publish`).
-- bun ignores `pnpm-workspace.yaml` (needs `package.json` "workspaces") and uses a hoisted layout.
+- bun ignores `pnpm-workspace.yaml` (needs `package.json` "workspaces"); bun 1.3 workspaces default to its isolated linker (`node_modules/.bun`) — the hoisted layout is its single-package default (`bench/bun-safety-bench.json` rung D).
 - Don't carry `eslint: { ignoreDuringBuilds: true }` from webpack-era configs — the generated Next 16 config omits the `eslint` key entirely; if you want lint, run it as a separate Turbo task, not inside `next build`.
 - `spawnSync` buffers child output in memory → ENOBUFS at scale; pipe to a file instead.
 - Even a fully-cached `turbo run` is O(repo) (graph load + hashing).

@@ -1,0 +1,100 @@
+{
+  "yarn": "4.17.0",
+  "versions": {
+    "turbo": "2.9.18",
+    "oxlint": "1.71.0",
+    "tsgo": "7.0.0-dev.20260614.1"
+  },
+  "scale": {
+    "apps": 20,
+    "libs": 10
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 0.22,
+  "method": "one generated workspace installed twice by the same pinned yarn — PnP and node-modules (the control); each tool runs through yarn in both trees; a tool failing BOTH trees invalidates the run (scaffold problem), a tool passing the control and failing PnP is the finding; ms fields are single samples through `yarn exec` (yarn boot + PnP runtime init included) — diagnostic only, the ok booleans are the finding",
+  "tools": {
+    "oxlint": {
+      "pnp": {
+        "ok": true,
+        "exit": 0,
+        "ms": 514,
+        "errorSample": null,
+        "filesLinted": 210
+      },
+      "nm": {
+        "ok": true,
+        "exit": 0,
+        "ms": 328,
+        "errorSample": null,
+        "filesLinted": 210
+      }
+    },
+    "tsc-lib-build": {
+      "pnp": {
+        "ok": true,
+        "exit": 0,
+        "ms": 1193,
+        "errorSample": null
+      },
+      "nm": {
+        "ok": true,
+        "exit": 0,
+        "ms": 1208,
+        "errorSample": null
+      }
+    },
+    "turbo-focused-typecheck": {
+      "pnp": {
+        "ok": true,
+        "exit": 0,
+        "ms": 9713,
+        "errorSample": null
+      },
+      "nm": {
+        "ok": true,
+        "exit": 0,
+        "ms": 7399,
+        "errorSample": null
+      }
+    },
+    "tsgo-app": {
+      "pnp": {
+        "ok": false,
+        "exit": 1,
+        "ms": 539,
+        "errorSample": "apps/app-01/app/layout.tsx(3,62): error TS2503: Cannot find namespace 'React'.\napps/app-01/app/layout.tsx(5,5): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/layout.tsx(6,7): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/layout.tsx(6,23): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\n--- tail ---\napps/app-01/app/page.tsx(3,27): error TS2307: Cannot find module '@demo/lib-06' or its corresponding type declarations.\napps/app-01/app/page.tsx(4,27): error TS2307: Cannot find module '@demo/lib-09' or its corresponding type declarations.\napps/app-01/app/page.tsx(9,5): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(10,7): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(10,23): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(11,7): error TS70"
+      },
+      "nm": {
+        "ok": true,
+        "exit": 0,
+        "ms": 398,
+        "errorSample": null
+      }
+    },
+    "next-build-app": {
+      "pnp": {
+        "ok": false,
+        "exit": 1,
+        "ms": 1821,
+        "errorSample": "> Build error occurred\nError: Turbopack build failed with 1 errors:\nError: Next.js inferred your workspace root, but it may not be correct.\n--- tail ---\nError: Turbopack build failed with 1 errors:\n./apps/app-01/app\nError: Next.js inferred your workspace root, but it may not be correct.\n    We couldn't find the Next.js package (next/package.json) from the project directory: /tmp/pnp-compat-HWdk9T/pnp/apps/app-01/app\n     To fix this, set turbopack.root in your Next.js config, or ensure the Next.js package is resolvable from this directory.\n    Note: For security and performance reasons, files outside of the project directory will not be compiled.\n    See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.\n    at ignore-listed frames",
+        "configKeyRejected": false,
+        "rootInferenceMessagePresent": true
+      },
+      "nm": {
+        "ok": true,
+        "exit": 0,
+        "ms": 2884,
+        "errorSample": null,
+        "configKeyRejected": false,
+        "rootInferenceMessagePresent": false
+      }
+    }
+  },
+  "summary": {
+    "oxlint": "works under PnP",
+    "tsc-lib-build": "works under PnP",
+    "turbo-focused-typecheck": "works under PnP",
+    "tsgo-app": "fails under PnP (control passes): exit 1",
+    "next-build-app": "fails under PnP (control passes): exit 1"
+  }
+}

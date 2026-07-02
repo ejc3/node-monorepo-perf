@@ -136,8 +136,9 @@ Turborepo supports pnpm, npm, yarn, and bun, all at its Stable tier
 ([support policy](https://turborepo.dev/docs/support-policy)); **bun is not
 required**. The resolve dominates pnpm's install, and bun's install is much faster
 (`install-bench.json`, cold install; yarn 4 is measured in the same dataset and
-also beats pnpm at every scale — fastest of all at 2,000 apps, PnP 3.2s — see the
-five-way table in [TOOLING.md](TOOLING.md)):
+also beats pnpm at every scale — fastest of all at 2,000 apps, PnP 3.2s, though
+PnP cannot run this repo's tsgo/`next build` stack (`pnp-compat-bench.json`) —
+see the five-way table in [TOOLING.md](TOOLING.md)):
 
 | scale | pnpm isolated | bun | ratio |
 |---|---|---|---|
@@ -197,7 +198,7 @@ Cells not benchmarked on bun are marked *(unverified)*.
 | capability your setup needs | pnpm 10 | bun 1.3 |
 |---|---|---|
 | catalogs (centralize shared) | yes (`pnpm-workspace.yaml`) | yes ([docs](https://bun.com/docs/pm/workspaces)); isolated+catalog had bugs in 1.3 ([#23615](https://github.com/oven-sh/bun/issues/23615)) |
-| `workspace:` + publish-rewrite to npm | yes | `bun publish` rewrites `workspace:` ([docs](https://bun.com/docs/pm/workspaces)) *(not benchmarked here)* |
+| `workspace:` + publish-rewrite to npm | yes | yes — `bun pm pack` bakes `workspace:^`→`^2.5.0` (measured, `bench/wave-rollout-bench.json`) |
 | semver-internal resolves from registry | yes (`link-workspace-packages=false`) | `workspace:` → local; plain-semver local-vs-registry behavior *(verify on your bun)* |
 | isolated linker (no phantom deps) | yes (default) | yes (default for workspaces, [docs](https://bun.com/docs/pm/isolated-installs)) |
 | lockfile merge conflicts auto-resolved | yes, measured (253→0) | `bun.lock` ([docs](https://bun.com/docs/pm/lockfile)) *(auto-resolve not benchmarked here)* |
@@ -208,14 +209,21 @@ The two paths, side by side (no recommendation):
 - **pnpm** does the independently-published + catalogs + workspace setup as the
 model pnpm documents, with the strict isolated linker; cost is the whole-workspace
 resolve (16 min cold @4k) and the inode-heavy linker.
-- **bun** exposes the same capabilities with 62–357× faster installs; cost is that
+- **bun** exposes the same capabilities with a 62–357× faster cold full-resolve
+install (warm installs narrow to single digits, and pnpm-hoisted's warm relink is ~2×
+faster than bun at 2,000 apps); cost is that
 the isolated+catalog path is newer (1.3, 2025) and hit the bugs above, and the
 *(unverified)* rows are untested here.
 - **npm** works with Turborepo but has no catalogs, so the centralize-shared axis
 becomes manual version-pinning. **yarn 4** has catalogs (the 4.17.0 CLI this repo
 benchmarks bundles the catalog plugin) and the fastest measured cold install at
 2,000 apps (`install-bench.json`, table in [TOOLING.md](TOOLING.md)); its rollout
-mechanics are not vetted here the way bun's and pnpm's are ([ROLLOUT.md](ROLLOUT.md)).
+mechanics are vetted the same way bun's and pnpm's are — all five rungs native,
+including a CI auto-immutable default bun lacks (`yarn-rollout-bench.json`,
+[ROLLOUT.md](ROLLOUT.md) "yarn as a driver, vetted"). The PnP-linker install wins
+carry a toolchain boundary: tsgo and `next build` do not run under PnP on this
+repo's stack (`pnp-compat-bench.json`, [TOOLING.md](TOOLING.md)); the yarn
+node-modules linker has no such caveat.
 
 *(If you meant Buck2 / Bazel rather than bun — a build system, not a package
 manager — it would replace Turborepo's task orchestration, not pnpm; a separate

@@ -327,7 +327,7 @@ for (const sec of SECTIONS) {
       );
       const sub = mult <= 1.0001 ? "fastest" : fmtMult(mult) + " slower";
       T.push(
-        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 15}" font-size="11" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
+        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="13" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
       );
     });
     y += ROW_H;

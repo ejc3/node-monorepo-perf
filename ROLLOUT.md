@@ -12,10 +12,15 @@ behaviors are cross-checked against bun's source at the `bun-v1.3.14` tag.
 ## The recommendation: drive the rollout with bun
 
 bun runs the entire rollout natively — frozen-lockfile determinism, named-catalog version channels, the
-`workspace:` link for co-development, and the concrete-range publish rewrite — and against pnpm, the other
-driver vetted here, it wins the full re-resolve by ~62–357×. (yarn 4 is the faster installer at the top of
-the measured range — fastest cold and warm at 2,000 apps, `bench/install-bench.json` — but its rollout
-mechanics are not vetted in this doc.) Use bun.
+`workspace:` link for co-development, and the concrete-range publish rewrite — and against pnpm it wins
+the full re-resolve by ~62–357× and the fresh-CI-runner frozen install outright (0.9s vs pnpm 8.9s,
+`bench/container-install-bench.json`). yarn 4, the third driver vetted here, runs every rollout mechanic
+natively too — including the CI auto-immutable default bun lacks — and is the faster installer at the top
+of the warm-store range. bun keeps the recommendation on the CI-runner frozen install against yarn as
+well (0.9s vs yarn-nm 6.5s; yarn-PnP's 4.4s doesn't apply to this stack, since tsgo and `next build` do
+not run under PnP — `bench/pnp-compat-bench.json`). The adoption-safety vet covers bun and pnpm only
+(`bench/bun-safety-bench.json`); yarn has not been run through it, so it neither gains nor loses there.
+Use bun.
 
 **Cold install — the full re-resolve.** With no usable lockfile — authoring it fresh, or after a change
 that invalidates it — the install pays the full dependency resolve, and that is where the gap is large
@@ -51,14 +56,34 @@ present — smaller than the full-re-resolve table), and every fresh container o
 (`bench/container-install-bench.json`, 1,000 apps, frozen install): bun 0.9s vs pnpm 8.9s with empty
 caches and real downloads, 0.4s vs 7.0s with a restored dependency cache — bun wins that case outright
 (five-way table in [TOOLING.md](TOOLING.md)). (yarn 4, measured in `install-bench.json`'s warm-store dataset, beats pnpm's cold install at
-every measured scale, beats bun's at 2,000 apps, and is the fastest warm install outright at 1,000–2,000
-apps — `bench/install-bench.json`, table in [TOOLING.md](TOOLING.md) — but the rollout mechanics in this
-doc were vetted bun-vs-pnpm only; yarn is not evaluated as a rollout driver here.)
+every measured scale and beats bun's at 2,000 apps; its PnP linker is the fastest warm install at
+1,000–2,000 apps, while its node-modules linker trails pnpm-hoisted warm —
+`bench/install-bench.json`, table in [TOOLING.md](TOOLING.md); its rollout mechanics are vetted
+in the "yarn as a driver" subsection below.)
+
+### yarn as a driver, vetted: every mechanic native, plus the CI-frozen default
+
+yarn 4 runs the same five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.17.0 on the same
+self-contained scaffolds): the committed lockfile resolves byte-identically across fresh installs;
+`--immutable` fails closed on a drifted manifest (exit 1, lockfile untouched); and — the one determinism
+default bun lacks — **yarn auto-enables immutable installs in CI**: a bare `CI=true yarn install` on drift
+fails closed with no configuration at all, where bun needs the committed `bunfig.toml` line (pnpm has the
+same auto-frozen CI default). Named catalogs live in `.yarnrc.yml` and route two cohorts to two versions
+in one lockfile; a repoint edits 0 consumer manifests. `workspace:` as a catalog value is ACCEPTED and
+links the local package — the same HEAD-tracking lane bun offers, and the same foot-gun pnpm's stricter
+validation rejects. `yarn pack` bakes concrete ranges for BOTH protocols (`workspace:^` → `^1.2.0` and
+`catalog:` → `3.0.1`), so the republish-fanout mechanics are identical. yarn reads neither
+`pnpm-workspace.yaml` nor bun's `package.json` catalogs — author them in `.yarnrc.yml`.
+
+What yarn does not have here: the adoption-safety vet below covers bun vs pnpm only, and yarn's PnP
+linker — its fastest install mode — does not run this repo's optimal toolchain (tsgo and `next build`
+fail under PnP while tsc/turbo/oxlint work, `bench/pnp-compat-bench.json`); under its node-modules
+linker no such caveat applies.
 
 pnpm is a complete fallback that does the same mechanics, and it ships two guardrails bun does not default to
 (below). One closes on bun with a single committed line (pnpm auto-enables frozen in CI; bun needs the
 `bunfig.toml` line). The other is a genuine pnpm safety edge: pnpm rejects a `workspace:` spec as a catalog
-value, ruling out a foot-gun bun allows — bun is more permissive there, not more guarded. Neither blocks the
+value, ruling out a foot-gun both bun and yarn allow — they are more permissive there, not more guarded. Neither blocks the
 rollout on bun, and where installs exercise the resolve path the ~62–357× full-re-resolve gap outweighs both; the catalog-validation
 strictness is a real, if minor, point for pnpm. A full safety vet (next subsection) finds two further bun
 gaps, one more pnpm safety edge (phantom isolation — single-package projects only; workspaces are parity), and otherwise parity. Pick pnpm only if you
@@ -285,7 +310,8 @@ pnpm does every mechanic above and ships two guardrails on by default that bun m
   config versus an inherited default.
 - **pnpm rejects a `workspace:` spec as a catalog value** (measured, `workspaceInCatalog.pnpm`:
   `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC` for `workspace:*`, `workspace:^`, `workspace:~`,
-  `workspace:^1.0.0`); bun accepts it. pnpm's stricter validation rules out one foot-gun bun allows.
+  `workspace:^1.0.0`); bun and yarn both accept it. pnpm's stricter validation rules out one foot-gun
+  the other two drivers allow.
 
 Beyond these two rollout defaults, the adoption-safety vet above adds three more points for pnpm
 (`bench/bun-safety-bench.json`): two are bun gaps — pnpm default-denies registry build scripts where bun
@@ -300,9 +326,12 @@ moves the cohort with 0 of 2 manifests edited), and `pnpm pack` bakes the same c
 (`publishBakesConcrete.pnpm`). The whole rollout is available on pnpm.
 
 The cost is install speed wherever the resolve path is exercised: ~62–357× slower on a full re-resolve
-(the table above). On a runner carrying the committed lockfile the gap is small and pnpm-hoisted can match
-or beat bun, so there pnpm's two defaults (auto-frozen CI, stricter catalog validation) are a real point in
-its favor; where re-resolves recur they do not outweigh the install gap.
+(the table above). On a runner that stays fully warm — store AND `node_modules` cached, lockfile unchanged
+— the gap is small and pnpm-hoisted can match or beat bun (`bench/install-bench.json` warm rows); on a
+fresh runner the frozen install from the committed lockfile is still ~10–18× bun's (8.9s vs 0.9s empty-cache,
+7.0s vs 0.4s cache-restored, `bench/container-install-bench.json`). Where runners stay warm, pnpm's two
+defaults (auto-frozen CI, stricter catalog validation) are a real point in its favor; everywhere else the
+install gap dominates.
 Choose pnpm when your runners stay warm and you want its defaults; otherwise drive with bun and set the
 two-line equivalent.
 

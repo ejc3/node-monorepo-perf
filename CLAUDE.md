@@ -117,6 +117,38 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   yarn rc knobs, workspace scaffold, yarn CLI fetch, median, partial→promote record protection,
   load guard), `scripts/_verify-install.cjs` (the ONE completeness verifier: nm walk + PnP
   resolver, require()-able in-container and spawnable as a CLI).
+- `node scripts/yarn-rollout-bench.mjs` — yarn 4 vetted on the five wave-rollout rungs
+  (self-contained temp scaffolds, pinned CLI, `yarnEnv` scrub + CI detection neutralized —
+  major vendor vars stripped AND `CI=false`, which gates ci-info's `isCI` outright — so a CI
+  host can't flip the baselines; a signal-killed yarn is a harness fault, never a
+  finding): byte-identical lockfile resolves (second resolve against a FRESH global folder,
+  asserted populated with package zips — two independent resolves, not a warm-cache
+  replay); `--immutable`
+  fail-closed on drift and the CI auto-immutable default, each gated on yarn's own YN0028
+  marker (exit+hash alone would let a registry outage read as fail-closed) with the rc
+  deliberately NOT pinning `enableImmutableInstalls` (a pin would mask the CI default);
+  named catalogs (`.yarnrc.yml`) with a 0-manifest repoint; `workspace:` as a catalog value
+  (accepted, links local); `yarn pack` baking `workspace:^` AND `catalog:` concrete; the
+  cross-tool rung concludes "reads neither pnpm-workspace.yaml nor bun package.json
+  catalogs" only on yarn's YN0082 catalog-unresolvable error (any other failure → null).
+  The claim string derives clause-by-clause from the measured booleans →
+  `bench/yarn-rollout-bench.json`, folded into ROLLOUT.md ("yarn as a driver, vetted").
+- `node scripts/pnp-compat-bench.mjs` — yarn PnP's toolchain-compat cost priced on this
+  repo's stack (20:10; turbo/tsgo versions read from the root package.json pins): one tree
+  installed under PnP AND node-modules (the CONTROL) by the same pinned yarn; oxlint / tsc
+  lib build / turbo focused typecheck / tsgo / `next build` probed through yarn in both,
+  with `turbopack.root` pinned in both trees (key validity asserted — a config-key
+  rejection in the control fails the bench; the recorded PnP failure persists with the
+  pin and names the unresolvable next/package.json). A tool failing BOTH trees hard-fails
+  the bench (scaffold problem); a
+  signal-killed tool is a harness fault, not a finding; tsgo/next probe only after the
+  turbo closure build succeeded in that tree (else recorded skipped, not misattributed);
+  oxlint's exit-0 is backed by a file-count parity assert across trees (`--format=json`
+  `number_of_files`). Passing the control and failing PnP is the finding (tsgo TS2503 +
+  TS2307 and `next build` — Turbopack can't locate next/package.json by fs walk — fail;
+  tsc/turbo/oxlint work); ms fields are single yarn-exec samples, diagnostic only →
+  `bench/pnp-compat-bench.json`, folded into TOOLING.md ("yarn PnP toolchain
+  compatibility, priced") + OPTIMAL-STACK/LIMITS.
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
@@ -281,7 +313,8 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   HARD-ASSERTING a stable fact; the bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
   (and the script asserts it is running 1.3.14). (1) **Determinism** — the lockfile, not the range, is the
   boundary: bun with a committed `bunfig.toml [install] frozenLockfile=true` FAILS CLOSED on drift (bare
-  `bun install` exit 1, lock unchanged) — bun does not auto-enable frozen in CI (only pnpm does), so that
+  `bun install` exit 1, lock unchanged) — bun does not auto-enable frozen in CI (pnpm does, and yarn 4
+  does per `yarn-rollout-bench.mjs`), so that
   one committed line is how you get it; pnpm `--frozen-lockfile` is byte-identical across runs and fails
   closed (`ERR_PNPM_OUTDATED_LOCKFILE`). (2) **Named-catalog lanes** — `catalog:stable`/`catalog:next`
   route two cohorts to two versions in one lockfile and a repoint edits 0 consumer manifests, natively on
@@ -428,7 +461,8 @@ freshly-rendered PNG back — so the committed raster tracks the gated SVG inste
 to re-render it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
-and the five-way CI-runner frozen install from `bench/container-install-bench.json`), `LIMITS.md` (what stays O(repo),
+and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
+toolchain-compat pricing from `bench/pnp-compat-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
@@ -452,9 +486,11 @@ head-to-head with bun cold-installing 62–357× faster, the direct-clean vs uni
 distinction, expand/migrate/contract for breaking changes, gating the artifact not just the source,
 the "Adoption safety, vetted" subsection — bun is adoptable but not a strict safety superset (two real
 gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer knob; plus pnpm's
-phantom-isolation edge in single-package projects — workspaces are parity; the rest parity), and pnpm
-as the fallback; backed by
-`bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json`),
+phantom-isolation edge in single-package projects — workspaces are parity; the rest parity), the
+"yarn as a driver, vetted" subsection (every mechanic native incl. the CI auto-immutable default,
+`bench/yarn-rollout-bench.json`), and pnpm as the fallback; backed by
+`bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json` +
+`bench/container-install-bench.json` + `bench/yarn-rollout-bench.json`),
 `FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
 per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison),
 `WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
