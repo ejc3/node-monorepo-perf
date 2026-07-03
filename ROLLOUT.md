@@ -300,7 +300,10 @@ foreign version mechanism onto the workspace.
   redeploying — you cannot un-ship an app already on the new version, so a bad promote is forward-fixed, not
   un-deployed.
 - **Publish interdependent libs in topological order** (sinks first). A core-lib advance fans out to
-  republishing its dependent libs so the fleet resolves a coherent cross-lib version set.
+  republishing its dependent libs so the fleet resolves a coherent cross-lib version set. Ordering
+  presupposes a version bump: a behavior change merged without bumping the changed lib's version leaves
+  nothing to publish first, and a dependent's baked range then satisfies against a published version that
+  lacks the change — the artifact gate above is what catches that case.
 
 ## The pnpm alternative
 
