@@ -1,8 +1,8 @@
 # Living with published libs: user stories
 
 The independently-published model — every lib published to a registry, apps consuming
-only published packages — told as the day-to-day experience of three people. The
-mechanics behind each story are measured in this repo:
+only published packages — told as the day-to-day experience of the people living in it.
+The mechanics behind each story are measured or demonstrated live in this repo:
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) (resolution, overrides, diamonds, the
 publish rewrite), [ROLLOUT.md](ROLLOUT.md) (advancing a lib through waves),
 [FEASIBILITY.md](FEASIBILITY.md) (when to pick this model at all). Registry:
@@ -23,8 +23,9 @@ published manifest declares them — `@acme/core@2.5.1` and `date-fns@4.1.7`. Sh
 declared core; she may not know it exists. Her editor autocompletes from
 `node_modules/@acme/ui/dist/index.d.ts`. CodeArtifact is just "the registry" to her.
 (Under pnpm's isolated layout she also *cannot* silently `import "@acme/core"` without
-declaring it — the phantom-dependency protection measured in
-`bench/bun-safety-bench.json` rung D.)
+declaring it — importing a package you never declared is the "phantom dependency"
+mistake, and the layout makes it fail immediately instead of working by accident;
+measured in `bench/bun-safety-bench.json` rung D.)
 
 ## 2. Maya's CI is boring, every single day
 
@@ -68,8 +69,8 @@ Sam works in `packages/ui/`: edits source, unit tests in watch mode. His interna
 core is `"@acme/core": "workspace:^"`, so he develops against core's **HEAD source**,
 not a published artifact. When core's owner bumped versions yesterday, the workspace
 lockfile did not change — the lockfile records a `workspace:` dep as a link to the
-sibling directory, not as a resolved version, so an internal rev needs no install and
-touches no lockfile ([WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §2). No app
+sibling directory, not as a resolved version, so bumping an in-house lib's version needs
+no install and touches no lockfile ([WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §2). No app
 anywhere noticed Sam's commits. That is the point —
 and also his blind spot: no app breakage shows on his screen.
 
@@ -97,15 +98,17 @@ Sam's new theming API is `ui@2.0.0`. Nothing migrates automatically: every app's
 `^1.8.0` range *excludes* 2.0.0 by design. Apps move one PR at a time over a quarter, so
 Sam maintains `1.x` and `2.x` side by side, backporting fixes. And since other libs
 depend on ui with baked ranges like `^1.8.0`, each of *those* needs a republish to
-declare `^2.0.0` — the topological republish fanout
-([ROLLOUT.md](ROLLOUT.md): the direct-clean vs universal-fanout distinction). Sam now
-understands why Priya keeps asking him to make changes additive
+declare `^2.0.0` — a chain of re-releases in dependency order, deepest lib first (the
+republish fanout; [ROLLOUT.md](ROLLOUT.md) prices how far it reaches by how deep the
+lib sits). Sam now understands why Priya keeps asking him to make changes additive:
+ship the new API next to the old, move consumers over, then delete the old
 (expand/migrate/contract).
 
 ## 8. Priya runs a security bump as a campaign
 
-> As a platform engineer, I want a vulnerable transitive dep purged everywhere, so I
-> coordinate across every lockfile that pins it.
+> As a platform engineer, I want a vulnerable transitive dep — one apps get through
+> other deps, not by asking — purged everywhere, so I coordinate across every lockfile
+> that pins it.
 
 CVE in `date-fns@4.1.7`. In a shared workspace that is one catalog line + one re-resolve
 (measured: a catalog bump edits 0 consumer manifests vs 25 for per-app pins,
@@ -165,16 +168,16 @@ model structurally lacks (story 5's blind spot, closed for this one consumer). S
 refactors component internals and fixes the app in the same commit, atomically.
 
 Transitively the arrangement compounds. ui's own `"@acme/core": "workspace:^"` resolves
-as a workspace link too, so the app rides HEAD of ui's **entire internal closure**, and
-the canary property widens with it: a breaking change in core turns `brand-portal` red
-before *core's* PR merges — where the registry world would need two releases in
-topological order (story 7's fanout) to even deliver it. For external transitives the
-shared workspace lockfile means the app runs *exactly* the `date-fns` ui's own tests ran
-against — the lib-tested-at-one-resolution, consumer-runs-another gap that registry
-consumers live with cannot form here, and neither can story 9's diamonds (one lockfile +
-the catalog = one version everywhere). Linked is still not importable: under the isolated
-linker the app cannot `import "@acme/core"` without declaring it, even with core fully
-resolved in the tree for ui (workspace phantom imports fail on pnpm and bun alike,
+as a workspace link too, so the app rides HEAD of every in-house lib underneath ui, all
+the way down — and the canary widens with it: a breaking change in core turns
+`brand-portal` red before *core's* PR merges, where the registry world would need two
+releases in dependency order (story 7's fanout) to even deliver it. Third-party deps
+compound the same way: the shared workspace lockfile means the app runs *exactly* the
+`date-fns` ui's own tests ran against. The gap registry consumers live with — lib tested
+at one resolution, consumer running another — cannot form here, and neither can story
+9's diamonds (one lockfile + the catalog = one version everywhere). Linked is still not
+importable: the app cannot `import "@acme/core"` without declaring it, even with core
+fully resolved in the tree for ui (workspace phantom imports fail on pnpm and bun alike,
 `bench/bun-safety-bench.json` rung D).
 
 What the team gives up, stated plainly: `brand-portal` **cannot lag** its own lib —
@@ -189,6 +192,27 @@ per-app transitive divergence is exactly the capability that requires a separate
 workspace and lockfile ([WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) §7). Transitive
 freedom and the no-wait property are the same coin, opposite faces.
 
+## 12. Sam publishes a lie — and the artifact gate catches it
+
+> As a lib developer whose lib absorbed a neighbor's unreleased change, I want the
+> pipeline to catch it, because everything on my screen says it's fine.
+
+core merges a new `formatPrice()` helper; nobody bumps core's version. Sam's ui starts
+using it the same day — the workspace always compiles against core's newest source, so
+everything is green everywhere Sam can see. Then ui publishes `1.9.2`. The pack rewrite
+snapshots core's version *number*, still 2.5.0, so the artifact honestly declares
+`"@acme/core": "^2.5.0"` — and dishonestly requires a function **no published core
+has**. Maya installs ui 1.9.2, gets published core 2.5.1, and her build breaks on code
+Sam has never seen fail. Workspace green, registry broken.
+
+Three habits close the trap ([ROLLOUT.md](ROLLOUT.md) "Rollback and publish order" and
+"Gate the artifact, not just the source"): bump a lib's version when its behavior
+changes (the step release tooling like Changesets automates — ordering is meaningless if
+there is nothing new to publish); publish interdependent libs deepest-first, so core
+2.6.0 exists in the registry before any ui that needs it; and gate the **artifact**, not
+just the source — a pre-publish check that resolves ui against its *installed published*
+dependencies goes red exactly where Sam's workspace stayed green.
+
 ---
 
 ## When `file:` enters the model
@@ -196,7 +220,7 @@ freedom and the no-wait property are the same coin, opposite faces.
 Some teams in this model also carry `file:` dependencies — a path or tarball on disk
 instead of a registry package. Three stories about where that helps and where it bites.
 
-## 12. Maya vendors a patched tarball to stop waiting
+## 13. Maya vendors a patched tarball to stop waiting
 
 > As an app developer blocked on a lib fix (story 4), I want the fix today, so I vendor
 > a patched build until the real release lands.
@@ -209,7 +233,7 @@ The discipline that has to come with it: a `file:` dep has no semver, so nothing
 ever tell her an upgrade exists. She files a ticket to revert to `"^1.9.1"` the day it
 ships; vendored tarballs without a removal ticket fossilize.
 
-## 13. A helper lib that never gets published
+## 14. A helper lib that never gets published
 
 > As an app developer with app-private helpers, I want to factor code out without
 > adopting the whole publish ceremony, so I keep an unpublished lib next to the app.
@@ -224,7 +248,7 @@ sibling checkout, but every consumer's CI would have to materialize that other r
 the same relative path. The real choices are copy-paste drift or graduating the helpers
 to a published `@acme/*` package (story 6's ceremony, applied).
 
-## 14. Priya's onboarding rule about `file:` postinstalls
+## 15. Priya's onboarding rule about `file:` postinstalls
 
 > As a platform engineer, I want no surprise script execution from local deps, so I
 > rely on the measured default and say so in onboarding docs.
