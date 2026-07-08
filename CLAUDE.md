@@ -266,6 +266,24 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   sampler. Self-contained (corpus under WORK, removed on exit unless KEEP=1),
   load-guarded → `bench/lsp-scale-bench.json`, folded into TYPECHECKERS.md ("The
   daemons at a million files").
+- `node scripts/relay-codegen-bench.mjs` (`RELAY_COMPONENTS` default 10000 canonical,
+  `RELAY_SAMPLES` 3, `RELAY_TYPES` 100, `FLOW_BIN`/`FLOW_SOURCE` as in tsgo-scale-bench,
+  `RELAY_WORK`, `RELAY_KEEP=1`, `RELAY_ALLOW_BUSY=1`) — **codegen in front of the
+  checkers**: relay-compiler (Rust, pinned 21.0.1) over the same 10k-component tree in
+  BOTH dialects (language typescript/flow, shared 100-type schema; every component
+  imports and uses its query's generated $data type), then tsgo --noEmit over the TS
+  tree and flow over the flow tree, components + artifacts as one program. Rows:
+  codegenCold / codegenNoChange (a one-shot rerun with artifacts present costs the
+  same as cold — it re-extracts and re-validates every document) / check. Gates: exact artifact count; a schema-invalid query must fail codegen; a type
+  misuse of a generated $data type must fail each checker (template-drift-proofed
+  seed). Findings recorded in-JSON: the checker is not the pipeline bottleneck (~4s
+  codegen vs 0.7–1.6s check), and relay 21's flow artifacts need
+  `experimental.deprecated_variance_sigils.excludes` on current Flow (flowConfigNote;
+  a FLOW_BIN that can't parse the artifacts becomes a recorded compat outcome with a
+  released-flow fallback, never a silent hard-fail). GNU-time wall from the Elapsed
+  line's last token. Self-contained under RELAY_WORK (removed on exit unless `RELAY_KEEP=1`),
+  load-guarded → `bench/relay-codegen-bench.json`, writeup in TYPECHECKERS.md
+  ("Codegen in front of the checkers").
 - `node scripts/lint-bench.mjs` (`LINT_FILES`/`LINT_SAMPLES`, `LINT_ALLOW_BUSY=1`) — ESLint vs
   oxlint on one generated corpus (default 800 `.ts`/`.tsx` files), matched so the number is engine
   speed not coverage breadth. oxlint runs STANDALONE at its full native capability (all plugins +
@@ -644,7 +662,8 @@ phantom-isolation edge in single-package projects — workspaces are parity; the
 per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison, plus "Behavior at a
 million files" — tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`,
 and its daemon companion tsgo --lsp/tsserver/--watch at the same scales,
-`bench/lsp-scale-bench.json`),
+`bench/lsp-scale-bench.json`, plus "Codegen in front of the checkers" — Relay feeding
+both dialects, `bench/relay-codegen-bench.json`),
 `STORIES.md` (the independently-published model as user stories — app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 `WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),

@@ -35,6 +35,8 @@ pnpm-lock.yaml
 /bench/tsgo-scale-bench.partial.json
 # transient: a non-canonical lsp-scale-bench run — never the record
 /bench/lsp-scale-bench.partial.json
+# transient: a non-canonical relay-codegen-bench run — never the record
+/bench/relay-codegen-bench.partial.json
 # transient: editor-loop-bench's tsconfig.base.json backup (removed on exit; self-heals a hard kill)
 /tsconfig.base.json.bench.bak
 .DS_Store

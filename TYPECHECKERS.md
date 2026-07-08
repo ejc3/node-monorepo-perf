@@ -187,6 +187,36 @@ sizes differ by orders of magnitude, so the times are not a like-for-like race
 boundary stands regardless — at 250k+ the preview daemon cannot answer the completion
 request within 120s.
 
+### Codegen in front of the checkers: Relay at 10,000 components (`scripts/relay-codegen-bench.mjs`)
+
+Real product code at scale rarely feeds a checker directly — a codegen stage sits in
+front. Relay is the canonical case in the tsgo/flow world: `relay-compiler` (Rust)
+extracts `graphql\`\`` literals, validates them against a schema, and emits one typed
+artifact per query in **either dialect** (`language: "typescript"` or `"flow"`). The
+bench scaffolds the same 10,000-component tree in both dialects against a shared
+100-type schema — every component imports and uses its query's generated `$data`
+type, so the check validates codegen output against hand-written code — and times the
+pipeline (`bench/relay-codegen-bench.json`; relay-compiler 21.0.1; flow = the same
+main build as above):
+
+| stage | typescript → tsgo | flow → flow |
+|---|---|---|
+| codegen, cold (10,000 artifacts) | 3.9s | 4.4s |
+| codegen, no-change rerun | 3.9s | 3.9s |
+| whole-tree check (components + artifacts, ~20k files) | **0.71s** (834MB) | **1.6s** |
+
+Two findings. **The codegen stage dominates the pipeline**: relay-compiler costs ~4s
+to the checkers' 0.7–1.6s — the checker is not the bottleneck behind a codegen step at
+this scale, and Relay's no-change rerun costs the same as cold — a one-shot invocation
+re-extracts and re-validates every document even with all artifacts present. And a
+**dialect-skew gate**: relay-compiler 21's flow artifacts still use the `+` variance
+sigil, which current Flow — released 0.321 and main alike — rejects as
+`unsupported-syntax`; checking Relay's flow output today requires
+`[options] experimental.deprecated_variance_sigils.excludes=<PROJECT_ROOT>/src/__generated__`
+in `.flowconfig` (recorded as `flowConfigNote`; a schema-invalid query failing codegen
+and a type misuse of a generated `$data` type failing each checker are the bench's
+positive controls).
+
 ### Released 0.321's server crash-wedge (fixed on main)
 
 Every released Flow binary through 0.321 carries a recheck-cancellation race that
