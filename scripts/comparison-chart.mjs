@@ -48,7 +48,7 @@ const INSTALL_COLS = [
   { k: "iso", label: "pnpm\nisolated", tool: "pnpmIsolated" },
   { k: "hoist", label: "pnpm\nhoisted", tool: "pnpmHoisted" },
   { k: "ynm", label: "yarn\nnode-modules", tool: "yarnNm" },
-  { k: "ypnp", label: "yarn\nPnP", tool: "yarnPnp" },
+  { k: "ypnp", label: "yarn\nPnP", sub: "no nm tree — zip cache + table", tool: "yarnPnp" },
 ];
 const INSTALL_SCALES = [
   ["200x100", "200 apps"],
@@ -109,7 +109,7 @@ const SECTIONS = [
       { k: "bun", label: "bun" },
       { k: "pnpm", label: "pnpm" },
       { k: "ynm", label: "yarn\nnode-modules" },
-      { k: "ypnp", label: "yarn\nPnP" },
+      { k: "ypnp", label: "yarn\nPnP", sub: "no nm tree — zip cache + table" },
       { k: "npm", label: "npm" },
     ],
     rows: [
@@ -325,12 +325,16 @@ for (const sec of SECTIONS) {
       `<rect x="${x}" y="${y}" width="${COL_W}" height="${HEAD_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
     );
     const lines = col.label.split("\n");
-    const ly = y + HEAD_H / 2 - (lines.length - 1) * 8 + 5;
+    const ly = y + HEAD_H / 2 - (lines.length - 1) * 8 + (col.sub ? 1 : 5);
     lines.forEach((ln, k) =>
       T.push(
         `<text x="${x + COL_W / 2}" y="${ly + k * 16}" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">${esc(ln)}</text>`,
       ),
     );
+    if (col.sub)
+      T.push(
+        `<text x="${x + COL_W / 2}" y="${ly + lines.length * 16 - 3}" font-size="9" fill="#57606a" text-anchor="middle">${esc(col.sub)}</text>`,
+      );
   });
   y += HEAD_H;
   // Data rows.
