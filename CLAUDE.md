@@ -593,6 +593,10 @@ ride the same `.github/workflows/charts.yml` byte-gate.
 
 **Comparison-chart conventions (every chart generator follows these):**
 
+- **One column order.** Across sections and charts alike, the typically-fastest /
+  recommended tool sits leftmost and the alternatives keep one fixed order (bun, pnpm,
+  yarn, npm · tsgo, tsc, Flow · Vite, Next · oxlint, ESLint) — the green column must
+  not flip sides between sections.
 - **One visual grammar.** Heat-table sections; per row the FASTEST cell is green and every
   other cell's headline is its multiple of that best ("×N slower") — the number IS the cell,
   not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
