@@ -1,9 +1,10 @@
 {
   "meta": {
-    "generatedAt": "2026-07-08T10:19:46.939Z",
+    "generatedAt": "2026-07-08T17:08:39.810Z",
     "points": [
       10000,
       100000,
+      250000,
       500000,
       1000000
     ],
@@ -12,7 +13,7 @@
     "layers": 100,
     "tsserverAnchorMax": 100000,
     "cores": 64,
-    "preRunLoadAvg1": 0.74,
+    "preRunLoadAvg1": 11.94,
     "tsgoVersion": "Version 7.0.0-dev.20260707.2",
     "tsgoInvocation": "native binary (direct)",
     "tscVersion": "Version 6.0.3",
@@ -26,153 +27,193 @@
   "results": [
     {
       "modules": 10000,
-      "genMs": 204,
-      "loadAvg1": 0.74,
+      "genMs": 201,
+      "loadAvg1": 11.94,
       "tsgoLsp": {
         "cold": {
-          "coldOpenMs": 183,
+          "coldOpenMs": 181,
           "initMs": 1,
           "firstDiagMs": 5,
           "samples": 2
         },
         "warm": {
-          "defMs": 2,
-          "completionMs": 374,
-          "hoverMs": 1,
-          "didChangePullMs": 15,
-          "errorAppearsMs": 15,
-          "errorClearsMs": 14,
+          "defMs": 3,
+          "completionMs": 450,
+          "hoverMs": 0,
+          "didChangePullMs": 17,
+          "errorAppearsMs": 12,
+          "errorClearsMs": 13,
           "samples": 3,
           "completionItems": 31058
         },
-        "peakRssMB": 852,
+        "peakRssMB": 856,
         "watchRegistration": "workspace/didChangeWatchedFiles"
       },
       "tsserver": {
         "cold": {
-          "coldOpenMs": 3333,
-          "initMs": 0,
-          "firstDiagMs": 32,
-          "samples": 2
-        },
-        "warm": {
-          "defMs": 1,
-          "completionMs": 19,
-          "hoverMs": 2,
-          "didChangeCheckMs": 85,
-          "errorAppearsMs": 86,
-          "errorClearsMs": 78,
-          "samples": 3,
-          "completionItems": 1067
-        },
-        "sessionProjectFiles": 10000,
-        "peakRssMB": 715
-      },
-      "tsgoWatch": {
-        "firstBuildMs": 646,
-        "oneEditRecheckMs": 201,
-        "recheckSamples": 3,
-        "peakRssMB": 875
-      },
-      "tscWatch": {
-        "firstBuildMs": 8073,
-        "oneEditRecheckMs": 406,
-        "recheckSamples": 3,
-        "peakRssMB": 1383
-      }
-    },
-    {
-      "modules": 100000,
-      "genMs": 1658,
-      "loadAvg1": 1.88,
-      "tsgoLsp": {
-        "cold": {
-          "coldOpenMs": 1465,
-          "initMs": 1,
-          "firstDiagMs": 65,
-          "samples": 2
-        },
-        "warm": {
-          "defMs": 16,
-          "completionMs": 50019,
-          "hoverMs": 1,
-          "didChangePullMs": 145,
-          "errorAppearsMs": 147,
-          "errorClearsMs": 161,
-          "samples": 3,
-          "completionItems": 301058
-        },
-        "peakRssMB": 6907,
-        "watchRegistration": "workspace/didChangeWatchedFiles"
-      },
-      "tsserver": {
-        "cold": {
-          "coldOpenMs": 25687,
+          "coldOpenMs": 3334,
           "initMs": 0,
           "firstDiagMs": 34,
           "samples": 2
         },
         "warm": {
-          "defMs": 2,
-          "completionMs": 20,
-          "hoverMs": 6,
-          "didChangeCheckMs": 944,
-          "errorAppearsMs": 942,
-          "errorClearsMs": 942,
+          "defMs": 1,
+          "completionMs": 16,
+          "hoverMs": 4,
+          "didChangeCheckMs": 82,
+          "errorAppearsMs": 85,
+          "errorClearsMs": 80,
+          "samples": 3,
+          "completionItems": 1067
+        },
+        "sessionProjectFiles": 10000,
+        "peakRssMB": 724
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 656,
+        "oneEditRecheckMs": 197,
+        "recheckSamples": 3,
+        "peakRssMB": 938
+      },
+      "tscWatch": {
+        "firstBuildMs": 8396,
+        "oneEditRecheckMs": 408,
+        "recheckSamples": 3,
+        "peakRssMB": 1381
+      }
+    },
+    {
+      "modules": 100000,
+      "genMs": 2087,
+      "loadAvg1": 8.3,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 1449,
+          "initMs": 1,
+          "firstDiagMs": 65,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 17,
+          "completionMs": 49432,
+          "hoverMs": 1,
+          "didChangePullMs": 141,
+          "errorAppearsMs": 142,
+          "errorClearsMs": 167,
+          "samples": 3,
+          "completionItems": 301058
+        },
+        "peakRssMB": 6238,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "cold": {
+          "coldOpenMs": 24590,
+          "initMs": 0,
+          "firstDiagMs": 33,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 7,
+          "completionMs": 21,
+          "hoverMs": 8,
+          "didChangeCheckMs": 940,
+          "errorAppearsMs": 937,
+          "errorClearsMs": 935,
           "samples": 3,
           "completionItems": 1067
         },
         "sessionProjectFiles": 100000,
-        "peakRssMB": 4699
+        "peakRssMB": 4693
       },
       "tsgoWatch": {
-        "firstBuildMs": 6583,
-        "oneEditRecheckMs": 1743,
+        "firstBuildMs": 6490,
+        "oneEditRecheckMs": 1717,
         "recheckSamples": 3,
-        "peakRssMB": 8422
+        "peakRssMB": 6733
       },
       "tscWatch": {
-        "firstBuildMs": 75598,
-        "oneEditRecheckMs": 2203,
+        "firstBuildMs": 76279,
+        "oneEditRecheckMs": 2255,
         "recheckSamples": 3,
-        "peakRssMB": 8097
+        "peakRssMB": 8328
       }
     },
     {
-      "modules": 500000,
-      "genMs": 7383,
-      "loadAvg1": 1.1,
+      "modules": 250000,
+      "genMs": 3446,
+      "loadAvg1": 1.58,
       "tsgoLsp": {
         "cold": {
-          "coldOpenMs": 8329,
+          "coldOpenMs": 3989,
           "initMs": 1,
-          "firstDiagMs": 399,
+          "firstDiagMs": 191,
           "samples": 2
         },
         "warm": {
-          "defMs": 112,
+          "defMs": 51,
           "completionMs": {
             "timedOut": true,
             "ceilingMs": 120000
           },
           "hoverMs": 1,
-          "didChangePullMs": 1203,
-          "errorAppearsMs": 992,
-          "errorClearsMs": 907,
+          "didChangePullMs": 548,
+          "errorAppearsMs": 416,
+          "errorClearsMs": 427,
           "samples": 3,
           "completionItems": 0
         },
-        "peakRssMB": 33078,
+        "peakRssMB": 16820,
         "watchRegistration": "workspace/didChangeWatchedFiles"
       },
       "tsserver": {
         "skipped": "anchor cutoff (> 100000)"
       },
       "tsgoWatch": {
-        "firstBuildMs": 38463,
-        "oneEditRecheckMs": 10040,
+        "firstBuildMs": 17803,
+        "oneEditRecheckMs": 4709,
         "recheckSamples": 3,
-        "peakRssMB": 37827
+        "peakRssMB": 21445
+      },
+      "tscWatch": {
+        "skipped": "anchor cutoff (> 100000)"
+      }
+    },
+    {
+      "modules": 500000,
+      "genMs": 5850,
+      "loadAvg1": 3.68,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 8316,
+          "initMs": 1,
+          "firstDiagMs": 388,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 108,
+          "completionMs": {
+            "timedOut": true,
+            "ceilingMs": 120000
+          },
+          "hoverMs": 1,
+          "didChangePullMs": 1176,
+          "errorAppearsMs": 949,
+          "errorClearsMs": 924,
+          "samples": 3,
+          "completionItems": 0
+        },
+        "peakRssMB": 39556,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "skipped": "anchor cutoff (> 100000)"
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 38817,
+        "oneEditRecheckMs": 10306,
+        "recheckSamples": 3,
+        "peakRssMB": 44011
       },
       "tscWatch": {
         "skipped": "anchor cutoff (> 100000)"
@@ -180,39 +221,39 @@
     },
     {
       "modules": 1000000,
-      "genMs": 9728,
-      "loadAvg1": 6.43,
+      "genMs": 11549,
+      "loadAvg1": 2.39,
       "tsgoLsp": {
         "cold": {
-          "coldOpenMs": 17446,
+          "coldOpenMs": 17489,
           "initMs": 1,
-          "firstDiagMs": 854,
+          "firstDiagMs": 864,
           "samples": 2
         },
         "warm": {
-          "defMs": 238,
+          "defMs": 248,
           "completionMs": {
             "timedOut": true,
             "ceilingMs": 120000
           },
           "hoverMs": 1,
-          "didChangePullMs": 2030,
-          "errorAppearsMs": 2233,
-          "errorClearsMs": 2402,
+          "didChangePullMs": 2576,
+          "errorAppearsMs": 2224,
+          "errorClearsMs": 1998,
           "samples": 3,
           "completionItems": 0
         },
-        "peakRssMB": 59713,
+        "peakRssMB": 66088,
         "watchRegistration": "workspace/didChangeWatchedFiles"
       },
       "tsserver": {
         "skipped": "anchor cutoff (> 100000)"
       },
       "tsgoWatch": {
-        "firstBuildMs": 81831,
-        "oneEditRecheckMs": 22288,
+        "firstBuildMs": 81955,
+        "oneEditRecheckMs": 21864,
         "recheckSamples": 3,
-        "peakRssMB": 73753
+        "peakRssMB": 75317
       },
       "tscWatch": {
         "skipped": "anchor cutoff (> 100000)"
