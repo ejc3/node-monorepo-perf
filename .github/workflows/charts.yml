@@ -18,14 +18,20 @@ on:
       - "bench/*.json"
       - "bench/charts/tool-comparison.svg"
       - "bench/charts/tool-comparison.png"
+      - "bench/charts/checker-scale.svg"
+      - "bench/charts/checker-scale.png"
       - "scripts/comparison-chart.mjs"
+      - "scripts/scale-chart.mjs"
       - ".github/workflows/charts.yml"
   pull_request:
     paths:
       - "bench/*.json"
       - "bench/charts/tool-comparison.svg"
       - "bench/charts/tool-comparison.png"
+      - "bench/charts/checker-scale.svg"
+      - "bench/charts/checker-scale.png"
       - "scripts/comparison-chart.mjs"
+      - "scripts/scale-chart.mjs"
       - ".github/workflows/charts.yml"
 
 permissions:
@@ -44,45 +50,53 @@ jobs:
       - name: Install ImageMagick + librsvg (SVG raster delegate)
         run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
 
-      - name: Re-render the chart (delete the PNG first so a convert failure can't pass a stale one)
+      - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png
           node scripts/comparison-chart.mjs
+          node scripts/scale-chart.mjs
 
-      - name: Fail if the committed SVG drifted from the bench data
+      - name: Fail if a committed SVG drifted from the bench data (or was never committed)
         run: |
-          if ! git diff --exit-code -- bench/charts/tool-comparison.svg; then
-            echo "::error::bench/charts/tool-comparison.svg is out of date. Run 'make comparison-chart' and commit the result."
+          # intent-to-add so brand-new chart files are drift too — `git diff` alone
+          # ignores untracked files, and a forgotten `git add` must fail this gate
+          git add -N bench/charts/
+          if ! git diff --exit-code -- bench/charts/tool-comparison.svg bench/charts/checker-scale.svg; then
+            echo "::error::a committed chart SVG is out of date or missing. Run 'make comparison-chart scale-chart' and commit the result."
             exit 1
           fi
 
-      - name: Require a freshly-rendered PNG (absent => convert failed)
+      - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          test -s bench/charts/tool-comparison.png || { echo "::error::convert did not produce a PNG"; exit 1; }
-          dims=$(identify -format '%wx%h %m' bench/charts/tool-comparison.png)
-          echo "PNG: $dims"
-          case "$dims" in
-            *" PNG") ;;
-            *) echo "::error::not a PNG: $dims"; exit 1 ;;
-          esac
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png; do
+            test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
+            dims=$(identify -format '%wx%h %m' "$png")
+            echo "PNG: $png $dims"
+            case "$dims" in
+              *" PNG") ;;
+              *) echo "::error::not a PNG: $png $dims"; exit 1 ;;
+            esac
+          done
 
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if ! git diff --quiet -- bench/charts/tool-comparison.png; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png
-            git commit -m "CI: re-render tool-comparison.png from the SVG [skip ci]"
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png
+            git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
             # the build (the PNG was still validated above; refresh it locally with make comparison-chart).
             git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart' and commit it"
           fi
 
-      - name: Upload the freshly-rendered PNG (PR builds)
+      - name: Upload the freshly-rendered PNGs (PR builds)
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: tool-comparison-png
-          path: bench/charts/tool-comparison.png
+          name: chart-pngs
+          path: |
+            bench/charts/tool-comparison.png
+            bench/charts/checker-scale.png
           if-no-files-found: error

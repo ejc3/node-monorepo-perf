@@ -26,48 +26,48 @@
 <text x="399" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.13s</text>
 <text x="399" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="176" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="561" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">47.8s</text>
-<text x="561" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×357 slower</text>
+<text x="561" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×357 slower</text>
+<text x="561" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">47.8s</text>
 <rect x="642" y="176" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="723" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">46.7s</text>
-<text x="723" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×349 slower</text>
+<text x="723" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×349 slower</text>
+<text x="723" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">46.7s</text>
 <rect x="804" y="176" width="162" height="56" fill="rgb(190,77,33)" stroke="#ffffff"/>
-<text x="885" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">3.2s</text>
-<text x="885" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×24 slower</text>
+<text x="885" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×24 slower</text>
+<text x="885" y="220" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">3.2s</text>
 <rect x="966" y="176" width="162" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
-<text x="1047" y="200" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">1.7s</text>
-<text x="1047" y="220" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="1047" y="200" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="1047" y="220" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.7s</text>
 <rect x="28" y="232" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="265" font-size="14" fill="#1f2328">Cold · 1,000 apps</text>
 <rect x="318" y="232" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="399" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.2s</text>
 <text x="399" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="232" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="561" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">229.5s</text>
-<text x="561" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×103 slower</text>
+<text x="561" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×103 slower</text>
+<text x="561" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">229.5s</text>
 <rect x="642" y="232" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="723" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">227.3s</text>
-<text x="723" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×102 slower</text>
+<text x="723" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×102 slower</text>
+<text x="723" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">227.3s</text>
 <rect x="804" y="232" width="162" height="56" fill="rgb(209,167,29)" stroke="#ffffff"/>
-<text x="885" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.4s</text>
-<text x="885" y="276" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="276" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.4s</text>
 <rect x="966" y="232" width="162" height="56" fill="rgb(36,129,54)" stroke="#ffffff"/>
-<text x="1047" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.3s</text>
-<text x="1047" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×1.0 slower</text>
+<text x="1047" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×1.0 slower</text>
+<text x="1047" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">2.3s</text>
 <rect x="28" y="288" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="321" font-size="14" fill="#1f2328">Cold · 2,000 apps</text>
 <rect x="318" y="288" width="162" height="56" fill="rgb(212,161,28)" stroke="#ffffff"/>
-<text x="399" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">7.5s</text>
-<text x="399" y="332" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×2.4 slower</text>
+<text x="399" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.4 slower</text>
+<text x="399" y="332" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">7.5s</text>
 <rect x="480" y="288" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="561" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">471.2s</text>
-<text x="561" y="332" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×148 slower</text>
+<text x="561" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×148 slower</text>
+<text x="561" y="332" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">471.2s</text>
 <rect x="642" y="288" width="162" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="723" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">456.7s</text>
-<text x="723" y="332" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×144 slower</text>
+<text x="723" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×144 slower</text>
+<text x="723" y="332" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">456.7s</text>
 <rect x="804" y="288" width="162" height="56" fill="rgb(208,167,29)" stroke="#ffffff"/>
-<text x="885" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">6.2s</text>
-<text x="885" y="332" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="332" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">6.2s</text>
 <rect x="966" y="288" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="1047" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">3.2s</text>
 <text x="1047" y="332" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
@@ -77,48 +77,48 @@
 <text x="399" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.12s</text>
 <text x="399" y="388" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="344" width="162" height="56" fill="rgb(192,83,32)" stroke="#ffffff"/>
-<text x="561" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.3s</text>
-<text x="561" y="388" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×19 slower</text>
+<text x="561" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×19 slower</text>
+<text x="561" y="388" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">2.3s</text>
 <rect x="642" y="344" width="162" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
-<text x="723" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">1.4s</text>
-<text x="723" y="388" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="723" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="723" y="388" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.4s</text>
 <rect x="804" y="344" width="162" height="56" fill="rgb(190,78,33)" stroke="#ffffff"/>
-<text x="885" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.8s</text>
-<text x="885" y="388" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×23 slower</text>
+<text x="885" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×23 slower</text>
+<text x="885" y="388" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">2.8s</text>
 <rect x="966" y="344" width="162" height="56" fill="rgb(197,96,28)" stroke="#ffffff"/>
-<text x="1047" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">1.3s</text>
-<text x="1047" y="388" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="1047" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="1047" y="388" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.3s</text>
 <rect x="28" y="400" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="433" font-size="14" fill="#1f2328">Warm · 1,000 apps</text>
 <rect x="318" y="400" width="162" height="56" fill="rgb(85,140,47)" stroke="#ffffff"/>
-<text x="399" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">2.6s</text>
-<text x="399" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.2 slower</text>
+<text x="399" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.2 slower</text>
+<text x="399" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">2.6s</text>
 <rect x="480" y="400" width="162" height="56" fill="rgb(208,143,28)" stroke="#ffffff"/>
-<text x="561" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">7.3s</text>
-<text x="561" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×3.5 slower</text>
+<text x="561" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×3.5 slower</text>
+<text x="561" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">7.3s</text>
 <rect x="642" y="400" width="162" height="56" fill="rgb(123,148,41)" stroke="#ffffff"/>
-<text x="723" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">3.0s</text>
-<text x="723" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
+<text x="723" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
+<text x="723" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.0s</text>
 <rect x="804" y="400" width="162" height="56" fill="rgb(207,166,29)" stroke="#ffffff"/>
-<text x="885" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.0s</text>
-<text x="885" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.9 slower</text>
+<text x="885" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.9 slower</text>
+<text x="885" y="444" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.0s</text>
 <rect x="966" y="400" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="1047" y="424" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.1s</text>
 <text x="1047" y="444" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="28" y="456" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="489" font-size="14" fill="#1f2328">Warm · 2,000 apps</text>
 <rect x="318" y="456" width="162" height="56" fill="rgb(209,147,28)" stroke="#ffffff"/>
-<text x="399" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">9.5s</text>
-<text x="399" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×3.2 slower</text>
+<text x="399" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×3.2 slower</text>
+<text x="399" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">9.5s</text>
 <rect x="480" y="456" width="162" height="56" fill="rgb(205,126,28)" stroke="#ffffff"/>
-<text x="561" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">15.2s</text>
-<text x="561" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×5.2 slower</text>
+<text x="561" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×5.2 slower</text>
+<text x="561" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">15.2s</text>
 <rect x="642" y="456" width="162" height="56" fill="rgb(153,155,37)" stroke="#ffffff"/>
-<text x="723" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.7s</text>
-<text x="723" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.6 slower</text>
+<text x="723" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.6 slower</text>
+<text x="723" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.7s</text>
 <rect x="804" y="456" width="162" height="56" fill="rgb(214,168,28)" stroke="#ffffff"/>
-<text x="885" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">5.9s</text>
-<text x="885" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="480" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
+<text x="885" y="500" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">5.9s</text>
 <rect x="966" y="456" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="1047" y="480" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.9s</text>
 <text x="1047" y="500" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
@@ -130,14 +130,14 @@
 <rect x="480" y="512" width="162" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="561" y="545" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
 <rect x="642" y="512" width="162" height="56" fill="rgb(191,81,32)" stroke="#ffffff"/>
-<text x="723" y="536" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">24.0s</text>
-<text x="723" y="556" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×20 slower</text>
+<text x="723" y="536" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×20 slower</text>
+<text x="723" y="556" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">24.0s</text>
 <rect x="804" y="512" width="162" height="56" fill="rgb(200,109,28)" stroke="#ffffff"/>
-<text x="885" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">9.3s</text>
-<text x="885" y="556" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×7.8 slower</text>
+<text x="885" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×7.8 slower</text>
+<text x="885" y="556" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">9.3s</text>
 <rect x="966" y="512" width="162" height="56" fill="rgb(202,117,28)" stroke="#ffffff"/>
-<text x="1047" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">7.7s</text>
-<text x="1047" y="556" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×6.5 slower</text>
+<text x="1047" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.5 slower</text>
+<text x="1047" y="556" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">7.7s</text>
 <text x="28" y="584" font-size="11" fill="#57606a">Source: bench/install-bench.json</text>
 <text x="28" y="599" font-size="11" fill="#57606a">Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile =</text>
 <text x="28" y="614" font-size="11" fill="#57606a">each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of</text>
@@ -163,34 +163,34 @@
 <text x="399" y="751" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.90s</text>
 <text x="399" y="771" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="727" width="162" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
-<text x="561" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">8.9s</text>
-<text x="561" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×9.9 slower</text>
+<text x="561" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×9.9 slower</text>
+<text x="561" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">8.9s</text>
 <rect x="642" y="727" width="162" height="56" fill="rgb(201,112,28)" stroke="#ffffff"/>
-<text x="723" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">6.5s</text>
-<text x="723" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×7.2 slower</text>
+<text x="723" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×7.2 slower</text>
+<text x="723" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">6.5s</text>
 <rect x="804" y="727" width="162" height="56" fill="rgb(205,129,28)" stroke="#ffffff"/>
-<text x="885" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.4s</text>
-<text x="885" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×4.9 slower</text>
+<text x="885" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×4.9 slower</text>
+<text x="885" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.4s</text>
 <rect x="966" y="727" width="162" height="56" fill="rgb(197,94,29)" stroke="#ffffff"/>
-<text x="1047" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">10.4s</text>
-<text x="1047" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="1047" y="751" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="1047" y="771" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">10.4s</text>
 <rect x="28" y="783" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="816" font-size="14" fill="#1f2328">Cache restored</text>
 <rect x="318" y="783" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="399" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.40s</text>
 <text x="399" y="827" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="783" width="162" height="56" fill="rgb(193,84,31)" stroke="#ffffff"/>
-<text x="561" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">7.0s</text>
-<text x="561" y="827" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×18 slower</text>
+<text x="561" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×18 slower</text>
+<text x="561" y="827" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">7.0s</text>
 <rect x="642" y="783" width="162" height="56" fill="rgb(198,97,28)" stroke="#ffffff"/>
-<text x="723" y="807" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.2s</text>
-<text x="723" y="827" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="723" y="807" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="723" y="827" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.2s</text>
 <rect x="804" y="783" width="162" height="56" fill="rgb(204,124,28)" stroke="#ffffff"/>
-<text x="885" y="807" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">2.2s</text>
-<text x="885" y="827" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×5.5 slower</text>
+<text x="885" y="807" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×5.5 slower</text>
+<text x="885" y="827" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">2.2s</text>
 <rect x="966" y="783" width="162" height="56" fill="rgb(190,77,33)" stroke="#ffffff"/>
-<text x="1047" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">9.7s</text>
-<text x="1047" y="827" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×24 slower</text>
+<text x="1047" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×24 slower</text>
+<text x="1047" y="827" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">9.7s</text>
 <text x="28" y="855" font-size="11" fill="#57606a">Source: bench/container-install-bench.json</text>
 <text x="28" y="870" font-size="11" fill="#57606a">Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container.</text>
 <text x="28" y="885" font-size="11" fill="#57606a">All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.</text>
@@ -204,16 +204,16 @@
 <rect x="28" y="983" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1016" font-size="14" fill="#1f2328">3,000-module program</text>
 <rect x="318" y="983" width="162" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
-<text x="399" y="1007" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">3.1s</text>
-<text x="399" y="1027" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="399" y="1007" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="399" y="1027" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.1s</text>
 <rect x="480" y="983" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1007" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.26s</text>
 <text x="561" y="1027" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="28" y="1039" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1072" font-size="14" fill="#1f2328">4,000:400 type-heavy whole-program</text>
 <rect x="318" y="1039" width="162" height="56" fill="rgb(199,104,28)" stroke="#ffffff"/>
-<text x="399" y="1063" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<text x="399" y="1083" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
+<text x="399" y="1063" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
+<text x="399" y="1083" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
 <rect x="480" y="1039" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1063" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
 <text x="561" y="1083" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
@@ -228,8 +228,8 @@
 <rect x="28" y="1209" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1242" font-size="14" fill="#1f2328">40 apps / 24 libs</text>
 <rect x="318" y="1209" width="162" height="56" fill="rgb(213,162,28)" stroke="#ffffff"/>
-<text x="399" y="1233" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<text x="399" y="1253" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×2.3 slower</text>
+<text x="399" y="1233" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.3 slower</text>
+<text x="399" y="1253" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
 <rect x="480" y="1209" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1233" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">7.6s</text>
 <text x="561" y="1253" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
@@ -248,23 +248,23 @@
 <rect x="28" y="1450" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1483" font-size="14" fill="#1f2328">frozen install (cold store)</text>
 <rect x="318" y="1450" width="162" height="56" fill="rgb(83,139,47)" stroke="#ffffff"/>
-<text x="399" y="1474" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">9.2s</text>
-<text x="399" y="1494" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.2 slower</text>
+<text x="399" y="1474" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.2 slower</text>
+<text x="399" y="1494" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">9.2s</text>
 <rect x="28" y="1506" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1539" font-size="14" fill="#1f2328">add one dependency</text>
 <rect x="318" y="1506" width="162" height="56" fill="rgb(93,142,45)" stroke="#ffffff"/>
-<text x="399" y="1530" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">9.5s</text>
-<text x="399" y="1550" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.3 slower</text>
+<text x="399" y="1530" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.3 slower</text>
+<text x="399" y="1550" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">9.5s</text>
 <rect x="28" y="1562" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1595" font-size="14" fill="#1f2328">catalog bump (shared dep)</text>
 <rect x="318" y="1562" width="162" height="56" fill="rgb(202,114,28)" stroke="#ffffff"/>
-<text x="399" y="1586" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">51.3s</text>
-<text x="399" y="1606" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×6.9 slower</text>
+<text x="399" y="1586" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.9 slower</text>
+<text x="399" y="1606" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">51.3s</text>
 <rect x="28" y="1618" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1651" font-size="14" fill="#1f2328">cold resolve (no lockfile)</text>
 <rect x="318" y="1618" width="162" height="56" fill="rgb(187,70,35)" stroke="#ffffff"/>
-<text x="399" y="1642" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">233.4s</text>
-<text x="399" y="1662" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×31 slower</text>
+<text x="399" y="1642" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×31 slower</text>
+<text x="399" y="1662" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">233.4s</text>
 <text x="28" y="1690" font-size="11" fill="#57606a">Source: bench/install-modes-bench.json</text>
 <text x="28" y="1705" font-size="11" fill="#57606a">One tool, many situations: cheapest in green, others relative to it.</text>
 <text x="28" y="1735" font-size="16" font-weight="700" fill="#1f2328">Lint — ESLint vs oxlint (800 files)</text>
@@ -277,24 +277,24 @@
 <rect x="28" y="1803" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1836" font-size="14" fill="#1f2328">syntactic (524 vs 567 rules)</text>
 <rect x="318" y="1803" width="162" height="56" fill="rgb(180,53,39)" stroke="#ffffff"/>
-<text x="399" y="1827" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">12.0s</text>
-<text x="399" y="1847" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">×63 slower</text>
+<text x="399" y="1827" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×63 slower</text>
+<text x="399" y="1847" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">12.0s</text>
 <rect x="480" y="1803" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1827" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
 <text x="561" y="1847" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="28" y="1859" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1892" font-size="14" fill="#1f2328">syntactic, ESLint --cache</text>
 <rect x="318" y="1859" width="162" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
-<text x="399" y="1883" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">1.9s</text>
-<text x="399" y="1903" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×10 slower</text>
+<text x="399" y="1883" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×10 slower</text>
+<text x="399" y="1903" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.9s</text>
 <rect x="480" y="1859" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1883" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
 <text x="561" y="1903" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="28" y="1915" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1948" font-size="14" fill="#1f2328">type-aware</text>
 <rect x="318" y="1915" width="162" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
-<text x="399" y="1939" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">4.5s</text>
-<text x="399" y="1959" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="399" y="1939" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="399" y="1959" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.5s</text>
 <rect x="480" y="1915" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="561" y="1939" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.40s</text>
 <text x="561" y="1959" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
