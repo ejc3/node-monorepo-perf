@@ -47,9 +47,9 @@ Flow's batch rows via one-shot `flow check` and its incremental rows via its per
 server (`serverInitMs` is the recorded boot; the ts checkers' recorded `incrPrimeMs` is
 the equivalent entry cost). The incremental rows therefore pit Flow's primary mechanic
 (a live server RPC) against the ts checkers' CLI mechanic (process relaunch +
-tsbuildinfo) — different questions, labeled as such in the JSON; the ts daemons themselves
-(`tsgo --lsp`) are measured in LIMITS.md's editor section — project-open and the
-keystroke loop on one app's closure, not an edit-recheck at these scales.
+tsbuildinfo) — different questions, labeled as such in the JSON; the ts daemons at THESE scales are
+measured below ("The daemons at a million files"); the monorepo editor loop on one
+app's closure is LIMITS.md's editor section.
 
 Every timed number sits behind gates: a seeded type error must turn each checker red,
 and the program must count exactly N source files (`--listFiles` / `flow ls`) — a
@@ -130,8 +130,8 @@ exhaustion.
 The save-loop verdict splits by mechanic, exactly as the row labels warn. tsgo's CLI
 incremental — relaunch and re-validate saved state against a million-file program —
 costs 38.0s even when NOTHING changed, and 53.7s for one edit: at this scale the
-process-relaunch mechanic is a CI tool, not a save loop (its daemon counterpart,
-`tsgo --lsp`, is the editor-loop bench's subject). Flow's persistent server answers a
+process-relaunch mechanic is a CI tool, not a save loop (its daemon counterpart is
+measured below, "The daemons at a million files"). Flow's persistent server answers a
 no-change status in 30–50ms flat at every scale it survived, and its one-edit
 round-trip grows with N (66ms → 205ms → 939ms at 10k/100k/250k) while staying
 interactive — until 500k, where the first one-edit recheck wedged the server (the
@@ -144,6 +144,39 @@ one observation: its one-edit re-check costs barely more than its no-change floo
 (23.0s vs 21.7s at 100k — a third of the 66.2s full run), so the relaunch + buildinfo
 floor dominates, not the edit — and its incremental engine is also the component that
 stack-overflows on depth-growing graphs (the chainShapeNote above).
+
+### The daemons at a million files (`scripts/lsp-scale-bench.mjs`)
+
+The rows above measure CLI mechanics; the mechanic that matches Flow's server is a
+persistent ts daemon. `bench/lsp-scale-bench.json` races **tsgo `--lsp`** against
+**tsserver** (anchored ≤100k, the same cost cutoff as tsc) and **`--watch` mode** on
+the same corpus shape, with the squiggle transitions asserted (a didChange introducing
+a seeded error must pull TS2322, the restore must pull clean — both timed):
+
+| modules | tsgo lsp cold open | tsgo lsp squiggle appear | tsserver cold open / squiggle | tsgo --watch first build / re-check |
+|---|---|---|---|---|
+| 10,000 | 0.18s | 15ms | 3.3s / 86ms | 0.65s / 0.20s |
+| 100,000 | 1.5s | 147ms | 25.7s / 942ms | 6.6s / 1.7s |
+| 500,000 | 8.3s | 1.0s | anchor cutoff | 38.5s / 10.0s |
+| 1,000,000 | 17.4s | 2.2s | — | 81.8s / 22.3s |
+
+**tsgo's LSP opens and serves the million-module program.** Cold open is 17.4s where
+its own incremental prime is 95.5s; the squiggle round-trip is 2.2s (appear) / 2.4s
+(clear) with definition at 238ms and hover at 1ms; peak RSS 59.7GB — 11% above the
+batch check's 53.7GB. Against tsserver the gap is 17× on cold open
+(1.5s vs 25.7s at 100k) and ~6× on the squiggle (147ms vs 942ms). Watch mode is
+the middle mechanic: `tsgo --watch` re-checks one edit in 22.3s at 1M (81.8s first
+build, 73.8GB — the heaviest footprint measured), 2.4× faster than the CLI relaunch but
+not a save loop; `tsc --watch` anchors at 75.6s first build / 2.2s re-check at 100k.
+
+One capability boundary: **tsgo's LSP completion grows with program size** — it
+returns the full exported-symbol space (31,058 items at 10k in 374ms; 301,058 items at
+100k in 50.0s) and exceeds the probe's 120s ceiling at 500k and 1M, while tsserver
+returns a bounded 1,067-entry set in 19–20ms at both its anchored scales. The set
+sizes differ by orders of magnitude, so the times are not a like-for-like race
+(reported with their item counts, the completion convention in this repo); the
+boundary stands regardless — at 500k+ the preview daemon cannot answer the completion
+request within 120s.
 
 ### Flow's server crash-wedge at 500k — recorded in the canonical dataset
 
@@ -178,13 +211,14 @@ Per persona: the **fresh CI runner** pays 88.8s (tsgo, 1M) for the first check �
 equivalent is 41.2s at its 500k ceiling; the **gate owner** pays 68.6s (tsgo, 1M) or
 41.1s (Flow, 500k) per whole-program run, red or green, and should budget 53.7GB or
 9.0GB of RAM respectively; the **developer on save** is served only by a persistent
-process — Flow's server model stays interactive through 250k (939ms per edit) and is
-the right mechanic, but its 0.321 implementation is the component that wedged, while
-tsgo's CLI incremental never crashes and never gets interactive (53.7s per edit at 1M);
-its daemon (`tsgo --lsp`) is the mechanic-matched counterpart (LIMITS.md's editor
-section). tsgo's practical limits at 1M are memory (53.7GB) and entry cost (95.5s
-incremental prime), not a crash; Flow's is the recorded 500k wedge, fixed upstream but
-unreleased.
+process, and tsgo's own daemon is the measured answer: `tsgo --lsp` serves a 2.2s
+squiggle at 1M (59.7GB) where the CLI incremental takes 53.7s and `--watch` 22.3s; Flow's
+server model stays interactive through 250k (939ms per edit) but its 0.321
+implementation is the component that wedged. tsgo's practical limits at 1M are memory
+(53.7GB batch, 59.7GB LSP, 73.8GB watch; the CLI incremental peaks lower at 41.6GB),
+entry cost (17.4s LSP open; 95.5s incremental prime), and the LSP completion boundary —
+not a crash; Flow's is the recorded 500k wedge, fixed
+upstream but unreleased.
 
 ## Ranked levers
 

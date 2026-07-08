@@ -230,6 +230,35 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `bench/flow-0321-wedge-evidence.md`. Self-contained, non-destructive (corpora +
   flow-bin under WORK, removed on exit unless `TSGO_SCALE_KEEP=1`); core-bound +
   drop_caches ⇒ run on a quiet box with root.
+- `node scripts/lsp-scale-bench.mjs` (`LSP_SCALE_POINTS` default `"10000 100000 500000
+  1000000"`, `LSP_SCALE_SAMPLES` 3, `LSP_COLD_SAMPLES` 2, `LSP_SCALE_LAYERS` 100, tsserver/tsc-watch anchor
+  ≤100k, `LSP_SCALE_WORK` default `/mnt/fcvm-btrfs/lsp-scale-bench`,
+  `LSP_SCALE_ALLOW_BUSY=1`, `LSP_SCALE_KEEP=1`) — **the daemons at a million files**,
+  tsgo-scale-bench's mechanic-matched companion: tsgo `--lsp` (JSON-RPC, PULL
+  diagnostics) vs tsserver (its own protocol, anchored) vs `tsgo --watch` vs
+  `tsc --watch` on the same layered fixed-depth corpus. Per point: cold open (spawn →
+  init → didOpen → definition resolving to the EXACT imported module's file, N samples,
+  fresh server each), first diagnostic pull, warm def/hover, the HEADLINE asserted
+  squiggle transitions (didChange to a seeded TS2322 must pull red, timed
+  errorAppearsMs; restore must pull clean, errorClearsMs — a server that ignores
+  didChange or replays a stale report cannot pass), valid-edit didChange→pull, and the
+  watch drivers' first-build + one-edit re-check with banner-count reconciliation at
+  teardown (a double-recompile can't fake a fast recheck). Gates: exact --listFiles
+  program size per checker; seeded-error positive control per server (tsgo: in-buffer overlay; tsserver:
+  on-disk seed, restored);
+  tsserver projectInfo file-count assert (session-level program proof); tsgo pushed
+  TS5xxx config codes fail the pull. Diagnostic gates count ERROR severity only (the
+  LSP also serves hints batch --noEmit never emits). Completion is probed LAST with
+  its timeout recorded as the PROBE's outcome (the finding: tsgo LSP completion returns the
+  full exported-symbol space and grows superlinearly — 301k items in 50s at 100k, past
+  the 120s ceiling at 500k+ — while tsserver returns a bounded ~1k-entry set in
+  19–20ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
+  row); capacity outcomes only from crash signals or load-bearing (1h) timeouts —
+  plain exits/protocol errors hard-fail with the output tail. Per-driver failure
+  isolation per point; persist/promote partial protection; RSS via continuous
+  sampler. Self-contained (corpus under WORK, removed on exit unless KEEP=1),
+  load-guarded → `bench/lsp-scale-bench.json`, folded into TYPECHECKERS.md ("The
+  daemons at a million files").
 - `node scripts/lint-bench.mjs` (`LINT_FILES`/`LINT_SAMPLES`, `LINT_ALLOW_BUSY=1`) — ESLint vs
   oxlint on one generated corpus (default 800 `.ts`/`.tsx` files), matched so the number is engine
   speed not coverage breadth. oxlint runs STANDALONE at its full native capability (all plugins +
@@ -571,7 +600,9 @@ phantom-isolation edge in single-package projects — workspaces are parity; the
 `bench/container-install-bench.json` + `bench/yarn-rollout-bench.json`),
 `FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
 per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison, plus "Behavior at a
-million files" — tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`),
+million files" — tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`,
+and its daemon companion tsgo --lsp/tsserver/--watch at the same scales,
+`bench/lsp-scale-bench.json`),
 `STORIES.md` (the independently-published model as user stories — app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 `WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),

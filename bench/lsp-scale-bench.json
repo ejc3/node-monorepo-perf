@@ -1,0 +1,222 @@
+{
+  "meta": {
+    "generatedAt": "2026-07-08T10:19:46.939Z",
+    "points": [
+      10000,
+      100000,
+      500000,
+      1000000
+    ],
+    "samples": 3,
+    "coldSamples": 2,
+    "layers": 100,
+    "tsserverAnchorMax": 100000,
+    "cores": 64,
+    "preRunLoadAvg1": 0.74,
+    "tsgoVersion": "Version 7.0.0-dev.20260707.2",
+    "tsgoInvocation": "native binary (direct)",
+    "tscVersion": "Version 6.0.3",
+    "nodeHeap": "--max-old-space-size=65536",
+    "corpusShape": "layered, depth fixed at 100 — mirrors bench/tsgo-scale-bench.json module-for-module (TS dialect), so rows are comparable across the two benches",
+    "lspMechanicNote": "tsgo --lsp is a PULL-diagnostics OPEN-FILE server: diagnostics are computed per open buffer on request; there is no whole-project verdict over LSP — workspace/diagnostic is milestoned Post-7.0 upstream (microsoft/typescript-go#2169; PR #4486 closed unmerged 2026-07-02). The headline squiggle rows are the asserted transitions errorAppearsMs/errorClearsMs (didChange to a seeded TS2322 must pull red, the restore must pull clean — timed recomputes, so a no-op or stale report cannot post a number); didChangePullMs is the valid-edit path. tsserver runs the same three rows through its own channel (change → semanticDiagnosticsSync, recorded as didChangeCheckMs + the same transition keys).",
+    "sessionProgramNote": "program size is gated in-session, not only in batch: every timed tsserver session must report the corpus tsconfig with exactly n src files via projectInfo(needFileNameList); a tsgo session fails on any pushed TS5xxx config diagnostic and its cold def must resolve into the exact imported module file.",
+    "watchMechanicNote": "tsgo --watch is upstream's 'prototype' (rebuilds, no incremental rechecking); tsc --watch re-checks the changed file + transitive dependents on a warm program (TS 3.8 semantics). oneEditRecheckMs includes the watcher's own change-detection latency — that is the developer-visible number. Watch rows parse the 'Found N errors. Watching for file changes.' banner under --preserveWatchOutput.",
+    "anchorNote": "tsserver and tsc --watch stop at 100000 (the JS substrate's anchor cutoff, matching tsgo-scale-bench's TSC_ANCHOR_MAX default); tsgo rows run the full sweep"
+  },
+  "results": [
+    {
+      "modules": 10000,
+      "genMs": 204,
+      "loadAvg1": 0.74,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 183,
+          "initMs": 1,
+          "firstDiagMs": 5,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 2,
+          "completionMs": 374,
+          "hoverMs": 1,
+          "didChangePullMs": 15,
+          "errorAppearsMs": 15,
+          "errorClearsMs": 14,
+          "samples": 3,
+          "completionItems": 31058
+        },
+        "peakRssMB": 852,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "cold": {
+          "coldOpenMs": 3333,
+          "initMs": 0,
+          "firstDiagMs": 32,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 1,
+          "completionMs": 19,
+          "hoverMs": 2,
+          "didChangeCheckMs": 85,
+          "errorAppearsMs": 86,
+          "errorClearsMs": 78,
+          "samples": 3,
+          "completionItems": 1067
+        },
+        "sessionProjectFiles": 10000,
+        "peakRssMB": 715
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 646,
+        "oneEditRecheckMs": 201,
+        "recheckSamples": 3,
+        "peakRssMB": 875
+      },
+      "tscWatch": {
+        "firstBuildMs": 8073,
+        "oneEditRecheckMs": 406,
+        "recheckSamples": 3,
+        "peakRssMB": 1383
+      }
+    },
+    {
+      "modules": 100000,
+      "genMs": 1658,
+      "loadAvg1": 1.88,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 1465,
+          "initMs": 1,
+          "firstDiagMs": 65,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 16,
+          "completionMs": 50019,
+          "hoverMs": 1,
+          "didChangePullMs": 145,
+          "errorAppearsMs": 147,
+          "errorClearsMs": 161,
+          "samples": 3,
+          "completionItems": 301058
+        },
+        "peakRssMB": 6907,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "cold": {
+          "coldOpenMs": 25687,
+          "initMs": 0,
+          "firstDiagMs": 34,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 2,
+          "completionMs": 20,
+          "hoverMs": 6,
+          "didChangeCheckMs": 944,
+          "errorAppearsMs": 942,
+          "errorClearsMs": 942,
+          "samples": 3,
+          "completionItems": 1067
+        },
+        "sessionProjectFiles": 100000,
+        "peakRssMB": 4699
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 6583,
+        "oneEditRecheckMs": 1743,
+        "recheckSamples": 3,
+        "peakRssMB": 8422
+      },
+      "tscWatch": {
+        "firstBuildMs": 75598,
+        "oneEditRecheckMs": 2203,
+        "recheckSamples": 3,
+        "peakRssMB": 8097
+      }
+    },
+    {
+      "modules": 500000,
+      "genMs": 7383,
+      "loadAvg1": 1.1,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 8329,
+          "initMs": 1,
+          "firstDiagMs": 399,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 112,
+          "completionMs": {
+            "timedOut": true,
+            "ceilingMs": 120000
+          },
+          "hoverMs": 1,
+          "didChangePullMs": 1203,
+          "errorAppearsMs": 992,
+          "errorClearsMs": 907,
+          "samples": 3,
+          "completionItems": 0
+        },
+        "peakRssMB": 33078,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "skipped": "anchor cutoff (> 100000)"
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 38463,
+        "oneEditRecheckMs": 10040,
+        "recheckSamples": 3,
+        "peakRssMB": 37827
+      },
+      "tscWatch": {
+        "skipped": "anchor cutoff (> 100000)"
+      }
+    },
+    {
+      "modules": 1000000,
+      "genMs": 9728,
+      "loadAvg1": 6.43,
+      "tsgoLsp": {
+        "cold": {
+          "coldOpenMs": 17446,
+          "initMs": 1,
+          "firstDiagMs": 854,
+          "samples": 2
+        },
+        "warm": {
+          "defMs": 238,
+          "completionMs": {
+            "timedOut": true,
+            "ceilingMs": 120000
+          },
+          "hoverMs": 1,
+          "didChangePullMs": 2030,
+          "errorAppearsMs": 2233,
+          "errorClearsMs": 2402,
+          "samples": 3,
+          "completionItems": 0
+        },
+        "peakRssMB": 59713,
+        "watchRegistration": "workspace/didChangeWatchedFiles"
+      },
+      "tsserver": {
+        "skipped": "anchor cutoff (> 100000)"
+      },
+      "tsgoWatch": {
+        "firstBuildMs": 81831,
+        "oneEditRecheckMs": 22288,
+        "recheckSamples": 3,
+        "peakRssMB": 73753
+      },
+      "tscWatch": {
+        "skipped": "anchor cutoff (> 100000)"
+      }
+    }
+  ]
+}
