@@ -1,9 +1,10 @@
 # Flow 0.321.0 server crash-wedge at 500,000 modules — archived evidence
 
 Three sweep runs of `scripts/tsgo-scale-bench.mjs` hit a Flow 0.321.0 server crash at
-the 500k point on the linux-arm64 flow-bin binary — the third of them the recorded
-canonical dataset itself (`bench/tsgo-scale-bench.json`, Crash 3 below); two other
-sweeps passed the same point clean. A cancellation race, roughly a coin flip per run
+the 500k point on the linux-arm64 flow-bin binary (the third inside a full
+canonical-shape sweep — its recorded outcome is archived in Crash 3 below; the current
+dataset of record runs the flow column on the fixed main build); two other sweeps
+passed the same point clean. A cancellation race, roughly a coin flip per run
 at this scale, not a deterministic wall. This file archives the primary evidence the
 TYPECHECKERS.md crash section cites.
 
@@ -48,14 +49,23 @@ and `flow_typing_statement/src/statement.rs:7054`) — the hazard is the error-c
 contract (`WorkerCanceled` travels the same channel as speculation errors, and
 multiple consumers `unwrap`/`expect` assuming only the latter), not one buggy line.
 
-## Crash 3 — the canonical dataset's recorded occurrence
+## Crash 3 — a full bench sweep's recorded occurrence
 
-The recorded canonical sweep (`bench/tsgo-scale-bench.json`, tsgo 7.0.0-dev.20260707.2
-toolchain) hit the race at the same 500k point on the first one-edit recheck: the row
-is recorded as `points.500000.flow.incrOneEdit: { killed: true, timedOut: true }` and
-the JSON's `serverLogTail` carries the panic —
-`crates/flow_typing_utils/src/type_operation_utils.rs:295`, the same site as crash 1.
-Three occurrences in five full-scale sweeps; two sweeps passed the point clean.
+A full canonical-shape sweep on released 0.321 (tsgo 7.0.0-dev.20260707.2 toolchain)
+hit the race at the same 500k point on the first one-edit recheck. Its dataset — since
+replaced by the flow-main run, so the record is archived here — carried:
+
+    points.500000.flow.incrOneEdit: { "killed": true, "timedOut": true, "phase": "sample 0" }
+
+    serverLogTail:
+    [2026-07-08 07:06:51.248] Checking files
+    thread '<unnamed>' (444264) panicked at crates/flow_typing_utils/src/type_operation_utils.rs:295:10:
+    called `Result::unwrap()` on an `Err` value: WorkerCanceled(WorkerCanceled)
+    [2026-07-08 08:06:50.733] Killing the worker processes
+    [2026-07-08 08:06:50.733] Monitor is exiting with status NoError (Killed by `flow stop`. Exiting.)
+
+The same site as crash 1; the client hung the full hour to the bench's ceiling. Three
+occurrences in five full-scale sweeps on 0.321; two sweeps passed the point clean.
 
 ## Mechanism
 

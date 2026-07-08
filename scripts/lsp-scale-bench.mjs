@@ -68,11 +68,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { median, loadGuard, load1Now, benchOutput } from "./_pm-bench-lib.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const POINTS = (process.env.LSP_SCALE_POINTS || "10000 100000 500000 1000000")
+const POINTS = (process.env.LSP_SCALE_POINTS || "10000 100000 250000 500000 1000000")
   .trim()
   .split(/\s+/)
   .map(Number);
-const CANONICAL_POINTS = "10000 100000 500000 1000000";
+const CANONICAL_POINTS = "10000 100000 250000 500000 1000000";
 const SAMPLES = Number(process.env.LSP_SCALE_SAMPLES || 3); // warm ops + recheck samples
 const COLD_SAMPLES = Number(process.env.LSP_COLD_SAMPLES || 2); // fresh-server cold opens
 const LAYERS = Number(process.env.LSP_SCALE_LAYERS || 100);

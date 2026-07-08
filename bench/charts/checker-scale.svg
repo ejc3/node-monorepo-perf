@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1206" height="1747" viewBox="0 0 1206 1747" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
-<rect width="1206" height="1747" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1206" height="1844" viewBox="0 0 1206 1844" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
+<rect width="1206" height="1844" fill="#ffffff"/>
 <text x="28" y="40" font-size="22" font-weight="700" fill="#1f2328">Type checkers at scale — 10k to 1,000,000 modules</text>
 <text x="28" y="62" font-size="13" fill="#57606a">Fastest cell in each row green; near-ties show their +%; others show how many times slower. A request that outran its budget shows that real ceiling as a floor (≥); a crash shows status, never a number.</text>
-<text x="28" y="80" font-size="13" fill="#57606a">tsgo 7.0.0-dev.20260707.2 · tsc 6.0.3 (64GB heap) · flow-bin 0.321.0 · 64-core host. Every number traces to the cited bench JSON.</text>
+<text x="28" y="80" font-size="13" fill="#57606a">tsgo 7.0.0-dev.20260707.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host. Every number traces to the cited bench JSON.</text>
 <text x="28" y="108" font-size="16" font-weight="700" fill="#1f2328">Whole-program check — tsgo vs tsc vs Flow</text>
 <rect x="28" y="126" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="156" font-size="12" font-weight="600" fill="#57606a">scenario</text>
@@ -17,59 +17,59 @@
 <rect x="278" y="176" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="353" y="200" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">610ms</text>
 <text x="353" y="220" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="428" y="176" width="150" height="56" fill="rgb(196,94,29)" stroke="#ffffff"/>
+<rect x="428" y="176" width="150" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
 <text x="503" y="200" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
-<text x="503" y="220" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">7.28s</text>
+<text x="503" y="220" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">7.37s</text>
 <rect x="578" y="176" width="150" height="56" fill="rgb(137,151,39)" stroke="#ffffff"/>
 <text x="653" y="200" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.5 slower</text>
 <text x="653" y="220" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">920ms</text>
 <rect x="28" y="232" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="265" font-size="14" fill="#1f2328">100k modules</text>
 <rect x="278" y="232" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">5.99s</text>
+<text x="353" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">5.94s</text>
 <text x="353" y="276" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="428" y="232" width="150" height="56" fill="rgb(197,96,29)" stroke="#ffffff"/>
+<rect x="428" y="232" width="150" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
 <text x="503" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
-<text x="503" y="276" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">66.2s</text>
-<rect x="578" y="232" width="150" height="56" fill="rgb(125,149,41)" stroke="#ffffff"/>
-<text x="653" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
-<text x="653" y="276" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">8.62s</text>
+<text x="503" y="276" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">66.8s</text>
+<rect x="578" y="232" width="150" height="56" fill="rgb(147,153,38)" stroke="#ffffff"/>
+<text x="653" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.6 slower</text>
+<text x="653" y="276" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">9.28s</text>
 <rect x="28" y="288" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="321" font-size="14" fill="#1f2328">250k modules</text>
 <rect x="278" y="288" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">15.8s</text>
+<text x="353" y="312" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">15.9s</text>
 <text x="353" y="332" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="428" y="288" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="503" y="314" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
 <text x="503" y="332" font-size="10" fill="#8c959f" text-anchor="middle">anchor ≤100k</text>
-<rect x="578" y="288" width="150" height="56" fill="rgb(104,144,44)" stroke="#ffffff"/>
-<text x="653" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.3 slower</text>
-<text x="653" y="332" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">21.0s</text>
+<rect x="578" y="288" width="150" height="56" fill="rgb(119,147,42)" stroke="#ffffff"/>
+<text x="653" y="312" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
+<text x="653" y="332" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">22.4s</text>
 <rect x="28" y="344" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="377" font-size="14" fill="#1f2328">500k modules</text>
 <rect x="278" y="344" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">33.0s</text>
+<text x="353" y="368" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">32.7s</text>
 <text x="353" y="388" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="428" y="344" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="503" y="370" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
 <text x="503" y="388" font-size="10" fill="#8c959f" text-anchor="middle">anchor ≤100k</text>
-<rect x="578" y="344" width="150" height="56" fill="rgb(86,140,46)" stroke="#ffffff"/>
-<text x="653" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.2 slower</text>
-<text x="653" y="388" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">41.1s</text>
+<rect x="578" y="344" width="150" height="56" fill="rgb(110,145,43)" stroke="#ffffff"/>
+<text x="653" y="368" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
+<text x="653" y="388" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">44.6s</text>
 <rect x="28" y="400" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="433" font-size="14" fill="#1f2328">1,000,000 modules</text>
 <rect x="278" y="400" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="424" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">68.6s</text>
+<text x="353" y="424" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">68.7s</text>
 <text x="353" y="444" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="428" y="400" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="503" y="426" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
 <text x="503" y="444" font-size="10" fill="#8c959f" text-anchor="middle">anchor ≤100k</text>
-<rect x="578" y="400" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="653" y="426" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<text x="653" y="444" font-size="10" fill="#8c959f" text-anchor="middle">unreached: wedge at 500k</text>
+<rect x="578" y="400" width="150" height="56" fill="rgb(101,143,44)" stroke="#ffffff"/>
+<text x="653" y="424" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.3 slower</text>
+<text x="653" y="444" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">90.6s</text>
 <text x="28" y="472" font-size="11" fill="#57606a">Source: bench/tsgo-scale-bench.json</text>
-<text x="28" y="487" font-size="11" fill="#57606a">Warm full check (no incremental state). tsc anchors at 100k (a cost cutoff, not a capacity result). Flow's 1M cells are unmeasured: its 0.321 server wedged at 500k in the one-edit rows below — the red rows</text>
-<text x="28" y="502" font-size="11" fill="#57606a">(3 seeded leaf errors, exact count asserted) cost within ~2% of these green runs for every checker at every measured scale.</text>
+<text x="28" y="487" font-size="11" fill="#57606a">Warm full check (no incremental state). tsc anchors at 100k (a cost cutoff, not a capacity result). The flow column is a build of flow main with the wedge fixes (provenance in the JSON) — released 0.321's</text>
+<text x="28" y="502" font-size="11" fill="#57606a">server crashes at this scale (last section).</text>
 <text x="28" y="532" font-size="16" font-weight="700" fill="#1f2328">A failing check vs a passing one — the red-gate premium, per checker</text>
 <rect x="28" y="550" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="580" font-size="12" font-weight="600" fill="#57606a">scenario</text>
@@ -81,18 +81,18 @@
 <text x="503" y="588" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">(100k modules)</text>
 <rect x="578" y="550" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="653" y="572" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">Flow</text>
-<text x="653" y="588" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">(500k modules)</text>
+<text x="653" y="588" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">(1M modules)</text>
 <rect x="28" y="600" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="633" font-size="14" fill="#1f2328">red check vs green check</text>
 <rect x="278" y="600" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">+0.5%</text>
-<text x="353" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">69.0s red vs 68.6s green</text>
+<text x="353" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">+0.6%</text>
+<text x="353" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">69.0s red vs 68.7s green</text>
 <rect x="428" y="600" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="503" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">+0.5%</text>
-<text x="503" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">66.5s red vs 66.2s green</text>
+<text x="503" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">-0.1%</text>
+<text x="503" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">66.7s red vs 66.8s green</text>
 <rect x="578" y="600" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="653" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">+0.3%</text>
-<text x="653" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">41.2s red vs 41.1s green</text>
+<text x="653" y="624" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">-0.2%</text>
+<text x="653" y="644" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">90.5s red vs 90.6s green</text>
 <text x="28" y="672" font-size="11" fill="#57606a">Source: bench/tsgo-scale-bench.json</text>
 <text x="28" y="687" font-size="11" fill="#57606a">Each cell: the red run's cost relative to the green run at that checker's largest measured scale. The red run (3 seeded leaf errors in zero-dependent modules) must exit nonzero and report exactly the</text>
 <text x="28" y="702" font-size="11" fill="#57606a">seeded errors — a failing gate costs what a passing one costs.</text>
@@ -119,149 +119,173 @@
 <rect x="28" y="800" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="833" font-size="14" fill="#1f2328">10k modules</text>
 <rect x="278" y="800" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">15ms</text>
+<text x="353" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">12ms</text>
 <text x="353" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="428" y="800" width="150" height="56" fill="rgb(204,122,28)" stroke="#ffffff"/>
-<text x="503" y="824" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×5.7 slower</text>
-<text x="503" y="844" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">86ms</text>
-<rect x="578" y="800" width="150" height="56" fill="rgb(206,134,28)" stroke="#ffffff"/>
-<text x="653" y="824" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×4.4 slower</text>
-<text x="653" y="844" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">66ms</text>
-<rect x="728" y="800" width="150" height="56" fill="rgb(195,91,30)" stroke="#ffffff"/>
-<text x="803" y="824" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×13 slower</text>
-<text x="803" y="844" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">201ms</text>
-<rect x="878" y="800" width="150" height="56" fill="rgb(188,71,35)" stroke="#ffffff"/>
-<text x="953" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×30 slower</text>
-<text x="953" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">450ms</text>
+<rect x="428" y="800" width="150" height="56" fill="rgb(201,113,28)" stroke="#ffffff"/>
+<text x="503" y="824" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×7.1 slower</text>
+<text x="503" y="844" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">85ms</text>
+<rect x="578" y="800" width="150" height="56" fill="rgb(151,154,37)" stroke="#ffffff"/>
+<text x="653" y="824" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.6 slower</text>
+<text x="653" y="844" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">19ms</text>
+<rect x="728" y="800" width="150" height="56" fill="rgb(193,86,31)" stroke="#ffffff"/>
+<text x="803" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×16 slower</text>
+<text x="803" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">197ms</text>
+<rect x="878" y="800" width="150" height="56" fill="rgb(187,69,35)" stroke="#ffffff"/>
+<text x="953" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×33 slower</text>
+<text x="953" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">390ms</text>
 <rect x="1028" y="800" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="1103" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×208 slower</text>
-<text x="1103" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">3.12s</text>
+<text x="1103" y="824" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×268 slower</text>
+<text x="1103" y="844" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">3.22s</text>
 <rect x="28" y="856" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="889" font-size="14" fill="#1f2328">100k modules</text>
-<rect x="278" y="856" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">147ms</text>
-<text x="353" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="428" y="856" width="150" height="56" fill="rgb(202,117,28)" stroke="#ffffff"/>
-<text x="503" y="880" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.4 slower</text>
-<text x="503" y="900" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">942ms</text>
-<rect x="578" y="856" width="150" height="56" fill="rgb(116,147,42)" stroke="#ffffff"/>
-<text x="653" y="880" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×1.4 slower</text>
-<text x="653" y="900" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">205ms</text>
-<rect x="728" y="856" width="150" height="56" fill="rgb(196,94,29)" stroke="#ffffff"/>
-<text x="803" y="880" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
-<text x="803" y="900" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">1.74s</text>
-<rect x="878" y="856" width="150" height="56" fill="rgb(188,72,35)" stroke="#ffffff"/>
-<text x="953" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×29 slower</text>
-<text x="953" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">4.29s</text>
+<rect x="278" y="856" width="150" height="56" fill="rgb(211,155,28)" stroke="#ffffff"/>
+<text x="353" y="880" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.7 slower</text>
+<text x="353" y="900" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">142ms</text>
+<rect x="428" y="856" width="150" height="56" fill="rgb(193,84,31)" stroke="#ffffff"/>
+<text x="503" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×18 slower</text>
+<text x="503" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">937ms</text>
+<rect x="578" y="856" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="653" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">53ms</text>
+<text x="653" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="728" y="856" width="150" height="56" fill="rgb(187,69,35)" stroke="#ffffff"/>
+<text x="803" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×32 slower</text>
+<text x="803" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">1.72s</text>
+<rect x="878" y="856" width="150" height="56" fill="rgb(178,48,40)" stroke="#ffffff"/>
+<text x="953" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×77 slower</text>
+<text x="953" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">4.10s</text>
 <rect x="1028" y="856" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="1103" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×157 slower</text>
-<text x="1103" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">23.0s</text>
+<text x="1103" y="880" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×453 slower</text>
+<text x="1103" y="900" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">24.0s</text>
 <rect x="28" y="912" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="945" font-size="14" fill="#1f2328">500k modules</text>
-<rect x="278" y="912" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">992ms</text>
-<text x="353" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<text x="40" y="945" font-size="14" fill="#1f2328">250k modules</text>
+<rect x="278" y="912" width="150" height="56" fill="rgb(206,132,28)" stroke="#ffffff"/>
+<text x="353" y="936" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×4.6 slower</text>
+<text x="353" y="956" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">416ms</text>
 <rect x="428" y="912" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="503" y="945" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<rect x="578" y="912" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="653" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">wedged</text>
-<text x="653" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">server crash — see note</text>
-<rect x="728" y="912" width="150" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
-<text x="803" y="936" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×10 slower</text>
-<text x="803" y="956" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">10.0s</text>
-<rect x="878" y="912" width="150" height="56" fill="rgb(189,75,34)" stroke="#ffffff"/>
-<text x="953" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×25 slower</text>
-<text x="953" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">25.2s</text>
+<rect x="578" y="912" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="653" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">90ms</text>
+<text x="653" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="728" y="912" width="150" height="56" fill="rgb(182,58,38)" stroke="#ffffff"/>
+<text x="803" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×52 slower</text>
+<text x="803" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">4.71s</text>
+<rect x="878" y="912" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="953" y="936" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×134 slower</text>
+<text x="953" y="956" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">12.0s</text>
 <rect x="1028" y="912" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="1103" y="945" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
 <rect x="28" y="968" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1001" font-size="14" fill="#1f2328">1,000,000 modules</text>
-<rect x="278" y="968" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="992" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.23s</text>
-<text x="353" y="1012" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<text x="40" y="1001" font-size="14" fill="#1f2328">500k modules</text>
+<rect x="278" y="968" width="150" height="56" fill="rgb(203,122,28)" stroke="#ffffff"/>
+<text x="353" y="992" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×5.8 slower</text>
+<text x="353" y="1012" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">949ms</text>
 <rect x="428" y="968" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="503" y="1001" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<rect x="578" y="968" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="653" y="994" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<text x="653" y="1012" font-size="10" fill="#8c959f" text-anchor="middle">unreached: wedge at 500k</text>
-<rect x="728" y="968" width="150" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
-<text x="803" y="992" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×10.0 slower</text>
-<text x="803" y="1012" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">22.3s</text>
-<rect x="878" y="968" width="150" height="56" fill="rgb(190,77,33)" stroke="#ffffff"/>
-<text x="953" y="992" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×24 slower</text>
-<text x="953" y="1012" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">53.6s</text>
+<rect x="578" y="968" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="653" y="992" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">165ms</text>
+<text x="653" y="1012" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="728" y="968" width="150" height="56" fill="rgb(180,53,39)" stroke="#ffffff"/>
+<text x="803" y="992" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×62 slower</text>
+<text x="803" y="1012" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">10.3s</text>
+<rect x="878" y="968" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="953" y="992" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×152 slower</text>
+<text x="953" y="1012" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">25.1s</text>
 <rect x="1028" y="968" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="1103" y="1001" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<text x="28" y="1040" font-size="11" fill="#57606a">Source: bench/tsgo-scale-bench.json, bench/lsp-scale-bench.json</text>
-<text x="28" y="1055" font-size="11" fill="#57606a">Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. The 500k flow cell is the recorded</text>
-<text x="28" y="1070" font-size="11" fill="#57606a">WorkerCanceled wedge (facebook/flow#9454, fixed on flow main, unreleased as of 0.321) — a crash, so it shows status, not a number. Flow's clean 250k round-trip (939ms) sits between the 100k and 500k rows</text>
-<text x="28" y="1085" font-size="11" fill="#57606a">shown here.</text>
-<text x="28" y="1115" font-size="16" font-weight="700" fill="#1f2328">Completion — different result sets, reported with counts</text>
-<rect x="28" y="1133" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="40" y="1163" font-size="12" font-weight="600" fill="#57606a">scenario</text>
-<rect x="278" y="1133" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="353" y="1163" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsgo --lsp</text>
-<rect x="428" y="1133" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="503" y="1163" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsserver</text>
-<rect x="28" y="1183" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1216" font-size="14" fill="#1f2328">10k modules</text>
-<rect x="278" y="1183" width="150" height="56" fill="rgb(192,82,32)" stroke="#ffffff"/>
-<text x="353" y="1207" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×20 slower</text>
-<text x="353" y="1227" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">374ms</text>
-<rect x="428" y="1183" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="503" y="1207" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">19ms</text>
-<text x="503" y="1227" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="28" y="1239" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1272" font-size="14" fill="#1f2328">100k modules</text>
-<rect x="278" y="1239" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="353" y="1263" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×2,501 slower</text>
-<text x="353" y="1283" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">50.0s</text>
-<rect x="428" y="1239" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="503" y="1263" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">20ms</text>
-<text x="503" y="1283" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="28" y="1295" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1328" font-size="14" fill="#1f2328">500k modules</text>
-<rect x="278" y="1295" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="353" y="1319" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">timed out ≥2m</text>
-<text x="353" y="1339" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">hit its ceiling</text>
-<rect x="428" y="1295" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="503" y="1328" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<rect x="28" y="1351" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1384" font-size="14" fill="#1f2328">1,000,000 modules</text>
-<rect x="278" y="1351" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="353" y="1375" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">timed out ≥2m</text>
-<text x="353" y="1395" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">hit its ceiling</text>
-<rect x="428" y="1351" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="503" y="1384" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
-<text x="28" y="1423" font-size="11" fill="#57606a">Source: bench/lsp-scale-bench.json</text>
-<text x="28" y="1438" font-size="11" fill="#57606a">Not a like-for-like race: tsgo returns the full exported-symbol space (31,058 items at 10k; 301,058 at 100k) where tsserver returns a bounded 1,067-entry set — the × numbers price the responses a user</text>
-<text x="28" y="1453" font-size="11" fill="#57606a">actually waits for, with the set-size caveat. At 500k+ tsgo exceeds its 120s request ceiling; tsserver is anchor-cut there.</text>
-<text x="28" y="1483" font-size="16" font-weight="700" fill="#1f2328">Flow's wedge under edit pressure — released 0.321.0 vs flow main (fixes in)</text>
-<rect x="28" y="1501" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="40" y="1531" font-size="12" font-weight="600" fill="#57606a">scenario</text>
-<rect x="278" y="1501" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="353" y="1523" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">flow main</text>
-<text x="353" y="1539" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">@ cdb4f637</text>
-<rect x="428" y="1501" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="503" y="1523" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">released</text>
-<text x="503" y="1539" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">0.321.0</text>
-<rect x="28" y="1551" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1584" font-size="14" fill="#1f2328">recheck round-trip (storm, median)</text>
-<rect x="278" y="1551" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="1575" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">520ms</text>
-<text x="353" y="1595" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="428" y="1551" width="150" height="56" fill="rgb(203,118,28)" stroke="#ffffff"/>
-<text x="503" y="1575" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.3 slower</text>
-<text x="503" y="1595" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">3.30s</text>
-<rect x="28" y="1607" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
-<text x="40" y="1640" font-size="14" fill="#1f2328">overlapping-edit storm, 20 cycles</text>
-<rect x="278" y="1607" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="353" y="1631" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">20/20 clean</text>
-<text x="353" y="1651" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">no panic</text>
-<rect x="428" y="1607" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
-<text x="503" y="1631" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">wedged at cycle 13</text>
-<text x="503" y="1651" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">WorkerCanceled panic</text>
-<text x="28" y="1679" font-size="11" fill="#57606a">Source: bench/flow-wedge-retest.json</text>
-<text x="28" y="1694" font-size="11" fill="#57606a">Storm = a second edit lands 120–480ms into an in-flight recheck (the trigger behind all three recorded wedges). 500k corpus. Sequential settled edits never trigger it on either binary; the fix is verified</text>
-<text x="28" y="1709" font-size="11" fill="#57606a">on flow main (facebook/flow#9454).</text>
+<rect x="28" y="1024" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1057" font-size="14" fill="#1f2328">1,000,000 modules</text>
+<rect x="278" y="1024" width="150" height="56" fill="rgb(202,114,28)" stroke="#ffffff"/>
+<text x="353" y="1048" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.9 slower</text>
+<text x="353" y="1068" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">2.22s</text>
+<rect x="428" y="1024" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1057" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
+<rect x="578" y="1024" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="653" y="1048" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">324ms</text>
+<text x="653" y="1068" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="728" y="1024" width="150" height="56" fill="rgb(180,52,40)" stroke="#ffffff"/>
+<text x="803" y="1048" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×67 slower</text>
+<text x="803" y="1068" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">21.9s</text>
+<rect x="878" y="1024" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="953" y="1048" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×166 slower</text>
+<text x="953" y="1068" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">53.7s</text>
+<rect x="1028" y="1024" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="1103" y="1057" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
+<text x="28" y="1096" font-size="11" fill="#57606a">Source: bench/tsgo-scale-bench.json, bench/lsp-scale-bench.json</text>
+<text x="28" y="1111" font-size="11" fill="#57606a">Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. Flow is measured from a main build</text>
+<text x="28" y="1126" font-size="11" fill="#57606a">(header) — released 0.321's server wedges under overlapping-edit pressure at this scale (facebook/flow#9454; the head-to-head below).</text>
+<text x="28" y="1156" font-size="16" font-weight="700" fill="#1f2328">Completion — different result sets, reported with counts</text>
+<rect x="28" y="1174" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="40" y="1204" font-size="12" font-weight="600" fill="#57606a">scenario</text>
+<rect x="278" y="1174" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="353" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsgo --lsp</text>
+<rect x="428" y="1174" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsserver</text>
+<rect x="28" y="1224" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1257" font-size="14" fill="#1f2328">10k modules</text>
+<rect x="278" y="1224" width="150" height="56" fill="rgb(188,73,34)" stroke="#ffffff"/>
+<text x="353" y="1248" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×28 slower</text>
+<text x="353" y="1268" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">450ms</text>
+<rect x="428" y="1224" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="503" y="1248" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">16ms</text>
+<text x="503" y="1268" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="28" y="1280" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1313" font-size="14" fill="#1f2328">100k modules</text>
+<rect x="278" y="1280" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="353" y="1304" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×2,354 slower</text>
+<text x="353" y="1324" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">49.4s</text>
+<rect x="428" y="1280" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="503" y="1304" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">21ms</text>
+<text x="503" y="1324" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="28" y="1336" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1369" font-size="14" fill="#1f2328">250k modules</text>
+<rect x="278" y="1336" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="353" y="1360" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">timed out ≥2m</text>
+<text x="353" y="1380" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">hit its ceiling</text>
+<rect x="428" y="1336" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1369" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
+<rect x="28" y="1392" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1425" font-size="14" fill="#1f2328">500k modules</text>
+<rect x="278" y="1392" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="353" y="1416" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">timed out ≥2m</text>
+<text x="353" y="1436" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">hit its ceiling</text>
+<rect x="428" y="1392" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1425" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
+<rect x="28" y="1448" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1481" font-size="14" fill="#1f2328">1,000,000 modules</text>
+<rect x="278" y="1448" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="353" y="1472" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">timed out ≥2m</text>
+<text x="353" y="1492" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">hit its ceiling</text>
+<rect x="428" y="1448" width="150" height="56" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1481" font-size="15" fill="#8c959f" text-anchor="middle">—</text>
+<text x="28" y="1520" font-size="11" fill="#57606a">Source: bench/lsp-scale-bench.json</text>
+<text x="28" y="1535" font-size="11" fill="#57606a">Not a like-for-like race: tsgo returns the full exported-symbol space (31,058 items at 10k; 301,058 at 100k) where tsserver returns a bounded 1,067-entry set — the × numbers price the responses a user</text>
+<text x="28" y="1550" font-size="11" fill="#57606a">actually waits for, with the set-size caveat. From 250k up tsgo exceeds its 120s request ceiling; tsserver is anchor-cut there.</text>
+<text x="28" y="1580" font-size="16" font-weight="700" fill="#1f2328">Flow's wedge under edit pressure — released 0.321.0 vs flow main (fixes in)</text>
+<rect x="28" y="1598" width="250" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="40" y="1628" font-size="12" font-weight="600" fill="#57606a">scenario</text>
+<rect x="278" y="1598" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="353" y="1620" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">flow main</text>
+<text x="353" y="1636" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">@ cdb4f637</text>
+<rect x="428" y="1598" width="150" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
+<text x="503" y="1620" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">released</text>
+<text x="503" y="1636" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">0.321.0</text>
+<rect x="28" y="1648" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1681" font-size="14" fill="#1f2328">recheck round-trip (storm, median)</text>
+<rect x="278" y="1648" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="353" y="1672" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">520ms</text>
+<text x="353" y="1692" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="428" y="1648" width="150" height="56" fill="rgb(203,118,28)" stroke="#ffffff"/>
+<text x="503" y="1672" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.3 slower</text>
+<text x="503" y="1692" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">3.30s</text>
+<rect x="28" y="1704" width="250" height="56" fill="#ffffff" stroke="#d0d7de"/>
+<text x="40" y="1737" font-size="14" fill="#1f2328">overlapping-edit storm, 20 cycles</text>
+<rect x="278" y="1704" width="150" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="353" y="1728" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">20/20 clean</text>
+<text x="353" y="1748" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">no panic</text>
+<rect x="428" y="1704" width="150" height="56" fill="rgb(176,42,42)" stroke="#ffffff"/>
+<text x="503" y="1728" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">wedged at cycle 13</text>
+<text x="503" y="1748" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">WorkerCanceled panic</text>
+<text x="28" y="1776" font-size="11" fill="#57606a">Source: bench/flow-wedge-retest.json</text>
+<text x="28" y="1791" font-size="11" fill="#57606a">Storm = a second edit lands 120–480ms into an in-flight recheck (the trigger behind all three recorded wedges). 500k corpus. Sequential settled edits never trigger it on either binary; the fix is verified</text>
+<text x="28" y="1806" font-size="11" fill="#57606a">on flow main (facebook/flow#9454).</text>
 </svg>

@@ -197,8 +197,10 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   100000, `TSGO_SCALE_WORK` default `/mnt/fcvm-btrfs/tsgo-scale-bench`,
   `TSGO_SCALE_ALLOW_BUSY=1`, `TSGO_SCALE_KEEP=1`) — **checker behavior at a million
   files**: tsgo (directly-resolved native binary) vs tsc (64GB node heap, anchor points
-  ≤100k — cost cutoff, marked skipped-not-died per point) vs Flow 0.321 (work-dir
-  install, version-asserted; full sweep) on a generated layered fixed-depth corpus
+  ≤100k — cost cutoff, marked skipped-not-died per point) vs Flow (canonically a build of
+  flow main @ cdb4f637 with the wedge fixes via `FLOW_BIN`+`FLOW_SOURCE` — provenance
+  recorded in versions.flow; released 0.321 wedges at 500k, see the evidence file —
+  else work-dir flow-bin install, version-asserted; full sweep) on a generated layered fixed-depth corpus
   (module i in layer i%LAYERS imports ≤3 from the previous layer; width grows, depth
   doesn't — a depth-growing chain stack-overflows tsc's incremental propagation at ~5k
   modules, reproduced + recorded as chainShapeNote; Flow corpus mirrors module-for-module
@@ -215,7 +217,9 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   (force-recheck+status window) — mechanicNote labels the server-vs-relaunch asymmetry.
   Crash signals (KILL/SEGV/ABRT/BUS) anywhere incl. the gates = recorded capacity
   outcome for that checker, which stops sweeping while the others continue (tsc/flow
-  failures are isolated per point; only the subject tsgo hard-fails the bench);
+  failures are isolated per point; only the subject tsgo hard-fails the bench; flow's
+  two mechanics die separately — a server-row wedge skips only the server rows onward
+  and the one-shot batch rows keep sweeping to 1M);
   INT/TERM/HUP = hard-fail "interrupted, not a measurement"; 1h timeout on the
   /usr/bin/time-wrapped rows = timedOut outcome with straggler kill (spawnSync times
   out /usr/bin/time, not the checker under it; flow's server ops time out on their own
@@ -225,15 +229,15 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   that owns it), per-point partial persistence, fail() throws (so seed/edit restores
   unwind), canonical gating on the shape knobs (POINTS/SAMPLES/LAYERS/ANCHOR/WORK) →
   `bench/tsgo-scale-bench.json`, writeup in TYPECHECKERS.md ("Behavior at a
-  million files"); crash evidence for the 500k Flow wedge (3 occurrences in 5 sweeps,
-  one recorded in the canonical JSON's serverLogTail) in
+  million files"); crash evidence for released-0.321's 500k wedge (3 occurrences in 5
+  sweeps; the recorded bench outcome archived) in
   `bench/flow-0321-wedge-evidence.md`, with the directed reproduce-and-verify harness
   `scripts/flow-wedge-retest.mjs` → `bench/flow-wedge-retest.json` (released 0.321
   wedges under overlapping-edit pressure at cycle 13; flow main with the upstream fixes
   survives 20 cycles, ~6× faster rechecks). Self-contained, non-destructive (corpora +
   flow-bin under WORK, removed on exit unless `TSGO_SCALE_KEEP=1`); core-bound +
   drop_caches ⇒ run on a quiet box with root.
-- `node scripts/lsp-scale-bench.mjs` (`LSP_SCALE_POINTS` default `"10000 100000 500000
+- `node scripts/lsp-scale-bench.mjs` (`LSP_SCALE_POINTS` default `"10000 100000 250000 500000
   1000000"`, `LSP_SCALE_SAMPLES` 3, `LSP_COLD_SAMPLES` 2, `LSP_SCALE_LAYERS` 100, tsserver/tsc-watch anchor
   ≤100k, `LSP_SCALE_WORK` default `/mnt/fcvm-btrfs/lsp-scale-bench`,
   `LSP_SCALE_ALLOW_BUSY=1`, `LSP_SCALE_KEEP=1`) — **the daemons at a million files**,
@@ -253,9 +257,9 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   TS5xxx config codes fail the pull. Diagnostic gates count ERROR severity only (the
   LSP also serves hints batch --noEmit never emits). Completion is probed LAST with
   its timeout recorded as the PROBE's outcome (the finding: tsgo LSP completion returns the
-  full exported-symbol space and grows superlinearly — 301k items in 50s at 100k, past
-  the 120s ceiling at 500k+ — while tsserver returns a bounded ~1k-entry set in
-  19–20ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
+  full exported-symbol space and grows superlinearly — 301k items in 49s at 100k, past
+  the 120s ceiling from 250k up — while tsserver returns a bounded ~1k-entry set in
+  16–21ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
   row); capacity outcomes only from crash signals or load-bearing (1h) timeouts —
   plain exits/protocol errors hard-fail with the output tail. Per-driver failure
   isolation per point; persist/promote partial protection; RSS via continuous
@@ -581,11 +585,11 @@ ride the same `.github/workflows/charts.yml` byte-gate.
   panic) shows status only — never a time or multiplier; a wedge is not a measurement and
   a pseudo-number would read as one. A cell within 5% of the row's fastest keeps its time
   as the headline with "+N% vs fastest" — never "×1.0 slower". "—" cells carry a short
-  reason ("anchor ≤100k", "unreached: wedge at 500k").
+  reason ("anchor ≤100k").
 - **Deterministic from the cited bench JSONs** — no hand numbers, no Date; missing fields
   throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
-  asserted (e.g. the chart REQUIRES the flow 500k timeout record and fails if the dataset
-  changes, forcing a deliberate chart update).
+  asserted (e.g. the chart REQUIRES the dataset's flow column to be the flow-main build
+  and fails if the provenance changes, forcing a deliberate chart update).
 - **SVG + PNG in one step, gated in CI.** The generator writes the SVG and rasterizes the
   300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
   delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs

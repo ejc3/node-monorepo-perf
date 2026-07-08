@@ -2,183 +2,183 @@
   "versions": {
     "tsgo": "7.0.0-dev.20260707.2",
     "typescript": "6.0.3",
-    "flow": "0.321.0",
+    "flow": "0.321.0 (flow main @ cdb4f637 (wedge fixes in; verified in bench/flow-wedge-retest.json))",
     "node": "v22.22.0"
   },
   "cores": 64,
-  "preRunLoadAvg1": 4.49,
+  "preRunLoadAvg1": 7.17,
   "samples": 3,
   "layers": 100,
   "workMount": "/mnt/fcvm-btrfs btrfs  /dev/nvme0n1",
   "tsgoInvocation": "native binary (direct)",
   "coldMode": "page caches dropped (vm.drop_caches=3) before every cold sample + no incremental state",
   "rows": {
-    "cold": "caches dropped per sample, no incremental state — the fresh CI runner's first check (node's text pages ride warm on the bench process for the tsc row; the flow server is stopped before each drop)",
-    "full": "no incremental state, page cache warm (post-warmup) — the recurring whole-program pre-merge gate (optimal-gate's case at scale)",
-    "incrNoChange": "warm incremental state, nothing edited. ts checkers: process re-launch + tsbuildinfo re-read (the CI-retrigger cost); flow: a `flow status` round-trip to the LIVE server — a different mechanic (see mechanicNote), so the ts and flow cells answer different questions",
-    "incrOneEdit": "warm incremental state, one non-exported const appended to a mid-corpus module per sample — the developer's typecheck-after-one-edit loop at its minimal-invalidation floor (a real edit, not a fanout test). ts checkers: re-launch + buildinfo; flow: force-recheck notify + status against the live server, timed end-to-end from the notify",
-    "fullWithLeafErrors": "the RED pre-merge gate: the stateless full check over a corpus carrying 3 seeded type errors in leaf (top-layer, zero-dependents) modules; the run must exit nonzero and report exactly the 3 seeded TS2322/Flow errors — prices a failing gate vs the passing `full` row",
+    "cold": "caches dropped per sample, no incremental state \u2014 the fresh CI runner's first check (node's text pages ride warm on the bench process for the tsc row; the flow server is stopped before each drop)",
+    "full": "no incremental state, page cache warm (post-warmup) \u2014 the recurring whole-program pre-merge gate (optimal-gate's case at scale)",
+    "incrNoChange": "warm incremental state, nothing edited. ts checkers: process re-launch + tsbuildinfo re-read (the CI-retrigger cost); flow: a `flow status` round-trip to the LIVE server \u2014 a different mechanic (see mechanicNote), so the ts and flow cells answer different questions",
+    "incrOneEdit": "warm incremental state, one non-exported const appended to a mid-corpus module per sample \u2014 the developer's typecheck-after-one-edit loop at its minimal-invalidation floor (a real edit, not a fanout test). ts checkers: re-launch + buildinfo; flow: force-recheck notify + status against the live server, timed end-to-end from the notify",
+    "fullWithLeafErrors": "the RED pre-merge gate: the stateless full check over a corpus carrying 3 seeded type errors in leaf (top-layer, zero-dependents) modules; the run must exit nonzero and report exactly the 3 seeded TS2322/Flow errors \u2014 prices a failing gate vs the passing `full` row",
     "incrOneEditError": "the after-save loop when the edit is WRONG: warm incremental state, one leaf edit that introduces a type error; each sample re-greens untimed first (restore + clean pass) so the timed run is edit->red discovery, never diagnostic replay from saved state; asserts exactly the 1 seeded error. ts checkers: re-launch + buildinfo; flow: notify + status window against the live server"
   },
-  "mechanicNote": "the incremental rows pit flow's persistent server (its primary mechanic) against the ts checkers' process-relaunch incremental (their CLI mechanic); the mechanic-matched ts counterparts — tsc --watch / tsgo --lsp daemons — are not measured here (the repo measures the ts daemon loop in editor-loop-bench). incrPrimeMs (ts) and serverInitMs (flow) are the recorded entry costs of each mechanic",
-  "corpusShape": "layered, depth fixed at 100: module i in layer i%100 imports up to 3 modules of the previous layer; width grows with N — the wide-not-deep geometry real monorepos have; the flow corpus mirrors it module-for-module in Flow's dialect",
-  "chainShapeNote": "a depth-growing chain corpus (typecheck-bench's shape) stack-overflows tsc's incremental change propagation at ~5,000 modules (RangeError: Maximum call stack size exceeded, reproduced); a depth-growing corpus would measure recursion depth, not program size — hence the fixed-depth geometry",
-  "flowNote": "flow's incremental rows use its real model (persistent server: start --wait recorded as serverInitMs, then status / force-recheck+status) — closest-equivalent rows, not identical mechanics; flow's completeness gates are an exact server-free `flow ls` count (same strength as --listFiles) plus seeded errors in the first AND last module; flow check itself runs through a spawned server (measured), so all flow wall times are end-to-end client round-trips, flow RSS is the SUM of the bench-owned flow process tree's /proc VmHWM peaks (server + monitor + watcher, cwd-verified — an upper bound on concurrent footprint), and flow CPU% is not recorded (the GNU-time child is the client)",
+  "mechanicNote": "the incremental rows pit flow's persistent server (its primary mechanic) against the ts checkers' process-relaunch incremental (their CLI mechanic); the mechanic-matched ts counterparts \u2014 tsgo --lsp / tsserver / --watch \u2014 are measured at these same scales by lsp-scale-bench (bench/lsp-scale-bench.json). incrPrimeMs (ts) and serverInitMs (flow) are the recorded entry costs of each mechanic",
+  "corpusShape": "layered, depth fixed at 100: module i in layer i%100 imports up to 3 modules of the previous layer; width grows with N \u2014 the wide-not-deep geometry real monorepos have; the flow corpus mirrors it module-for-module in Flow's dialect",
+  "chainShapeNote": "a depth-growing chain corpus (typecheck-bench's shape) stack-overflows tsc's incremental change propagation at ~5,000 modules (RangeError: Maximum call stack size exceeded, reproduced); a depth-growing corpus would measure recursion depth, not program size \u2014 hence the fixed-depth geometry",
+  "flowNote": "flow's incremental rows use its real model (persistent server: start --wait recorded as serverInitMs, then status / force-recheck+status) \u2014 closest-equivalent rows, not identical mechanics; flow's completeness gates are an exact server-free `flow ls` count (same strength as --listFiles) plus seeded errors in the first AND last module; flow check itself runs through a spawned server (measured), so all flow wall times are end-to-end client round-trips, flow RSS is the SUM of the bench-owned flow process tree's /proc VmHWM peaks (server + monitor + watcher, cwd-verified \u2014 an upper bound on concurrent footprint), and flow CPU% is not recorded (the GNU-time child is the client)",
   "tscAnchorMax": 100000,
-  "tscNote": "tsc runs the same protocol only at points <= tscAnchorMax (NODE_OPTIONS --max-old-space-size=65536 — parity-restoring vs the Go/OCaml runtimes' unbounded heaps; under a 64GB ceiling V8 collects lazily, so tsc's peak RSS reads as unconstrained-V8, not minimum footprint); the tsc-vs-tsgo ratio at scale is typecheck-bench/TYPECHECKERS.md's axis — this bench's axis is behavior at scale; flow runs the full sweep (Meta scale is its claim)",
-  "killedNote": "a signal-killed or timed-out run records that row's outcome (SIGKILL = the OOM signature) as that CHECKER's capacity boundary; the checker is skipped at larger points while the others keep sweeping — one checker's cliff must not cost another its curve",
+  "tscNote": "tsc runs the same protocol only at points <= tscAnchorMax (NODE_OPTIONS --max-old-space-size=65536 \u2014 parity-restoring vs the Go/OCaml runtimes' unbounded heaps; under a 64GB ceiling V8 collects lazily, so tsc's peak RSS reads as unconstrained-V8, not minimum footprint) \u2014 a cost cutoff so the tsc column never slows the sweep; the tsc-vs-tsgo ratio at scale is typecheck-bench/TYPECHECKERS.md's axis",
+  "killedNote": "a signal-killed or timed-out run records that row's outcome (SIGKILL = the OOM signature) as that CHECKER's capacity boundary; the checker is skipped at larger points while the others keep sweeping \u2014 one checker's cliff must not cost another its curve. Flow's two mechanics die separately: a server-row death (the recorded 0.321 recheck-cancellation wedge) skips only the server rows onward, and the one-shot batch rows keep sweeping",
   "points": {
     "10000": {
-      "generateToHereMs": 389,
-      "loadAvg1Before": 4.21,
+      "generateToHereMs": 411,
+      "loadAvg1Before": 7.17,
       "tsgo": {
         "cold": {
           "killed": false,
-          "medianMs": 910,
+          "medianMs": 940,
           "samplesMs": [
-            900,
-            910,
-            910
+            960,
+            940,
+            920
           ],
           "peakRssMB": 586,
-          "cpuPct": 554
+          "cpuPct": 549
         },
         "full": {
           "killed": false,
           "medianMs": 610,
           "samplesMs": [
             610,
-            610,
+            600,
             610
           ],
-          "peakRssMB": 583,
-          "cpuPct": 765
+          "peakRssMB": 581,
+          "cpuPct": 783
         },
         "fullWithLeafErrors": {
           "killed": false,
-          "medianMs": 610,
+          "medianMs": 600,
           "samplesMs": [
-            610,
+            600,
             610,
             600
           ],
-          "peakRssMB": 584,
-          "cpuPct": 787
+          "peakRssMB": 583,
+          "cpuPct": 768
         },
-        "incrPrimeMs": 770,
+        "incrPrimeMs": 720,
         "incrNoChange": {
           "killed": false,
-          "medianMs": 310,
+          "medianMs": 340,
           "samplesMs": [
-            310,
-            280,
-            340
+            340,
+            340,
+            280
           ],
-          "peakRssMB": 448,
-          "cpuPct": 806
+          "peakRssMB": 418,
+          "cpuPct": 863
         },
         "incrOneEdit": {
           "killed": false,
-          "medianMs": 450,
+          "medianMs": 390,
           "samplesMs": [
-            1020,
-            450,
-            430
+            1040,
+            380,
+            390
           ],
-          "peakRssMB": 596,
-          "cpuPct": 607
+          "peakRssMB": 600,
+          "cpuPct": 660
         },
         "incrOneEditError": {
           "killed": false,
-          "medianMs": 410,
+          "medianMs": 420,
           "samplesMs": [
-            430,
+            450,
             410,
-            410
+            420
           ],
-          "peakRssMB": 461,
-          "cpuPct": 757
+          "peakRssMB": 460,
+          "cpuPct": 730
         }
       },
       "tsc": {
         "cold": {
           "killed": false,
-          "medianMs": 8060,
+          "medianMs": 7950,
           "samplesMs": [
-            8060,
-            8070,
-            8020
+            8240,
+            7950,
+            7920
           ],
-          "peakRssMB": 825,
+          "peakRssMB": 826,
           "cpuPct": 149
         },
         "full": {
           "killed": false,
-          "medianMs": 7280,
+          "medianMs": 7370,
           "samplesMs": [
-            7330,
-            7270,
-            7280
+            7170,
+            7370,
+            7530
           ],
           "peakRssMB": 826,
-          "cpuPct": 157
+          "cpuPct": 156
         },
         "fullWithLeafErrors": {
           "killed": false,
           "medianMs": 7280,
           "samplesMs": [
-            7320,
+            7610,
             7280,
-            7270
+            7250
           ],
-          "peakRssMB": 827,
-          "cpuPct": 158
+          "peakRssMB": 826,
+          "cpuPct": 157
         },
-        "incrPrimeMs": 7980,
+        "incrPrimeMs": 8140,
         "incrNoChange": {
           "killed": false,
-          "medianMs": 2920,
+          "medianMs": 3000,
           "samplesMs": [
-            2890,
-            2920,
-            2980
+            2990,
+            3060,
+            3000
           ],
           "peakRssMB": 512,
-          "cpuPct": 166
+          "cpuPct": 164
         },
         "incrOneEdit": {
           "killed": false,
-          "medianMs": 3120,
+          "medianMs": 3220,
           "samplesMs": [
-            6650,
-            3120,
-            3100
+            6690,
+            3220,
+            3110
           ],
-          "peakRssMB": 680,
+          "peakRssMB": 684,
           "cpuPct": 164
         },
         "incrOneEditError": {
           "killed": false,
-          "medianMs": 3120,
+          "medianMs": 3150,
           "samplesMs": [
-            3100,
-            3150,
-            3120
+            3140,
+            3170,
+            3150
           ],
-          "peakRssMB": 522,
-          "cpuPct": 164
+          "peakRssMB": 523,
+          "cpuPct": 163
         }
       },
       "flow": {
         "cold": {
           "killed": false,
-          "medianMs": 1020,
+          "medianMs": 1050,
           "samplesMs": [
-            1020,
+            1050,
             1010,
-            1020
+            1080
           ],
-          "peakRssMB": 875,
+          "peakRssMB": 887,
           "cpuPct": null
         },
         "full": {
@@ -186,24 +186,674 @@
           "medianMs": 920,
           "samplesMs": [
             920,
-            910,
-            930
+            940,
+            910
           ],
-          "peakRssMB": 875,
+          "peakRssMB": 887,
           "cpuPct": null
         },
         "fullWithLeafErrors": {
           "killed": false,
-          "medianMs": 930,
+          "medianMs": 920,
           "samplesMs": [
-            930,
-            930,
-            950
+            910,
+            920,
+            930
           ],
-          "peakRssMB": 877,
+          "peakRssMB": 889,
           "cpuPct": null
         },
-        "serverInitMs": 919,
+        "serverInitMs": 909,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 0,
+          "samplesMs": [
+            0,
+            0,
+            0
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 19,
+          "samplesMs": [
+            20,
+            19,
+            19
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 20,
+          "samplesMs": [
+            20,
+            19,
+            20
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 890
+      }
+    },
+    "100000": {
+      "generateToHereMs": 3484,
+      "loadAvg1Before": 11.8,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 7340,
+          "samplesMs": [
+            7350,
+            7340,
+            7240
+          ],
+          "peakRssMB": 5439,
+          "cpuPct": 641
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 5940,
+          "samplesMs": [
+            5920,
+            5940,
+            5950
+          ],
+          "peakRssMB": 5401,
+          "cpuPct": 705
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 5930,
+          "samplesMs": [
+            5940,
+            5930,
+            5910
+          ],
+          "peakRssMB": 5400,
+          "cpuPct": 712
+        },
+        "incrPrimeMs": 8020,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 2990,
+          "samplesMs": [
+            2990,
+            2830,
+            3000
+          ],
+          "peakRssMB": 3780,
+          "cpuPct": 916
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 4100,
+          "samplesMs": [
+            5930,
+            3930,
+            4100
+          ],
+          "peakRssMB": 4041,
+          "cpuPct": 650
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 4170,
+          "samplesMs": [
+            4110,
+            4190,
+            4170
+          ],
+          "peakRssMB": 4097,
+          "cpuPct": 697
+        }
+      },
+      "tsc": {
+        "cold": {
+          "killed": false,
+          "medianMs": 71710,
+          "samplesMs": [
+            73660,
+            71710,
+            69740
+          ],
+          "peakRssMB": 6708,
+          "cpuPct": 120
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 66770,
+          "samplesMs": [
+            66770,
+            66410,
+            68090
+          ],
+          "peakRssMB": 6708,
+          "cpuPct": 123
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 66720,
+          "samplesMs": [
+            66380,
+            66720,
+            69230
+          ],
+          "peakRssMB": 6710,
+          "cpuPct": 123
+        },
+        "incrPrimeMs": 74070,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 22680,
+          "samplesMs": [
+            22880,
+            21970,
+            22680
+          ],
+          "peakRssMB": 3716,
+          "cpuPct": 137
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 24030,
+          "samplesMs": [
+            31420,
+            23340,
+            24030
+          ],
+          "peakRssMB": 4370,
+          "cpuPct": 135
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 23370,
+          "samplesMs": [
+            23870,
+            23360,
+            23370
+          ],
+          "peakRssMB": 3836,
+          "cpuPct": 136
+        }
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 9540,
+          "samplesMs": [
+            9500,
+            9540,
+            9560
+          ],
+          "peakRssMB": 2388,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 9280,
+          "samplesMs": [
+            9200,
+            9490,
+            9280
+          ],
+          "peakRssMB": 2389,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 9300,
+          "samplesMs": [
+            9300,
+            9320,
+            9180
+          ],
+          "peakRssMB": 2395,
+          "cpuPct": null
+        },
+        "serverInitMs": 9202,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 10,
+          "samplesMs": [
+            10,
+            10,
+            10
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 53,
+          "samplesMs": [
+            53,
+            55,
+            45
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 44,
+          "samplesMs": [
+            43,
+            44,
+            44
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 2391
+      }
+    },
+    "250000": {
+      "generateToHereMs": 5734,
+      "loadAvg1Before": 32.25,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 19870,
+          "samplesMs": [
+            20060,
+            19850,
+            19870
+          ],
+          "peakRssMB": 13850,
+          "cpuPct": 585
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 15930,
+          "samplesMs": [
+            15930,
+            16000,
+            15710
+          ],
+          "peakRssMB": 13850,
+          "cpuPct": 782
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 15710,
+          "samplesMs": [
+            15670,
+            15810,
+            15710
+          ],
+          "peakRssMB": 13846,
+          "cpuPct": 752
+        },
+        "incrPrimeMs": 21430,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 8720,
+          "samplesMs": [
+            8770,
+            8720,
+            8720
+          ],
+          "peakRssMB": 9465,
+          "cpuPct": 690
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 12040,
+          "samplesMs": [
+            13910,
+            12010,
+            12040
+          ],
+          "peakRssMB": 10096,
+          "cpuPct": 556
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 12470,
+          "samplesMs": [
+            12210,
+            12510,
+            12470
+          ],
+          "peakRssMB": 10585,
+          "cpuPct": 535
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax \u2014 cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 22720,
+          "samplesMs": [
+            22480,
+            22720,
+            22870
+          ],
+          "peakRssMB": 4839,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 22410,
+          "samplesMs": [
+            22920,
+            22410,
+            22170
+          ],
+          "peakRssMB": 4836,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 22430,
+          "samplesMs": [
+            22350,
+            22430,
+            22930
+          ],
+          "peakRssMB": 4849,
+          "cpuPct": null
+        },
+        "serverInitMs": 22793,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 10,
+          "samplesMs": [
+            10,
+            10,
+            10
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 90,
+          "samplesMs": [
+            90,
+            90,
+            89
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 86,
+          "samplesMs": [
+            86,
+            85,
+            252
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 4830
+      }
+    },
+    "500000": {
+      "generateToHereMs": 9788,
+      "loadAvg1Before": 44.02,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 41820,
+          "samplesMs": [
+            41700,
+            41960,
+            41820
+          ],
+          "peakRssMB": 27670,
+          "cpuPct": 600
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 32720,
+          "samplesMs": [
+            32720,
+            32580,
+            32720
+          ],
+          "peakRssMB": 27660,
+          "cpuPct": 731
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 32730,
+          "samplesMs": [
+            32730,
+            32670,
+            33300
+          ],
+          "peakRssMB": 27648,
+          "cpuPct": 742
+        },
+        "incrPrimeMs": 45000,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 17920,
+          "samplesMs": [
+            17920,
+            18070,
+            17860
+          ],
+          "peakRssMB": 18704,
+          "cpuPct": 652
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 25050,
+          "samplesMs": [
+            27960,
+            24830,
+            25050
+          ],
+          "peakRssMB": 21678,
+          "cpuPct": 523
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 26200,
+          "samplesMs": [
+            25960,
+            26200,
+            26370
+          ],
+          "peakRssMB": 21074,
+          "cpuPct": 489
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax \u2014 cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 45540,
+          "samplesMs": [
+            44780,
+            45810,
+            45540
+          ],
+          "peakRssMB": 9025,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 44560,
+          "samplesMs": [
+            44090,
+            44560,
+            44830
+          ],
+          "peakRssMB": 9025,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 44580,
+          "samplesMs": [
+            45380,
+            44400,
+            44580
+          ],
+          "peakRssMB": 9040,
+          "cpuPct": null
+        },
+        "serverInitMs": 44201,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 20,
+          "samplesMs": [
+            20,
+            20,
+            20
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 165,
+          "samplesMs": [
+            177,
+            165,
+            163
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 393,
+          "samplesMs": [
+            538,
+            153,
+            393
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 9030
+      }
+    },
+    "1000000": {
+      "generateToHereMs": 19952,
+      "loadAvg1Before": 41.67,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 89820,
+          "samplesMs": [
+            88830,
+            89820,
+            90000
+          ],
+          "peakRssMB": 53583,
+          "cpuPct": 613
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 68650,
+          "samplesMs": [
+            68340,
+            68650,
+            69160
+          ],
+          "peakRssMB": 53701,
+          "cpuPct": 729
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 69040,
+          "samplesMs": [
+            68680,
+            69040,
+            69280
+          ],
+          "peakRssMB": 53709,
+          "cpuPct": 726
+        },
+        "incrPrimeMs": 94800,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 37720,
+          "samplesMs": [
+            37720,
+            37680,
+            37960
+          ],
+          "peakRssMB": 37625,
+          "cpuPct": 635
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 53680,
+          "samplesMs": [
+            57520,
+            53530,
+            53680
+          ],
+          "peakRssMB": 42628,
+          "cpuPct": 540
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 56290,
+          "samplesMs": [
+            56590,
+            55930,
+            56290
+          ],
+          "peakRssMB": 41045,
+          "cpuPct": 557
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax \u2014 cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 90820,
+          "samplesMs": [
+            91270,
+            90500,
+            90820
+          ],
+          "peakRssMB": 17097,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 90620,
+          "samplesMs": [
+            89970,
+            90620,
+            90900
+          ],
+          "peakRssMB": 17164,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 90480,
+          "samplesMs": [
+            89800,
+            90480,
+            90510
+          ],
+          "peakRssMB": 17138,
+          "cpuPct": null
+        },
+        "serverInitMs": 90458,
         "incrNoChange": {
           "killed": false,
           "medianMs": 30,
@@ -217,593 +867,27 @@
         },
         "incrOneEdit": {
           "killed": false,
-          "medianMs": 66,
+          "medianMs": 324,
           "samplesMs": [
-            66,
-            66,
-            65
+            324,
+            563,
+            323
           ],
           "peakRssMB": null,
           "cpuPct": null
         },
         "incrOneEditError": {
           "killed": false,
-          "medianMs": 67,
+          "medianMs": 688,
           "samplesMs": [
-            66,
-            67,
-            67
+            703,
+            683,
+            688
           ],
           "peakRssMB": null,
           "cpuPct": null
         },
-        "serverPeakRssMB": 878
-      }
-    },
-    "100000": {
-      "generateToHereMs": 3384,
-      "loadAvg1Before": 4.77,
-      "tsgo": {
-        "cold": {
-          "killed": false,
-          "medianMs": 7360,
-          "samplesMs": [
-            7350,
-            7370,
-            7360
-          ],
-          "peakRssMB": 5204,
-          "cpuPct": 643
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 5990,
-          "samplesMs": [
-            6040,
-            5940,
-            5990
-          ],
-          "peakRssMB": 5402,
-          "cpuPct": 717
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 6000,
-          "samplesMs": [
-            5980,
-            6010,
-            6000
-          ],
-          "peakRssMB": 5405,
-          "cpuPct": 692
-        },
-        "incrPrimeMs": 7690,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 3070,
-          "samplesMs": [
-            2860,
-            3070,
-            3350
-          ],
-          "peakRssMB": 3769,
-          "cpuPct": 878
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 4290,
-          "samplesMs": [
-            5510,
-            4160,
-            4290
-          ],
-          "peakRssMB": 4029,
-          "cpuPct": 642
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 4250,
-          "samplesMs": [
-            4250,
-            4390,
-            4180
-          ],
-          "peakRssMB": 4237,
-          "cpuPct": 630
-        }
-      },
-      "tsc": {
-        "cold": {
-          "killed": false,
-          "medianMs": 70060,
-          "samplesMs": [
-            70060,
-            70050,
-            70930
-          ],
-          "peakRssMB": 6708,
-          "cpuPct": 120
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 66220,
-          "samplesMs": [
-            65960,
-            66940,
-            66220
-          ],
-          "peakRssMB": 6709,
-          "cpuPct": 123
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 66550,
-          "samplesMs": [
-            66550,
-            66300,
-            66870
-          ],
-          "peakRssMB": 6709,
-          "cpuPct": 123
-        },
-        "incrPrimeMs": 74280,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 21740,
-          "samplesMs": [
-            21650,
-            21800,
-            21740
-          ],
-          "peakRssMB": 3716,
-          "cpuPct": 139
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 23040,
-          "samplesMs": [
-            31870,
-            22910,
-            23040
-          ],
-          "peakRssMB": 4371,
-          "cpuPct": 136
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 23050,
-          "samplesMs": [
-            22800,
-            23050,
-            23300
-          ],
-          "peakRssMB": 3834,
-          "cpuPct": 137
-        }
-      },
-      "flow": {
-        "cold": {
-          "killed": false,
-          "medianMs": 8580,
-          "samplesMs": [
-            8870,
-            8580,
-            8420
-          ],
-          "peakRssMB": 2396,
-          "cpuPct": null
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 8620,
-          "samplesMs": [
-            8760,
-            8620,
-            8480
-          ],
-          "peakRssMB": 2396,
-          "cpuPct": null
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 8450,
-          "samplesMs": [
-            8360,
-            8450,
-            8660
-          ],
-          "peakRssMB": 2399,
-          "cpuPct": null
-        },
-        "serverInitMs": 8303,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 40,
-          "samplesMs": [
-            40,
-            40,
-            30
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 205,
-          "samplesMs": [
-            215,
-            205,
-            203
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 199,
-          "samplesMs": [
-            523,
-            199,
-            198
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "serverPeakRssMB": 2404
-      }
-    },
-    "250000": {
-      "generateToHereMs": 5374,
-      "loadAvg1Before": 36.22,
-      "tsgo": {
-        "cold": {
-          "killed": false,
-          "medianMs": 19850,
-          "samplesMs": [
-            20040,
-            19850,
-            19850
-          ],
-          "peakRssMB": 13482,
-          "cpuPct": 596
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 15750,
-          "samplesMs": [
-            15760,
-            15750,
-            15630
-          ],
-          "peakRssMB": 13854,
-          "cpuPct": 721
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 15640,
-          "samplesMs": [
-            15510,
-            15710,
-            15640
-          ],
-          "peakRssMB": 13851,
-          "cpuPct": 709
-        },
-        "incrPrimeMs": 21320,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 8750,
-          "samplesMs": [
-            8540,
-            8750,
-            8770
-          ],
-          "peakRssMB": 9403,
-          "cpuPct": 703
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 11970,
-          "samplesMs": [
-            14020,
-            11970,
-            11570
-          ],
-          "peakRssMB": 10507,
-          "cpuPct": 546
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 12560,
-          "samplesMs": [
-            12560,
-            12650,
-            11900
-          ],
-          "peakRssMB": 10559,
-          "cpuPct": 533
-        }
-      },
-      "tsc": {
-        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
-      },
-      "flow": {
-        "cold": {
-          "killed": false,
-          "medianMs": 20990,
-          "samplesMs": [
-            20800,
-            21010,
-            20990
-          ],
-          "peakRssMB": 4869,
-          "cpuPct": null
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 21010,
-          "samplesMs": [
-            20920,
-            21010,
-            21210
-          ],
-          "peakRssMB": 4873,
-          "cpuPct": null
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 21080,
-          "samplesMs": [
-            21080,
-            20470,
-            21120
-          ],
-          "peakRssMB": 4876,
-          "cpuPct": null
-        },
-        "serverInitMs": 21015,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 40,
-          "samplesMs": [
-            40,
-            40,
-            40
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 939,
-          "samplesMs": [
-            952,
-            939,
-            508
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 499,
-          "samplesMs": [
-            499,
-            494,
-            920
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "serverPeakRssMB": 4871
-      }
-    },
-    "500000": {
-      "generateToHereMs": 9445,
-      "loadAvg1Before": 35.3,
-      "tsgo": {
-        "cold": {
-          "killed": false,
-          "medianMs": 42520,
-          "samplesMs": [
-            42330,
-            42520,
-            42790
-          ],
-          "peakRssMB": 27733,
-          "cpuPct": 588
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 32970,
-          "samplesMs": [
-            32990,
-            32970,
-            32570
-          ],
-          "peakRssMB": 27665,
-          "cpuPct": 719
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 32890,
-          "samplesMs": [
-            32840,
-            32890,
-            33060
-          ],
-          "peakRssMB": 26915,
-          "cpuPct": 744
-        },
-        "incrPrimeMs": 45040,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 18090,
-          "samplesMs": [
-            17990,
-            18150,
-            18090
-          ],
-          "peakRssMB": 18794,
-          "cpuPct": 665
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 25230,
-          "samplesMs": [
-            27460,
-            25230,
-            24830
-          ],
-          "peakRssMB": 20899,
-          "cpuPct": 499
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 26260,
-          "samplesMs": [
-            26260,
-            26160,
-            26380
-          ],
-          "peakRssMB": 21116,
-          "cpuPct": 516
-        }
-      },
-      "tsc": {
-        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
-      },
-      "flow": {
-        "cold": {
-          "killed": false,
-          "medianMs": 41210,
-          "samplesMs": [
-            41210,
-            41940,
-            41080
-          ],
-          "peakRssMB": 9013,
-          "cpuPct": null
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 41080,
-          "samplesMs": [
-            41640,
-            40620,
-            41080
-          ],
-          "peakRssMB": 9001,
-          "cpuPct": null
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 41200,
-          "samplesMs": [
-            40980,
-            41200,
-            41530
-          ],
-          "peakRssMB": 9013,
-          "cpuPct": null
-        },
-        "serverInitMs": 41733,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 50,
-          "samplesMs": [
-            50,
-            50,
-            50
-          ],
-          "peakRssMB": null,
-          "cpuPct": null
-        },
-        "incrOneEdit": {
-          "killed": true,
-          "timedOut": true,
-          "phase": "sample 0"
-        },
-        "serverLogTail": "[2026-07-08 07:06:51.248] Checking files\n\nthread '<unnamed>' (444264) panicked at crates/flow_typing_utils/src/type_operation_utils.rs:295:10:\ncalled `Result::unwrap()` on an `Err` value: WorkerCanceled(WorkerCanceled)\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n[2026-07-08 08:06:50.733] Killing the worker processes\n[2026-07-08 08:06:50.733] Monitor is exiting with status NoError (Killed by `flow stop`. Exiting.)\n"
-      }
-    },
-    "1000000": {
-      "generateToHereMs": 18523,
-      "loadAvg1Before": 0.23,
-      "tsgo": {
-        "cold": {
-          "killed": false,
-          "medianMs": 88840,
-          "samplesMs": [
-            88840,
-            88800,
-            89210
-          ],
-          "peakRssMB": 53559,
-          "cpuPct": 620
-        },
-        "full": {
-          "killed": false,
-          "medianMs": 68610,
-          "samplesMs": [
-            68610,
-            68880,
-            68490
-          ],
-          "peakRssMB": 53735,
-          "cpuPct": 726
-        },
-        "fullWithLeafErrors": {
-          "killed": false,
-          "medianMs": 68970,
-          "samplesMs": [
-            68360,
-            68970,
-            69360
-          ],
-          "peakRssMB": 55229,
-          "cpuPct": 714
-        },
-        "incrPrimeMs": 95540,
-        "incrNoChange": {
-          "killed": false,
-          "medianMs": 37950,
-          "samplesMs": [
-            37950,
-            37830,
-            38000
-          ],
-          "peakRssMB": 37626,
-          "cpuPct": 630
-        },
-        "incrOneEdit": {
-          "killed": false,
-          "medianMs": 53650,
-          "samplesMs": [
-            57510,
-            53650,
-            52980
-          ],
-          "peakRssMB": 41564,
-          "cpuPct": 569
-        },
-        "incrOneEditError": {
-          "killed": false,
-          "medianMs": 55520,
-          "samplesMs": [
-            55490,
-            56330,
-            55520
-          ],
-          "peakRssMB": 41028,
-          "cpuPct": 558
-        }
-      },
-      "tsc": {
-        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
-      },
-      "flow": {
-        "skipped": "flow died at a smaller scale (see that point's record)"
+        "serverPeakRssMB": 17084
       }
     }
   }

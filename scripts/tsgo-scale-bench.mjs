@@ -101,7 +101,7 @@ process.on("uncaughtException", (e) => {
 });
 if (!Number.isInteger(SAMPLES) || SAMPLES < 1) fail("TSGO_SCALE_SAMPLES must be an integer >= 1");
 if (!Number.isInteger(LAYERS) || LAYERS < 2) fail("TSGO_SCALE_LAYERS must be an integer >= 2");
-if (!Number.isFinite(TSC_ANCHOR_MAX)) fail("TSC_ANCHOR_MAX must be a number");
+if (Number.isNaN(TSC_ANCHOR_MAX)) fail("TSC_ANCHOR_MAX must be a number");
 if (POINTS.some((n) => !Number.isInteger(n) || n < LAYERS * 3))
   fail(`every point must be >= 3*LAYERS (${LAYERS * 3}) for the layered geometry`);
 if (POINTS.some((n, i) => i > 0 && n <= POINTS[i - 1]))
@@ -212,10 +212,17 @@ const tsgoInvocation =
 if (spawnSync(TSGO, ["--version"], { encoding: "utf8" }).status !== 0)
   fail(`resolved tsgo does not run: ${TSGO}`);
 
-// flow-bin installed into the work dir (pinned), never the repo tree
+// FLOW_BIN: benchmark a specific flow binary (e.g. a build of flow main with the
+// wedge fixes) instead of the released flow-bin; FLOW_SOURCE labels its provenance
+// in the JSON so the dataset says exactly what ran. Without it: flow-bin installed
+// into the work dir (pinned), never the repo tree.
+const FLOW_BIN = process.env.FLOW_BIN || null;
+const FLOW_SOURCE = process.env.FLOW_SOURCE || null;
+if (FLOW_BIN && !existsSync(FLOW_BIN)) fail(`FLOW_BIN does not exist: ${FLOW_BIN}`);
+if (FLOW_BIN && !FLOW_SOURCE) fail("FLOW_BIN requires FLOW_SOURCE (provenance label for the JSON)");
 const flowInstallDir = join(WORK, "flow-bin");
-mkdirSync(flowInstallDir, { recursive: true });
-if (!existsSync(join(flowInstallDir, "node_modules", ".bin", "flow"))) {
+if (!FLOW_BIN) mkdirSync(flowInstallDir, { recursive: true });
+if (!FLOW_BIN && !existsSync(join(flowInstallDir, "node_modules", ".bin", "flow"))) {
   writeFileSync(join(flowInstallDir, "package.json"), JSON.stringify({ private: true }) + "\n");
   const i = spawnSync("npm", ["install", `flow-bin@${FLOW_VERSION}`, "--no-audit", "--no-fund"], {
     cwd: flowInstallDir,
@@ -224,8 +231,8 @@ if (!existsSync(join(flowInstallDir, "node_modules", ".bin", "flow"))) {
   });
   if (i.status !== 0) fail(`flow-bin install failed:\n${(i.stderr || "").slice(-400)}`);
 }
-const FLOW = join(flowInstallDir, "node_modules", ".bin", "flow");
-{
+const FLOW = FLOW_BIN || join(flowInstallDir, "node_modules", ".bin", "flow");
+if (!FLOW_BIN) {
   // a reused WORK dir must not silently benchmark a different flow
   const probeFlowVersion = () => {
     const v = spawnSync(FLOW, ["version", "--semver"], { encoding: "utf8" });
@@ -860,7 +867,7 @@ function flowServerRss() {
   }
   return sum || null;
 }
-function benchFlow(n) {
+function benchFlow(n, skipServer = false) {
   const g = flowPositiveControls(n);
   if (g) return { gate: g };
   const rows = {};
@@ -914,6 +921,15 @@ function benchFlow(n) {
     ),
   );
   if (rows.fullWithLeafErrors.killed) return rows;
+
+  if (skipServer) {
+    const why =
+      "server mechanic dead at a smaller scale (the recorded wedge) — batch rows above still measured";
+    rows.incrNoChange = { unavailable: why };
+    rows.incrOneEdit = { unavailable: why };
+    rows.incrOneEditError = { unavailable: why };
+    return rows;
+  }
 
   // the server model: start (init = flow's own prime, recorded), then status rows.
   // stop the full row's check server first — start exits 11 on a live server (reproduced)
@@ -1095,7 +1111,12 @@ const out = {
     typescript: JSON.parse(
       readFileSync(join(REPO, "node_modules", "typescript", "package.json"), "utf8"),
     ).version,
-    flow: FLOW_VERSION,
+    flow: FLOW_BIN
+      ? `${(() => {
+          const v = spawnSync(FLOW, ["version", "--semver"], { encoding: "utf8" });
+          return v.status === 0 ? v.stdout.trim() : "unknown";
+        })()} (${FLOW_SOURCE})`
+      : FLOW_VERSION,
     node: process.version,
   },
   ...envInfo,
@@ -1118,21 +1139,26 @@ const out = {
       "the after-save loop when the edit is WRONG: warm incremental state, one leaf edit that introduces a type error; each sample re-greens untimed first (restore + clean pass) so the timed run is edit->red discovery, never diagnostic replay from saved state; asserts exactly the 1 seeded error. ts checkers: re-launch + buildinfo; flow: notify + status window against the live server",
   },
   mechanicNote:
-    "the incremental rows pit flow's persistent server (its primary mechanic) against the ts checkers' process-relaunch incremental (their CLI mechanic); the mechanic-matched ts counterparts — tsc --watch / tsgo --lsp daemons — are not measured here (the repo measures the ts daemon loop in editor-loop-bench). incrPrimeMs (ts) and serverInitMs (flow) are the recorded entry costs of each mechanic",
+    "the incremental rows pit flow's persistent server (its primary mechanic) against the ts checkers' process-relaunch incremental (their CLI mechanic); the mechanic-matched ts counterparts — tsgo --lsp / tsserver / --watch — are measured at these same scales by lsp-scale-bench (bench/lsp-scale-bench.json). incrPrimeMs (ts) and serverInitMs (flow) are the recorded entry costs of each mechanic",
   corpusShape: `layered, depth fixed at ${LAYERS}: module i in layer i%${LAYERS} imports up to 3 modules of the previous layer; width grows with N — the wide-not-deep geometry real monorepos have; the flow corpus mirrors it module-for-module in Flow's dialect`,
   chainShapeNote:
     "a depth-growing chain corpus (typecheck-bench's shape) stack-overflows tsc's incremental change propagation at ~5,000 modules (RangeError: Maximum call stack size exceeded, reproduced); a depth-growing corpus would measure recursion depth, not program size — hence the fixed-depth geometry",
   flowNote:
     "flow's incremental rows use its real model (persistent server: start --wait recorded as serverInitMs, then status / force-recheck+status) — closest-equivalent rows, not identical mechanics; flow's completeness gates are an exact server-free `flow ls` count (same strength as --listFiles) plus seeded errors in the first AND last module; flow check itself runs through a spawned server (measured), so all flow wall times are end-to-end client round-trips, flow RSS is the SUM of the bench-owned flow process tree's /proc VmHWM peaks (server + monitor + watcher, cwd-verified — an upper bound on concurrent footprint), and flow CPU% is not recorded (the GNU-time child is the client)",
-  tscAnchorMax: TSC_ANCHOR_MAX,
+  tscAnchorMax: Number.isFinite(TSC_ANCHOR_MAX) ? TSC_ANCHOR_MAX : null,
   tscNote:
-    "tsc runs the same protocol only at points <= tscAnchorMax (NODE_OPTIONS --max-old-space-size=65536 — parity-restoring vs the Go/OCaml runtimes' unbounded heaps; under a 64GB ceiling V8 collects lazily, so tsc's peak RSS reads as unconstrained-V8, not minimum footprint); the tsc-vs-tsgo ratio at scale is typecheck-bench/TYPECHECKERS.md's axis — this bench's axis is behavior at scale; flow runs the full sweep (Meta scale is its claim)",
+    "tsc runs the same protocol only at points <= tscAnchorMax (NODE_OPTIONS --max-old-space-size=65536 — parity-restoring vs the Go/OCaml runtimes' unbounded heaps; under a 64GB ceiling V8 collects lazily, so tsc's peak RSS reads as unconstrained-V8, not minimum footprint) — a cost cutoff so the tsc column never slows the sweep; the tsc-vs-tsgo ratio at scale is typecheck-bench/TYPECHECKERS.md's axis",
   killedNote:
-    "a signal-killed or timed-out run records that row's outcome (SIGKILL = the OOM signature) as that CHECKER's capacity boundary; the checker is skipped at larger points while the others keep sweeping — one checker's cliff must not cost another its curve",
+    "a signal-killed or timed-out run records that row's outcome (SIGKILL = the OOM signature) as that CHECKER's capacity boundary; the checker is skipped at larger points while the others keep sweeping — one checker's cliff must not cost another its curve. Flow's two mechanics die separately: a server-row death (the recorded 0.321 recheck-cancellation wedge) skips only the server rows onward, and the one-shot batch rows keep sweeping",
   points: {},
 };
 
-const dead = { tsgo: false, tsc: false, flow: false };
+const dead = { tsgo: false, tsc: false, flow: false, flowServer: false };
+// flow runs TWO mechanics: one-shot `flow check` (batch) and the persistent server.
+// A server-mechanic death (the recorded 0.321 recheck-cancellation wedge) must not
+// cost the batch mechanic its curve at larger points — the batch rows keep sweeping
+// and only the server rows are skipped onward.
+const FLOW_SERVER_ROWS = new Set(["incrNoChange", "incrOneEdit", "incrOneEditError"]);
 for (const n of POINTS) {
   if (dead.tsgo && dead.flow) break; // nothing left alive to measure (tsc is anchor-only)
   console.log(`\n== ${n.toLocaleString()} modules ==`);
@@ -1190,13 +1216,23 @@ for (const n of POINTS) {
 
   if (!dead.flow) {
     try {
-      rec.flow = benchFlow(n);
+      rec.flow = benchFlow(n, dead.flowServer);
       if (show("flow", rec.flow)) {
-        dead.flow = true;
         const evidence = flowServerLogTail();
         if (evidence) rec.flow.serverLogTail = evidence;
         spawnSync(FLOW, ["stop"], { cwd: FDIR, stdio: "ignore" });
-        console.log(`  — flow capacity boundary at ${n.toLocaleString()} modules`);
+        const batchDied =
+          rec.flow.gate?.killed ||
+          ["cold", "full", "fullWithLeafErrors"].some((r) => rec.flow[r]?.killed);
+        if (batchDied) {
+          dead.flow = true;
+          console.log(`  — flow capacity boundary at ${n.toLocaleString()} modules`);
+        } else {
+          dead.flowServer = true;
+          console.log(
+            `  — flow SERVER-mechanic boundary at ${n.toLocaleString()} modules (batch rows keep sweeping)`,
+          );
+        }
       }
     } catch (e) {
       // a comparison checker's assert/gate failure is ITS outcome, never the bench's —

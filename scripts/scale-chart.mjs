@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Render the million-module checker story as a stacked heat chart, in the same visual
 // system as tool-comparison.svg: per row the FASTEST cell is green and the rest show how
-// many times slower (× N). Two cell states beyond numbers: "—" (not measured: anchor
-// cutoff, or after a checker died at a smaller scale) and a TIMEOUT cell — a run that hit
-// its ceiling renders at that REAL ceiling as a floor ("wedged ≥1h", "≥×3,629 slower"),
-// never as a dash and never as green. Deterministic from the cited bench/*.json (no hand
+// many times slower (× N); near-ties show their +%. Cell states beyond numbers: "—"
+// with its reason (anchor cutoff), a TIMEOUT cell — a request that outran its budget
+// renders at that REAL ceiling as a floor ("timed out ≥2m") — and a CRASH cell, which
+// shows status only (a wedge is not a measurement). Deterministic from the cited bench/*.json (no hand
 // numbers) -> bench/charts/checker-scale.svg (+ a 300 DPI PNG in the same step).
 //
 //   node scripts/scale-chart.mjs
@@ -30,10 +30,11 @@ const rowMs = (rec, row) => {
   if (typeof v?.medianMs !== "number") throw new Error(`missing ${row}.medianMs in a cited record`);
   return v.medianMs;
 };
-// the flow 500k one-edit row is the recorded wedge: killed+timedOut at the bench's 1h ceiling
-if (!(P(500000).flow.incrOneEdit?.killed && P(500000).flow.incrOneEdit?.timedOut))
+// the flow column is a build of flow main (the wedge fixes verified in the retest);
+// a dataset whose flow provenance changes must force a deliberate chart update
+if (!String(TS.versions.flow).includes("flow main"))
   throw new Error(
-    "expected the recorded flow 500k incrOneEdit timeout — dataset changed, update the chart",
+    "expected the flow column to be a flow-main build — dataset changed, update the chart",
   );
 const HOUR_MS = 3_600_000;
 // tsgo LSP completion at 500k/1M is the recorded probe timeout at its request ceiling
@@ -77,11 +78,11 @@ const SECTIONS = [
       {
         tsgo: rowMs(P(n).tsgo, "full"),
         tsc: P(n).tsc?.skipped ? NAR("anchor ≤100k") : rowMs(P(n).tsc, "full"),
-        flow: P(n).flow?.skipped ? NAR("unreached: wedge at 500k") : rowMs(P(n).flow, "full"),
+        flow: rowMs(P(n).flow, "full"),
       },
     ]),
     source: "bench/tsgo-scale-bench.json",
-    note: "Warm full check (no incremental state). tsc anchors at 100k (a cost cutoff, not a capacity result). Flow's 1M cells are unmeasured: its 0.321 server wedged at 500k in the one-edit rows below — the red rows (3 seeded leaf errors, exact count asserted) cost within ~2% of these green runs for every checker at every measured scale.",
+    note: "Warm full check (no incremental state). tsc anchors at 100k (a cost cutoff, not a capacity result). The flow column is a build of flow main with the wedge fixes (provenance in the JSON) — released 0.321's server crashes at this scale (last section).",
   },
   {
     title: "A failing check vs a passing one — the red-gate premium, per checker",
@@ -89,7 +90,7 @@ const SECTIONS = [
     cols: [
       { k: "tsgo", label: "tsgo\n(1M modules)" },
       { k: "tsc", label: "tsc\n(100k modules)" },
-      { k: "flow", label: "Flow\n(500k modules)" },
+      { k: "flow", label: "Flow\n(1M modules)" },
     ],
     rows: [
       [
@@ -104,8 +105,8 @@ const SECTIONS = [
             red: rowMs(P(100000).tsc, "fullWithLeafErrors"),
           },
           flow: {
-            green: rowMs(P(500000).flow, "full"),
-            red: rowMs(P(500000).flow, "fullWithLeafErrors"),
+            green: rowMs(P(1000000).flow, "full"),
+            red: rowMs(P(1000000).flow, "fullWithLeafErrors"),
           },
         },
       ],
@@ -129,19 +130,14 @@ const SECTIONS = [
       {
         lsp: L(n).tsgoLsp.warm.errorAppearsMs,
         tss: L(n).tsserver?.skipped ? null : L(n).tsserver.warm.errorAppearsMs,
-        flow:
-          n === 500000
-            ? CRASH("wedged", "server crash — see note")
-            : P(n).flow?.skipped
-              ? NAR("unreached: wedge at 500k")
-              : rowMs(P(n).flow, "incrOneEdit"),
+        flow: rowMs(P(n).flow, "incrOneEdit"),
         watch: L(n).tsgoWatch.oneEditRecheckMs,
         cli: rowMs(P(n).tsgo, "incrOneEdit"),
         tsccli: P(n).tsc?.skipped ? null : rowMs(P(n).tsc, "incrOneEdit"),
       },
     ]),
     source: "bench/tsgo-scale-bench.json, bench/lsp-scale-bench.json",
-    note: "Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. The 500k flow cell is the recorded WorkerCanceled wedge (facebook/flow#9454, fixed on flow main, unreleased as of 0.321) — a crash, so it shows status, not a number. Flow's clean 250k round-trip (939ms) sits between the 100k and 500k rows shown here.",
+    note: "Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. Flow is measured from a main build (header) — released 0.321's server wedges under overlapping-edit pressure at this scale (facebook/flow#9454; the head-to-head below).",
   },
   {
     title: "Completion — different result sets, reported with counts",
@@ -161,7 +157,7 @@ const SECTIONS = [
       },
     ]),
     source: "bench/lsp-scale-bench.json",
-    note: "Not a like-for-like race: tsgo returns the full exported-symbol space (31,058 items at 10k; 301,058 at 100k) where tsserver returns a bounded 1,067-entry set — the × numbers price the responses a user actually waits for, with the set-size caveat. At 500k+ tsgo exceeds its 120s request ceiling; tsserver is anchor-cut there.",
+    note: "Not a like-for-like race: tsgo returns the full exported-symbol space (31,058 items at 10k; 301,058 at 100k) where tsserver returns a bounded 1,067-entry set — the × numbers price the responses a user actually waits for, with the set-size caveat. From 250k up tsgo exceeds its 120s request ceiling; tsserver is anchor-cut there.",
   },
   {
     title: `Flow's wedge under edit pressure — released ${RT.binaries.released.version} vs flow main (fixes in)`,
@@ -401,7 +397,7 @@ const out = [
   `<rect width="${W}" height="${H}" fill="#ffffff"/>`,
   `<text x="${PAD}" y="40" font-size="22" font-weight="700" fill="#1f2328">Type checkers at scale — 10k to 1,000,000 modules</text>`,
   `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Fastest cell in each row green; near-ties show their +%; others show how many times slower. A request that outran its budget shows that real ceiling as a floor (≥); a crash shows status, never a number.</text>`,
-  `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow-bin ${TS.versions.flow} · ${TS.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
+  `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
   ...T,
   `</svg>`,
 ];
