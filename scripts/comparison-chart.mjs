@@ -150,7 +150,7 @@ const SECTIONS = [
         { tsc: TB.tsc.medianMs, tsgo: TB.tsgo.medianMs },
       ],
       [
-        `type-heavy program, 4,000:400 (${(PAR.libs * PAR.modulesPerLib).toLocaleString("en-US")} lib modules)`,
+        `type-heavy 4,000:400 (${(PAR.libs * PAR.modulesPerLib).toLocaleString("en-US")} lib modules)`,
         { tsc: PAR.cleanBaseline.tsc.ms, tsgo: PAR.cleanBaseline.tsgo.ms },
       ],
     ],
@@ -279,7 +279,31 @@ const MAXCOLS = Math.max(...SECTIONS.map((s) => s.cols.length));
 const W = PAD * 2 + LABEL_W + COL_W * MAXCOLS;
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const T = []; // body elements; height computed as we go
-let y = 108; // below the three-line title block, with breathing room before the first section title
+let y = 140; // below the title block + legend band
+// legend band: the ramp anchors as swatches + the special states — the chart's
+// color language, readable without the docs
+const LEGEND_Y = 102;
+const legendItems = [
+  { c: rgbCss(rampRGB(1)), t: "fastest" },
+  { c: rgbCss(rampRGB(2)), t: "×2 slower" },
+  { c: rgbCss(rampRGB(10)), t: "×10" },
+  { c: rgbCss(rampRGB(100)), t: "×100+" },
+  { c: "#f6f8fa", t: "— not measured", stroke: "#d0d7de" },
+];
+{
+  let lx = PAD;
+  for (const it of legendItems) {
+    T.push(
+      `<rect x="${lx}" y="${LEGEND_Y - 10}" width="14" height="14" rx="3" fill="${it.c}"${it.stroke ? ` stroke="${it.stroke}"` : ""}/>`,
+    );
+    lx += 19;
+    T.push(`<text x="${lx}" y="${LEGEND_Y + 1}" font-size="11" fill="#57606a">${esc(it.t)}</text>`);
+    lx += it.t.length * 5.6 + 16;
+  }
+  T.push(
+    `<text x="${lx + 8}" y="${LEGEND_Y + 1}" font-size="11" fill="#57606a">cell: ×N slower (big) · its time (small) · what it writes (installs)</text>`,
+  );
+}
 
 const gridX = PAD + LABEL_W;
 for (const sec of SECTIONS) {
