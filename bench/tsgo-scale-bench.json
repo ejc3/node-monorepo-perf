@@ -1,0 +1,810 @@
+{
+  "versions": {
+    "tsgo": "7.0.0-dev.20260707.2",
+    "typescript": "6.0.3",
+    "flow": "0.321.0",
+    "node": "v22.22.0"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 4.49,
+  "samples": 3,
+  "layers": 100,
+  "workMount": "/mnt/fcvm-btrfs btrfs  /dev/nvme0n1",
+  "tsgoInvocation": "native binary (direct)",
+  "coldMode": "page caches dropped (vm.drop_caches=3) before every cold sample + no incremental state",
+  "rows": {
+    "cold": "caches dropped per sample, no incremental state — the fresh CI runner's first check (node's text pages ride warm on the bench process for the tsc row; the flow server is stopped before each drop)",
+    "full": "no incremental state, page cache warm (post-warmup) — the recurring whole-program pre-merge gate (optimal-gate's case at scale)",
+    "incrNoChange": "warm incremental state, nothing edited. ts checkers: process re-launch + tsbuildinfo re-read (the CI-retrigger cost); flow: a `flow status` round-trip to the LIVE server — a different mechanic (see mechanicNote), so the ts and flow cells answer different questions",
+    "incrOneEdit": "warm incremental state, one non-exported const appended to a mid-corpus module per sample — the developer's typecheck-after-one-edit loop at its minimal-invalidation floor (a real edit, not a fanout test). ts checkers: re-launch + buildinfo; flow: force-recheck notify + status against the live server, timed end-to-end from the notify",
+    "fullWithLeafErrors": "the RED pre-merge gate: the stateless full check over a corpus carrying 3 seeded type errors in leaf (top-layer, zero-dependents) modules; the run must exit nonzero and report exactly the 3 seeded TS2322/Flow errors — prices a failing gate vs the passing `full` row",
+    "incrOneEditError": "the after-save loop when the edit is WRONG: warm incremental state, one leaf edit that introduces a type error; each sample re-greens untimed first (restore + clean pass) so the timed run is edit->red discovery, never diagnostic replay from saved state; asserts exactly the 1 seeded error. ts checkers: re-launch + buildinfo; flow: notify + status window against the live server"
+  },
+  "mechanicNote": "the incremental rows pit flow's persistent server (its primary mechanic) against the ts checkers' process-relaunch incremental (their CLI mechanic); the mechanic-matched ts counterparts — tsc --watch / tsgo --lsp daemons — are not measured here (the repo measures the ts daemon loop in editor-loop-bench). incrPrimeMs (ts) and serverInitMs (flow) are the recorded entry costs of each mechanic",
+  "corpusShape": "layered, depth fixed at 100: module i in layer i%100 imports up to 3 modules of the previous layer; width grows with N — the wide-not-deep geometry real monorepos have; the flow corpus mirrors it module-for-module in Flow's dialect",
+  "chainShapeNote": "a depth-growing chain corpus (typecheck-bench's shape) stack-overflows tsc's incremental change propagation at ~5,000 modules (RangeError: Maximum call stack size exceeded, reproduced); a depth-growing corpus would measure recursion depth, not program size — hence the fixed-depth geometry",
+  "flowNote": "flow's incremental rows use its real model (persistent server: start --wait recorded as serverInitMs, then status / force-recheck+status) — closest-equivalent rows, not identical mechanics; flow's completeness gates are an exact server-free `flow ls` count (same strength as --listFiles) plus seeded errors in the first AND last module; flow check itself runs through a spawned server (measured), so all flow wall times are end-to-end client round-trips, flow RSS is the SUM of the bench-owned flow process tree's /proc VmHWM peaks (server + monitor + watcher, cwd-verified — an upper bound on concurrent footprint), and flow CPU% is not recorded (the GNU-time child is the client)",
+  "tscAnchorMax": 100000,
+  "tscNote": "tsc runs the same protocol only at points <= tscAnchorMax (NODE_OPTIONS --max-old-space-size=65536 — parity-restoring vs the Go/OCaml runtimes' unbounded heaps; under a 64GB ceiling V8 collects lazily, so tsc's peak RSS reads as unconstrained-V8, not minimum footprint); the tsc-vs-tsgo ratio at scale is typecheck-bench/TYPECHECKERS.md's axis — this bench's axis is behavior at scale; flow runs the full sweep (Meta scale is its claim)",
+  "killedNote": "a signal-killed or timed-out run records that row's outcome (SIGKILL = the OOM signature) as that CHECKER's capacity boundary; the checker is skipped at larger points while the others keep sweeping — one checker's cliff must not cost another its curve",
+  "points": {
+    "10000": {
+      "generateToHereMs": 389,
+      "loadAvg1Before": 4.21,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 910,
+          "samplesMs": [
+            900,
+            910,
+            910
+          ],
+          "peakRssMB": 586,
+          "cpuPct": 554
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 610,
+          "samplesMs": [
+            610,
+            610,
+            610
+          ],
+          "peakRssMB": 583,
+          "cpuPct": 765
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 610,
+          "samplesMs": [
+            610,
+            610,
+            600
+          ],
+          "peakRssMB": 584,
+          "cpuPct": 787
+        },
+        "incrPrimeMs": 770,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 310,
+          "samplesMs": [
+            310,
+            280,
+            340
+          ],
+          "peakRssMB": 448,
+          "cpuPct": 806
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 450,
+          "samplesMs": [
+            1020,
+            450,
+            430
+          ],
+          "peakRssMB": 596,
+          "cpuPct": 607
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 410,
+          "samplesMs": [
+            430,
+            410,
+            410
+          ],
+          "peakRssMB": 461,
+          "cpuPct": 757
+        }
+      },
+      "tsc": {
+        "cold": {
+          "killed": false,
+          "medianMs": 8060,
+          "samplesMs": [
+            8060,
+            8070,
+            8020
+          ],
+          "peakRssMB": 825,
+          "cpuPct": 149
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 7280,
+          "samplesMs": [
+            7330,
+            7270,
+            7280
+          ],
+          "peakRssMB": 826,
+          "cpuPct": 157
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 7280,
+          "samplesMs": [
+            7320,
+            7280,
+            7270
+          ],
+          "peakRssMB": 827,
+          "cpuPct": 158
+        },
+        "incrPrimeMs": 7980,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 2920,
+          "samplesMs": [
+            2890,
+            2920,
+            2980
+          ],
+          "peakRssMB": 512,
+          "cpuPct": 166
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 3120,
+          "samplesMs": [
+            6650,
+            3120,
+            3100
+          ],
+          "peakRssMB": 680,
+          "cpuPct": 164
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 3120,
+          "samplesMs": [
+            3100,
+            3150,
+            3120
+          ],
+          "peakRssMB": 522,
+          "cpuPct": 164
+        }
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 1020,
+          "samplesMs": [
+            1020,
+            1010,
+            1020
+          ],
+          "peakRssMB": 875,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 920,
+          "samplesMs": [
+            920,
+            910,
+            930
+          ],
+          "peakRssMB": 875,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 930,
+          "samplesMs": [
+            930,
+            930,
+            950
+          ],
+          "peakRssMB": 877,
+          "cpuPct": null
+        },
+        "serverInitMs": 919,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 30,
+          "samplesMs": [
+            30,
+            30,
+            30
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 66,
+          "samplesMs": [
+            66,
+            66,
+            65
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 67,
+          "samplesMs": [
+            66,
+            67,
+            67
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 878
+      }
+    },
+    "100000": {
+      "generateToHereMs": 3384,
+      "loadAvg1Before": 4.77,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 7360,
+          "samplesMs": [
+            7350,
+            7370,
+            7360
+          ],
+          "peakRssMB": 5204,
+          "cpuPct": 643
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 5990,
+          "samplesMs": [
+            6040,
+            5940,
+            5990
+          ],
+          "peakRssMB": 5402,
+          "cpuPct": 717
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 6000,
+          "samplesMs": [
+            5980,
+            6010,
+            6000
+          ],
+          "peakRssMB": 5405,
+          "cpuPct": 692
+        },
+        "incrPrimeMs": 7690,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 3070,
+          "samplesMs": [
+            2860,
+            3070,
+            3350
+          ],
+          "peakRssMB": 3769,
+          "cpuPct": 878
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 4290,
+          "samplesMs": [
+            5510,
+            4160,
+            4290
+          ],
+          "peakRssMB": 4029,
+          "cpuPct": 642
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 4250,
+          "samplesMs": [
+            4250,
+            4390,
+            4180
+          ],
+          "peakRssMB": 4237,
+          "cpuPct": 630
+        }
+      },
+      "tsc": {
+        "cold": {
+          "killed": false,
+          "medianMs": 70060,
+          "samplesMs": [
+            70060,
+            70050,
+            70930
+          ],
+          "peakRssMB": 6708,
+          "cpuPct": 120
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 66220,
+          "samplesMs": [
+            65960,
+            66940,
+            66220
+          ],
+          "peakRssMB": 6709,
+          "cpuPct": 123
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 66550,
+          "samplesMs": [
+            66550,
+            66300,
+            66870
+          ],
+          "peakRssMB": 6709,
+          "cpuPct": 123
+        },
+        "incrPrimeMs": 74280,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 21740,
+          "samplesMs": [
+            21650,
+            21800,
+            21740
+          ],
+          "peakRssMB": 3716,
+          "cpuPct": 139
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 23040,
+          "samplesMs": [
+            31870,
+            22910,
+            23040
+          ],
+          "peakRssMB": 4371,
+          "cpuPct": 136
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 23050,
+          "samplesMs": [
+            22800,
+            23050,
+            23300
+          ],
+          "peakRssMB": 3834,
+          "cpuPct": 137
+        }
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 8580,
+          "samplesMs": [
+            8870,
+            8580,
+            8420
+          ],
+          "peakRssMB": 2396,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 8620,
+          "samplesMs": [
+            8760,
+            8620,
+            8480
+          ],
+          "peakRssMB": 2396,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 8450,
+          "samplesMs": [
+            8360,
+            8450,
+            8660
+          ],
+          "peakRssMB": 2399,
+          "cpuPct": null
+        },
+        "serverInitMs": 8303,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 40,
+          "samplesMs": [
+            40,
+            40,
+            30
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 205,
+          "samplesMs": [
+            215,
+            205,
+            203
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 199,
+          "samplesMs": [
+            523,
+            199,
+            198
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 2404
+      }
+    },
+    "250000": {
+      "generateToHereMs": 5374,
+      "loadAvg1Before": 36.22,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 19850,
+          "samplesMs": [
+            20040,
+            19850,
+            19850
+          ],
+          "peakRssMB": 13482,
+          "cpuPct": 596
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 15750,
+          "samplesMs": [
+            15760,
+            15750,
+            15630
+          ],
+          "peakRssMB": 13854,
+          "cpuPct": 721
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 15640,
+          "samplesMs": [
+            15510,
+            15710,
+            15640
+          ],
+          "peakRssMB": 13851,
+          "cpuPct": 709
+        },
+        "incrPrimeMs": 21320,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 8750,
+          "samplesMs": [
+            8540,
+            8750,
+            8770
+          ],
+          "peakRssMB": 9403,
+          "cpuPct": 703
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 11970,
+          "samplesMs": [
+            14020,
+            11970,
+            11570
+          ],
+          "peakRssMB": 10507,
+          "cpuPct": 546
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 12560,
+          "samplesMs": [
+            12560,
+            12650,
+            11900
+          ],
+          "peakRssMB": 10559,
+          "cpuPct": 533
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 20990,
+          "samplesMs": [
+            20800,
+            21010,
+            20990
+          ],
+          "peakRssMB": 4869,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 21010,
+          "samplesMs": [
+            20920,
+            21010,
+            21210
+          ],
+          "peakRssMB": 4873,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 21080,
+          "samplesMs": [
+            21080,
+            20470,
+            21120
+          ],
+          "peakRssMB": 4876,
+          "cpuPct": null
+        },
+        "serverInitMs": 21015,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 40,
+          "samplesMs": [
+            40,
+            40,
+            40
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 939,
+          "samplesMs": [
+            952,
+            939,
+            508
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 499,
+          "samplesMs": [
+            499,
+            494,
+            920
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "serverPeakRssMB": 4871
+      }
+    },
+    "500000": {
+      "generateToHereMs": 9445,
+      "loadAvg1Before": 35.3,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 42520,
+          "samplesMs": [
+            42330,
+            42520,
+            42790
+          ],
+          "peakRssMB": 27733,
+          "cpuPct": 588
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 32970,
+          "samplesMs": [
+            32990,
+            32970,
+            32570
+          ],
+          "peakRssMB": 27665,
+          "cpuPct": 719
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 32890,
+          "samplesMs": [
+            32840,
+            32890,
+            33060
+          ],
+          "peakRssMB": 26915,
+          "cpuPct": 744
+        },
+        "incrPrimeMs": 45040,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 18090,
+          "samplesMs": [
+            17990,
+            18150,
+            18090
+          ],
+          "peakRssMB": 18794,
+          "cpuPct": 665
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 25230,
+          "samplesMs": [
+            27460,
+            25230,
+            24830
+          ],
+          "peakRssMB": 20899,
+          "cpuPct": 499
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 26260,
+          "samplesMs": [
+            26260,
+            26160,
+            26380
+          ],
+          "peakRssMB": 21116,
+          "cpuPct": 516
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "cold": {
+          "killed": false,
+          "medianMs": 41210,
+          "samplesMs": [
+            41210,
+            41940,
+            41080
+          ],
+          "peakRssMB": 9013,
+          "cpuPct": null
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 41080,
+          "samplesMs": [
+            41640,
+            40620,
+            41080
+          ],
+          "peakRssMB": 9001,
+          "cpuPct": null
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 41200,
+          "samplesMs": [
+            40980,
+            41200,
+            41530
+          ],
+          "peakRssMB": 9013,
+          "cpuPct": null
+        },
+        "serverInitMs": 41733,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 50,
+          "samplesMs": [
+            50,
+            50,
+            50
+          ],
+          "peakRssMB": null,
+          "cpuPct": null
+        },
+        "incrOneEdit": {
+          "killed": true,
+          "timedOut": true,
+          "phase": "sample 0"
+        },
+        "serverLogTail": "[2026-07-08 07:06:51.248] Checking files\n\nthread '<unnamed>' (444264) panicked at crates/flow_typing_utils/src/type_operation_utils.rs:295:10:\ncalled `Result::unwrap()` on an `Err` value: WorkerCanceled(WorkerCanceled)\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n[2026-07-08 08:06:50.733] Killing the worker processes\n[2026-07-08 08:06:50.733] Monitor is exiting with status NoError (Killed by `flow stop`. Exiting.)\n"
+      }
+    },
+    "1000000": {
+      "generateToHereMs": 18523,
+      "loadAvg1Before": 0.23,
+      "tsgo": {
+        "cold": {
+          "killed": false,
+          "medianMs": 88840,
+          "samplesMs": [
+            88840,
+            88800,
+            89210
+          ],
+          "peakRssMB": 53559,
+          "cpuPct": 620
+        },
+        "full": {
+          "killed": false,
+          "medianMs": 68610,
+          "samplesMs": [
+            68610,
+            68880,
+            68490
+          ],
+          "peakRssMB": 53735,
+          "cpuPct": 726
+        },
+        "fullWithLeafErrors": {
+          "killed": false,
+          "medianMs": 68970,
+          "samplesMs": [
+            68360,
+            68970,
+            69360
+          ],
+          "peakRssMB": 55229,
+          "cpuPct": 714
+        },
+        "incrPrimeMs": 95540,
+        "incrNoChange": {
+          "killed": false,
+          "medianMs": 37950,
+          "samplesMs": [
+            37950,
+            37830,
+            38000
+          ],
+          "peakRssMB": 37626,
+          "cpuPct": 630
+        },
+        "incrOneEdit": {
+          "killed": false,
+          "medianMs": 53650,
+          "samplesMs": [
+            57510,
+            53650,
+            52980
+          ],
+          "peakRssMB": 41564,
+          "cpuPct": 569
+        },
+        "incrOneEditError": {
+          "killed": false,
+          "medianMs": 55520,
+          "samplesMs": [
+            55490,
+            56330,
+            55520
+          ],
+          "peakRssMB": 41028,
+          "cpuPct": 558
+        }
+      },
+      "tsc": {
+        "skipped": "beyond tscAnchorMax — cost-based cutoff, not a capacity result"
+      },
+      "flow": {
+        "skipped": "flow died at a smaller scale (see that point's record)"
+      }
+    }
+  }
+}

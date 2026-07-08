@@ -174,8 +174,20 @@ function wholeProgram() {
       encoding: "utf8",
     });
   } catch (e) {
-    ok = false;
     out = (e.stdout || "") + (e.stderr || "");
+    // A signal-killed tsgo is a harness fault, never a gate verdict. /usr/bin/time
+    // converts a child's signal death into exit 128+signo (e.signal stays null), so
+    // without this check a crashed checker would read as a legitimate type-error exit
+    // and feed the breaking-change `caught` computation. Detect it numerically AND via
+    // GNU time's own marker line, and hard-fail instead of recording ok=false.
+    const sigLine = out.match(/Command terminated by signal\s+(\d+)/);
+    if (e.signal || (e.status != null && e.status >= 128) || sigLine) {
+      const how = e.signal ?? (sigLine ? `signal ${sigLine[1]}` : `exit ${e.status}`);
+      throw new Error(
+        `tsgo killed (${how}) — a crashed checker is a harness fault, not a measurement: ${out.slice(-800)}`,
+      );
+    }
+    ok = false;
   }
   const ms = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
   const rssKb = +(out.match(/Maximum resident set size \(kbytes\): (\d+)/) || [])[1] || null;
