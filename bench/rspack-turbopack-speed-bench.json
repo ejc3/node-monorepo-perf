@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-07-08T23:40:58.339Z",
+  "canonical": true,
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 2.15
+  },
+  "shape": {
+    "pages": 60,
+    "components": 30,
+    "samples": 3,
+    "listedRoutes": 61,
+    "linker": "node-modules"
+  },
+  "versions": {
+    "yarn": "4.17.0",
+    "next": "16.0.1",
+    "nextRspack": "16.0.1",
+    "rspackCore": "1.0.0",
+    "node": "v22.22.0"
+  },
+  "cells": {
+    "turbopack": {
+      "builder": "turbopack",
+      "coldMs": 9025,
+      "warmMs": 9234,
+      "coldSamples": [
+        9025,
+        8805,
+        9141
+      ],
+      "warmSamples": [
+        9234,
+        9256,
+        9127
+      ],
+      "outputBytes": 10993664,
+      "turbopackBanner": true,
+      "rspackBanner": false,
+      "webpackCompilationSpan": false
+    },
+    "webpack": {
+      "builder": "webpack",
+      "coldMs": 18954,
+      "warmMs": 15829,
+      "coldSamples": [
+        19074,
+        18954,
+        18873
+      ],
+      "warmSamples": [
+        15846,
+        15829,
+        15808
+      ],
+      "outputBytes": 108647424,
+      "turbopackBanner": false,
+      "rspackBanner": false,
+      "webpackCompilationSpan": true
+    },
+    "rspack": {
+      "builder": "rspack",
+      "coldMs": 15483,
+      "warmMs": 15673,
+      "coldSamples": [
+        15483,
+        15498,
+        15431
+      ],
+      "warmSamples": [
+        15639,
+        15673,
+        15712
+      ],
+      "outputBytes": 5060608,
+      "turbopackBanner": false,
+      "rspackBanner": true,
+      "webpackCompilationSpan": false
+    }
+  },
+  "coldRanking": [
+    {
+      "builder": "turbopack",
+      "coldMs": 9025
+    },
+    {
+      "builder": "rspack",
+      "coldMs": 15483
+    },
+    {
+      "builder": "webpack",
+      "coldMs": 18954
+    }
+  ],
+  "coldRatioVsFastest": {
+    "turbopack": 1,
+    "webpack": 2.1,
+    "rspack": 1.72
+  },
+  "finding": "On a generated 60-route App Router app under the node-modules linker, cold build speed ranks turbopack 9025ms < rspack 15483ms < webpack 18954ms (×1/2.1/1.72 turbopack/webpack/rspack vs the fastest). Turbopack is Vercel's optimized default and leads here, but it does not run under Yarn PnP; among the PnP-capable bundlers rspack builds faster than webpack. Each build's compiler is proven from Next's span trace, so the numbers are the named bundler, not a fallback."
+}

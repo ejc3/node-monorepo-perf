@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-07-08T23:36:40.209Z",
+  "canonical": true,
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 0.17
+  },
+  "versions": {
+    "yarn": "4.17.0",
+    "next": "16.0.1",
+    "nextRspack": "16.0.1",
+    "rspackCore": "1.0.0",
+    "node": "v22.22.0"
+  },
+  "matrix": {
+    "pnp": {
+      "turbopack": {
+        "linker": "pnp",
+        "builder": "turbopack",
+        "exit": 1,
+        "ok": false,
+        "ms": 2196,
+        "outputPresent": false,
+        "outputBytes": 7168,
+        "turbopackBanner": true,
+        "rspackBanner": false,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": true
+      },
+      "webpack": {
+        "linker": "pnp",
+        "builder": "webpack",
+        "exit": 0,
+        "ok": true,
+        "ms": 19712,
+        "outputPresent": true,
+        "outputBytes": 49935360,
+        "turbopackBanner": false,
+        "rspackBanner": false,
+        "webpackCompilationSpan": true,
+        "pnpResolveFailure": false
+      },
+      "rspack": {
+        "linker": "pnp",
+        "builder": "rspack",
+        "exit": 0,
+        "ok": true,
+        "ms": 18005,
+        "outputPresent": true,
+        "outputBytes": 1885184,
+        "turbopackBanner": false,
+        "rspackBanner": true,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false
+      }
+    },
+    "nm": {
+      "turbopack": {
+        "linker": "nm",
+        "builder": "turbopack",
+        "exit": 0,
+        "ok": true,
+        "ms": 6189,
+        "outputPresent": true,
+        "outputBytes": 3044352,
+        "turbopackBanner": true,
+        "rspackBanner": false,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false
+      },
+      "webpack": {
+        "linker": "nm",
+        "builder": "webpack",
+        "exit": 0,
+        "ok": true,
+        "ms": 13786,
+        "outputPresent": true,
+        "outputBytes": 44170240,
+        "turbopackBanner": false,
+        "rspackBanner": false,
+        "webpackCompilationSpan": true,
+        "pnpResolveFailure": false
+      },
+      "rspack": {
+        "linker": "nm",
+        "builder": "rspack",
+        "exit": 0,
+        "ok": true,
+        "ms": 11935,
+        "outputPresent": true,
+        "outputBytes": 1741824,
+        "turbopackBanner": false,
+        "rspackBanner": true,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false
+      }
+    }
+  },
+  "finding": "Turbopack has no Yarn PnP resolver (vercel/next.js#42651, declined + locked), so a Next build under the PnP linker aborts on next/package.json resolution. Rspack added PnP resolution (web-infra-dev/rspack#13047), and Next's next-rspack integration carries it through: under PnP, rspack and webpack build the same app Turbopack cannot. Under the node-modules linker all three build. For a PnP shop wanting a fast (Rust, webpack-compatible) Next bundler, rspack is the answer; Turbopack still requires node-modules (or pnpm)."
+}
