@@ -138,11 +138,11 @@ const SECTIONS = [
     note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.`,
   },
   {
-    title: "Typecheck — tsc vs tsgo",
+    title: "Typecheck — tsgo vs tsc",
     compareAxis: "row",
     cols: [
-      { k: "tsc", label: "tsc" },
       { k: "tsgo", label: "tsgo" },
+      { k: "tsc", label: "tsc" },
     ],
     rows: [
       [
@@ -157,11 +157,11 @@ const SECTIONS = [
     source: "bench/typecheck-bench.json, bench/typecheck-parity-bench.json",
   },
   {
-    title: "Production build — Next vs Vite",
+    title: "Production build — Vite vs Next",
     compareAxis: "row",
     cols: [
-      { k: "next", label: "Next" },
       { k: "vite", label: "Vite" },
+      { k: "next", label: "Next" },
     ],
     rows: [[`${BB.apps} apps / ${BB.libs} libs`, { next: BB.next.ms, vite: BB.vite.ms }]],
     source: "bench/build-bench.json",
@@ -182,11 +182,11 @@ const SECTIONS = [
     note: "One tool, many situations: cheapest in green, others relative to it.",
   },
   {
-    title: `Lint — ESLint vs oxlint (${LB.corpus.files.toLocaleString("en-US")} files)`,
+    title: `Lint — oxlint vs ESLint (${LB.corpus.files.toLocaleString("en-US")} files)`,
     compareAxis: "row",
     cols: [
-      { k: "eslint", label: "ESLint" },
       { k: "oxlint", label: "oxlint" },
+      { k: "eslint", label: "ESLint" },
     ],
     rows: [
       [
@@ -392,7 +392,7 @@ const out = [
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">`,
   `<rect width="${W}" height="${H}" fill="#ffffff"/>`,
   `<text x="${PAD}" y="40" font-size="22" font-weight="700" fill="#1f2328">Tooling head-to-head — wall time</text>`,
-  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or, last, one tool's situations). Fastest cell green; others show how many times slower.</text>`,
+  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or one tool's situations), columns in the SAME order everywhere: the typically-fastest tool leftmost. Fastest cell green; others show how many times slower.</text>`,
   `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`Machine: ${PAR.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
   ...T,
   `</svg>`,

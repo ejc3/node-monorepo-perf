@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1156" height="2070" viewBox="0 0 1156 2070" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
 <rect width="1156" height="2070" fill="#ffffff"/>
 <text x="28" y="40" font-size="22" font-weight="700" fill="#1f2328">Tooling head-to-head — wall time</text>
-<text x="28" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or, last, one tool's situations). Fastest cell green; others show how many times slower.</text>
+<text x="28" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or one tool's situations), columns in the SAME order everywhere: the typically-fastest tool leftmost. Fastest cell green; others show how many times slower.</text>
 <text x="28" y="80" font-size="13" fill="#57606a">Machine: 64-core host. Every number traces to the cited bench JSON.</text>
 <text x="28" y="108" font-size="16" font-weight="700" fill="#1f2328">Install the workspace — bun vs pnpm vs yarn</text>
 <rect x="28" y="126" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
@@ -225,45 +225,45 @@
 <text x="28" y="870" font-size="11" fill="#57606a">Source: bench/container-install-bench.json</text>
 <text x="28" y="885" font-size="11" fill="#57606a">Same workspace shape as the 1,000-apps install rows above (11,898 dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what</text>
 <text x="28" y="900" font-size="11" fill="#57606a">a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.</text>
-<text x="28" y="930" font-size="16" font-weight="700" fill="#1f2328">Typecheck — tsc vs tsgo</text>
+<text x="28" y="930" font-size="16" font-weight="700" fill="#1f2328">Typecheck — tsgo vs tsc</text>
 <rect x="28" y="948" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="978" font-size="12" font-weight="600" fill="#57606a">scenario</text>
 <rect x="318" y="948" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="399" y="978" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsc</text>
+<text x="399" y="978" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsgo</text>
 <rect x="480" y="948" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="561" y="978" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsgo</text>
+<text x="561" y="978" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">tsc</text>
 <rect x="28" y="998" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1031" font-size="14" fill="#1f2328">3,000-module program</text>
-<rect x="318" y="998" width="162" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
-<text x="399" y="1022" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
-<text x="399" y="1042" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.1s</text>
-<rect x="480" y="998" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1022" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.26s</text>
-<text x="561" y="1042" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="998" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1022" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.26s</text>
+<text x="399" y="1042" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="998" width="162" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
+<text x="561" y="1022" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
+<text x="561" y="1042" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.1s</text>
 <rect x="28" y="1054" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1087" font-size="14" fill="#1f2328">type-heavy program, 4,000:400 (3,200 lib modules)</text>
-<rect x="318" y="1054" width="162" height="56" fill="rgb(199,104,28)" stroke="#ffffff"/>
-<text x="399" y="1078" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
-<text x="399" y="1098" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<rect x="480" y="1054" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1078" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
-<text x="561" y="1098" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="1054" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1078" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
+<text x="399" y="1098" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="1054" width="162" height="56" fill="rgb(199,104,28)" stroke="#ffffff"/>
+<text x="561" y="1078" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
+<text x="561" y="1098" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
 <text x="28" y="1126" font-size="11" fill="#57606a">Source: bench/typecheck-bench.json, bench/typecheck-parity-bench.json</text>
-<text x="28" y="1156" font-size="16" font-weight="700" fill="#1f2328">Production build — Next vs Vite</text>
+<text x="28" y="1156" font-size="16" font-weight="700" fill="#1f2328">Production build — Vite vs Next</text>
 <rect x="28" y="1174" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="1204" font-size="12" font-weight="600" fill="#57606a">scenario</text>
 <rect x="318" y="1174" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="399" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">Next</text>
+<text x="399" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">Vite</text>
 <rect x="480" y="1174" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="561" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">Vite</text>
+<text x="561" y="1204" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">Next</text>
 <rect x="28" y="1224" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1257" font-size="14" fill="#1f2328">40 apps / 24 libs</text>
-<rect x="318" y="1224" width="162" height="56" fill="rgb(213,162,28)" stroke="#ffffff"/>
-<text x="399" y="1248" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.3 slower</text>
-<text x="399" y="1268" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<rect x="480" y="1224" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1248" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">7.6s</text>
-<text x="561" y="1268" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="1224" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1248" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">7.6s</text>
+<text x="399" y="1268" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="1224" width="162" height="56" fill="rgb(213,162,28)" stroke="#ffffff"/>
+<text x="561" y="1248" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.3 slower</text>
+<text x="561" y="1268" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
 <text x="28" y="1296" font-size="11" fill="#57606a">Source: bench/build-bench.json</text>
 <text x="28" y="1311" font-size="11" fill="#57606a">Different feature sets: Next App Router vs Vite SPA.</text>
 <text x="28" y="1341" font-size="16" font-weight="700" fill="#1f2328">pnpm install situations — 1,000 apps, 41,069-line lockfile</text>
@@ -298,37 +298,37 @@
 <text x="399" y="1677" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">233.4s</text>
 <text x="28" y="1705" font-size="11" fill="#57606a">Source: bench/install-modes-bench.json</text>
 <text x="28" y="1720" font-size="11" fill="#57606a">One tool, many situations: cheapest in green, others relative to it.</text>
-<text x="28" y="1750" font-size="16" font-weight="700" fill="#1f2328">Lint — ESLint vs oxlint (800 files)</text>
+<text x="28" y="1750" font-size="16" font-weight="700" fill="#1f2328">Lint — oxlint vs ESLint (800 files)</text>
 <rect x="28" y="1768" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="1798" font-size="12" font-weight="600" fill="#57606a">scenario</text>
 <rect x="318" y="1768" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="399" y="1798" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">ESLint</text>
+<text x="399" y="1798" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">oxlint</text>
 <rect x="480" y="1768" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="561" y="1798" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">oxlint</text>
+<text x="561" y="1798" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">ESLint</text>
 <rect x="28" y="1818" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1851" font-size="14" fill="#1f2328">syntactic (524 vs 567 rules)</text>
-<rect x="318" y="1818" width="162" height="56" fill="rgb(180,53,39)" stroke="#ffffff"/>
-<text x="399" y="1842" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×63 slower</text>
-<text x="399" y="1862" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">12.0s</text>
-<rect x="480" y="1818" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1842" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
-<text x="561" y="1862" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="1818" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1842" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
+<text x="399" y="1862" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="1818" width="162" height="56" fill="rgb(180,53,39)" stroke="#ffffff"/>
+<text x="561" y="1842" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×63 slower</text>
+<text x="561" y="1862" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">12.0s</text>
 <rect x="28" y="1874" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1907" font-size="14" fill="#1f2328">syntactic, ESLint --cache</text>
-<rect x="318" y="1874" width="162" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
-<text x="399" y="1898" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×10 slower</text>
-<text x="399" y="1918" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.9s</text>
-<rect x="480" y="1874" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1898" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
-<text x="561" y="1918" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="1874" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1898" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.19s</text>
+<text x="399" y="1918" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="1874" width="162" height="56" fill="rgb(198,98,28)" stroke="#ffffff"/>
+<text x="561" y="1898" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×10 slower</text>
+<text x="561" y="1918" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">1.9s</text>
 <rect x="28" y="1930" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1963" font-size="14" fill="#1f2328">type-aware</text>
-<rect x="318" y="1930" width="162" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
-<text x="399" y="1954" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
-<text x="399" y="1974" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.5s</text>
-<rect x="480" y="1930" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="561" y="1954" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.40s</text>
-<text x="561" y="1974" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="318" y="1930" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
+<text x="399" y="1954" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.40s</text>
+<text x="399" y="1974" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
+<rect x="480" y="1930" width="162" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
+<text x="561" y="1954" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
+<text x="561" y="1974" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.5s</text>
 <text x="28" y="2002" font-size="11" fill="#57606a">Source: bench/lint-bench.json</text>
 <text x="28" y="2017" font-size="11" fill="#57606a">ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is</text>
 <text x="28" y="2032" font-size="11" fill="#57606a">mostly tsgo-vs-tsc (oxlint via tsgolint, alpha).</text>
