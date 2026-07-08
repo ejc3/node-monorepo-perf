@@ -52,8 +52,8 @@
 <text x="885" y="256" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.0 slower</text>
 <text x="885" y="276" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.4s</text>
 <rect x="966" y="232" width="162" height="56" fill="rgb(36,129,54)" stroke="#ffffff"/>
-<text x="1047" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×1.0 slower</text>
-<text x="1047" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">2.3s</text>
+<text x="1047" y="256" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.3s</text>
+<text x="1047" y="276" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">+4% vs fastest</text>
 <rect x="28" y="288" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="321" font-size="14" fill="#1f2328">Cold · 2,000 apps</text>
 <rect x="318" y="288" width="162" height="56" fill="rgb(212,161,28)" stroke="#ffffff"/>
