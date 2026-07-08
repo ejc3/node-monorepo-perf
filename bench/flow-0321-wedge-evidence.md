@@ -73,3 +73,22 @@ unreleased as of 0.321.0, so every released binary through 0.321 carries the wed
 backport against the v0.321.0 source (scheduler `catch_unwind` containment +
 propagating the two observed sites' errors) lives on the `fix-workercanceled-wedge`
 branch of the ejc3/flow fork.
+
+## Retest: the trigger isolated, the upstream fix verified
+
+A directed retest harness makes the race reproducible on demand and verifies the fix.
+Setup: a fresh 500k-module corpus of the same layered shape per binary; `flow start
+--wait`; then edit-recheck cycles. Two pressure modes:
+
+- **Sequential** (edit → force-recheck → status, settled between cycles): released
+  0.321.0 survived 10 cycles clean. The race needs an in-flight check to cancel.
+- **Overlapping** (edit A → notify → 120–480ms later, while the recheck runs, edit B →
+  notify → status): released 0.321.0 **wedged at cycle 13** with the identical panic
+  (`type_operation_utils.rs:295`, WorkerCanceled unwrap) and the identical symptom — a
+  status client hung past the 8-minute ceiling against a healthy socket. The build of
+  Flow main containing the three fix commits **survived 20 overlapping cycles** under
+  the same pressure, no panic.
+
+The mid-check edit is the trigger: the watcher's change report cancels the in-flight
+check, and 0.321 panics on the resulting `WorkerCanceled`. Recheck round-trips on the
+same corpus: released 0.321 2.0–3.5s per cycle; the main build 0.3–0.7s.
