@@ -149,6 +149,23 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   tsc/turbo/oxlint work); ms fields are single yarn-exec samples, diagnostic only →
   `bench/pnp-compat-bench.json`, folded into TOOLING.md ("yarn PnP toolchain
   compatibility, priced") + OPTIMAL-STACK/LIMITS.
+- `node scripts/tsgo-pnp-bench.mjs` (`TSGO_PNP_BIN`=patched tsgo, `TSGO_PNP_WORK` default
+  `/mnt/fcvm-btrfs/tsgo-pnp-bench`, `TSGO_PNP_KEEP=1`, `TSGO_PNP_ALLOW_BUSY=1`) — closes the
+  pnp-compat gap: prices tsgo's **native PnP support** (upstream microsoft/typescript-go#460)
+  and the Next.js build matrix. Scaffolds an app importing a workspace lib + a leaf npm pkg
+  (react, a cache zip) + a peer-dep pkg (react-dom, which Yarn virtualizes under
+  `.yarn/__virtual__`), installed at Yarn's PnP defaults (inlined `.pnp.cjs`, no sidecar) and
+  under the node-modules linker (CONTROL). Matrix: stock tsgo (repo pin) vs patched tsgo
+  (`TSGO_PNP_BIN`, provenance recorded) × PnP vs node-modules, recording exit / error-code
+  histogram / program `--listFiles` count; a seeded TS2322 red control asserts patched tsgo
+  still type-checks (not skips) under PnP. Next matrix: `next build --webpack` (builds under
+  PnP) vs Turbopack (fails, `next/package.json` signature asserted) under PnP, plus Turbopack
+  under node-modules (builds). Asserts: stock PnP fails w/ TS2307, patched PnP === control ===
+  0 errors, webpack-PnP builds, Turbopack-PnP fails, Turbopack-nm builds. Without `TSGO_PNP_BIN`
+  only the stock+Next columns run → gitignored partial (canonical only on a patched run).
+  Self-contained (btrfs work dir, removed on exit unless `TSGO_PNP_KEEP=1`), no worktree →
+  `bench/tsgo-pnp-bench.json`, folded into TOOLING.md ("Closing the gap: native PnP for tsgo,
+  and Next under PnP").
 - `node scripts/vite-task-bench.mjs` (`VITE_TASK_SCALES` default `"300:100 1000:200"`,
   `VP_SAMPLES` 3, `VITE_TASK_ALLOW_BUSY=1`) — **Vite Task (Vite+ `vp run`) vs Turborepo**
   on the identical dep-free `typecheck:tsgo` task set (derived per-package
@@ -633,7 +650,8 @@ to re-render it. Docs: `README.md` (overview +
 scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
-toolchain-compat pricing from `bench/pnp-compat-bench.json` and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), `LIMITS.md` (what stays O(repo),
+toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo + Next-build
+matrix that closes it from `bench/tsgo-pnp-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per

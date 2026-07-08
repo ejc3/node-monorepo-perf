@@ -63,8 +63,47 @@ fails under PnP is the finding (`bench/pnp-compat-bench.json`).
 | `next build` | **fails** (`We couldn't find the Next.js package (next/package.json) from the project directory` — Turbopack cannot locate the next package in a tree with no node_modules to walk; the failure persists with `turbopack.root` explicitly pinned in both trees) | works |
 
 So yarn-PnP's install wins carry a concrete boundary on this stack: the classic pipeline
-(tsc + turbo + oxlint) runs unchanged, and the optimal-stack tools (tsgo, Next's build) do
-not run under PnP — under yarn's node-modules linker no such caveat applies.
+(tsc + turbo + oxlint) runs unchanged, and the stock optimal-stack tools (the pinned tsgo,
+Next's default Turbopack build) do not run under PnP — under yarn's node-modules linker no
+such caveat applies.
+
+### Closing the gap: native PnP for tsgo, and Next under PnP (`scripts/tsgo-pnp-bench.mjs`)
+
+The two failures above are the native binary and the native bundler: neither loads Yarn's
+runtime `require()` shim, so neither resolves through PnP. Both have a path to green,
+measured on a workspace installed at Yarn's PnP defaults (the manifest inlined in `.pnp.cjs`,
+no `.pnp.data.json` sidecar) with the node-modules linker as the control
+(`bench/tsgo-pnp-bench.json`). The app imports a workspace lib, a leaf npm package (`react`,
+a plain cache zip), and a package Yarn virtualizes for its peer dependency (`react-dom`, under
+`.yarn/__virtual__`), so all three resolution shapes are exercised.
+
+**tsgo:** a native PnP resolver added to tsgo ([microsoft/typescript-go#460](https://github.com/microsoft/typescript-go/issues/460))
+reads the manifest, keeps package locations in Yarn's `__virtual__` space (so the resolver
+identifies the owning package of an import made from inside a virtualized package), and serves
+package files straight from the cache `.zip` archives, dereferencing `__virtual__` paths at the
+filesystem read. Same tree, same tsconfig:
+
+| checker | under PnP | under node-modules (control) |
+|---|---|---|
+| stock tsgo (`@typescript/native-preview`) | **fails** — 3× `TS2307`, 67 files in program (react, react-dom, the workspace lib unresolved) | 0 errors, 83 files |
+| tsgo + PnP resolver (the PR) | 0 errors, 83 files — matches the control | 0 errors, 83 files |
+
+A seeded type error still surfaces (`TS2322`) under PnP, so the checker type-checks through
+PnP-resolved modules rather than skipping them.
+
+**Next.js:** `next build` succeeds under PnP on the **webpack builder** (`next build --webpack`,
+run through yarn so the PnP runtime is injected — webpack 5 resolves PnP natively). Turbopack,
+the Next 16 default, has no PnP resolver ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651),
+"not planned") and fails with the `next/package.json` resolution error. Measured:
+
+| `next build` | PnP | node-modules (control) |
+|---|---|---|
+| webpack builder | builds | builds |
+| Turbopack (default) | **fails** (`couldn't find the Next.js package`) | builds |
+
+So the fully-green PnP configuration is **tsgo-with-PnP + `next build --webpack`**; teams that
+require Turbopack use Yarn's node-modules (or pnpm) linker, under which both the stock tsgo and
+Turbopack already work.
 
 ### Specifier form and node-linker (`scripts/perf-matrix.mjs`)
 
