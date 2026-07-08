@@ -225,7 +225,7 @@ for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]
 // Doc-linked charts produced by a SEPARATE generator, not this script's `made` set: comparison-chart.mjs
 // owns tool-comparison.svg. Exempt them from the stale-warning and from deletion so a plain `make chart`
 // neither false-warns about a chart it doesn't render nor removes it.
-const external = new Set(["tool-comparison.svg"]);
+const external = new Set(["tool-comparison.svg", "checker-scale.svg"]);
 for (const f of canonical) {
   if (!made.includes(f) && !external.has(f)) {
     console.warn(

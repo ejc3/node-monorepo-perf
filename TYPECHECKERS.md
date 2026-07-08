@@ -23,6 +23,10 @@ a cost cutoff, not a capacity result), and **Flow** (Meta's checker, built for e
 this scale — swept until its server wedged at 500k, the crash subsection below). Data: `bench/tsgo-scale-bench.json`; 64-core arm64 box, corpus
 on the btrfs NVMe mount (recorded in the JSON).
 
+![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)
+
+> High-resolution PNG of the chart above: [`bench/charts/checker-scale.png`](bench/charts/checker-scale.png). Regenerate both with `make scale-chart`.
+
 The corpus is layered with **fixed depth**: modules sit in 100 layers, each importing up to 3
 from the layer below (layer 0 imports nothing), so depth stays constant while width grows to 1M — the wide-not-deep
 geometry real monorepos have. The shape is load-bearing: a chain whose depth grows with N

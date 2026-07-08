@@ -322,10 +322,14 @@ for (const sec of SECTIONS) {
       T.push(
         `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${rgbCss(rgb)}" stroke="#ffffff"/>`,
       );
+      // the × multiplier IS the headline for every non-fastest cell; the absolute
+      // time is the sub-line (the fastest cell keeps its time as the headline)
+      const fastest = mult <= 1.0001;
+      const main = fastest ? fmtS(v) : fmtMult(mult) + " slower";
+      const sub = fastest ? "fastest" : fmtS(v);
       T.push(
-        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 - 4}" font-size="16" font-weight="700" fill="${ink}" text-anchor="middle">${fmtS(v)}</text>`,
+        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 - 4}" font-size="16" font-weight="700" fill="${ink}" text-anchor="middle">${esc(main)}</text>`,
       );
-      const sub = mult <= 1.0001 ? "fastest" : fmtMult(mult) + " slower";
       T.push(
         `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="13" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
       );

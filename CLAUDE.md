@@ -563,6 +563,39 @@ install from `bench/container-install-bench.json`, typecheck, build, pnpm
 install-situations, lint) from the comparison benches, embedded in the README, and in the same step
 rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
 linked below the SVG) so a chart regeneration regenerates both — `make comparison-chart` regenerates both.
+`scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`)
+— the million-module checker heat chart (whole-program check, red-vs-green, the save loop by mechanic,
+completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
+`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json`, embedded in TYPECHECKERS.md; both charts
+ride the same `.github/workflows/charts.yml` byte-gate.
+
+**Comparison-chart conventions (every chart generator follows these):**
+
+- **One visual grammar.** Heat-table sections; per row the FASTEST cell is green and every
+  other cell's headline is its multiple of that best ("×N slower") — the number IS the cell,
+  not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
+  log-multiple space, so ×12 is the same color in every chart.
+- **A timeout is a floor, never a dash and never green.** A run that hit a ceiling renders
+  AT that real ceiling with a ≥ ("wedged ≥1h", "timed out ≥2m") and its × is computed from
+  the floor against the row's measured best ("≥×3,629 slower"). "—" is reserved for
+  not-measured (anchor cutoff, or a checker already dead at a smaller scale) and the note
+  says which. A timeout with no measured competitor in its row gets the floor but no ×.
+- **Deterministic from the cited bench JSONs** — no hand numbers, no Date; missing fields
+  throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
+  asserted (e.g. the chart REQUIRES the flow 500k timeout record and fails if the dataset
+  changes, forcing a deliberate chart update).
+- **SVG + PNG in one step, gated in CI.** The generator writes the SVG and rasterizes the
+  300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
+  delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs
+  are committed back). The doc embeds the SVG with the PNG linked below it.
+- **New chart generator checklist:** register it here; wire `charts.yml` (paths + render +
+  gate + PNG commit-back); add its SVG to `chart.mjs`'s `external` set (else `make chart`
+  deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link.
+- **The commit-back races open PRs.** After any chart run on main, the pushed-back PNG
+  binary-conflicts with every open PR that also touches it — and GitHub SILENTLY creates no
+  `pull_request` workflow runs for a conflicted PR ("no checks reported" + `mergeable:
+  CONFLICTING` is the signature, not a queue delay). Rebase the PR onto main keeping the
+  PR's render; checks fire on the push.
 The `.github/workflows/charts.yml` CI job re-renders both from the committed bench data and byte-gates the
 SVG (deterministic) against drift; for the PNG (whose bytes are ImageMagick-version dependent, so not
 byte-gated) it deletes the committed PNG before re-rendering (a `convert` failure then leaves it absent and
