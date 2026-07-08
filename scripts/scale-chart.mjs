@@ -369,9 +369,21 @@ for (const sec of SECTIONS) {
     y += ROW_H;
   });
   y += 16;
-  T.push(
-    `<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc("Source: " + sec.source)}</text>`,
-  );
+  {
+    // clickable source links (relative hrefs — resolve from bench/charts/ wherever the
+    // SVG is served; GitHub's README <img> strips interactivity, the Raw view keeps it)
+    const parts = sec.source.split(", ");
+    let sx = PAD;
+    T.push(`<text x="${sx}" y="${y}" font-size="11" fill="#57606a">Source: </text>`);
+    sx += 46;
+    parts.forEach((p, i) => {
+      const label = p + (i < parts.length - 1 ? "," : "");
+      T.push(
+        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${y}" font-size="11" fill="#57606a" text-decoration="underline">${esc(label)}</text></a>`,
+      );
+      sx += label.length * 5.6 + 6;
+    });
+  }
   if (sec.note) {
     const noteChars = Math.floor((W - PAD * 2) / 5.6);
     const lines = [];
