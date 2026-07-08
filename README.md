@@ -188,6 +188,12 @@ Which install tool is fastest depends on what is already cached when the install
 
 > High-resolution PNG of the chart above: [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
 
+The same grammar applied to one program growing to a million modules — the whole-program check (green and red), the save loop by mechanic including the recorded Flow wedge at its real 1h ceiling, completion with result-set counts, and the released-vs-main wedge A/B (full analysis in [TYPECHECKERS.md](TYPECHECKERS.md)):
+
+![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)
+
+> High-resolution PNG of the chart above: [`bench/charts/checker-scale.png`](bench/charts/checker-scale.png). Regenerate with `make scale-chart`.
+
 | area | headline finding | docs |
 |---|---|---|
 | **Install cost** | pnpm cold install is resolve-bound and ~linear: 47.8s → 471.2s (200 → 2,000 apps). bun installs the same dependency set 62–357× faster; yarn 4 sits between at small scale (node-modules 3.2s / PnP 1.7s at 200 apps) but scales flatter, overtaking bun at 2,000 apps (PnP 3.2s / node-modules 6.2s vs bun 7.5s cold; yarn-PnP is also the fastest warm install at 1,000–2,000 apps — but PnP can't run this repo's tsgo/`next build` stack, see the rollout-driver row below). The cold resolve is rare when the lockfile is committed: at 1,000 apps a frozen install is 7–9s and a one-dependency change ~10s; only a missing lockfile pays the full cold install (~16 min at 4,000 apps), which the resolve dominates (98% at 2,000 apps, the largest scale measured). | [FEASIBILITY](FEASIBILITY.md), [TOOLING](TOOLING.md) |
