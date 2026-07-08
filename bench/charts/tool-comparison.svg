@@ -29,8 +29,9 @@
 <text x="885" y="180" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
 <text x="885" y="196" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">node-modules</text>
 <rect x="966" y="158" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="1047" y="180" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
-<text x="1047" y="196" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">PnP</text>
+<text x="1047" y="176" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
+<text x="1047" y="192" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">PnP</text>
+<text x="1047" y="205" font-size="9" fill="#57606a" text-anchor="middle">no nm tree — zip cache + table</text>
 <rect x="28" y="208" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="241" font-size="14" fill="#1f2328">Cold · 200 apps · 2,649 dep edges</text>
 <rect x="318" y="208" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
@@ -196,8 +197,9 @@
 <text x="723" y="746" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
 <text x="723" y="762" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">node-modules</text>
 <rect x="804" y="724" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="885" y="746" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
-<text x="885" y="762" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">PnP</text>
+<text x="885" y="742" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">yarn</text>
+<text x="885" y="758" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">PnP</text>
+<text x="885" y="771" font-size="9" fill="#57606a" text-anchor="middle">no nm tree — zip cache + table</text>
 <rect x="966" y="724" width="162" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="1047" y="754" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">npm</text>
 <rect x="28" y="774" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
