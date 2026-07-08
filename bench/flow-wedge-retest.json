@@ -1,0 +1,264 @@
+{
+  "what": "Flow wedge retest: the 500k recheck-cancellation race (facebook/flow#9454), released 0.321.0 vs a build of flow main containing the three upstream fix commits",
+  "binaries": {
+    "released": {
+      "source": "flow-bin 0.321.0 (npm), linux-arm64",
+      "version": "0.321.0"
+    },
+    "main": {
+      "source": "facebook/flow main @ cdb4f637 (contains fixes dc725ff91b0e, 74fc09a8350c, 495119781038; version string unbumped at 0.321.0)",
+      "build": "cargo build --release -p flow_cli_support --bin flow_cli, stable rustc 1.93.0 with RUSTC_BOOTSTRAP=1 + -Zcrate-attr=feature(if_let_guard)"
+    }
+  },
+  "corpus": "500,000 modules, layered fixed-depth (100 layers, <=3 imports from the previous layer), // @flow per module \u2014 the tsgo-scale-bench flow-corpus shape",
+  "modes": {
+    "sequential": "edit -> force-recheck -> status, settled between cycles (10 cycles)",
+    "storm": "edit A -> notify -> 120-480ms later, mid-recheck, edit B -> notify -> status (20 cycles) \u2014 the watcher-reports-mid-check collision from the recorded wedges"
+  },
+  "runs": [
+    {
+      "label": "released-0321 sequential",
+      "serverInitS": 22,
+      "cycles": [
+        {
+          "cycle": 1,
+          "ms": 2261
+        },
+        {
+          "cycle": 2,
+          "ms": 2018
+        },
+        {
+          "cycle": 3,
+          "ms": 2043
+        },
+        {
+          "cycle": 4,
+          "ms": 2007
+        },
+        {
+          "cycle": 5,
+          "ms": 2036
+        },
+        {
+          "cycle": 6,
+          "ms": 3454
+        },
+        {
+          "cycle": 7,
+          "ms": 2069
+        },
+        {
+          "cycle": 8,
+          "ms": 2011
+        },
+        {
+          "cycle": 9,
+          "ms": 2017
+        },
+        {
+          "cycle": 10,
+          "ms": 2050
+        }
+      ],
+      "wedged": false,
+      "result": "survived 10 edit-recheck cycles, no panic"
+    },
+    {
+      "label": "main sequential",
+      "serverInitS": 23,
+      "cycles": [
+        {
+          "cycle": 1,
+          "ms": 162
+        },
+        {
+          "cycle": 2,
+          "ms": 160
+        },
+        {
+          "cycle": 3,
+          "ms": 161
+        },
+        {
+          "cycle": 4,
+          "ms": 160
+        },
+        {
+          "cycle": 5,
+          "ms": 483
+        },
+        {
+          "cycle": 6,
+          "ms": 167
+        },
+        {
+          "cycle": 7,
+          "ms": 167
+        },
+        {
+          "cycle": 8,
+          "ms": 168
+        },
+        {
+          "cycle": 9,
+          "ms": 479
+        },
+        {
+          "cycle": 10,
+          "ms": 167
+        }
+      ],
+      "wedged": false,
+      "result": "survived 10 edit-recheck cycles, no panic"
+    },
+    {
+      "label": "released-0321 storm",
+      "serverInitS": 22,
+      "cycles": [
+        {
+          "cycle": 1,
+          "ms": 3483
+        },
+        {
+          "cycle": 2,
+          "ms": 3257
+        },
+        {
+          "cycle": 3,
+          "ms": 3447
+        },
+        {
+          "cycle": 4,
+          "ms": 2010
+        },
+        {
+          "cycle": 5,
+          "ms": 3484
+        },
+        {
+          "cycle": 6,
+          "ms": 3472
+        },
+        {
+          "cycle": 7,
+          "ms": 3356
+        },
+        {
+          "cycle": 8,
+          "ms": 3244
+        },
+        {
+          "cycle": 9,
+          "ms": 3239
+        },
+        {
+          "cycle": 10,
+          "ms": 3307
+        },
+        {
+          "cycle": 11,
+          "ms": 3291
+        },
+        {
+          "cycle": 12,
+          "ms": 3228
+        }
+      ],
+      "wedged": true,
+      "wedgedAtCycle": 13,
+      "hungCeilingMin": 8,
+      "panic": "thread '<unnamed>' (490704) panicked at crates/flow_typing_utils/src/type_operation_utils.rs:295:10:\ncalled `Result::unwrap()` on an `Err` value: WorkerCanceled(WorkerCanceled)",
+      "result": "WEDGED (panic/hang reproduced)"
+    },
+    {
+      "label": "main storm",
+      "serverInitS": 23,
+      "cycles": [
+        {
+          "cycle": 1,
+          "ms": 387
+        },
+        {
+          "cycle": 2,
+          "ms": 613
+        },
+        {
+          "cycle": 3,
+          "ms": 568
+        },
+        {
+          "cycle": 4,
+          "ms": 656
+        },
+        {
+          "cycle": 5,
+          "ms": 440
+        },
+        {
+          "cycle": 6,
+          "ms": 403
+        },
+        {
+          "cycle": 7,
+          "ms": 475
+        },
+        {
+          "cycle": 8,
+          "ms": 574
+        },
+        {
+          "cycle": 9,
+          "ms": 655
+        },
+        {
+          "cycle": 10,
+          "ms": 299
+        },
+        {
+          "cycle": 11,
+          "ms": 384
+        },
+        {
+          "cycle": 12,
+          "ms": 585
+        },
+        {
+          "cycle": 13,
+          "ms": 565
+        },
+        {
+          "cycle": 14,
+          "ms": 655
+        },
+        {
+          "cycle": 15,
+          "ms": 303
+        },
+        {
+          "cycle": 16,
+          "ms": 446
+        },
+        {
+          "cycle": 17,
+          "ms": 475
+        },
+        {
+          "cycle": 18,
+          "ms": 583
+        },
+        {
+          "cycle": 19,
+          "ms": 655
+        },
+        {
+          "cycle": 20,
+          "ms": 351
+        }
+      ],
+      "wedged": false,
+      "result": "survived 20 edit-recheck cycles, no panic"
+    }
+  ],
+  "conclusion": "sequential edits never trigger the race on either binary; under storm pressure released 0.321.0 wedged at cycle 13 with the recorded panic while the fixed main build survived all 20 cycles; main's recheck round-trips are also ~6x faster (0.3-0.7s vs 2.0-3.5s)"
+}

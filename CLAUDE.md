@@ -227,7 +227,10 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   `bench/tsgo-scale-bench.json`, writeup in TYPECHECKERS.md ("Behavior at a
   million files"); crash evidence for the 500k Flow wedge (3 occurrences in 5 sweeps,
   one recorded in the canonical JSON's serverLogTail) in
-  `bench/flow-0321-wedge-evidence.md`. Self-contained, non-destructive (corpora +
+  `bench/flow-0321-wedge-evidence.md`, with the directed reproduce-and-verify harness
+  `scripts/flow-wedge-retest.mjs` → `bench/flow-wedge-retest.json` (released 0.321
+  wedges under overlapping-edit pressure at cycle 13; flow main with the upstream fixes
+  survives 20 cycles, ~6× faster rechecks). Self-contained, non-destructive (corpora +
   flow-bin under WORK, removed on exit unless `TSGO_SCALE_KEEP=1`); core-bound +
   drop_caches ⇒ run on a quiet box with root.
 - `node scripts/lsp-scale-bench.mjs` (`LSP_SCALE_POINTS` default `"10000 100000 500000

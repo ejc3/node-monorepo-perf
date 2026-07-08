@@ -76,9 +76,11 @@ branch of the ejc3/flow fork.
 
 ## Retest: the trigger isolated, the upstream fix verified
 
-A directed retest harness makes the race reproducible on demand and verifies the fix.
+A directed retest harness (`scripts/flow-wedge-retest.mjs`) makes the race reproducible
+on demand and verifies the fix; the recorded runs are `bench/flow-wedge-retest.json`.
 Setup: a fresh 500k-module corpus of the same layered shape per binary; `flow start
---wait`; then edit-recheck cycles. Two pressure modes:
+--wait`; then edit-recheck cycles. Binaries: released flow-bin 0.321.0, and flow main
+at `cdb4f637` (contains the three fix commits) built from source. Two pressure modes:
 
 - **Sequential** (edit → force-recheck → status, settled between cycles): released
   0.321.0 survived 10 cycles clean. The race needs an in-flight check to cancel.
