@@ -591,6 +591,11 @@ ride the same `.github/workflows/charts.yml` byte-gate.
 - **New chart generator checklist:** register it here; wire `charts.yml` (paths + render +
   gate + PNG commit-back); add its SVG to `chart.mjs`'s `external` set (else `make chart`
   deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link.
+- **The commit-back races open PRs.** After any chart run on main, the pushed-back PNG
+  binary-conflicts with every open PR that also touches it — and GitHub SILENTLY creates no
+  `pull_request` workflow runs for a conflicted PR ("no checks reported" + `mergeable:
+  CONFLICTING` is the signature, not a queue delay). Rebase the PR onto main keeping the
+  PR's render; checks fire on the push.
 The `.github/workflows/charts.yml` CI job re-renders both from the committed bench data and byte-gates the
 SVG (deterministic) against drift; for the PNG (whose bytes are ImageMagick-version dependent, so not
 byte-gated) it deletes the committed PNG before re-rendering (a `convert` failure then leaves it absent and
