@@ -119,9 +119,12 @@ Two operations are genuinely O(repo) and cannot be scoped away:
   fastest warm install at 1,000–2,000 apps (2.1s, 2.9s — yarn's node-modules linker trails
   pnpm-hoisted warm). The install figures elsewhere in this summary were measured with bun
   as the installer; the bun-vs-yarn reconciliation is in
-  [OPTIMAL-STACK.md](OPTIMAL-STACK.md). yarn-PnP's wins don't transfer to this stack:
-  tsgo and `next build` do not run under PnP (tsc/turbo/oxlint do,
-  `bench/pnp-compat-bench.json`); the node-modules linker has no such boundary. As a
+  [OPTIMAL-STACK.md](OPTIMAL-STACK.md). yarn-PnP's wins carry a compatibility boundary on
+  this stack: the stock tsgo and Next's default Turbopack build do not run under PnP
+  (tsc/turbo/oxlint do, `bench/pnp-compat-bench.json`) — though both have a green path
+  (a native PnP resolver for tsgo, and `next build` with the webpack builder or rspack,
+  `bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`); the node-modules linker has
+  no such boundary. As a
   rollout driver yarn is vetted alongside bun and pnpm — all five mechanics native,
   including a CI auto-immutable default bun lacks (`bench/yarn-rollout-bench.json`,
   [ROLLOUT.md](ROLLOUT.md)). Vite+'s task runner is priced against turbo on identical

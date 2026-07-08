@@ -101,9 +101,65 @@ the Next 16 default, has no PnP resolver ([vercel/next.js#42651](https://github.
 | webpack builder | builds | builds |
 | Turbopack (default) | **fails** (`couldn't find the Next.js package`) | builds |
 
-So the fully-green PnP configuration is **tsgo-with-PnP + `next build --webpack`**; teams that
-require Turbopack use Yarn's node-modules (or pnpm) linker, under which both the stock tsgo and
-Turbopack already work.
+So the fully-green PnP configuration is **tsgo-with-PnP + `next build --webpack`** (or `next build`
+with rspack, below); teams that require Turbopack use Yarn's node-modules (or pnpm) linker, under
+which both the stock tsgo and Turbopack already work.
+
+### The fast bundler under PnP: rspack (`scripts/rspack-pnp-bench.mjs`)
+
+webpack is the slow way to keep PnP. The fast way is **rspack** (the Rust, webpack-compatible
+bundler), which added a native PnP resolver ([web-infra-dev/rspack#13047](https://github.com/web-infra-dev/rspack/pull/13047),
+[#13382](https://github.com/web-infra-dev/rspack/pull/13382)) — and Next ships an experimental
+integration (`next-rspack`, `withRspack(config)`) that carries it through. Turbopack's own
+maintainers declined PnP and locked the issue; the Yarn author's counter in that thread was that
+PnP "got merged in rspack in less than a week." The same Next App Router app (next + react +
+react-dom, where react-dom is virtualized under `.yarn/__virtual__`), each builder invoked the one
+way it works, under both linkers (`bench/rspack-pnp-bench.json`; yarn 4.17.0, next 16.0.1,
+next-rspack 16.0.1, `@next/rspack-core` 1.0.0):
+
+| `next build` | PnP | node-modules (control) |
+|---|---|---|
+| Turbopack (default) | **fails** (`couldn't find the Next.js package`) | builds |
+| webpack (`--webpack`) | builds | builds |
+| **rspack** (`withRspack`) | **builds** | builds |
+
+Which bundler actually ran is proven, not assumed: a build counts only with a populated `.next`
+(`BUILD_ID` + routes/build manifests), and each cell is pinned to its compiler by Next's build
+trace — the JS webpack compiler emits `webpack-compilation`/`seal`/`make` spans, rspack (native
+Rust) emits none of them and only rides Next's outer `run-webpack` wrapper, Turbopack emits
+`run-turbopack`. The rspack PnP cell builds with the rspack banner and **no** webpack-compilation
+span, so it is rspack compiling PnP-resolved modules, not a silent webpack fallback. The PnP cells
+materialize no `node_modules`, so resolution goes through `.pnp.cjs`.
+
+So a PnP shop's fast-bundler answer is rspack; Turbopack still requires node-modules (or pnpm). How
+much speed that costs is priced next — this one-page app is startup-dominated, so its build times
+are not a fair speed read.
+
+### Build speed: Turbopack vs rspack vs webpack (`scripts/rspack-turbopack-speed-bench.mjs`)
+
+The compat matrix builds a one-page app, where build time is framework startup, not bundling. This
+prices real build speed: a generated 60-route App Router app (each route importing shared
+client/server components + a lib util, so the module graph — not startup — dominates), built by all
+three bundlers **on the identical app** under the node-modules linker (the one linker where all
+three run), cold (fresh `.next`) and warm (a no-change rebuild with `.next` present), each the
+median of 3 (`bench/rspack-turbopack-speed-bench.json`;
+yarn 4.17.0, next 16.0.1, next-rspack 16.0.1, `@next/rspack-core` 1.0.0; 64 cores):
+
+| bundler | cold | warm | cold ×fastest |
+|---|---|---|---|
+| Turbopack | **9.0s** | 9.2s | ×1 |
+| rspack | 15.5s | 15.7s | ×1.72 |
+| webpack | 19.0s | 15.8s | ×2.10 |
+
+Turbopack is fastest cold — ~1.7× faster than rspack, ~2.1× than webpack — consistent with it
+being Vercel's own multithreaded default. Among the two bundlers that also run under PnP, **rspack
+is ~1.22× faster than webpack cold** (15.5s vs 19.0s). Warm (rebuild with no source change) splits
+them: webpack's persistent cache cuts its rebuild to 15.8s — tying rspack (15.7s) — while Turbopack
+and rspack barely move, so a production `next build` is largely non-incremental for those two at
+this size. Each build's compiler is proven from Next's span trace (as above), so every number is
+the named bundler, not a fallback; the three build the same generated app, so the gap is bundler
+speed, not app difference. Net: node-modules + Turbopack is the fastest configuration; a PnP shop
+gives up that lead and rspack is its fast option, a bit ahead of webpack cold and even on warm.
 
 ### Specifier form and node-linker (`scripts/perf-matrix.mjs`)
 

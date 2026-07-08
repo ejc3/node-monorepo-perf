@@ -53,11 +53,13 @@ tool at 2,000 (PnP 3.2s, node-modules 6.2s vs bun 7.5s); warm, yarn-PnP is the f
 outright at 1,000–2,000 apps (2.1s, 2.9s). Every bench in this doc (the onboarding
 install, the dev loops, the gates) was measured with bun as the installer, and bun wins
 or ties the cold install through 1,000 apps — but at the top of the measured range yarn
-wins the install itself, cold and warm. A yarn-PnP variant of THIS stack is measured to
-not run: tsgo and `next build` fail under PnP while tsc/turbo/oxlint work — pass/fail
-probes on a 20-app/10-lib tree with a node-modules control, resolver behavior rather
-than a scale effect (`bench/pnp-compat-bench.json`) — yarn's node-modules linker carries
-no such boundary (five-way install table in [TOOLING.md](TOOLING.md)). A separate operation again is
+wins the install itself, cold and warm. A yarn-PnP variant of THIS stack has a
+compatibility boundary: the stock tsgo and Next's default Turbopack build fail under PnP
+while tsc/turbo/oxlint work — pass/fail probes on a 20-app/10-lib tree with a node-modules
+control, resolver behavior rather than a scale effect (`bench/pnp-compat-bench.json`). Both
+have a green path — a native PnP resolver for tsgo, and `next build` under the webpack
+builder or rspack (`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`) — and yarn's
+node-modules linker carries no such boundary (five-way install table in [TOOLING.md](TOOLING.md)). A separate operation again is
 pnpm's no-lockfile cold-resolve — lockfile authoring, not a bun-vs-pnpm head-to-head —
 which is 233s at 1,000:200 (`bench/install-modes-bench.json`).
 

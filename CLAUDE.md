@@ -166,6 +166,34 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
   Self-contained (btrfs work dir, removed on exit unless `TSGO_PNP_KEEP=1`), no worktree →
   `bench/tsgo-pnp-bench.json`, folded into TOOLING.md ("Closing the gap: native PnP for tsgo,
   and Next under PnP").
+- `node scripts/rspack-pnp-bench.mjs` (`RSPACK_PNP_WORK` default `/mnt/fcvm-btrfs/rspack-pnp-bench`,
+  `RSPACK_PNP_KEEP=1`, `RSPACK_PNP_ALLOW_BUSY=1`) — the **fast-Next-bundler-under-PnP** question.
+  Turbopack has no PnP resolver (vercel/next.js#42651, declined + locked); rspack added one
+  (web-infra-dev/rspack#13047) and Next's `next-rspack` (`withRspack`) carries it through. One Next
+  App Router app (next + react + react-dom, react-dom virtualized under `.yarn/__virtual__`), each
+  builder invoked the one way it works (turbopack default no-flag, webpack `--webpack`, rspack via
+  `withRspack` + no flag), under both linkers: PnP (turbopack **fails** w/ the `next/package.json`
+  resolution error — non-zero exit asserted — while webpack + rspack build) and node-modules (all
+  three build). Which bundler ran is PROVEN from Next's `.next/trace` (the JS webpack compiler emits
+  `webpack-compilation`/`seal`/`make` spans; rspack native-Rust emits none, only the outer
+  `run-webpack` wrapper; turbopack emits `run-turbopack`), so a silent webpack fallback can't read
+  as rspack; a build counts only with a populated `.next` (BUILD_ID + routes/build manifests); PnP
+  cells assert no `node_modules`. Shared identity/env/output helpers in `scripts/_next-bundler-lib.mjs`.
+  Self-contained (btrfs work dir, removed unless `RSPACK_PNP_KEEP=1`), env-scrubbed, load-guarded, no
+  worktree → `bench/rspack-pnp-bench.json`, folded into TOOLING.md ("The fast bundler under PnP: rspack").
+- `node scripts/rspack-turbopack-speed-bench.mjs` (`SPEED_PAGES` 60, `SPEED_COMPONENTS` 30,
+  `SPEED_SAMPLES` 3, `SPEED_WORK` default `/mnt/fcvm-btrfs/rspack-speed-bench`, `SPEED_KEEP=1`,
+  `SPEED_ALLOW_BUSY=1`) — the defensible **Turbopack-vs-rspack-vs-webpack build-SPEED** number the
+  one-page compat bench can't give. Generates a non-trivial App Router app (`SPEED_PAGES` routes,
+  each importing shared client/server components + a lib util, so the module graph dominates the
+  build) and builds it with all three bundlers under the node-modules linker (where all three run),
+  COLD (fresh `.next` each) + WARM (no-change rebuild), each the median of `SPEED_SAMPLES`. Same
+  trace-based compiler proof + completeness check as the compat bench (shared `_next-bundler-lib`);
+  all three build the identical app, so it's bundler speed not app difference. Records
+  cold/warm medians + samples + the cold ranking/ratios. Non-canonical knobs → gitignored partial.
+  Core-bound, load-guarded, self-contained (btrfs work dir, removed unless `SPEED_KEEP=1`), no
+  worktree → `bench/rspack-turbopack-speed-bench.json`, folded into TOOLING.md ("Build speed:
+  Turbopack vs rspack vs webpack").
 - `node scripts/vite-task-bench.mjs` (`VITE_TASK_SCALES` default `"300:100 1000:200"`,
   `VP_SAMPLES` 3, `VITE_TASK_ALLOW_BUSY=1`) — **Vite Task (Vite+ `vp run`) vs Turborepo**
   on the identical dep-free `typecheck:tsgo` task set (derived per-package
@@ -651,7 +679,7 @@ scaling table + dev-sim), `TOOLING.md`
 (install / build / typechecker / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
 toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo + Next-build
-matrix that closes it from `bench/tsgo-pnp-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), `LIMITS.md` (what stays O(repo),
+matrix that closes it from `bench/tsgo-pnp-bench.json`, and the fast-bundler-under-PnP matrix + the Turbopack-vs-rspack-vs-webpack build-speed numbers from `bench/rspack-pnp-bench.json` + `bench/rspack-turbopack-speed-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), `LIMITS.md` (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus "Remote cache: amortizing the O(repo) cold start" — the
 centralized-cache CI economics from `bench/ci-cache-bench.json`: cold-compute vs remote-restore per
