@@ -69,8 +69,19 @@ const SECTIONS = [
         ["warmMs", "Warm"],
       ].flatMap(([state, rLabel]) =>
         INSTALL_SCALES.map(([scale, sLabel]) => [
-          `${rLabel} · ${sLabel}`,
-          Object.fromEntries(INSTALL_COLS.map((c) => [c.k, inst(scale, c.tool, state)])),
+          `${rLabel} · ${sLabel} · ${byScale[scale].depEdgesVerified.toLocaleString("en-US")} dep edges`,
+          Object.fromEntries(
+            INSTALL_COLS.map((c) => [
+              c.k,
+              {
+                ms: inst(scale, c.tool, state),
+                detail:
+                  c.tool === "yarnPnp"
+                    ? `${byScale[scale][c.tool].nmEntries} entries + ${(byScale[scale][c.tool].pnpCjsBytes / 1e6).toFixed(1)}MB table`
+                    : `${(byScale[scale][c.tool].nmEntries / 1000).toFixed(1)}k nm entries`,
+              },
+            ]),
+          ),
         ]),
       ),
       [
@@ -89,7 +100,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/install-bench.json",
-    note: "Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of hoisted).",
+    note: "Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of hoisted).",
   },
   {
     title: `CI-runner install — frozen from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps, fresh podman container per sample)`,
@@ -124,7 +135,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/container-install-bench.json",
-    note: "Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.",
+    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.`,
   },
   {
     title: "Typecheck — tsc vs tsgo",
@@ -139,7 +150,7 @@ const SECTIONS = [
         { tsc: TB.tsc.medianMs, tsgo: TB.tsgo.medianMs },
       ],
       [
-        "4,000:400 type-heavy whole-program",
+        `type-heavy program, 4,000:400 (${(PAR.libs * PAR.modulesPerLib).toLocaleString("en-US")} lib modules)`,
         { tsc: PAR.cleanBaseline.tsc.ms, tsgo: PAR.cleanBaseline.tsgo.ms },
       ],
     ],
@@ -157,7 +168,7 @@ const SECTIONS = [
     note: "Different feature sets: Next App Router vs Vite SPA.",
   },
   {
-    title: `pnpm install situations — ${IM.apps.toLocaleString("en-US")} apps`,
+    title: `pnpm install situations — ${IM.apps.toLocaleString("en-US")} apps, ${IM.lockfileLines.toLocaleString("en-US")}-line lockfile`,
     compareAxis: "col",
     cols: [{ k: "pnpm", label: "pnpm" }],
     rows: [
@@ -194,13 +205,15 @@ const SECTIONS = [
 ];
 
 // --- per-cell best/multiple ----------------------------------------------------------------------
+const msOf = (x) => (x && typeof x === "object" ? x.ms : x); // cells may be {ms, detail}
 const cellMult = (sec, ri, ci) => {
-  const v = sec.rows[ri][1][sec.cols[ci].k];
+  const v = msOf(sec.rows[ri][1][sec.cols[ci].k]);
   if (v == null) return null;
-  const pool =
+  const pool = (
     sec.compareAxis === "col"
-      ? sec.rows.map((r) => r[1][sec.cols[ci].k]).filter((x) => x != null)
-      : sec.cols.map((c) => sec.rows[ri][1][c.k]).filter((x) => x != null);
+      ? sec.rows.map((r) => msOf(r[1][sec.cols[ci].k]))
+      : sec.cols.map((c) => msOf(sec.rows[ri][1][c.k]))
+  ).filter((x) => x != null);
   return v / Math.min(...pool);
 };
 
@@ -306,7 +319,9 @@ for (const sec of SECTIONS) {
     );
     sec.cols.forEach((col, ci) => {
       const x = gridX + ci * COL_W;
-      const v = row[1][col.k];
+      const raw = row[1][col.k];
+      const v = raw && typeof raw === "object" ? raw.ms : raw;
+      const detail = raw && typeof raw === "object" ? raw.detail : null;
       if (v == null) {
         T.push(
           `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
@@ -337,8 +352,12 @@ for (const sec of SECTIONS) {
         `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 - 4}" font-size="16" font-weight="700" fill="${ink}" text-anchor="middle">${esc(main)}</text>`,
       );
       T.push(
-        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="13" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
+        `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + (detail ? 10 : 16)}" font-size="13" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
       );
+      if (detail)
+        T.push(
+          `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 23}" font-size="10" fill="${ink}" opacity="0.85" text-anchor="middle">${esc(detail)}</text>`,
+        );
     });
     y += ROW_H;
   });
