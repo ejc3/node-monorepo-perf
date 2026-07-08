@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1156" height="2070" viewBox="0 0 1156 2070" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
 <rect width="1156" height="2070" fill="#ffffff"/>
 <text x="28" y="40" font-size="22" font-weight="700" fill="#1f2328">Tooling head-to-head — wall time</text>
-<text x="28" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or one tool's situations), columns in the SAME order everywhere: the typically-fastest tool leftmost. Fastest cell green; others show how many times slower.</text>
+<text x="28" y="62" font-size="13" fill="#57606a">Like-for-like sections, columns in one order everywhere (typically-fastest leftmost). Fastest cell green; others show ×N slower.</text>
 <text x="28" y="80" font-size="13" fill="#57606a">Machine: 64-core host. Every number traces to the cited bench JSON.</text>
 <text x="28" y="108" font-size="16" font-weight="700" fill="#1f2328">Install the workspace — bun vs pnpm vs yarn</text>
 <rect x="28" y="126" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
@@ -168,7 +168,8 @@
 <rect x="966" y="512" width="162" height="56" fill="rgb(202,117,28)" stroke="#ffffff"/>
 <text x="1047" y="536" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×6.5 slower</text>
 <text x="1047" y="556" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">7.7s</text>
-<text x="28" y="584" font-size="11" fill="#57606a">Source: bench/install-bench.json</text>
+<text x="28" y="584" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/install-bench.json"><text x="74" y="584" font-size="11" fill="#57606a" text-decoration="underline">bench/install-bench.json</text></a>
 <text x="28" y="599" font-size="11" fill="#57606a">Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules</text>
 <text x="28" y="614" font-size="11" fill="#57606a">trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both</text>
 <text x="28" y="629" font-size="11" fill="#57606a">warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples,</text>
@@ -222,7 +223,8 @@
 <rect x="966" y="798" width="162" height="56" fill="rgb(190,77,33)" stroke="#ffffff"/>
 <text x="1047" y="822" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×24 slower</text>
 <text x="1047" y="842" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">9.7s</text>
-<text x="28" y="870" font-size="11" fill="#57606a">Source: bench/container-install-bench.json</text>
+<text x="28" y="870" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/container-install-bench.json"><text x="74" y="870" font-size="11" fill="#57606a" text-decoration="underline">bench/container-install-bench.json</text></a>
 <text x="28" y="885" font-size="11" fill="#57606a">Same workspace shape as the 1,000-apps install rows above (11,898 dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what</text>
 <text x="28" y="900" font-size="11" fill="#57606a">a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker.</text>
 <text x="28" y="930" font-size="16" font-weight="700" fill="#1f2328">Typecheck — tsgo vs tsc</text>
@@ -248,7 +250,9 @@
 <rect x="480" y="1054" width="162" height="56" fill="rgb(199,104,28)" stroke="#ffffff"/>
 <text x="561" y="1078" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
 <text x="561" y="1098" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<text x="28" y="1126" font-size="11" fill="#57606a">Source: bench/typecheck-bench.json, bench/typecheck-parity-bench.json</text>
+<text x="28" y="1126" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/typecheck-bench.json"><text x="74" y="1126" font-size="11" fill="#57606a" text-decoration="underline">bench/typecheck-bench.json,</text></a>
+<a href="../../bench/typecheck-parity-bench.json"><text x="231.2" y="1126" font-size="11" fill="#57606a" text-decoration="underline">bench/typecheck-parity-bench.json</text></a>
 <text x="28" y="1156" font-size="16" font-weight="700" fill="#1f2328">Production build — Vite vs Next</text>
 <rect x="28" y="1174" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
 <text x="40" y="1204" font-size="12" font-weight="600" fill="#57606a">scenario</text>
@@ -264,7 +268,8 @@
 <rect x="480" y="1224" width="162" height="56" fill="rgb(213,162,28)" stroke="#ffffff"/>
 <text x="561" y="1248" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×2.3 slower</text>
 <text x="561" y="1268" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
-<text x="28" y="1296" font-size="11" fill="#57606a">Source: bench/build-bench.json</text>
+<text x="28" y="1296" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/build-bench.json"><text x="74" y="1296" font-size="11" fill="#57606a" text-decoration="underline">bench/build-bench.json</text></a>
 <text x="28" y="1311" font-size="11" fill="#57606a">Different feature sets: Next App Router vs Vite SPA.</text>
 <text x="28" y="1341" font-size="16" font-weight="700" fill="#1f2328">pnpm install situations — 1,000 apps, 41,069-line lockfile</text>
 <rect x="28" y="1359" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
@@ -296,7 +301,8 @@
 <rect x="318" y="1633" width="162" height="56" fill="rgb(187,70,35)" stroke="#ffffff"/>
 <text x="399" y="1657" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">×31 slower</text>
 <text x="399" y="1677" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">233.4s</text>
-<text x="28" y="1705" font-size="11" fill="#57606a">Source: bench/install-modes-bench.json</text>
+<text x="28" y="1705" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/install-modes-bench.json"><text x="74" y="1705" font-size="11" fill="#57606a" text-decoration="underline">bench/install-modes-bench.json</text></a>
 <text x="28" y="1720" font-size="11" fill="#57606a">One tool, many situations: cheapest in green, others relative to it.</text>
 <text x="28" y="1750" font-size="16" font-weight="700" fill="#1f2328">Lint — oxlint vs ESLint (800 files)</text>
 <rect x="28" y="1768" width="290" height="50" fill="#f6f8fa" stroke="#d0d7de"/>
@@ -329,7 +335,8 @@
 <rect x="480" y="1930" width="162" height="56" fill="rgb(197,95,29)" stroke="#ffffff"/>
 <text x="561" y="1954" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×11 slower</text>
 <text x="561" y="1974" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">4.5s</text>
-<text x="28" y="2002" font-size="11" fill="#57606a">Source: bench/lint-bench.json</text>
+<text x="28" y="2002" font-size="11" fill="#57606a">Source: </text>
+<a href="../../bench/lint-bench.json"><text x="74" y="2002" font-size="11" fill="#57606a" text-decoration="underline">bench/lint-bench.json</text></a>
 <text x="28" y="2017" font-size="11" fill="#57606a">ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is</text>
 <text x="28" y="2032" font-size="11" fill="#57606a">mostly tsgo-vs-tsc (oxlint via tsgolint, alpha).</text>
 </svg>

@@ -365,9 +365,21 @@ for (const sec of SECTIONS) {
   // ~5.6px/char) — a full, accurate note can be long, and an unwrapped <text> line runs
   // past the SVG edge and renders clipped in browsers and in the rasterized PNG.
   y += 16;
-  T.push(
-    `<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc("Source: " + sec.source)}</text>`,
-  );
+  {
+    // clickable source links (relative hrefs — resolve from bench/charts/ wherever the
+    // SVG is served; GitHub's README <img> strips interactivity, the Raw view keeps it)
+    const parts = sec.source.split(", ");
+    let sx = PAD;
+    T.push(`<text x="${sx}" y="${y}" font-size="11" fill="#57606a">Source: </text>`);
+    sx += 46;
+    parts.forEach((p, i) => {
+      const label = p + (i < parts.length - 1 ? "," : "");
+      T.push(
+        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${y}" font-size="11" fill="#57606a" text-decoration="underline">${esc(label)}</text></a>`,
+      );
+      sx += label.length * 5.6 + 6;
+    });
+  }
   if (sec.note) {
     const noteChars = Math.floor((W - PAD * 2) / 5.6);
     const lines = [];
@@ -392,7 +404,7 @@ const out = [
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">`,
   `<rect width="${W}" height="${H}" fill="#ffffff"/>`,
   `<text x="${PAD}" y="40" font-size="22" font-weight="700" fill="#1f2328">Tooling head-to-head — wall time</text>`,
-  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Each section compares like-for-like tools (or one tool's situations), columns in the SAME order everywhere: the typically-fastest tool leftmost. Fastest cell green; others show how many times slower.</text>`,
+  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Like-for-like sections, columns in one order everywhere (typically-fastest leftmost). Fastest cell green; others show ×N slower.</text>`,
   `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`Machine: ${PAR.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
   ...T,
   `</svg>`,
