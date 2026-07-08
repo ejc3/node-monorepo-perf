@@ -575,11 +575,13 @@ ride the same `.github/workflows/charts.yml` byte-gate.
   other cell's headline is its multiple of that best ("×N slower") — the number IS the cell,
   not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
   log-multiple space, so ×12 is the same color in every chart.
-- **A timeout is a floor, never a dash and never green.** A run that hit a ceiling renders
-  AT that real ceiling with a ≥ ("wedged ≥1h", "timed out ≥2m") and its × is computed from
-  the floor against the row's measured best ("≥×3,629 slower"). "—" is reserved for
-  not-measured (anchor cutoff, or a checker already dead at a smaller scale) and the note
-  says which. A timeout with no measured competitor in its row gets the floor but no ×.
+- **A performance ceiling is a floor; a crash is a status; a near-tie is a percent.** A
+  request that outran its budget renders AT that real ceiling with a ≥ ("timed out ≥2m")
+  and, when the row has a measured best, the ≥× computed from the floor. A CRASH (wedge,
+  panic) shows status only — never a time or multiplier; a wedge is not a measurement and
+  a pseudo-number would read as one. A cell within 5% of the row's fastest keeps its time
+  as the headline with "+N% vs fastest" — never "×1.0 slower". "—" cells carry a short
+  reason ("anchor ≤100k", "unreached: wedge at 500k").
 - **Deterministic from the cited bench JSONs** — no hand numbers, no Date; missing fields
   throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
   asserted (e.g. the chart REQUIRES the flow 500k timeout record and fails if the dataset

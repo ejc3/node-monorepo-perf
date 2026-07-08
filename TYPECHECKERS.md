@@ -1,5 +1,18 @@
 # Faster type-checking
 
+```
+  one program, 100 layers deep, growing 100× wide            one edit at 1,000,000 modules
+                                                             (save loop, by mechanic)
+  layer 99  ● ● ● ● ● ● ● ●   ← leaves: nothing imports
+     ⋮        ╲ ╲ │ ╱ ╱           them (red-gate seeds)      tsgo --lsp    ▌2.2s
+  layer  1  ● ● ● ● ● ● ● ●   each module imports ≤3         tsgo --watch  █████▌22.3s
+  layer  0  ● ● ● ● ● ● ● ●   from the layer below           tsgo CLI      █████████████▌53.7s
+            10k ═══════════► 1,000,000 modules               flow server   ✕ wedged (0.321)
+
+  whole-program check: tsgo 0.61s → 68.6s (≈linear) · Flow +51% → +25%, wedge at 500k ·
+  tsc 11× tsgo at its 100k anchor · a FAILING check costs what a passing one costs
+```
+
 Each package runs `tsc --noEmit`, fanned out and cached by Turborepo. Whole-repo type-checking is O(repo), so the first lever is checking less (`turbo --affected`); the second is making each check cheaper.
 
 ## Measured: tsc vs tsgo

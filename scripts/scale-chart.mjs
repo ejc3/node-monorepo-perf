@@ -46,8 +46,13 @@ const compCeil = (n) => {
   return c.ceilingMs;
 };
 
-// timeout cell: renders at the REAL ceiling as a floor — "≥<ceiling>" + "≥×N slower"
+// timeout cell: renders at the REAL ceiling as a floor — "≥<ceiling>" + "≥×N slower".
+// Reserved for genuine performance ceilings (a request that outran its budget); a CRASH
+// is a different thing and shows STATUS ONLY, no derived numbers (a wedge is not a
+// measurement, and a pseudo-time would read as one).
 const TO = (floorMs, label) => ({ timeout: true, floorMs, label });
+const CRASH = (label, sub) => ({ crash: true, label, sub });
+const NAR = (why) => ({ na: true, why });
 
 const SCALES = [
   [10000, "10k modules"],
@@ -71,31 +76,42 @@ const SECTIONS = [
       lbl,
       {
         tsgo: rowMs(P(n).tsgo, "full"),
-        tsc: P(n).tsc?.skipped ? null : rowMs(P(n).tsc, "full"),
-        flow: P(n).flow?.skipped ? null : rowMs(P(n).flow, "full"),
+        tsc: P(n).tsc?.skipped ? NAR("anchor ≤100k") : rowMs(P(n).tsc, "full"),
+        flow: P(n).flow?.skipped ? NAR("unreached: wedge at 500k") : rowMs(P(n).flow, "full"),
       },
     ]),
     source: "bench/tsgo-scale-bench.json",
     note: "Warm full check (no incremental state). tsc anchors at 100k (a cost cutoff, not a capacity result). Flow's 1M cells are unmeasured: its 0.321 server wedged at 500k in the one-edit rows below — the red rows (3 seeded leaf errors, exact count asserted) cost within ~2% of these green runs for every checker at every measured scale.",
   },
   {
-    title: "A failing check vs a passing one — tsgo, 1,000,000 modules",
-    compareAxis: "row",
+    title: "A failing check vs a passing one — the red-gate premium, per checker",
+    delta: true,
     cols: [
-      { k: "green", label: "clean corpus" },
-      { k: "red", label: "3 leaf type errors" },
+      { k: "tsgo", label: "tsgo\n(1M modules)" },
+      { k: "tsc", label: "tsc\n(100k modules)" },
+      { k: "flow", label: "Flow\n(500k modules)" },
     ],
     rows: [
       [
-        "whole-program check",
+        "red check vs green check",
         {
-          green: rowMs(P(1000000).tsgo, "full"),
-          red: rowMs(P(1000000).tsgo, "fullWithLeafErrors"),
+          tsgo: {
+            green: rowMs(P(1000000).tsgo, "full"),
+            red: rowMs(P(1000000).tsgo, "fullWithLeafErrors"),
+          },
+          tsc: {
+            green: rowMs(P(100000).tsc, "full"),
+            red: rowMs(P(100000).tsc, "fullWithLeafErrors"),
+          },
+          flow: {
+            green: rowMs(P(500000).flow, "full"),
+            red: rowMs(P(500000).flow, "fullWithLeafErrors"),
+          },
         },
       ],
     ],
     source: "bench/tsgo-scale-bench.json",
-    note: "The red run must exit nonzero and report exactly the seeded errors. Diagnostic construction is not a cost axis at this corpus's error counts.",
+    note: "Each cell: the red run's cost relative to the green run at that checker's largest measured scale. The red run (3 seeded leaf errors in zero-dependent modules) must exit nonzero and report exactly the seeded errors — a failing gate costs what a passing one costs.",
   },
   {
     title: "One edit → verdict (the save loop, by mechanic)",
@@ -115,9 +131,9 @@ const SECTIONS = [
         tss: L(n).tsserver?.skipped ? null : L(n).tsserver.warm.errorAppearsMs,
         flow:
           n === 500000
-            ? TO(HOUR_MS, "wedged")
+            ? CRASH("wedged", "server crash — see note")
             : P(n).flow?.skipped
-              ? null
+              ? NAR("unreached: wedge at 500k")
               : rowMs(P(n).flow, "incrOneEdit"),
         watch: L(n).tsgoWatch.oneEditRecheckMs,
         cli: rowMs(P(n).tsgo, "incrOneEdit"),
@@ -125,7 +141,7 @@ const SECTIONS = [
       },
     ]),
     source: "bench/tsgo-scale-bench.json, bench/lsp-scale-bench.json",
-    note: "Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. The 500k flow cell is the recorded WorkerCanceled wedge (facebook/flow#9454, fixed on flow main, unreleased as of 0.321): the client hung to the bench's 1h ceiling, so its cell shows that REAL timeout as a floor. Flow's clean 250k round-trip (939ms) sits between the 100k and 500k rows shown here.",
+    note: "Squiggle = the asserted didChange→TS2322→clear transition against a live server; flow = force-recheck+status round-trip; CLI = process relaunch on warm incremental state. The 500k flow cell is the recorded WorkerCanceled wedge (facebook/flow#9454, fixed on flow main, unreleased as of 0.321) — a crash, so it shows status, not a number. Flow's clean 250k round-trip (939ms) sits between the 100k and 500k rows shown here.",
   },
   {
     title: "Completion — different result sets, reported with counts",
@@ -172,21 +188,21 @@ const SECTIONS = [
             ok: true,
             label: `${RT.runs.find((r) => r.label === "main storm").cycles.length}/${RT.runs.find((r) => r.label === "main storm").cycles.length} clean`,
           },
-          rel: TO(
-            RT.runs.find((r) => r.label === "released-0321 storm").hungCeilingMin * 60_000,
-            "wedged",
+          rel: CRASH(
+            `wedged at cycle ${RT.runs.find((r) => r.label === "released-0321 storm").wedgedAtCycle}`,
+            "WorkerCanceled panic",
           ),
         },
       ],
     ],
     source: "bench/flow-wedge-retest.json",
-    note: `Storm = a second edit lands 120–480ms into an in-flight recheck (the trigger behind all three recorded wedges). 500k corpus. Released ${RT.binaries.released.version} wedged at cycle ${RT.runs.find((r) => r.label === "released-0321 storm").wedgedAtCycle} of ${RT.runs.find((r) => r.label === "main storm").cycles.length} — the WorkerCanceled panic — and its client hung to the retest's ${RT.runs.find((r) => r.label === "released-0321 storm").hungCeilingMin}-minute ceiling, shown as the floor. Sequential settled edits never trigger it on either binary.`,
+    note: `Storm = a second edit lands 120–480ms into an in-flight recheck (the trigger behind all three recorded wedges). 500k corpus. Sequential settled edits never trigger it on either binary; the fix is verified on flow main (facebook/flow#9454).`,
   },
 ];
 
 // --- per-cell best/multiple: timeout cells contribute their FLOOR and can never be best ---------
 const cellVal = (v) =>
-  v == null ? null : v.timeout ? v.floorMs : typeof v === "number" ? v : null;
+  v == null || v.na || v.crash ? null : v.timeout ? v.floorMs : typeof v === "number" ? v : null;
 const cellMult = (sec, ri, ci) => {
   const v = sec.rows[ri][1][sec.cols[ci].k];
   const n = cellVal(v);
@@ -299,12 +315,30 @@ for (const sec of SECTIONS) {
             `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="12" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
           );
       };
-      if (v == null) {
+      if (v == null || v.na) {
         T.push(
           `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
         );
         T.push(
-          `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 5}" font-size="15" fill="#8c959f" text-anchor="middle">—</text>`,
+          `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + (v && v.why ? -2 : 5)}" font-size="15" fill="#8c959f" text-anchor="middle">—</text>`,
+        );
+        if (v && v.why)
+          T.push(
+            `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="10" fill="#8c959f" text-anchor="middle">${esc(v.why)}</text>`,
+          );
+      } else if (v.crash) {
+        // a crash is a status, not a measurement: no time, no multiplier
+        const rgb = RAMP[RAMP.length - 1][1];
+        cell(rgbCss(rgb), inkFor(rgb), v.label, v.sub || "");
+      } else if (v.green !== undefined && v.red !== undefined) {
+        // delta cell: the red-gate premium as a percentage, times as the sub-line
+        const pct = ((v.red - v.green) / v.green) * 100;
+        const rgb = Math.abs(pct) < 5 ? RAMP[0][1] : rampRGB(1 + Math.abs(pct) / 100);
+        cell(
+          rgbCss(rgb),
+          inkFor(rgb),
+          `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
+          `${fmtS(v.red)} red vs ${fmtS(v.green)} green`,
         );
       } else if (v.ok) {
         cell(rgbCss(RAMP[0][1]), "#ffffff", v.label, "no panic");
@@ -322,15 +356,17 @@ for (const sec of SECTIONS) {
         );
       } else {
         // the × multiplier IS the headline for every non-fastest cell; the absolute
-        // time is the sub-line (the fastest cell keeps its time as the headline)
+        // time is the sub-line. Near-ties are not "×1.0 slower" — within 5% of the
+        // fastest the time stays the headline with the honest +N% as the sub-line.
         const mult = cellMult(sec, ri, ci);
         const rgb = rampRGB(mult);
         const fastest = mult <= 1.0001;
+        const nearTie = !fastest && mult < 1.05;
         cell(
           rgbCss(rgb),
           inkFor(rgb),
-          fastest ? fmtS(v) : fmtMult(mult) + " slower",
-          fastest ? "fastest" : fmtS(v),
+          fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower",
+          fastest ? "fastest" : nearTie ? `+${((mult - 1) * 100).toFixed(0)}% vs fastest` : fmtS(v),
         );
       }
     });
@@ -364,7 +400,7 @@ const out = [
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">`,
   `<rect width="${W}" height="${H}" fill="#ffffff"/>`,
   `<text x="${PAD}" y="40" font-size="22" font-weight="700" fill="#1f2328">Type checkers at scale — 10k to 1,000,000 modules</text>`,
-  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Fastest cell in each row green; others show how many times slower. A run that hit its ceiling shows that real timeout as a floor (≥).</text>`,
+  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Fastest cell in each row green; near-ties show their +%; others show how many times slower. A request that outran its budget shows that real ceiling as a floor (≥); a crash shows status, never a number.</text>`,
   `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow-bin ${TS.versions.flow} · ${TS.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
   ...T,
   `</svg>`,

@@ -323,10 +323,16 @@ for (const sec of SECTIONS) {
         `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${rgbCss(rgb)}" stroke="#ffffff"/>`,
       );
       // the × multiplier IS the headline for every non-fastest cell; the absolute
-      // time is the sub-line (the fastest cell keeps its time as the headline)
+      // time is the sub-line. Near-ties are not "×1.0 slower" — within 5% of the
+      // fastest the time stays the headline with the honest +N% as the sub-line.
       const fastest = mult <= 1.0001;
-      const main = fastest ? fmtS(v) : fmtMult(mult) + " slower";
-      const sub = fastest ? "fastest" : fmtS(v);
+      const nearTie = !fastest && mult < 1.05;
+      const main = fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower";
+      const sub = fastest
+        ? "fastest"
+        : nearTie
+          ? `+${((mult - 1) * 100).toFixed(0)}% vs fastest`
+          : fmtS(v);
       T.push(
         `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 - 4}" font-size="16" font-weight="700" fill="${ink}" text-anchor="middle">${esc(main)}</text>`,
       );
