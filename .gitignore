@@ -31,6 +31,10 @@ pnpm-lock.yaml
 # transient: non-canonical vite-plus bench runs — never the record
 /bench/vite-task-bench.partial.json
 /bench/vite-plus-tools-bench.partial.json
+# transient: a non-canonical tsgo-scale-bench sweep — never the record
+/bench/tsgo-scale-bench.partial.json
+# transient: a non-canonical lsp-scale-bench run — never the record
+/bench/lsp-scale-bench.partial.json
 # transient: editor-loop-bench's tsconfig.base.json backup (removed on exit; self-heals a hard kill)
 /tsconfig.base.json.bench.bak
 .DS_Store

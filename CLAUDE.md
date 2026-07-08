@@ -192,6 +192,76 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `make build-bench` — full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>` — tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
+- `node scripts/tsgo-scale-bench.mjs` (`TSGO_SCALE_POINTS` default `"10000 100000 250000
+  500000 1000000"`, `TSGO_SCALE_SAMPLES` 3, `TSGO_SCALE_LAYERS` 100, `TSC_ANCHOR_MAX`
+  100000, `TSGO_SCALE_WORK` default `/mnt/fcvm-btrfs/tsgo-scale-bench`,
+  `TSGO_SCALE_ALLOW_BUSY=1`, `TSGO_SCALE_KEEP=1`) — **checker behavior at a million
+  files**: tsgo (directly-resolved native binary) vs tsc (64GB node heap, anchor points
+  ≤100k — cost cutoff, marked skipped-not-died per point) vs Flow 0.321 (work-dir
+  install, version-asserted; full sweep) on a generated layered fixed-depth corpus
+  (module i in layer i%LAYERS imports ≤3 from the previous layer; width grows, depth
+  doesn't — a depth-growing chain stack-overflows tsc's incremental propagation at ~5k
+  modules, reproduced + recorded as chainShapeNote; Flow corpus mirrors module-for-module
+  in Flow's dialect). Six rows per checker (cold = sudo drop_caches per sample, flow
+  server stopped BEFORE the drop; full = post-warmup; incrNoChange; incrOneEdit =
+  mid-corpus private-const edit per sample, restored; plus the red paths —
+  fullWithLeafErrors = 3 seeded top-layer-leaf errors, run must go red with the exact
+  error count; incrOneEditError = edit→red with per-sample untimed re-green so it
+  times error discovery, never diagnostic replay), each behind untimed gates (seeded
+  type error must go red; exact program size via --listFiles / `flow ls`). Entry costs
+  recorded symmetrically (ts incrPrimeMs, flow serverInitMs); flow's batch rows are
+  end-to-end `flow check` through its spawned server (RSS = cwd-filtered process-tree
+  VmHWM sum; client CPU% not recorded), incr rows against the live server
+  (force-recheck+status window) — mechanicNote labels the server-vs-relaunch asymmetry.
+  Crash signals (KILL/SEGV/ABRT/BUS) anywhere incl. the gates = recorded capacity
+  outcome for that checker, which stops sweeping while the others continue (tsc/flow
+  failures are isolated per point; only the subject tsgo hard-fails the bench);
+  INT/TERM/HUP = hard-fail "interrupted, not a measurement"; 1h timeout on the
+  /usr/bin/time-wrapped rows = timedOut outcome with straggler kill (spawnSync times
+  out /usr/bin/time, not the checker under it; flow's server ops time out on their own
+  spawnSync paths). GNU-time wall parsed from the Elapsed line's LAST token (the
+  label contains colons — the documented gotcha). Incremental corpus growth with
+  state-marker reconciliation, atomic pidfile lock (cleanup runs only in the process
+  that owns it), per-point partial persistence, fail() throws (so seed/edit restores
+  unwind), canonical gating on the shape knobs (POINTS/SAMPLES/LAYERS/ANCHOR/WORK) →
+  `bench/tsgo-scale-bench.json`, writeup in TYPECHECKERS.md ("Behavior at a
+  million files"); crash evidence for the 500k Flow wedge (3 occurrences in 5 sweeps,
+  one recorded in the canonical JSON's serverLogTail) in
+  `bench/flow-0321-wedge-evidence.md`, with the directed reproduce-and-verify harness
+  `scripts/flow-wedge-retest.mjs` → `bench/flow-wedge-retest.json` (released 0.321
+  wedges under overlapping-edit pressure at cycle 13; flow main with the upstream fixes
+  survives 20 cycles, ~6× faster rechecks). Self-contained, non-destructive (corpora +
+  flow-bin under WORK, removed on exit unless `TSGO_SCALE_KEEP=1`); core-bound +
+  drop_caches ⇒ run on a quiet box with root.
+- `node scripts/lsp-scale-bench.mjs` (`LSP_SCALE_POINTS` default `"10000 100000 500000
+  1000000"`, `LSP_SCALE_SAMPLES` 3, `LSP_COLD_SAMPLES` 2, `LSP_SCALE_LAYERS` 100, tsserver/tsc-watch anchor
+  ≤100k, `LSP_SCALE_WORK` default `/mnt/fcvm-btrfs/lsp-scale-bench`,
+  `LSP_SCALE_ALLOW_BUSY=1`, `LSP_SCALE_KEEP=1`) — **the daemons at a million files**,
+  tsgo-scale-bench's mechanic-matched companion: tsgo `--lsp` (JSON-RPC, PULL
+  diagnostics) vs tsserver (its own protocol, anchored) vs `tsgo --watch` vs
+  `tsc --watch` on the same layered fixed-depth corpus. Per point: cold open (spawn →
+  init → didOpen → definition resolving to the EXACT imported module's file, N samples,
+  fresh server each), first diagnostic pull, warm def/hover, the HEADLINE asserted
+  squiggle transitions (didChange to a seeded TS2322 must pull red, timed
+  errorAppearsMs; restore must pull clean, errorClearsMs — a server that ignores
+  didChange or replays a stale report cannot pass), valid-edit didChange→pull, and the
+  watch drivers' first-build + one-edit re-check with banner-count reconciliation at
+  teardown (a double-recompile can't fake a fast recheck). Gates: exact --listFiles
+  program size per checker; seeded-error positive control per server (tsgo: in-buffer overlay; tsserver:
+  on-disk seed, restored);
+  tsserver projectInfo file-count assert (session-level program proof); tsgo pushed
+  TS5xxx config codes fail the pull. Diagnostic gates count ERROR severity only (the
+  LSP also serves hints batch --noEmit never emits). Completion is probed LAST with
+  its timeout recorded as the PROBE's outcome (the finding: tsgo LSP completion returns the
+  full exported-symbol space and grows superlinearly — 301k items in 50s at 100k, past
+  the 120s ceiling at 500k+ — while tsserver returns a bounded ~1k-entry set in
+  19–20ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
+  row); capacity outcomes only from crash signals or load-bearing (1h) timeouts —
+  plain exits/protocol errors hard-fail with the output tail. Per-driver failure
+  isolation per point; persist/promote partial protection; RSS via continuous
+  sampler. Self-contained (corpus under WORK, removed on exit unless KEEP=1),
+  load-guarded → `bench/lsp-scale-bench.json`, folded into TYPECHECKERS.md ("The
+  daemons at a million files").
 - `node scripts/lint-bench.mjs` (`LINT_FILES`/`LINT_SAMPLES`, `LINT_ALLOW_BUSY=1`) — ESLint vs
   oxlint on one generated corpus (default 800 `.ts`/`.tsx` files), matched so the number is engine
   speed not coverage breadth. oxlint runs STANDALONE at its full native capability (all plugins +
@@ -532,7 +602,10 @@ phantom-isolation edge in single-package projects — workspaces are parity; the
 `bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json` +
 `bench/container-install-bench.json` + `bench/yarn-rollout-bench.json`),
 `FEASIBILITY.md` (when a shared workspace is worth it — the O(repo)-vs-O(closure) cost split and a
-per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison),
+per-situation decision table), `TYPECHECKERS.md` (tsc vs tsgo whole-repo typecheck comparison, plus "Behavior at a
+million files" — tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`,
+and its daemon companion tsgo --lsp/tsserver/--watch at the same scales,
+`bench/lsp-scale-bench.json`),
 `STORIES.md` (the independently-published model as user stories — app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 `WORKSPACE-VS-SEMVER.md` (semver-from-registry vs `workspace:` local linking — diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),
