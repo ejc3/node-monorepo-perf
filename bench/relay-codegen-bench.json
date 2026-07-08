@@ -1,0 +1,82 @@
+{
+  "components": 10000,
+  "schemaTypes": 100,
+  "samples": 3,
+  "versions": {
+    "relayCompiler": "Relay Compiler 21.0.1",
+    "tsgo": "7.0.0-dev.20260707.2",
+    "flow": "0.321.0 (flow main @ cdb4f637 (wedge fixes in; verified in bench/flow-wedge-retest.json))",
+    "node": "v22.22.0"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 0.39,
+  "flowConfigNote": "relay-compiler 21 flow artifacts use the `+` variance sigil, which current Flow (released 0.321 and main) rejects as unsupported-syntax; checking them requires `[options] experimental.deprecated_variance_sigils.excludes=<PROJECT_ROOT>/src/__generated__` in .flowconfig (set here) — without it the flow leg cannot parse relay's output at all",
+  "rows": {
+    "codegenCold": "relay-compiler over N fresh components, no artifacts on disk — the from-scratch codegen a CI runner pays",
+    "codegenNoChange": "rerun with all artifacts present and nothing edited — relay's skip-unchanged path (still re-extracts and re-validates every document)",
+    "checkFull": "the checker over components + generated artifacts as one program; every component imports and uses its query's generated $data type, so the check validates codegen output against hand-written code"
+  },
+  "languages": {
+    "ts": {
+      "codegenCold": {
+        "medianMs": 3940,
+        "samplesMs": [
+          3660,
+          3940,
+          4080
+        ],
+        "peakRssMB": 70
+      },
+      "artifacts": 10000,
+      "codegenNoChange": {
+        "medianMs": 3940,
+        "samplesMs": [
+          3780,
+          3940,
+          5210
+        ],
+        "peakRssMB": 69
+      },
+      "check": {
+        "medianMs": 710,
+        "samplesMs": [
+          710,
+          730,
+          710
+        ],
+        "peakRssMB": 834
+      }
+    },
+    "flow": {
+      "codegenCold": {
+        "medianMs": 4370,
+        "samplesMs": [
+          4900,
+          3650,
+          4370
+        ],
+        "peakRssMB": 68
+      },
+      "artifacts": 10000,
+      "codegenNoChange": {
+        "medianMs": 3890,
+        "samplesMs": [
+          3060,
+          4260,
+          3890
+        ],
+        "peakRssMB": 69
+      },
+      "flowUsed": "0.321.0 (flow main @ cdb4f637 (wedge fixes in; verified in bench/flow-wedge-retest.json))",
+      "check": {
+        "medianMs": 1590,
+        "samplesMs": [
+          1590,
+          1570,
+          1640
+        ],
+        "peakRssMB": null
+      }
+    }
+  }
+}
