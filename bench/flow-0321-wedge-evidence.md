@@ -1,14 +1,14 @@
-# Flow 0.321.0 server crash-wedge at 500,000 modules — archived evidence
+# Flow 0.321.0 Server Crash-Wedge at 500,000 Modules: Archived Evidence
 
-Three sweep runs of `scripts/tsgo-scale-bench.mjs` hit a Flow 0.321.0 server crash at
-the 500k point on the linux-arm64 flow-bin binary (the third inside a full
-canonical-shape sweep — its recorded outcome is archived in Crash 3 below; the current
-dataset of record runs the flow column on the fixed main build); two other sweeps
-passed the same point clean. A cancellation race, roughly a coin flip per run
-at this scale, not a deterministic wall. This file archives the primary evidence the
-TYPECHECKERS.md crash section cites.
+Three of five full-scale sweeps of `scripts/tsgo-scale-bench.mjs` hit a Flow 0.321.0
+server crash at the 500k point on the linux-arm64 flow-bin binary; the crash is a
+cancellation race, and the two other sweeps passed the same point clean. This file
+archives the primary evidence the TYPECHECKERS.md crash section cites. The third
+occurrence happened inside a full canonical-shape sweep; its recorded outcome is
+archived in Crash 3 below, and the current dataset of record runs the flow column on
+the fixed main build.
 
-## Crash 1 — panic in `flow_typing_utils`
+## Crash 1: Panic in `flow_typing_utils`
 
 Timeline from the server log (`/tmp/flow/…flow-corpus.log`, 2026-07-07, read live
 while the process was wedged):
@@ -29,31 +29,30 @@ while the process was wedged):
 Aftermath, from `/proc` before any intervention:
 
 - server master pid 79871: alive, VmRSS 9,171,740 kB (~9.0GB), **131 threads**, CPU
-  counters frozen (utime 159149 across repeated 4–5s samples) — wedged, not working;
+  counters frozen (utime 159149 across repeated 4–5s samples): wedged, not working;
   a gdb thread dump showed every thread parked in futex wait
-- the bench's `flow status` client blocked 18m38s and counting with no error output —
+- the bench's `flow status` client blocked 18m38s and counting with no error output;
   the server's RPC socket stayed healthy, so the client saw a working server that
   never answered
 
-## Crash 2 — same trigger, different panic site
+## Crash 2: Same Trigger, Different Panic Site
 
-A later non-canonical sweep hit the same pattern at the same 500k point
-(watcher-triggered recheck during the post-init check, worker panic, master wedged at
-8.7GB with the status client hanging), at a **different** site:
+A later non-canonical sweep hit the same failure pattern as Crash 1 at the same 500k
+point (master wedged at 8.7GB), at a **different** site:
 
     thread '<unnamed>' (112997) panicked at crates/flow_typing_statement/src/statement.rs:7054:30:
     should not fail outside speculation: WorkerCanceled(WorkerCanceled)
 
 Two runs, two distinct panic sites (`flow_typing_utils/src/type_operation_utils.rs:295`
-and `flow_typing_statement/src/statement.rs:7054`) — the hazard is the error-channel
+and `flow_typing_statement/src/statement.rs:7054`): the hazard is the error-channel
 contract (`WorkerCanceled` travels the same channel as speculation errors, and
 multiple consumers `unwrap`/`expect` assuming only the latter), not one buggy line.
 
-## Crash 3 — a full bench sweep's recorded occurrence
+## Crash 3: A Full Bench Sweep's Recorded Occurrence
 
 A full canonical-shape sweep on released 0.321 (tsgo 7.0.0-dev.20260707.2 toolchain)
-hit the race at the same 500k point on the first one-edit recheck. Its dataset — since
-replaced by the flow-main run, so the record is archived here — carried:
+hit the race at the same 500k point on the first one-edit recheck. Its dataset (since
+replaced by the flow-main run, so the record is archived here) carried:
 
     points.500000.flow.incrOneEdit: { "killed": true, "timedOut": true, "phase": "sample 0" }
 
@@ -64,8 +63,7 @@ replaced by the flow-main run, so the record is archived here — carried:
     [2026-07-08 08:06:50.733] Killing the worker processes
     [2026-07-08 08:06:50.733] Monitor is exiting with status NoError (Killed by `flow stop`. Exiting.)
 
-The same site as crash 1; the client hung the full hour to the bench's ceiling. Three
-occurrences in five full-scale sweeps on 0.321; two sweeps passed the point clean.
+The same site as crash 1; the client hung the full hour to the bench's ceiling.
 
 ## Mechanism
 
@@ -74,17 +72,17 @@ cancels the in-flight check; the cancellation surfaces as `WorkerCanceled` insid
 worker mid-typecheck; the consuming code panics; the worker pool absorbs the panic, so
 the shared files-completed counter never reaches its total and the scheduler's
 completion wait blocks forever. The observable symptom is a silently hung `flow
-check`/`flow status` client — no error, no crash report from the client's side.
+check`/`flow status` client: no error, and no crash report from the client's side.
 
 Reported upstream as
 [facebook/flow#9454](https://github.com/facebook/flow/issues/9454). The panic sites
-are already fixed on Flow's main branch — commits `dc725ff9`, `74fc09a8`, `49511978` —
+are already fixed on Flow's main branch (commits `dc725ff9`, `74fc09a8`, `49511978`),
 unreleased as of 0.321.0, so every released binary through 0.321 carries the wedge. A
 backport against the v0.321.0 source (scheduler `catch_unwind` containment +
 propagating the two observed sites' errors) lives on the `fix-workercanceled-wedge`
 branch of the ejc3/flow fork.
 
-## Retest: the trigger isolated, the upstream fix verified
+## Retest
 
 A directed retest harness (`scripts/flow-wedge-retest.mjs`) makes the race reproducible
 on demand and verifies the fix; the recorded runs are `bench/flow-wedge-retest.json`.
@@ -96,7 +94,7 @@ at `cdb4f637` (contains the three fix commits) built from source. Two pressure m
   0.321.0 survived 10 cycles clean. The race needs an in-flight check to cancel.
 - **Overlapping** (edit A → notify → 120–480ms later, while the recheck runs, edit B →
   notify → status): released 0.321.0 **wedged at cycle 13** with the identical panic
-  (`type_operation_utils.rs:295`, WorkerCanceled unwrap) and the identical symptom — a
+  (`type_operation_utils.rs:295`, WorkerCanceled unwrap) and the identical symptom: a
   status client hung past the 8-minute ceiling against a healthy socket. The build of
   Flow main containing the three fix commits **survived 20 overlapping cycles** under
   the same pressure, no panic.
