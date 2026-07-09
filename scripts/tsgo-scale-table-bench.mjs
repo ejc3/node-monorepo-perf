@@ -38,7 +38,9 @@ const DEFAULT_MODULES = 16;
 const SCALES_SPEC = (process.env.TSGO_TABLE_SCALES || DEFAULT_SCALES).trim();
 const SAMPLES = +(process.env.TSGO_TABLE_SAMPLES || 3);
 if (!Number.isInteger(SAMPLES) || SAMPLES < 1) {
-  console.error(`TSGO_TABLE_SAMPLES must be a positive integer (got "${process.env.TSGO_TABLE_SAMPLES}")`);
+  console.error(
+    `TSGO_TABLE_SAMPLES must be a positive integer (got "${process.env.TSGO_TABLE_SAMPLES}")`,
+  );
   process.exit(1);
 }
 const MODULES = +(process.env.MODULES || DEFAULT_MODULES);
@@ -106,7 +108,9 @@ function assertProgramComplete(apps, libs) {
     // A signal-killed --listFiles prints a partial list; that must not certify the program.
     const sigLine = listing.match(/Command terminated by signal\s+(\d+)/);
     if (e.signal || (e.status != null && e.status >= 128) || sigLine)
-      throw new Error(`--listFiles killed (${e.signal ?? "signal"}) — cannot certify program completeness`);
+      throw new Error(
+        `--listFiles killed (${e.signal ?? "signal"}) — cannot certify program completeness`,
+      );
     // A non-signal non-zero exit (e.g. type errors) still prints the full file list, which is
     // all this gate needs; the green gate below is what fails on actual type errors.
   }
@@ -190,7 +194,9 @@ function wholeProgram() {
     const sigLine = out.match(/Command terminated by signal\s+(\d+)/);
     if (e.signal || (e.status != null && e.status >= 128) || sigLine) {
       const how = e.signal ?? (sigLine ? `signal ${sigLine[1]}` : `exit ${e.status}`);
-      throw new Error(`tsgo killed (${how}) — a crashed checker is a harness fault: ${out.slice(-800)}`);
+      throw new Error(
+        `tsgo killed (${how}) — a crashed checker is a harness fault: ${out.slice(-800)}`,
+      );
     }
     ok = false;
   }
@@ -232,7 +238,8 @@ for (const { label, apps, libs } of SCALES) {
         `whole-program tsgo must be green on a valid ${label} tree — got ${r.errors} errors` +
           (r.sample ? ` (sample: ${r.sample})` : ` (exit non-zero, no TS error parsed)`),
       );
-    if (r.maxRssMB == null) throw new Error(`peak RSS not captured — is /usr/bin/time GNU time -v?`);
+    if (r.maxRssMB == null)
+      throw new Error(`peak RSS not captured — is /usr/bin/time GNU time -v?`);
     runs.push(r);
     console.log(`  sample ${i + 1}/${SAMPLES}: ${r.ms}ms, ${r.maxRssMB}MB`);
   }
