@@ -20,8 +20,11 @@ on:
       - "bench/charts/tool-comparison.png"
       - "bench/charts/checker-scale.svg"
       - "bench/charts/checker-scale.png"
+      - "bench/charts/cache-network.svg"
+      - "bench/charts/cache-network.png"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
+      - "scripts/net-cache-chart.mjs"
       - ".github/workflows/charts.yml"
   pull_request:
     paths:
@@ -30,8 +33,11 @@ on:
       - "bench/charts/tool-comparison.png"
       - "bench/charts/checker-scale.svg"
       - "bench/charts/checker-scale.png"
+      - "bench/charts/cache-network.svg"
+      - "bench/charts/cache-network.png"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
+      - "scripts/net-cache-chart.mjs"
       - ".github/workflows/charts.yml"
 
 permissions:
@@ -52,23 +58,24 @@ jobs:
 
       - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
+          node scripts/net-cache-chart.mjs
 
       - name: Fail if a committed SVG drifted from the bench data (or was never committed)
         run: |
           # intent-to-add so brand-new chart files are drift too — `git diff` alone
           # ignores untracked files, and a forgotten `git add` must fail this gate
           git add -N bench/charts/
-          if ! git diff --exit-code -- bench/charts/tool-comparison.svg bench/charts/checker-scale.svg; then
-            echo "::error::a committed chart SVG is out of date or missing. Run 'make comparison-chart scale-chart' and commit the result."
+          if ! git diff --exit-code -- bench/charts/tool-comparison.svg bench/charts/checker-scale.svg bench/charts/cache-network.svg; then
+            echo "::error::a committed chart SVG is out of date or missing. Run 'make comparison-chart scale-chart net-cache-chart' and commit the result."
             exit 1
           fi
 
       - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png; do
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png; do
             test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
             dims=$(identify -format '%wx%h %m' "$png")
             echo "PNG: $png $dims"
@@ -81,10 +88,10 @@ jobs:
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png)" ]; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
             # the build (the PNG was still validated above; refresh it locally with make comparison-chart).
@@ -99,4 +106,5 @@ jobs:
           path: |
             bench/charts/tool-comparison.png
             bench/charts/checker-scale.png
+            bench/charts/cache-network.png
           if-no-files-found: error

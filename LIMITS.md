@@ -52,7 +52,20 @@ Every CI runner starts with an empty local cache, so without a shared cache each
 | 10        | 672s          | 120s       | 12.0s      | 5.6×          |
 | 50        | 3,361s        | 356s       | 7.1s       | 9.4×          |
 
-Per-runner cost converges toward the restore time (5.9s) as the fleet grows. (restore is the localhost floor; over a network add each runner's download, per the table above.)
+Per-runner cost converges toward the restore time (5.9s) as the fleet grows. (restore is the localhost floor — over a network add each runner's download, priced next.)
+
+**The network cost, measured.** The restore times above are the localhost floor — the protocol + decompress cost with no network in the path. Shaping the loopback between turbo and the cache server with `tc netem` (added RTT + a bandwidth cap) and re-running the real `turbo run --cache=remote:rw` restore across modern-CI links prices what the floor leaves as `bytesTransferred / bandwidth` arithmetic (`bench/ci-cache-network-bench.json`, 300:100, 64-core box; each restore asserted all-cached-from-remote, restore = median of 3, RTT = 2× the netem delay):
+
+| task (cache size) | no-cache cold | localhost floor | same-region (1 Gbps, 2 ms) | cross-region (500 Mbps, 30 ms) |
+| ----------------- | ------------- | --------------- | -------------------------- | ------------------------------ |
+| typecheck (0.2 MB) | 23.2s | 2.0s | 2.0s | 2.0s |
+| build (247 MB) | 60.3s | 3.5s | 3.9s | 5.8s |
+
+(A separate shaped run, so the cold and localhost columns match the table above within run-to-run noise — the localhost column *is* that floor, re-measured.) The cost scales with cache **size**, not repo size. The 0.2 MB typecheck cache restores in the same time on every link — the network is free at that size. The 247 MB build cache is a real bandwidth-bound download that grows with the link: +0.4s same-region (3.9s, 1 Gbps) and +2.3s cross-region (5.8s, 500 Mbps + 30 ms RTT). Both are small in absolute terms — every restore stays at least ×10 under the 60s cold compute it replaces (×17 localhost down to ×10 cross-region), so the shared cache wins on any link; the network only decides *how much* it wins for a large artifact, and the build cache cross-region is the one cell it visibly ambers.
+
+![Remote cache restore vs cold compute across network profiles](bench/charts/cache-network.svg)
+
+[High-resolution PNG](bench/charts/cache-network.png)
 
 **It cannot help when an edit changes everything.** A remote cache restores only the artifacts an edit did *not* invalidate. Editing a leaf lib (a few dependents rehash) vs the universal foundation lib (every package rehashes), then a fresh runner runs the whole repo (`bench/ci-cache-bench.json`, 300:100 under `--universal 1`, 500 tasks):
 
@@ -89,7 +102,7 @@ Measured so far:
 - install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP; plus the five-way frozen CI-runner install incl. npm in fresh podman containers, `container-install-bench.json`)
 - typecheck (cold/warm), focus build, prune, deploy, publish, diamond, dev-sim
 - Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker
-- remote-cache restore-vs-rebuild
+- remote-cache restore-vs-rebuild (incl. the network cost under `tc netem` shaping, `ci-cache-network-bench.json`)
 - editor project-load + RSS (tsserver vs tsgo LSP)
 - task orchestration (Vite Task vs turbo, `vite-task-bench.json`)
 

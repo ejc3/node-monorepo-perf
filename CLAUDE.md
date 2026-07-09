@@ -565,6 +565,31 @@ One command each for the O(repo)-vs-O(closure) thesis:
   linked git worktree → `bench/ci-cache-bench.json`, writeup in LIMITS.md
   ("[Remote Cache: Amortizing the O(repo) Cold Start](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start)")
   + SUMMARY.md.
+- `node scripts/ci-cache-network-bench.mjs` (`NET_SCALE`/`NET_TASKS`/`NET_SAMPLES`/`NET_COLD_SAMPLES`/
+  `NET_BUILD_COLD_SAMPLES`/`NET_CONC`, `NET_PORT`, `NET_KEEP=1`, `NET_ALLOW_BUSY=1`) — the **network
+  dimension ci-cache-bench leaves at the localhost floor**: ci-cache-bench runs the remote cache on
+  localhost, so its restore time is the protocol+decompress floor with no network in the path (it records
+  the store size so the network cost is "estimable"). This bench MEASURES that cost — it shapes the
+  loopback between turbo and the pinned `turborepo-remote-cache@2.11.2` server with `tc netem` (added RTT +
+  a bandwidth cap) and times the REAL `turbo run <task> --cache=remote:rw` restore across profiles
+  (localhost floor · same-region 1 Gbps/2 ms · cross-region 500 Mbps/30 ms — loopback egress is traversed
+  once per direction, so RTT = 2×delay, validated) for two tasks whose caches bracket the range: typecheck
+  (sub-MB) and build (a few-hundred-MB). The finding: the shared cache is ~10× faster than cold compute on
+  every link; the restore's network cost scales with cache SIZE, not repo size — the tiny typecheck cache
+  is free everywhere, the big build cache is a real bandwidth-bound download (+0.4s same-region, +2.3s
+  cross-region) that stays ~10× under the cold compute it replaces. Discipline: every
+  restore asserted all-cached-from-remote (a partial restore can't read fast), cold asserted 0-cached and
+  medianed (build cold is slow/16×-diluted → 1 sample, matching ci-cache-bench), restore = median of 3;
+  for the big artifact the cross-region link is asserted measurably slower than the floor (a silently-no-op
+  tc leaves the download cost visible, not free); a stale qdisc from a prior killed run is detected +
+  cleared before measuring; the canonical gate covers every number-moving knob (scale/samples/conc/tasks)
+  so a non-default run diverts to `.partial.json`. **Requires passwordless `sudo`** (tc); the shaping is
+  removed on EVERY exit path incl. uncaught throw (a left-behind qdisc slows all localhost traffic), with a
+  loud warning if teardown can't (expired creds). Destructive (regenerates the tree, pins `TURBO_CACHE_DIR`,
+  scratch under gitignored `.ci-cache-net/`) → run in a linked git worktree; load-guarded →
+  `bench/ci-cache-network-bench.json`, charted by `scripts/net-cache-chart.mjs`
+  (`bench/charts/cache-network.svg`), writeup in LIMITS.md ("Remote cache: amortizing the O(repo) cold
+  start", the network-cost subsection).
 - `node scripts/editor-loop-bench.mjs` (`EDITOR_APPS_SCALES`/`EDITOR_CLOSURE_SCALES`/`EDITOR_TARGET_INDEX`/
   `EDITOR_COLD_SAMPLES`/`EDITOR_SAMPLES`, `EDITOR_ALLOW_BUSY=1`): the **editor inner-loop vet**: the
   language-server cost the build benches miss. Races `tsserver` (`node typescript/lib/tsserver.js`,
@@ -647,7 +672,11 @@ linked below the SVG) so a chart regeneration regenerates both; `make comparison
 `scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`),
 the million-module checker heat chart (whole-program check, red-vs-green, the save loop by mechanic,
 completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
-`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json`, embedded in TYPECHECKERS.md; both charts
+`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json`, embedded in TYPECHECKERS.md.
+`net-cache-chart.mjs` renders `bench/charts/cache-network.svg` (+ `.png`, same contract; `make
+net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks with their cache size, columns
+= cold-compute + each shaped restore profile; per row the fastest cell is green and the rest are ×N of it)
+from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All three
 ride the same `.github/workflows/charts.yml` byte-gate.
 
 **Comparison-chart conventions (every chart generator follows these):**
