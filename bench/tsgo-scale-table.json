@@ -1,0 +1,97 @@
+{
+  "measures": "whole-program tsgo cold typecheck (one `tsgo --noEmit` over @demo/*->src), swept over the README scaling-table scales; no incremental cache so cold is steady state",
+  "tsc_column_note": "the README table's tsc `typecheck` column is turbo-orchestrated tsc (build + tsc --noEmit), cold then warm-cache; this tsgo column is one whole-program process, cold only",
+  "versions": {
+    "tsgo": "Version 7.0.0-dev.20260707.2",
+    "node": "v22.22.0",
+    "pnpm": "10.29.1"
+  },
+  "cores": 64,
+  "preRunLoadAvg1": 0.18,
+  "scales": [
+    {
+      "label": "200:100",
+      "apps": 200,
+      "libs": 100,
+      "modules": 16,
+      "samples": 3,
+      "programFiles": 2300,
+      "preRunLoadAvg1": 0.24,
+      "coldMedianMs": 261,
+      "coldMs": [
+        260,
+        262,
+        261
+      ],
+      "maxRssMB": 235,
+      "rssSamplesMB": [
+        233,
+        232,
+        235
+      ]
+    },
+    {
+      "label": "1000:200",
+      "apps": 1000,
+      "libs": 200,
+      "modules": 16,
+      "samples": 3,
+      "programFiles": 6400,
+      "preRunLoadAvg1": 2.12,
+      "coldMedianMs": 509,
+      "coldMs": [
+        503,
+        509,
+        511
+      ],
+      "maxRssMB": 422,
+      "rssSamplesMB": [
+        422,
+        422,
+        418
+      ]
+    },
+    {
+      "label": "2000:300",
+      "apps": 2000,
+      "libs": 300,
+      "modules": 16,
+      "samples": 3,
+      "programFiles": 11100,
+      "preRunLoadAvg1": 1.88,
+      "coldMedianMs": 811,
+      "coldMs": [
+        811,
+        834,
+        787
+      ],
+      "maxRssMB": 637,
+      "rssSamplesMB": [
+        637,
+        637,
+        636
+      ]
+    },
+    {
+      "label": "4000:300",
+      "apps": 4000,
+      "libs": 300,
+      "modules": 16,
+      "samples": 3,
+      "programFiles": 17100,
+      "preRunLoadAvg1": 2.94,
+      "coldMedianMs": 1181,
+      "coldMs": [
+        1188,
+        1171,
+        1181
+      ],
+      "maxRssMB": 857,
+      "rssSamplesMB": [
+        790,
+        801,
+        857
+      ]
+    }
+  ]
+}

@@ -55,3 +55,4 @@ bun.lockb
 /.ci-cache/
 # ci-cache-network-bench scratch (remote-cache server store + log, tc-shaped)
 /.ci-cache-net/
+/bench/tsgo-scale-table.partial.json

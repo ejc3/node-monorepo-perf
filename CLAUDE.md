@@ -246,6 +246,24 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `make build-bench`: full Next vs Vite build at `APPS`/`LIBS` → `bench/build-bench.json`.
 - `node scripts/typecheck-bench.mjs <N>`: tsc vs tsgo on one N-module program;
   `TC_SAMPLES` timed runs, median reported → `bench/typecheck-bench.json`.
+- `node scripts/tsgo-scale-table-bench.mjs` (`TSGO_TABLE_SCALES` default
+  `"200:100 1000:200 2000:300 4000:300"`, `TSGO_TABLE_SAMPLES` 3, `MODULES` 16,
+  `TSGO_TABLE_ALLOW_BUSY=1`): the **tsgo column for the README scaling table**. The README
+  "Results" table's typecheck column is turbo-orchestrated tsc (per-package `tsc --noEmit`
+  behind a tsc `^build`); this measures the recommended checker on the SAME trees — one
+  `tsgo --noEmit -p tsconfig.whole.json` over the whole workspace from source
+  (`@demo/*`→`packages/*/src`, the `optimal-gate-bench.mjs` model), swept over the same four
+  scale points. tsgo keeps no incremental cache, so cold is steady state (no warm row);
+  methodology matches the tsc column (OS-cached files, warmup discarded, no drop_caches).
+  Per scale: median of `TSGO_TABLE_SAMPLES` cold runs + peak RSS (VmHWM via
+  `/usr/bin/time -v`). Gated: a valid tree must typecheck green (0 errors); an untimed
+  `--listFiles` completeness gate asserts tsgo loaded EVERY on-disk workspace source file
+  (exact set, not a floor) so a vacuous/partial include can't record a false number;
+  signal-killed tsgo hard-fails as a harness fault. Destructive (regenerates the tree,
+  `pnpm install`, writes `tsconfig.whole.json`) → refuses outside a git worktree; core-bound
+  → refuses on a loaded box unless `TSGO_TABLE_ALLOW_BUSY=1`; canonical only at the default
+  scales+samples+modules, else → gitignored `tsgo-scale-table.partial.json` →
+  `bench/tsgo-scale-table.json`, the README table's `tsgo whole` column.
 - `node scripts/tsgo-scale-bench.mjs` (`TSGO_SCALE_POINTS` default `"10000 100000 250000
   500000 1000000"`, `TSGO_SCALE_SAMPLES` 3, `TSGO_SCALE_LAYERS` 100, `TSC_ANCHOR_MAX`
   100000, `TSGO_SCALE_WORK` default `/mnt/fcvm-btrfs/tsgo-scale-bench`,
