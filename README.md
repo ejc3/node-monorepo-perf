@@ -8,7 +8,21 @@ Three layers of focus: install-time (`pnpm deploy` / `turbo prune @demo/app-2000
 
 Apps are tiny (count is the variable under test); libraries re-export ~16 modules in a layered DAG. pnpm catalogs pin one Next/React/TS version set; `workspace:*` links internal deps locally (`--versioned` → `workspace:^x.y.z`, see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md)); libs build to `dist/` (`dependsOn: ["^build"]`).
 
-Quick start: `pnpm install && pnpm gen -- --apps 200 --libs 100 --modules 16 --clean && pnpm install`, then `turbo run build --filter=@demo/app-00100...` / `turbo run typecheck` / `turbo prune @demo/app-00100 --docker`. `generate.mjs` flags: `--apps` (50), `--libs` (50), `--modules` (16), `--app-deps` (4), `--lib-deps` (3), `--layers` (6). Start at 200–2,000 apps.
+### Quick start
+
+```bash
+# 1. generate a workspace (start at 200–2,000 apps)
+pnpm install
+pnpm gen -- --apps 200 --libs 100 --modules 16 --clean
+pnpm install
+
+# 2. exercise the three focus layers
+turbo run build --filter=@demo/app-00100...   # focus build (one app's closure)
+turbo run typecheck                            # whole-workspace typecheck
+turbo prune @demo/app-00100 --docker           # minimal deploy subtree
+```
+
+`generate.mjs` flags (defaults): `--apps` 50, `--libs` 50, `--modules` 16, `--app-deps` 4, `--lib-deps` 3, `--layers` 6.
 
 ## Results: Scaling Behavior
 
