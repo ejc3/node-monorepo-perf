@@ -1,18 +1,9 @@
 # The Optimal Stack: bun + tsgo + oxlint + turbo at 4,000 Apps / 400 Libs
 
-Source of record: `bench/optimal-gate-bench.json` (run at 4000:400), the real-types parity
-vet `bench/typecheck-parity-bench.json` (run at 4000:400:8), the developer inner loops
-`bench/dev-loop-bench.json` (run at 4000:400), the real-app vet `bench/real-app-bench.json`,
-the declaration-emit caveat `bench/decl-emit-caveat.json`, `bench/env.json`.
-Reproduce: `node scripts/optimal-gate-bench.mjs 4000:400` (in a dedicated git worktree:
-the bench overwrites the root `package.json` and regenerates the tree, so it refuses to
-run in the primary tree); `node scripts/typecheck-parity-bench.mjs 4000:400:8` (self-contained:
-scaffolds a throwaway workspace under the temp dir, needs no worktree); `node
-scripts/dev-loop-bench.mjs 4000:400` (also in a worktree); `node scripts/real-app-bench.mjs`
-(self-contained: clones real apps to a btrfs work dir, needs no worktree); `node
-scripts/decl-emit-caveat.mjs` (self-contained: scaffolds a throwaway workspace, needs no worktree).
-
-One native-compiled tool per job, with no slower baseline in the measured loop:
+One native-compiled tool per job, no slower baseline in the loop. Sources of record:
+`bench/optimal-gate-bench.json` (4000:400), `bench/typecheck-parity-bench.json` (4000:400:8),
+`bench/dev-loop-bench.json` (4000:400), `bench/real-app-bench.json`,
+`bench/decl-emit-caveat.json`, `bench/env.json`.
 
 | job                 | tool                                    | version              |
 | ------------------- | --------------------------------------- | -------------------- |
@@ -23,123 +14,70 @@ One native-compiled tool per job, with no slower baseline in the measured loop:
 
 ## The Scenario
 
-A library owner owns a foundation lib that **every** app imports (`@demo/lib-001`,
-generated with `--universal 1` so it is a pure-sink tier every app and every other lib
-depends on). At 4,000 apps / 400 libs the daily question is: rev that lib, and catch a
-breaking type error in any of the 4,000 apps before it merges, fast.
+A library owner revs a foundation lib every app imports (`@demo/lib-001`, generated
+`--universal 1`). At 4,000 apps / 400 libs the daily question: rev it and catch a breaking
+type error in any of the 4,000 apps before merge, fast.
 
 ## Installing the Workspace
 
-`bun install` materializes the 4,400-package workspace (4,000 apps + 400 libs; 76 unique
-external deps, the rest workspace symlinks) in **20.9s**: warm store, lockfile present,
-`node_modules` cold, the steady-state clone/CI case (`bench/optimal-gate-bench.json`,
-`install.storeWarm: true`). This is a one-time setup cost; revving a lib edits source and
-needs no reinstall.
-
-Which install case matters depends on the runner. bun wins the full re-resolve (~62–357×
-vs pnpm) and the fresh CI-runner install (0.9s vs pnpm's 8.9s at 1,000 apps); at 2,000
-apps yarn 4 is the fastest cold and warm installer. Per-cell numbers in
-[TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). Every bench in this doc (the
-onboarding install, the dev loops, the gates) was measured with bun as the installer, and
-bun wins or ties the cold install through 1,000 apps; at the top of the measured range
-yarn wins the install itself, cold and warm. A yarn-PnP variant of THIS stack has a
-compatibility boundary: the stock tsgo and Next's default Turbopack build fail under PnP
-while tsc/turbo/oxlint work (pass/fail probes on a 20-app/10-lib tree with a node-modules
-control, resolver behavior rather than a scale effect; `bench/pnp-compat-bench.json`).
-Both have a green path (a native PnP resolver for tsgo, and `next build` under the
-webpack builder or rspack; `bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`),
-and yarn's node-modules linker carries no such boundary (five-way install table in
-[TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)). A separate operation again is
-pnpm's no-lockfile cold-resolve (lockfile authoring), which is 233s at 1,000:200
-(`bench/install-modes-bench.json`).
+`bun install` materializes the 4,400-package workspace in **20.9s** (warm store, lockfile
+present, `node_modules` cold — the clone/CI case; `install.storeWarm: true`). One-time
+setup; revving a lib needs no reinstall. Which install case matters depends on the runner:
+bun wins the full re-resolve (~62–357× vs pnpm) and the fresh CI-runner install (0.9s vs
+pnpm's 8.9s at 1,000 apps); at 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
+in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
+compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
+work; `bench/pnp-compat-bench.json`), with green paths (`bench/tsgo-pnp-bench.json` +
+`bench/rspack-pnp-bench.json`).
 
 ## The Whole-Workspace Type-Error Gate
 
-For a **universal** rev every app must re-check, so there is nothing to scope away. The
-fastest gate is then a single tsgo process over the whole workspace, reading lib **source**
-directly (`tsgo --noEmit -p tsconfig.whole.json`, with `@demo/*` resolved to
-`packages/*/src/index.ts`). One process parses each lib's source **once** and shares it
-across every importing app, and skips the per-lib dist builds entirely.
+A universal rev has nothing to scope away — every app re-checks. The fastest gate is a
+single tsgo process over the whole workspace reading lib **source** (`tsgo --noEmit -p
+tsconfig.whole.json`, `@demo/*`→`packages/*/src/index.ts`): one process parses each lib once,
+shares it across every importing app, skips the per-lib dist builds. At 4,000:400 it
+typechecks the tree in **1.32s**, peak RSS **911MB** (0.7% of the 135GB box). Typecheck-only;
+emits no `dist`.
 
-At 4,000:400 it typechecks the whole tree in **1.32s**, peak RSS **911MB** (one process;
-the tradeoff is memory, 0.7% of the 135GB box). It is typecheck-only: it emits no
-`dist`. The timed number follows a throwaway warmup run that absorbs tsgo's binary load and
-first-touch fs caching.
-
-The integrated alternative is measured: Vite+'s `vp check` (oxlint + tsgolint in one
-pass) takes 2.44s on a 920-file corpus where this stack's gate shape (`oxlint` plus one
-whole-program `tsgo --noEmit`) takes 0.77s; it is also slower than its own engines run
-standalone (1.88s), so the separate-tools stack stands (`bench/vite-plus-tools-bench.json`).
-Vite Task, its task runner, loses whole-repo typecheck runs to turbo by 2–3.7× but wins
-the focused warm loop, stays flat as the repo grows, and is unable to cache `next build`
-([TOOLING.md](TOOLING.md#task-orchestration-vite-task-vs-turborepo)).
+The integrated alternative, Vite+'s `vp check`, takes 2.44s on a 920-file corpus where this
+stack's gate shape takes 0.77s (`bench/vite-plus-tools-bench.json`).
 
 ## Catching a Breaking Change
 
-A breaking foundation signature (a new required parameter) turns **every** dependent app
-red: **4,000 of 4,000 apps** report `error TS2554: Expected 2 arguments, but got 1`
-(4,399 TS2554 in all: 4,000 apps + 399 dependent libs), in **1.39s**. The bench requires
-every app red and at least one `TS2554` (`appsWithErrors === 4000` and a `TS2554` sample),
-not a non-zero exit alone; it does not pin the exact 4,399 total nor assert the absence of
-other codes. This is "catch a type error in one of
-the 4,000 apps before it ships," in under a second and a half.
+A breaking foundation signature turns **every** dependent app red: **4,000 of 4,000 apps**
+report `error TS2554: Expected 2 arguments, but got 1` (4,399 TS2554: 4,000 apps + 399
+dependent libs), in **1.39s**. Catch a type error in one of the 4,000 apps before it ships,
+in under a second and a half.
 
 ## Parity with tsc on Real Types
 
-The gate numbers above are measured on the generated tree, whose libs are 16 small modules
-(an interface plus a few functions each) re-exported through an index. A separate,
-self-contained vet (`scripts/typecheck-parity-bench.mjs` →
-`bench/typecheck-parity-bench.json`) runs the same one-program shape over a deliberately
-type-heavy tree of the same 4,000:400 scale: libs carrying recursive conditional + mapped
-types, 48-member unions, recursive path-flattening, and cross-lib type intersections.
-
-**Cost.** One tsgo program checks this type-heavy tree in **1.96s** (median of three,
-samples 1.95–1.96s), peak RSS **1281MB**, the same ~2s order as the optimal-gate tree's
-1.32s/911MB. This is a smoke test, not an isolated type-weight delta: the two trees are
-structured differently (8 vs 16 modules per lib, a non-universal vs universal import graph),
-so the only claim is that real type computation keeps the one-program gate around 2s at this
-scale, not a general bound. The ratio below is core-bound (tsgo is parallel), so the bench
-refuses to run on a loaded box and records the load it ran under.
-
-**Parity with tsc.** tsc is the oracle. On the valid
-tree both report **0** diagnostics. Into five apps the bench injects five error sites each
-(assignment, arg-type, arity, return-type), 25 in all; tsc flags all 25 and tsgo flags the
-same **25 locations**, missing **0** and adding **0** of its own (the bench hard-fails on
-either drift, on the tsc count drifting from 25, and on a signal-killed run). Error codes
-match on 20 of 25; at the arg-type site (in all five apps) tsc emits `TS2345` and tsgo
-`TS2739`; both reject the same expression, with a different code. The corpus is one generated tree with `skipLibCheck` (no `.d.ts` parity), so this
-proves parity on these 25 located errors rather than general diagnostic parity; on
-them, tsgo loses nothing tsc catches. So "tsgo is a preview" constrains
-emit and config (below), not which type errors it reports here. On the same type-heavy check
-tsc takes **17.2s** to tsgo's 1.96s (**8.8×**, both medians, measured at 1-min load 1.97 on
-64 cores).
+A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program shape over a
+type-heavy tree (recursive conditional + mapped types, 48-member unions, cross-lib
+intersections) at 4,000:400:8. One tsgo program checks it in **1.96s**, peak RSS **1281MB**.
+On the valid tree both tsc and tsgo report **0**. Injecting 25 error sites, tsgo flags the
+same **25 locations**, missing **0** and adding **0**; codes match on 20 of 25 (at the
+arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **17.2s** to
+tsgo's 1.96s (**8.8×**).
 
 ## The Orchestrated turbo Path
 
-The orchestrated path, `turbo run typecheck:tsgo --filter=...@demo/lib-001`, runs one tsgo
-per package against built `dist` (per-package caching + graph scoping): **4,800 of 4,800
-tasks** (4,400 `typecheck:tsgo` + 400 lib builds) cold in **80.1s**. Unlike the one-program
-gate, it also emits every lib's `dist` (tsc `^build`),
-which a deploy needs and the type-error gate does not. For a universal rev there is no
-scope to exploit, so the one-program gate is ~60× faster (1.32s vs 80.1s); turbo's value
-here is the dist artifacts and the per-package cache on the *next* run, not the cold gate
-time.
+`turbo run typecheck:tsgo --filter=...@demo/lib-001` runs one tsgo per package against built
+`dist`: **4,800 of 4,800 tasks** cold in **80.1s**, also emitting every lib's `dist` (tsc
+`^build`), which a deploy needs and the type-error gate does not. For a universal rev the
+one-program gate is ~60× faster (1.32s vs 80.1s); turbo's value here is the dist artifacts
+and the per-package cache on the next run.
 
 ## Scoping a Non-Universal Rev
 
-When the revved lib is **not** universal, scoping is the win. The same turbo command on a
-leaf lib (`...@demo/lib-400`; each app imports 4 of 400 libs, so a top-layer lib reaches
-~1%) runs only **237 of 4,800 tasks** in
-**22.4s**; the graph tracks that one lib's closure, not the repo. A universal rev takes one
-tsgo program; a scoped rev takes `turbo --filter=...<lib>` (or `--affected`).
+A leaf lib (`...@demo/lib-400`) runs only **237 of 4,800 tasks** in **22.4s** — the graph
+tracks that lib's closure, not the repo. A universal rev takes one tsgo program; a scoped rev
+takes `turbo --filter=...<lib>` (or `--affected`).
 
 ## The Developer Inner Loops
 
-The sections above are the workspace-author / lib-owner view, where a core-package rev is
-O(repo). The two day-to-day roles are the other case: each touches one package and the libs it
-imports, so their work is scoped to that closure by construction, not to the repo. Measured at
-4,000:400 for one mid app (`@demo/app-2000`) and one leaf lib (`@demo/lib-400`), each step
-fresh (first time) vs subsequent (repeat) (`bench/dev-loop-bench.json`):
+The two day-to-day roles each touch one package and the libs it imports, scoped to that
+closure by construction. Measured at 4,000:400 for one mid app (`@demo/app-2000`) and one
+leaf lib (`@demo/lib-400`), fresh / subsequent (`bench/dev-loop-bench.json`):
 
 | step                               | app dev (fresh / subsequent) | lib dev (fresh / subsequent) |
 | ---------------------------------- | ---------------------------- | ---------------------------- |
@@ -147,114 +85,20 @@ fresh (first time) vs subsequent (repeat) (`bench/dev-loop-bench.json`):
 | lint-on-save (oxlint, one dir)     | 64 / **60ms**                | 70 / **65ms**                |
 | focused gate (turbo, cold / warm)  | **19.1s** / **15.2s** (187)  | **22.8s** / **13.6s** (237)  |
 
-- **Onboarding**: `bun install` on the whole workspace runs fresh in **20.6s** (cold
-  `node_modules`), subsequent in **3.8s** (warm; bun re-verifies the 4,400-package tree). One
-  O(repo) cost, paid on first clone.
-- **Typecheck-on-save** and **lint-on-save** have no meaningful fresh-vs-subsequent gap: tsgo
-  and oxlint have no incremental cache, so the first run matches the steady state within noise
-  (~170–190ms typecheck, ~60–65ms lint). That is why they run on every save, directly, not
-  through turbo.
-- **Focused gate**: `turbo typecheck:tsgo` over the closure (app: `app...` = the app + its
-  dependencies) or the dependents (lib: `...lib`), building dependency-lib dist via `^build`
-  and typechecking; medians of three, under source-visibility. The lib gate covers more (237 tasks
-  of dependents vs the app's 187-task closure) and costs more **cold** (22.8s vs 19.1s). The
-  **warm** run is dominated by turbo's graph-load + input-hash + cache-restore over the
-  4,400-package workspace, noisy enough that the app and lib warm gates don't order reliably
-  (their sample ranges overlap: app [12.2, 15.9]s, lib [13.4, 16.6]s, medians here 15.2s vs
-  13.6s), and this bench does not break those costs out. That floor is why the keystroke loop
-  runs the tools directly.
+Onboarding `bun install` runs fresh in **20.6s** (cold `node_modules`), subsequent **3.8s**
+(warm). tsgo and oxlint have no incremental cache, so first run matches steady state within
+noise — that is why they run on every save directly, not through turbo. A core-package rev is
+O(repo) (1.4s as one tsgo program); a developer's edit reaches only their closure (~170ms).
 
-A core-package rev is O(repo) (every app
-re-checks, 1.4s as one tsgo program) because the change reaches everything; a developer's
-edit reaches only their closure, so their keystroke loop is ~170ms.
+## Real Apps, Lint, Caveats
 
-## Real Apps
-
-The synthetic apps are deliberately tiny (one page importing ~4 libs). To check the per-app
-numbers aren't an artifact of that, `scripts/real-app-bench.mjs` clones two real open-source
-Next.js App Router apps at pinned commits and runs them through this repo's pinned toolchain
-(`bench/real-app-bench.json`): **vercel/commerce** (65 source files, 3.9k LOC) and
-**shadcn/taxonomy** (125 files, 7.5k LOC): real product code, not a single generated page.
-
-**Config friction.** tsgo (TS7 preview) refuses to start on a real Next tsconfig: it
-errors, before type-checking anything, on options it has removed. commerce trips `baseUrl`,
-`moduleResolution: node`, `downlevelIteration` (136ms to bail); taxonomy trips `baseUrl`,
-`moduleResolution: node`, `target: es5` (268ms). Wiring a real app into tsgo therefore means
-modernizing the config (drop those, `baseUrl`→`paths: {"*": ["./*"]}`, `moduleResolution: bundler`)
-and adding an ambient declaration for CSS/asset side-effect imports (the `*.css` decl that
-`next build` codegen normally supplies). After that, tsgo type-checks the real source.
-
-**Check coverage.** It type-checks the app's hand-written
-`.ts`/`.tsx` plus the stub ambient decl; it does **not** run the app's codegen, so it omits Next's
-generated `.next/types` route types, the `next-env.d.ts` ambient globals, and (for taxonomy)
-contentlayer's generated module. This is the inner-loop _source_ check (the cost a developer pays
-on save), not the app's build-complete `tsc`/`next typecheck` surface. (The omitted codegen is also
-why taxonomy's seven "cannot find module" errors appear, below.)
-
-**The cost stays small.** Per app, on the single quiet box (tsgo and oxlint are medians of three timed
-runs after a warmup; bun install and turbo cold/warm are single runs; the synthetic-tiny row is from
-`bench/dev-loop-bench.json`, app `@demo/app-2000`):
-
-| app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm           |
-| --------------- | ----------- | ------------- | ----------------- | ------ | --------------------------- |
-| synthetic tiny  | 1 page      | —             | 168ms / 187MB     | ~60ms  | —                           |
-| vercel/commerce | 65 / 3.9k   | 543ms (76)    | **128ms** / 123MB | 62ms   | 190 → **56ms** (2/2 cached) |
-| shadcn/taxonomy | 125 / 7.5k  | 3370ms (1031) | **229ms** / 220MB | 79ms   | 290 → 293ms (1/2 cached)    |
-
-The per-app typecheck stayed in the low hundreds of ms for both apps, including the real 7.5k-LOC
-one. (It is not a controlled LOC curve: the synthetic number checks lib **source** in-program,
-while these real apps' deps are `skipLibCheck`'d `.d.ts` (the apps' own tsconfig setting,
-recorded per app), which is why a 3.9k-LOC real app can check faster than a
-synthetic one. The claim is only that all stay in the low hundreds of ms.) oxlint is ~60–80ms
-regardless: it does not read the tsconfig at all, so it needs no config changes; it flags six
-warnings on commerce and 20 on taxonomy (0 errors), recorded in `bench/real-app-bench.json`.
-
-**Standalone-run errors.** commerce is **0 errors**.
-taxonomy reports **13** real errors. Seven are `TS2307` "cannot find module" for the codegen this
-bench doesn't run (`contentlayer/generated`); six are genuine **dependency drift**: the pinned
-source references a
-`className` prop the resolved Radix version's Portal types no longer expose
-(`AlertDialogPortalProps`/`DialogPortalProps`/`SheetPortalProps`, across
-`alert-dialog`/`dialog`/`sheet`), so it no longer type-checks against the dependency
-versions that resolve at install time (`TS2339`/`TS2322`). Both are findings about the app, surfaced
-in 229ms; sample diagnostic lines for each code are recorded in `bench/real-app-bench.json`.
-
-**Turbo caches a real app's checks**: commerce warm-hits both tasks (2/2 cached, 56ms); taxonomy
-caches only the passing lint (1/2), because turbo does not cache the red typecheck until it goes
-green. Larger apps that depend on codegen (generated DB clients, content layers) need that codegen
-run first, a build-orchestration concern the 4,000-package benches above already cover, not a
-single-app one.
-
-## Lint
-
-oxlint (native Rust) checks the whole 4,400-package source tree in **180ms** (0 findings),
-off the critical path.
-
-## Wiring and Rough Edges
-
-- The one-program gate is typecheck-only: it reads lib **source** (`paths`→`src`), so it
-  needs no build and emits nothing. If you also need `dist` (for deploy), that is a
-  separate build; the turbo path produces it as part of its 80.1s.
-- tsgo (TS7) is stricter than tsc about module-resolution config (it rejects `baseUrl`);
-  `tsconfig.whole.json` resolves `@demo/*` to `packages/*/src` and
-  sets `declaration:false` (the base config's `declaration:true` would otherwise flag JSX
-  component return types as non-portable, TS2883, under `--noEmit`).
-- That `declaration:false` is a coverage gap: the gate validates
-  the code but not the published `.d.ts`. A declaration-portability error (an exported value whose
-  inferred type comes from a transitive dep nested under another package's `node_modules`) passes
-  the gate (tsgo and tsc, 0 errors) yet is flagged the moment `declaration:true` is set, with **no
-  emit needed** (tsc `TS2742` / tsgo `TS2883`), and again by the dist-emitting build. The boundary
-  is `declaration` off-vs-on, not check-vs-emit. Flipping `declaration:true` on the whole-program
-  gate isn't free, though: per the previous bullet it floods JSX component return types with TS2883,
-  so `.d.ts` validation is left to the per-package build, where each lib's declaration is checked
-  in isolation. The synthetic 4,000:400 libs don't have this geometry (their exports carry explicit
-  return types), so the measured gate misses nothing here; it is a latent hazard for real published
-  libraries, shown on a constructed repro (`bench/decl-emit-caveat.json`). The fast gate complements
-  the build rather than replacing it.
-- bun ignores pnpm `catalog:` catalogs, so the bench resolves them to concrete versions
-  before installing (`workspace:*` specs are left intact; bun understands those). bun's
-  own catalog format is the catalog-preserving option, not exercised here.
-- In the turbo path lib `dist` is emitted by **tsc** via `^build` (tsgo emit is not wired;
-  tsgo is a preview build). The preview status constrains emit and resolution config, not
-  type checking: on the type-heavy parity vet above tsgo flagged every injected error
-  location tsc flagged (25 of 25, 0 missed).
+- **Real-app vet.** The stack holds on real product code: cloning vercel/commerce (3.9k LOC)
+  and shadcn/taxonomy (7.5k LOC), per-app tsgo `--noEmit` stays in the low hundreds of ms
+  (128ms / 229ms), oxlint ~60–80ms; tsgo needs a modernized tsconfig + an ambient `*.css`
+  decl to start (`bench/real-app-bench.json`).
+- **Lint.** oxlint checks the whole 4,400-package tree in **180ms** (0 findings), off the
+  critical path.
+- **Declaration-emit caveat.** The gate's `declaration:false` validates the code but not the
+  published `.d.ts`: a declaration-portability error passes the gate yet is flagged under
+  `declaration:true` (tsc `TS2742` / tsgo `TS2883`) with no emit needed, so `.d.ts` validation
+  stays with the per-package build (`bench/decl-emit-caveat.json`).
