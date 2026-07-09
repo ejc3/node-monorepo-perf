@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-07-09T02:59:20.549Z",
+  "canonical": true,
+  "about": "Real turbo remote-cache restore under tc-netem loopback shaping (added RTT + bandwidth cap) — the network cost ci-cache-bench records as a store size but measures only at the localhost floor. restoreMs is the median of NET_SAMPLES real `turbo run --cache=remote:rw` restores, each asserted all-cached-from-remote; coldNoRemoteMs is the median of coldSamples cold-compute runs (1 for build). bytesTransferred is the on-disk store footprint on the server (a proxy for the download, modulo HTTP framing/compression). Loopback egress traversed once per direction, so RTT = 2×delay.",
+  "env": {
+    "cores": 64,
+    "preRunLoadAvg1": 0.46
+  },
+  "versions": {
+    "node": "v22.22.0",
+    "turbo": "2.9.18",
+    "remoteCacheServer": "turborepo-remote-cache@2.11.2",
+    "tc": "tc utility, iproute2-6.1.0, libbpf 1.3.0"
+  },
+  "scale": "300:100",
+  "samples": 3,
+  "coldSamples": 2,
+  "buildColdSamples": 1,
+  "concurrency": "100%",
+  "profiles": [
+    {
+      "name": "localhost",
+      "rttMs": 0,
+      "rate": null
+    },
+    {
+      "name": "same-region",
+      "rttMs": 2,
+      "rate": "1000mbit"
+    },
+    {
+      "name": "cross-region",
+      "rttMs": 30,
+      "rate": "500mbit"
+    }
+  ],
+  "results": {
+    "typecheck": {
+      "totalTasks": 500,
+      "coldNoRemoteMs": 23174,
+      "coldSamples": 2,
+      "bytesTransferred": 184241,
+      "profiles": {
+        "localhost": {
+          "rttMs": 0,
+          "rate": null,
+          "restoreMs": 2021,
+          "restoreSamples": [
+            2021,
+            1626,
+            2103
+          ],
+          "speedupVsCold": 11.5
+        },
+        "same-region": {
+          "rttMs": 2,
+          "rate": "1000mbit",
+          "restoreMs": 1986,
+          "restoreSamples": [
+            2049,
+            1560,
+            1986
+          ],
+          "speedupVsCold": 11.7
+        },
+        "cross-region": {
+          "rttMs": 30,
+          "rate": "500mbit",
+          "restoreMs": 2007,
+          "restoreSamples": [
+            2043,
+            1813,
+            2007
+          ],
+          "speedupVsCold": 11.5
+        }
+      }
+    },
+    "build": {
+      "totalTasks": 400,
+      "coldNoRemoteMs": 60287,
+      "coldSamples": 1,
+      "bytesTransferred": 247013494,
+      "profiles": {
+        "localhost": {
+          "rttMs": 0,
+          "rate": null,
+          "restoreMs": 3503,
+          "restoreSamples": [
+            3731,
+            3458,
+            3503
+          ],
+          "speedupVsCold": 17.2
+        },
+        "same-region": {
+          "rttMs": 2,
+          "rate": "1000mbit",
+          "restoreMs": 3869,
+          "restoreSamples": [
+            4001,
+            3775,
+            3869
+          ],
+          "speedupVsCold": 15.6
+        },
+        "cross-region": {
+          "rttMs": 30,
+          "rate": "500mbit",
+          "restoreMs": 5826,
+          "restoreSamples": [
+            5826,
+            5630,
+            5963
+          ],
+          "speedupVsCold": 10.3
+        }
+      }
+    }
+  },
+  "finding": "A shared remote cache restores a fresh CI runner about 10-14× faster than cold compute on every link measured; the restore's network cost scales with cache SIZE, not repo size. The sub-megabyte typecheck cache restores in the same time same-region or cross-region. The few-hundred-megabyte build cache is a bandwidth-bound download whose cost grows with the link: a fraction of a second same-region (1 Gbps), a couple of seconds cross-region (500 Mbps + RTT) — a cost the localhost floor hides but that stays about 10× under the cold compute it replaces. The levers are artifact size and link bandwidth."
+}

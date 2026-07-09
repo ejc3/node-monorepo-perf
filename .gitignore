@@ -39,6 +39,8 @@ pnpm-lock.yaml
 /bench/relay-codegen-bench.partial.json
 # transient: a non-canonical rspack-turbopack-speed-bench run — never the record
 /bench/rspack-turbopack-speed-bench.partial.json
+# transient: a non-canonical ci-cache-network-bench run — never the record
+/bench/ci-cache-network-bench.partial.json
 # transient: editor-loop-bench's tsconfig.base.json backup (removed on exit; self-heals a hard kill)
 /tsconfig.base.json.bench.bak
 .DS_Store
@@ -51,3 +53,5 @@ bun.lockb
 
 # ci-cache-bench scratch (remote-cache server store + log)
 /.ci-cache/
+# ci-cache-network-bench scratch (remote-cache server store + log, tc-shaped)
+/.ci-cache-net/
