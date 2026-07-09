@@ -31,7 +31,7 @@ This repo sets `link-workspace-packages=false`. Only `workspace:` forces local l
 | `workspace:^` | link local | `^1.4.9` |
 | `workspace:^1.4.9` | link local if satisfied | `^1.4.9` |
 
-At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only (on-disk file untouched); an explicit `workspace:^1.4.9` just has `workspace:` stripped. All forms link local at install, so spec form does not affect install time — only the published string. Install perf is driven by resolution source and `node-linker` (`scripts/perf-matrix.mjs`).
+At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only (on-disk file untouched). An explicit `workspace:^1.4.9` just has `workspace:` stripped. All forms link local at install, so spec form does not affect install time — only the published string. Install perf is driven by resolution source and `node-linker` (`scripts/perf-matrix.mjs`).
 
 ## 3. Diamond Resolution Under Semver
 
@@ -74,7 +74,7 @@ To import a lib's TypeScript source (not `dist`), set `transpilePackages: ['@ejc
 
 ## 7. Per-App Workspaces
 
-§5's recommendation, live on CodeArtifact: one repo, no app-spanning workspace, each app its own pnpm workspace. `scripts/per-app-workspace-demo.sh` builds it. Apps commit plain semver and resolve from the registry; publishable libs commit `workspace:^`; `workspace:*` is transient co-dev only. A libs-only workspace (`packages: ["libs/*"]`) builds/publishes the lib DAG; each app's own `pnpm-workspace.yaml` shadows it on install. Both apps pin `@ejc3/ui` at the same version; `@ejc3/util` is `ui`'s unnamed transitive dep; the only difference is `web`'s root override.
+§5's recommendation, live on CodeArtifact: one repo, no app-spanning workspace, each app its own pnpm workspace. `scripts/per-app-workspace-demo.sh` builds it. Apps commit plain semver and resolve from the registry; publishable libs commit `workspace:^`; `workspace:*` is transient co-dev only. A libs-only workspace (`packages: ["libs/*"]`) builds/publishes the lib DAG, and each app's own `pnpm-workspace.yaml` shadows it on install. Both apps pin `@ejc3/ui` at the same version. `@ejc3/util` is `ui`'s unnamed transitive dep. The only difference is `web`'s root override.
 
 **Proof 1: pnpm rewrites `workspace:^` on pack.** `pnpm pack` on `@ejc3/ui`:
 
@@ -94,7 +94,7 @@ admin  require("@ejc3/ui") = {"SOURCE":"registry@1.0.0","util":"registry@1.0.0"}
 
 Same registry `@ejc3/ui`, yet transitive `@ejc3/util` is local in `web`, registry in `admin` — because `web`'s root carries `pnpm.overrides { "@ejc3/util": "workspace:*" }` and `admin`'s does not. Separate roots can scope this; a shared root cannot. The apps hold separate lockfiles.
 
-Gains: per-app divergence on a transitive dep, per-app install/lockfile scope. Lost vs the single root: the shared catalog (becomes per-app pins), the fleet `turbo` graph + cross-app `--affected`, instant lib-edit feedback (now publish-then-bump), and the atomic lib+consumers refactor. [FEASIBILITY.md](FEASIBILITY.md) carries the cost model and decision criteria.
+This buys per-app divergence on a transitive dep and per-app install/lockfile scope. Against the single root it loses the shared catalog (becomes per-app pins), the fleet `turbo` graph + cross-app `--affected`, instant lib-edit feedback (now publish-then-bump), and the atomic lib+consumers refactor. [FEASIBILITY.md](FEASIBILITY.md) carries the cost model and decision criteria.
 
 ## Reproduce
 ```bash

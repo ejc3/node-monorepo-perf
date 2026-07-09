@@ -1,6 +1,6 @@
 # Feasibility: Should You Adopt a Shared-Workspace Monorepo?
 
-Stack: pnpm 10.29, Turborepo 2.9.18, Node 22, 64-core arm64 (`bench/env.json`); Next
+**Stack:** pnpm 10.29, Turborepo 2.9.18, Node 22, 64-core arm64 (`bench/env.json`); Next
 16.2.9. Measured at 200 / 1,000 / 2,000 / 4,000 apps (300 / 1,200 / 2,300 / 4,300
 packages); larger is extrapolation.
 
@@ -13,10 +13,13 @@ buy nothing — where a polyrepo or separate installs fit better.
 
 ## The Cost Model
 
-Daily work is scoped to one app's closure, no install (`dev-sim.json`): typecheck on save
-(`tsc --noEmit`) median 4.3s; build before push (`turbo run build --filter=app...`) median
-5.8s; onboard a feature area 10.8s; a teammate's unrelated edit adds 0 rebuilds to your
-closure; a dev server needs no install.
+Daily work is scoped to one app's closure, no install (`dev-sim.json`):
+
+- typecheck on save (`tsc --noEmit`) median 4.3s
+- build before push (`turbo run build --filter=app...`) median 5.8s
+- onboard a feature area 10.8s
+- a teammate's unrelated edit adds 0 rebuilds to your closure
+- a dev server needs no install
 
 Whole-workspace operations grow ~linearly with package count (`results.json`):
 
@@ -36,9 +39,13 @@ output — but build-once amortization **requires the remote cache on**
 ([LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start)).
 
 Only a missing/corrupt lockfile pays the full resolve; other situations are cheap
-(`install-modes-bench.json`, 1,000 apps): cold-resolve (no lockfile) 233.4s (100%); +1
-dependency 9.5s (4%); catalog version bump 51.3s (22%); frozen warm-store 7.4s (3%); frozen
-cold-store 9.2s (4%).
+(`install-modes-bench.json`, 1,000 apps):
+
+- cold-resolve (no lockfile) 233.4s (100%)
+- +1 dependency 9.5s (4%)
+- catalog version bump 51.3s (22%)
+- frozen warm-store 7.4s (3%)
+- frozen cold-store 9.2s (4%)
 
 Per tool, frozen install in fresh podman containers (`container-install-bench.json`): pnpm
 8.9s, bun **0.9s**, yarn-PnP 4.4s, yarn node-modules 6.5s, npm 10.4s
@@ -58,7 +65,7 @@ single-app commands touch a small slice. At 4,000 apps one app's build closure i
 ## Package-Manager Lever
 
 On a full re-resolve, bun is ~62–357× faster than pnpm across 200–2,000 apps
-(`install-bench.json`); yarn 4 also beats pnpm at every scale, fastest at 2,000, but PnP
+(`install-bench.json`). yarn 4 also beats pnpm at every scale, fastest at 2,000, but PnP
 cannot run this repo's tsgo/`next build` stack (`pnp-compat-bench.json`). bun's
 isolated+catalog path is newer and hit bugs
 ([#23615](https://github.com/oven-sh/bun/issues/23615)). Numbers in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4); the centralized-shared +

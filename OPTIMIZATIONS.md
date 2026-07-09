@@ -32,7 +32,12 @@ The single shared lockfile is O(repo). Measured (`bench/lockfile-merge-bench.jso
 | bump one shared version via `catalog:` (one line) | **0** | 255 / 255 |
 | pin the same version per-app in 25 apps (version skew) | 25 | 57 / 50 |
 
-The `package.json` column is the apples-to-apples comparison (0 vs 25 manifests = the merge-conflict surface). A one-line `catalog:` bump rewrites hundreds of lockfile lines, and two bumps on different branches conflict: a `git merge` produced **253 conflict markers**, and **`pnpm install` drove them to 0** ([auto-resolves lockfile merge conflicts](https://pnpm.io/git)). Mitigations: catalogs ([§1.3](#13-catalogs-catalog)); `pnpm install` auto-resolution; Git Branch Lockfiles (`git-branch-lockfile=true`); CI via `turbo prune`'s pruned lockfile ([§4.1](#41-turbo-prune-app---docker)).
+The `package.json` column is the apples-to-apples comparison (0 vs 25 manifests = the merge-conflict surface). A one-line `catalog:` bump rewrites hundreds of lockfile lines. Two bumps on different branches conflict: a `git merge` produced **253 conflict markers**, and **`pnpm install` drove them to 0** ([auto-resolves lockfile merge conflicts](https://pnpm.io/git)). Four mitigations apply:
+
+- catalogs ([§1.3](#13-catalogs-catalog))
+- `pnpm install` auto-resolution
+- Git Branch Lockfiles (`git-branch-lockfile=true`)
+- CI via `turbo prune`'s pruned lockfile ([§4.1](#41-turbo-prune-app---docker))
 
 ## 2. Task Time (Turborepo)
 
@@ -51,24 +56,29 @@ Aggregate build cost is dominated by per-app startup × app count, not any singl
 ### 3.1 Turbopack for Builds
 On Next 16.2.9, `next build` and `next build --turbopack` produce identical output and the same bundler (2.6s, 3.90 MB); `--turbopack` is a no-op because Turbopack is the default (`bench/turbopack-bench.json`).
 
-Other levers: `output: 'standalone'` emits only traced deps; `optimizePackageImports` imports only used barrel symbols (experimental); run `typecheck`/`lint` as separate Turbo tasks (`typescript: { ignoreBuildErrors: true }`) not inside every `next build`; centralize base `next.config`/`tsconfig` in a shared package.
+A few other levers remain:
+
+- `output: 'standalone'` emits only traced deps.
+- `optimizePackageImports` imports only used barrel symbols (experimental).
+- Run `typecheck`/`lint` as separate Turbo tasks (`typescript: { ignoreBuildErrors: true }`), not inside every `next build`.
+- Centralize base `next.config`/`tsconfig` in a shared package.
 
 ## 4. CI and Deploy
 
 ### 4.1 `turbo prune <app> --docker`
-Produces a layer-cacheable build context: `out/json/` = manifests + pruned lockfile (install layer); `out/full/` = source of only the internal packages the app needs (source layer). A Dockerfile copies `out/json`, installs `--frozen-lockfile`, copies `out/full` + `tsconfig.base.json`, then `turbo run build --filter=<app>`. Verified (turbo 2.9.18, `bench/focus-install-bench.json`): prune included **all 15** closure packages (0 missing) and the build succeeded, but only after copying `tsconfig.base.json`, which prune omits. An earlier report that prune drops internal deps ([turborepo#7732](https://github.com/vercel/turborepo/issues/7732)) did not reproduce; the gap is root configs, which `deploy-vercel.mjs` copies.
+Produces a layer-cacheable build context: `out/json/` = manifests + pruned lockfile (install layer); `out/full/` = source of only the internal packages the app needs (source layer). A Dockerfile copies `out/json`, installs `--frozen-lockfile`, copies `out/full` + `tsconfig.base.json`, then `turbo run build --filter=<app>`. Verified (turbo 2.9.18, `bench/focus-install-bench.json`): prune included **all 15** closure packages (0 missing) and the build succeeded — but only after copying `tsconfig.base.json`, which prune omits. An earlier report that prune drops internal deps ([turborepo#7732](https://github.com/vercel/turborepo/issues/7732)) did not reproduce. The gap is root configs, which `deploy-vercel.mjs` copies.
 
-CI baseline: `turbo run lint typecheck build --affected --cache=local:rw,remote:rw --concurrency=100%`.
+A reasonable CI baseline is `turbo run lint typecheck build --affected --cache=local:rw,remote:rw --concurrency=100%`.
 
 ### 4.3 Deploying One App to Vercel
-Use the cloud build path, not `--prebuilt`: set Root Directory to `apps/<app>`, keep "Include source files outside of the Root Directory" enabled, and let Vercel build with Turborepo + Remote Caching (`vercel build`'s sandbox cannot read `../../packages/*` without it). `scripts/deploy-vercel.mjs` automates it: **22s wall** for `@demo/app-10` (`bench/deploy.json`). `workspace:*` deploys in-tree source at its local version, never a registry version (the exact-version rewrite happens only on `pnpm publish`); for a published version, consume by plain semver — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+Use the cloud build path, not `--prebuilt`: set Root Directory to `apps/<app>`, keep "Include source files outside of the Root Directory" enabled, and let Vercel build with Turborepo + Remote Caching (`vercel build`'s sandbox cannot read `../../packages/*` without it). `scripts/deploy-vercel.mjs` automates it: **22s wall** for `@demo/app-10` (`bench/deploy.json`). `workspace:*` deploys in-tree source at its local version, never a registry version (the exact-version rewrite happens only on `pnpm publish`). For a published version, consume by plain semver — see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
 
 ### 4.4 Publishing to AWS CodeArtifact
-Auth goes in a scoped `.npmrc`, not the global one; npm needs `--userconfig` (it does not walk ancestor `.npmrc`); `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` demonstrates diamond resolution and the `workspace:` override collapse.
+Auth goes in a scoped `.npmrc`, not the global one. npm needs `--userconfig` (it does not walk ancestor `.npmrc`). `pnpm pack`/`pnpm publish` rewrite `workspace:`/`catalog:` to concrete ranges (npm does not). `scripts/diamond-demo.sh` demonstrates diamond resolution and the `workspace:` override collapse.
 
 ## 5. Quick Reference
 
-Verified on pnpm 10.29, turbo 2.9.18. The `isolated` linker is inode-heavy: 50,159 `node_modules` entries vs hoisted's 21,914 at 2,000 apps (`install-bench.json`), and 86,749 entries / 49,712 symlinks at 4,000 apps (`results.json`). At ~10k packages this dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
+Verified on pnpm 10.29, turbo 2.9.18. The `isolated` linker is inode-heavy. It holds 50,159 `node_modules` entries vs hoisted's 21,914 at 2,000 apps (`install-bench.json`), and 86,749 entries / 49,712 symlinks at 4,000 apps (`results.json`). At ~10k packages this dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
 
 ## Sources
 pnpm: [settings](https://pnpm.io/settings), [catalogs](https://pnpm.io/catalogs). Turborepo: [run/filtering](https://turborepo.dev/docs/reference/run), [`turbo prune`](https://turborepo.dev/repo/docs/reference/prune). [Vercel monorepos](https://vercel.com/blog/monorepos).

@@ -18,7 +18,7 @@ Drive with bun: it runs the entire rollout natively (below) and beats pnpm's ful
 
 Measured to 2,000 apps; 4,000 is below the 62× floor (extrapolation). Warm (store + `node_modules`), the gap narrows
 and pnpm-hoisted can edge bun ([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)); bun's edge is the cold/resolve
-path. Every fresh container or clone re-materializes from the committed lockfile — the CI-runner frozen install
+path. Every fresh container or clone re-materializes from the committed lockfile. On the CI-runner frozen install
 (`bench/container-install-bench.json`, 1,000 apps): **bun 0.9s vs pnpm 8.9s empty-cache (~10×)**, **bun 0.4s vs pnpm
 7.0s cache-restored (~18×)**.
 
@@ -39,12 +39,12 @@ auth.
 ## The Determinism Boundary
 
 Non-reproducibility comes from resolving live (non-frozen, or no committed lockfile); with a committed lockfile and
-frozen install a `^`/`*` range is inert. Measured (`determinism`): a `^3.0.0` dep installed frozen twice from a wiped
-`node_modules` is byte-identical under pnpm; drift the manifest and a frozen install fails closed (pnpm
+frozen install a `^`/`*` range is inert. The `determinism` rung measures this. A `^3.0.0` dep installed frozen twice
+from a wiped `node_modules` is byte-identical under pnpm; drift the manifest and a frozen install fails closed (pnpm
 `ERR_PNPM_OUTDATED_LOCKFILE`; bun exit 1). So reproducibility is **commit the lockfile + install frozen everywhere**,
-not pin every range; not-frozen runs only where you author an advance (the wave) or add/remove a dep, and the lockfile
-diff is the change. Install-time (`bench/install-modes-bench.json`, 1,000/200): from-scratch resolve 233s vs frozen
-7.4s warm / 9.2s cold.
+not pin every range. Not-frozen runs only where you author an advance (the wave) or add/remove a dep, and the lockfile
+diff is the change. The install cost differs sharply: from-scratch resolve 233s vs frozen 7.4s warm / 9.2s cold
+(`bench/install-modes-bench.json`, 1,000/200).
 
 ## The bun-Native Rollout
 
@@ -78,12 +78,13 @@ the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-lin
 ## Gating the Artifact
 
 The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.32s) checks `@demo/*`→`packages/*/src` source, what a
-`workspace:`-linked consumer compiles; a registry-pinned cohort consumes the published tarball, so the wave gate must
-also resolve that published version and run the declaration build. Two caveats: the fast gate runs `declaration:false`
-and misses a `.d.ts` portability error a `declaration:true` check catches (`bench/decl-emit-caveat.json`: tsc `TS2742`
-/ tsgo `TS2883`), so add a `tsc --declaration` build (tsgo can't emit declarations); and it's typecheck-only, so
-signature/arity breaks surface (`TS2554` fanout) but behavior doesn't — pair a post-deploy canary. The orchestrated
-turbo path (80.1s / 4,800 tasks cold) is the build-and-emit form, ~60× the fast gate — the per-wave CI cost.
+`workspace:`-linked consumer compiles. A registry-pinned cohort consumes the published tarball, so the wave gate must
+also resolve that published version and run the declaration build. Two caveats apply. The fast gate runs
+`declaration:false` and misses a `.d.ts` portability error a `declaration:true` check catches
+(`bench/decl-emit-caveat.json`: tsc `TS2742` / tsgo `TS2883`), so add a `tsc --declaration` build (tsgo can't emit
+declarations). And it's typecheck-only, so signature/arity breaks surface (`TS2554` fanout) but behavior doesn't —
+pair a post-deploy canary. The orchestrated turbo path (80.1s / 4,800 tasks cold) is the build-and-emit form, ~60× the
+fast gate — the per-wave CI cost.
 
 ## Codemods, Rollback, Publish Order
 

@@ -3,7 +3,7 @@
 The independently-published model (every lib published, apps consuming only published
 packages). Mechanics live in
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md), [ROLLOUT.md](ROLLOUT.md),
-[FEASIBILITY.md](FEASIBILITY.md). Registry: AWS CodeArtifact. Cast: **Maya** (app dev,
+[FEASIBILITY.md](FEASIBILITY.md). The registry is AWS CodeArtifact. The cast: **Maya** (app dev,
 `checkout-app`); **Sam** (lib dev, `@acme/ui` → `@acme/core`); **Priya** (platform).
 
 ---
@@ -54,14 +54,14 @@ HEAD by flipping `"^1.9.1"` → `"workspace:*"`, reverting before merge
 **11. Team owns ui and an app.** As a team owning `@acme/ui` and `brand-portal` we keep the
 app on ui's HEAD via `workspace:^` while others keep `"^1.9.0"` — same lib, both lives at
 once
-([§5](WORKSPACE-VS-SEMVER.md#5-switching-one-app-without-changing-the-others)). Payoff: a
-permanent pre-merge canary; cost: the app can't lag and other teams still wait
+([§5](WORKSPACE-VS-SEMVER.md#5-switching-one-app-without-changing-the-others)). The payoff is a
+permanent pre-merge canary; the cost is the app can't lag and other teams still wait
 ([§7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces)).
 
 **12. Publishes needing an unreleased core.** As a lib dev I want the pipeline to catch it:
 un-bumped core adds `formatPrice()`; ui uses it and publishes `1.9.2` declaring `"^2.5.0"`
 but needing a function no published core has, so Maya's install breaks.
-Fixes: bump on behavior change, publish deepest-first, gate the **artifact**
+The fix is to bump on behavior change, publish deepest-first, and gate the **artifact**
 ([ROLLOUT.md](ROLLOUT.md#gating-the-artifact)).
 
 ---

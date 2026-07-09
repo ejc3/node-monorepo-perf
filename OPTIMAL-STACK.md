@@ -1,6 +1,6 @@
 # The Optimal Stack: bun + tsgo + oxlint + turbo at 4,000 Apps / 400 Libs
 
-One native-compiled tool per job, no slower baseline in the loop. Sources of record:
+One native-compiled tool per job, no slower baseline in the loop. The sources of record are
 `bench/optimal-gate-bench.json` (4000:400), `bench/typecheck-parity-bench.json` (4000:400:8),
 `bench/dev-loop-bench.json` (4000:400), `bench/real-app-bench.json`,
 `bench/decl-emit-caveat.json`, `bench/env.json`.
@@ -22,9 +22,9 @@ type error in any of the 4,000 apps before merge, fast.
 
 `bun install` materializes the 4,400-package workspace in **20.9s** (warm store, lockfile
 present, `node_modules` cold — the clone/CI case; `install.storeWarm: true`). One-time
-setup; revving a lib needs no reinstall. Which install case matters depends on the runner:
+setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
 bun wins the full re-resolve (~62–357× vs pnpm) and the fresh CI-runner install (0.9s vs
-pnpm's 8.9s at 1,000 apps); at 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
+pnpm's 8.9s at 1,000 apps). At 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
 work; `bench/pnp-compat-bench.json`), with green paths (`bench/tsgo-pnp-bench.json` +
