@@ -9,7 +9,7 @@ MODULES ?= 16
 APP ?= @demo/app-00100
 SCALES ?= 300:100 1500:300
 
-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench clean
+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -84,6 +84,9 @@ lockfile-bench: ## decompose install: resolve (--lockfile-only) vs verify vs ful
 
 lib-rev-bench: ## rev a universal lib: workspace-dep vs npm-dep cost, tsc vs tsgo (APPS:LIBS)
 	node scripts/lib-rev-bench.mjs $(APPS):$(LIBS)
+
+tsgo-scale-table-bench: ## whole-program tsgo cold typecheck across the README scales -> bench/tsgo-scale-table.json
+	node scripts/tsgo-scale-table-bench.mjs
 
 clean: ## Reset worktree: restore patched tracked files, wipe generated tree + bench scratch (add KILL=1 to stop strays)
 	node scripts/clean-state.mjs --wipe $(if $(KILL),--kill,)
