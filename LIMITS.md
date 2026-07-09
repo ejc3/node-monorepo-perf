@@ -8,7 +8,7 @@ Scoping and caching reduce *execution*; these costs remain because they are inhe
 
 1. **The single lockfile.** One `pnpm-lock.yaml` describes the whole workspace: 9,897 → 153,967 lines across 300 → 4,300 packages (≈36 lines/package), extrapolating to multi-MB / ~720k lines at 20k. Every install reads it and (on any dep change) rewrites it; every dep-touching branch is a merge-conflict surface. You cannot `--filter` it. Mitigations trade away its value ([OPTIMIZATIONS.md §1.5](OPTIMIZATIONS.md#15-lockfile-churn-and-merge-conflicts)): `shared-workspace-lockfile=false` (loses cross-package dedup) or git-branch lockfiles (avoids conflicts, not size).
 
-2. **The Turbo graph-load floor.** `--filter`, `--affected`, and `prune` all parse every `package.json` and build the full DAG *before* selecting a subset — O(repo) on every invocation, including no-ops. A fully-cached `turbo run typecheck` grew 1.5s → 20.5s (200 → 4,000 apps); extrapolated, the per-command floor at 20k is ~100s before any task runs. The only escape in turbo is to stop having one graph (shard), giving up atomic cross-package changes. Vite Task (Vite+'s fs-traced runner) has no such floor: its focused warm run stays flat across 3× growth (0.85s → 0.86s, 400 → 1,200 tasks, vs turbo's 1.2s → 3.0s) at the price of 2–3.7× slower whole-repo typecheck (`bench/vite-task-bench.json`, [TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
+2. **The Turbo graph-load floor.** `--filter`, `--affected`, and `prune` all parse every `package.json` and build the full DAG *before* selecting a subset — O(repo) on every invocation, including no-ops. A fully-cached `turbo run typecheck` grew 1.5s → 20.5s (200 → 4,000 apps); extrapolated, the per-command floor at 20k is ~100s before any task runs. The only escape in turbo is to stop having one graph (shard), giving up atomic cross-package changes. Vite Task (Vite+'s fs-traced runner) has no such floor: its focused warm run stays flat across 3× growth (0.85s → 0.86s, 400 → 1,200 tasks, vs turbo's 1.2s → 3.0s). The trade is a 2–3.7× slower whole-repo typecheck (`bench/vite-task-bench.json`, [TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
 
 3. **Foundation/root-change blast radius = the whole repo.** A change to a widely-used lib or a root input (`tsconfig.base.json`, the catalog React/Next version, the pnpm/turbo/next version — all in every task's hash) invalidates the cache for all dependents.
    - Editing low-layer `lib-003` rebuilds 1,080 of 1,200 packages; at 20k that is ~18k.
@@ -18,7 +18,7 @@ Scoping and caching reduce *execution*; these costs remain because they are inhe
 
    The fix is organizational: change foundations rarely.
 
-4. **Materializing the whole tree (inodes/disk).** Installing all 20k apps creates a `node_modules` per package: isolated-linker symlinks measured 4,211 at 300/100 → hundreds of thousands at 20k, plus the `.pnpm` store. 40 Next apps = 156 MB of `.next` → 20k ≈ 78 GB; inodes can exhaust a modest filesystem. Levers: `node-linker=pnp`, don't build everything.
+4. **Materializing the whole tree (inodes/disk).** Installing all 20k apps creates a `node_modules` per package: isolated-linker symlinks measured 4,211 at 300/100 → hundreds of thousands at 20k, plus the `.pnpm` store. 40 Next apps = 156 MB of `.next` → 20k ≈ 78 GB; inodes can exhaust a modest filesystem. The levers are `node-linker=pnp` and not building everything.
 
 5. **Editor / language server.** Opening *one app* is O(closure): the server loads the opened app's closure (65 libs / 1,123 files), flat as the repo grows 8× (see [Editor and Language Server](#editor-and-language-server)). Opening the *whole* workspace as one project at 20k is genuinely O(repo): a multi-GB program with slow cross-package IntelliSense. Mitigations (sub-tree, sparse-checkout, pnp + editor SDK) scope it back to a closure.
 
@@ -78,9 +78,15 @@ The lever is the same: scope the open to one app's closure; a faster server (tsg
 
 ## Open Questions
 
-Measured: gen; install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP; five-way frozen CI-runner install incl. npm, `container-install-bench.json`); typecheck, focus build, prune, deploy, publish, diamond, dev-sim; Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker; remote-cache restore-vs-rebuild (incl. network cost, `ci-cache-network-bench.json`); editor project-load + RSS; task orchestration (`vite-task-bench.json`).
+The build already measures:
 
-Gaps:
+- gen; install (cold/warm/truly-cold; pnpm-isolated/hoisted/bun/yarn-nm/yarn-PnP; five-way frozen CI-runner install incl. npm, `container-install-bench.json`);
+- typecheck, focus build, prune, deploy, publish, diamond, dev-sim;
+- Next-vs-Vite build, tsc-vs-tsgo, spec-form/node-linker;
+- remote-cache restore-vs-rebuild (incl. network cost, `ci-cache-network-bench.json`);
+- editor project-load + RSS; task orchestration (`vite-task-bench.json`).
+
+These gaps remain:
 
 1. Direct lockfile measurement at 10k/20k. Size is measured through 4,000 apps (`results.json`); resolve-vs-verify (`lockfile-bench`) to 2,000; the 20k figure is extrapolated.
 2. Turbo graph-load in isolation (`turbo run build --dry`), distinct from §2's fully-cached floor.

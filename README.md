@@ -2,17 +2,31 @@
 
 Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared libraries, with a layered dependency graph, measured to 4,000 apps / 300 libs (test-execution axis to 1,000 apps / 200 libs).
 
-Result: whole-workspace operations (install, typecheck, warm `turbo run`, `turbo prune`'s graph load) scale with package count. A focused build (`turbo run --filter=<app>...`) executes one app's dependency closure and grows with that closure (×1.8 here), not app count. Avoid unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
+Whole-workspace operations (install, typecheck, warm `turbo run`, `turbo prune`'s graph load) scale with package count. A focused build (`turbo run --filter=<app>...`) executes one app's dependency closure and grows with that closure (×1.8 here), not app count. Avoid unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
 Three layers of focus: install-time (`pnpm deploy` / `turbo prune @demo/app-2000 --docker`), task-time (`turbo run build --filter=@demo/app-2000...`), artifact-time (`turbo prune ... --docker` → `out/`). Measured by `scripts/measure.mjs` → [`bench/results.json`](bench/results.json).
 
 Apps are tiny (count is the variable under test); libraries re-export ~16 modules in a layered DAG. pnpm catalogs pin one Next/React/TS version set; `workspace:*` links internal deps locally (`--versioned` → `workspace:^x.y.z`, see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md)); libs build to `dist/` (`dependsOn: ["^build"]`).
 
-Quick start: `pnpm install && pnpm gen -- --apps 200 --libs 100 --modules 16 --clean && pnpm install`, then `turbo run build --filter=@demo/app-00100...` / `turbo run typecheck` / `turbo prune @demo/app-00100 --docker`. `generate.mjs` flags: `--apps` (50), `--libs` (50), `--modules` (16), `--app-deps` (4), `--lib-deps` (3), `--layers` (6). Start at 200–2,000 apps.
+### Quick start
+
+```bash
+# 1. generate a workspace (start at 200–2,000 apps)
+pnpm install
+pnpm gen -- --apps 200 --libs 100 --modules 16 --clean
+pnpm install
+
+# 2. exercise the three focus layers
+turbo run build --filter=@demo/app-00100...   # focus build (one app's closure)
+turbo run typecheck                            # whole-workspace typecheck
+turbo prune @demo/app-00100 --docker           # minimal deploy subtree
+```
+
+`generate.mjs` flags (defaults): `--apps` 50, `--libs` 50, `--modules` 16, `--app-deps` 4, `--lib-deps` 3, `--layers` 6.
 
 ## Results: Scaling Behavior
 
-Environment: `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Four scale points, 200 → 4,000 apps (20× apps, ~14× packages); larger scales extrapolate. Via `scripts/measure.mjs` → `bench/results.json`.
+Environment details are in `bench/env.json` (Neoverse-V1, 64 cores, 135 GB, arm64; Node 22, pnpm 10.29, Turbo 2.9, tsc 5.9.3). Four scale points, 200 → 4,000 apps (20× apps, ~14× packages); larger scales extrapolate. Via `scripts/measure.mjs` → `bench/results.json`.
 
 | apps (libs) | typecheck cold | typecheck warm | focus build¹ | prune | build tasks | focus closure |
 |---|---|---|---|---|---|---|
@@ -32,7 +46,7 @@ Scaling factor, 200 → 4,000 apps:
 | prune | ×8.3 | O(repo); reads the whole graph |
 | focus build | ×1.8 | O(closure); closure grew 75→121 while apps grew 20× |
 
-The focus build tracks one app's closure (75–124 packages), not app count. Extrapolating to 20,000 apps: unscoped cold typecheck in tens of minutes, focused build in tens of seconds. What stays irreducibly O(repo) is in [LIMITS.md](LIMITS.md). Avoiding O(repo): scope with `--filter=<app>...` / `--affected`; an unscoped `turbo run` enumerates the whole graph even on cache hits; past ~20,000 apps loading one graph is itself O(repo), so shard.
+The focus build tracks one app's closure (75–124 packages), not app count. Extrapolating to 20,000 apps: unscoped cold typecheck in tens of minutes, focused build in tens of seconds. What stays irreducibly O(repo) is in [LIMITS.md](LIMITS.md). To avoid O(repo), scope with `--filter=<app>...` / `--affected`; an unscoped `turbo run` enumerates the whole graph even on cache hits. Past ~20,000 apps, loading one graph is itself O(repo), so shard.
 
 ### Charts
 ![typecheck cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)

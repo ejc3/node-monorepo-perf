@@ -13,9 +13,9 @@ Run after editing a script; catch typos before anything executes.
 
 The semantic static gate. `node --check` / `bash -n` are syntax-only; tsc is semantic.
 
-- Per package: `tsc --noEmit` (the `typecheck` script).
-- Workspace: `turbo run typecheck`, cached, scoped with `--filter` / `--affected`.
-- Faster: `tsgo --noEmit` (native port), ~12x on a single program — [TYPECHECKERS.md](TYPECHECKERS.md).
+- **Per package:** `tsc --noEmit` (the `typecheck` script).
+- **Workspace:** `turbo run typecheck`, cached, scoped with `--filter` / `--affected`.
+- **Faster:** `tsgo --noEmit` (native port), ~12x on a single program — [TYPECHECKERS.md](TYPECHECKERS.md).
 
 Lint runs as a separate task, not inside `next build` (wasted per-build work at thousands of apps): oxlint ([TOOLING.md](TOOLING.md#lint-eslint-vs-oxlint), 63.3× ESLint on this corpus), ESLint for unported rules.
 

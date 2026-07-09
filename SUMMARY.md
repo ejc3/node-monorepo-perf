@@ -48,7 +48,7 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
   catches a breaking change in **1.39s** with 4,000 / 4,000 apps red and named (TS2554). tsgo agrees
   with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors. The same gate via
   orchestrated turbo (also emits dist) is 80.1s / 4,800 tasks — the single tsgo process reads each
-  lib's source once, skipping the 400 dist builds. npm-dep version bump fanout: catalog **2**
+  lib's source once, skipping the 400 dist builds. The npm-dep version bump fanout is catalog **2**
   workspace-yaml lines vs per-consumer pin **one manifest each**.
 - **Opening the editor** (`bench/editor-loop-bench.json`, 4,000 apps / 300 libs): cold open
   (spawn → first def) tsserver 1,620ms vs tsgo LSP **86ms** (18.8×); peak RSS 380MB vs **275MB**;
@@ -70,8 +70,8 @@ Two operations are genuinely O(repo) and cannot be scoped away:
 - **A whole-repo dist build** scales with package count.
 
 Whole-repo build and typecheck amortize across a CI fleet via a remote cache: after the first
-runner seeds it, each later runner restores instead of recomputing — whole-repo typecheck 23.6s →
-1.9s (12.5×) at 300:100, 67.2s → 5.9s (11.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
+runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 23.6s →
+1.9s (12.5×) at 300:100 and 67.2s → 5.9s (11.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
 helps only the second-and-later consumer of an *unchanged* artifact: a leaf edit lets a fresh runner
 restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
 [LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start).
@@ -88,10 +88,10 @@ The same stack against two real open-source Next.js apps at pinned commits
 | vercel/commerce | 65 / 3.9k   | 543ms (76)    | **128ms** / 123MB | 62ms   | 190 → **56ms** (2 of 2) |
 | shadcn/taxonomy | 125 / 7.5k  | 3370ms (1031) | **229ms** / 220MB | 79ms   | 290 → 293ms (1 of 2)    |
 
-Per-app typecheck stays in the low hundreds of ms. The friction is config, not speed: **tsgo (a
+Per-app typecheck stays in the low hundreds of ms. The friction is config, not speed. **tsgo (a
 preview) refuses to start on a real Next tsconfig**, erroring in 136–268ms on removed options
 (`baseUrl`, `moduleResolution: node`; commerce also `downlevelIteration`, taxonomy also
-`target: es5`) — wiring an app in means modernizing the config and adding an ambient `*.css` decl.
+`target: es5`). Wiring an app in means modernizing the config and adding an ambient `*.css` decl.
 Commerce then checks clean; taxonomy shows 13 (seven TS2307 cannot-find-module, six genuine
 dependency drift). Turbo won't cache taxonomy's red typecheck until it goes green.
 
