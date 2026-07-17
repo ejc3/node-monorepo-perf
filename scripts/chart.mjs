@@ -239,12 +239,21 @@ for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]
 // owns tool-comparison.svg. Exempt them from the stale-warning and from deletion so a plain `make chart`
 // neither false-warns about a chart it doesn't render nor removes it.
 const external = new Set(["tool-comparison.svg", "checker-scale.svg", "cache-network.svg"]);
+// Under CHART_STRICT=1 (CI), a doc-linked chart this script owns but did not regenerate
+// is a hard failure: keeping the old file would sail through the byte-gate while the
+// committed data can no longer produce it. Locally it stays a warning (short/partial
+// datasets are normal mid-iteration).
+const strict = process.env.CHART_STRICT === "1";
 for (const f of canonical) {
   if (!made.includes(f) && !external.has(f)) {
-    console.warn(
-      `[chart] WARNING: ${f} was not regenerated this run (insufficient/confounded data); ` +
-        `keeping the existing file, which may be STALE and is still linked by the docs.`,
-    );
+    const msg =
+      `${f} was not regenerated this run (insufficient/confounded data) ` +
+      `but is still linked by the docs.`;
+    if (strict) {
+      console.error(`[chart] ERROR (CHART_STRICT): ${msg}`);
+      process.exit(1);
+    }
+    console.warn(`[chart] WARNING: ${msg} Keeping the existing file, which may be STALE.`);
   }
 }
 
@@ -256,7 +265,16 @@ for (const f of readdirSync(chartsDir)) {
 }
 
 // ---- markdown summary ----
-let md = `# Benchmark results\n\nMachine: ${process.platform}, generated from \`bench/results.json\`.\n\n`;
+// The machine line comes from the COMMITTED bench/env.json, not process.platform —
+// a live-environment value would make summary.md's bytes differ between a macOS
+// contributor and the linux CI byte-gate.
+const envPath = join(ROOT, "bench", "env.json");
+const machine = existsSync(envPath)
+  ? (({ cpuModel, arch, os }) => `${cpuModel} (${arch}), ${os}`)(
+      JSON.parse(readFileSync(envPath, "utf8")),
+    )
+  : process.platform;
+let md = `# Benchmark results\n\nMachine: ${machine}, generated from \`bench/results.json\`.\n\n`;
 md += `| scale | gen | install | lockfile | node_modules | typecheck cold | typecheck warm | focus build | full build tasks | focus pkgs | prune |\n`;
 md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
 for (const r of all) {

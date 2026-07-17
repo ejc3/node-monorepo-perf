@@ -1,10 +1,12 @@
 name: charts
 
-# Keeps the committed tool-comparison chart in sync with the bench data, and keeps the high-resolution
-# PNG (linked from the README) freshly rendered rather than hand-maintained.
+# Keeps every committed chart in sync with the bench data — the three heat charts
+# (comparison-chart/scale-chart/net-cache-chart) plus chart.mjs's scaling charts and
+# bench/summary.md — and keeps the high-resolution PNGs (linked from the docs) freshly
+# rendered rather than hand-maintained.
 #
-# The SVG is a deterministic function of the cited bench/*.json, so it is byte-gated: change a bench
-# dataset without re-rendering and CI fails. The PNG is a raster of that SVG whose exact bytes depend
+# Each SVG (and summary.md) is a deterministic function of the cited bench/*.json, so it is
+# byte-gated: change a bench dataset without re-rendering and CI fails. The PNG is a raster of that SVG whose exact bytes depend
 # on the ImageMagick version, so it is NOT byte-gated across environments. Instead the job deletes the
 # committed PNG and re-renders it (via scripts/comparison-chart.mjs, which writes the SVG and PNG
 # together): if `convert` fails the PNG is absent and the validation step fails (a convert failure
@@ -16,12 +18,11 @@ on:
     branches: [main]
     paths:
       - "bench/*.json"
-      - "bench/charts/tool-comparison.svg"
-      - "bench/charts/tool-comparison.png"
-      - "bench/charts/checker-scale.svg"
-      - "bench/charts/checker-scale.png"
-      - "bench/charts/cache-network.svg"
-      - "bench/charts/cache-network.png"
+      - "bench/charts/*.svg"
+      - "bench/charts/*.png"
+      - "bench/summary.md"
+      - "README.md"
+      - "scripts/chart.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -29,12 +30,11 @@ on:
   pull_request:
     paths:
       - "bench/*.json"
-      - "bench/charts/tool-comparison.svg"
-      - "bench/charts/tool-comparison.png"
-      - "bench/charts/checker-scale.svg"
-      - "bench/charts/checker-scale.png"
-      - "bench/charts/cache-network.svg"
-      - "bench/charts/cache-network.png"
+      - "bench/charts/*.svg"
+      - "bench/charts/*.png"
+      - "bench/summary.md"
+      - "README.md"
+      - "scripts/chart.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -62,14 +62,22 @@ jobs:
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
           node scripts/net-cache-chart.mjs
+          # CHART_STRICT: in CI a doc-linked chart chart.mjs skips (confounded/short data)
+          # must FAIL, not keep-and-warn — a kept stale SVG would pass the byte-gate below.
+          CHART_STRICT=1 node scripts/chart.mjs
 
-      - name: Fail if a committed SVG drifted from the bench data (or was never committed)
+      - name: Fail if a committed SVG (or the summary) drifted from the bench data (or was never committed)
         run: |
           # intent-to-add so brand-new chart files are drift too — `git diff` alone
-          # ignores untracked files, and a forgotten `git add` must fail this gate
-          git add -N bench/charts/
-          if ! git diff --exit-code -- bench/charts/tool-comparison.svg bench/charts/checker-scale.svg bench/charts/cache-network.svg; then
-            echo "::error::a committed chart SVG is out of date or missing. Run 'make comparison-chart scale-chart net-cache-chart' and commit the result."
+          # ignores untracked files, and a forgotten `git add` must fail this gate.
+          # --ignore-removal keeps a generator-deleted (orphaned) chart OUT of the index —
+          # a staged removal would be silently swept into the PNG commit-back below — and
+          # diffing against HEAD (not the index) is what makes that deletion fail the gate.
+          # Covers every committed SVG: the three heat charts plus chart.mjs's charts
+          # (typecheck-cold-vs-warm, focus-vs-full, lockfile-vs-scale) and its summary.md.
+          git add -N --ignore-removal -- bench/charts/ bench/summary.md
+          if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md; then
+            echo "::error::a committed chart SVG or bench/summary.md is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart' and commit the result."
             exit 1
           fi
 

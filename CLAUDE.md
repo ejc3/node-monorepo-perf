@@ -679,9 +679,12 @@ Shared helpers the bench scripts import rather than run directly:
 `bench/*.json` is the source of truth; the docs must not contain a number that
 isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
-(deterministically for a given dataset); it keeps and warns about a doc-linked chart
-it can't regenerate this run rather than deleting it (it exempts charts owned by another
-generator from that warning + cleanup). `comparison-chart.mjs` renders the
+(+ `tsgo-scale-table.json` for the typecheck chart's subtitle and `env.json` for
+summary.md's machine line — committed inputs, so the output stays deterministic);
+it keeps and warns about a doc-linked chart it can't regenerate this run rather than
+deleting it (`CHART_STRICT=1`, set in CI, turns that into a hard failure so a kept
+stale chart can't pass the byte-gate; it exempts charts owned by another generator
+from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, CI-runner frozen
 install from `bench/container-install-bench.json`, typecheck, build, pnpm
 install-situations, lint) from the comparison benches, embedded in the README, and in the same step
@@ -694,8 +697,9 @@ completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
 `net-cache-chart.mjs` renders `bench/charts/cache-network.svg` (+ `.png`, same contract; `make
 net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks with their cache size, columns
 = cold-compute + each shaped restore profile; per row the fastest cell is green and the rest are ×N of it)
-from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All three
-ride the same `.github/workflows/charts.yml` byte-gate.
+from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All three heat charts —
+and `chart.mjs`'s own SVGs + `bench/summary.md` — ride the same
+`.github/workflows/charts.yml` byte-gate.
 
 **Comparison-chart conventions (every chart generator follows these):**
 
