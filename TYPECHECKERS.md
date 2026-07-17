@@ -1,6 +1,6 @@
 # Faster Type-Checking
 
-Each package runs `tsc --noEmit`, cached by Turborepo. Whole-repo type-checking is O(repo): the first lever is checking less (`turbo --affected`), the second is making each check cheaper.
+Each package in [the workspace under test](README.md#the-workspace-under-test) runs `tsc --noEmit`, cached by Turborepo. Whole-repo type-checking is O(repo): the first lever is checking less (`turbo --affected`), the second is making each check cheaper.
 
 ## tsc vs tsgo
 
@@ -14,7 +14,7 @@ Consistent with Microsoft's ~10x claim. `tsgo --noEmit` drops into the per-packa
 
 ## Behavior at a Million Files: tsgo vs tsc vs Flow
 
-`scripts/tsgo-scale-bench.mjs` sweeps ONE growing program through 10k, 100k, 250k, 500k, 1,000,000 modules for **tsgo**, **tsc** (anchored ≤100k), and **Flow**.¹ `bench/tsgo-scale-bench.json`; 64-core arm64.
+`scripts/tsgo-scale-bench.mjs` sweeps ONE growing generated program (a standalone corpus, not the workspace) through 10k, 100k, 250k, 500k, 1,000,000 modules for **tsgo**, **tsc** (anchored ≤100k), and **Flow**.¹ `bench/tsgo-scale-bench.json`; 64-core arm64.
 
 ![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)
 

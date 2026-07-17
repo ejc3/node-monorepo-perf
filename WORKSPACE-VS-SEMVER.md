@@ -1,6 +1,6 @@
 # Semver vs `workspace:`: Internal Deps, Overrides, and Diamonds
 
-Internal packages are independently versioned, normally consumed by plain semver from a registry (AWS CodeArtifact). To develop one locally and have everything pick it up, flip that lib to `workspace:` transiently. Reproduce: `bash scripts/diamond-demo.sh`.
+Internal packages are independently versioned, normally consumed by plain semver from a registry (AWS CodeArtifact). To develop one locally and have everything pick it up, flip that lib to `workspace:` transiently. Reproduce: `bash scripts/diamond-demo.sh`. The proofs here run on small throwaway scaffolds published to CodeArtifact (§§3–4 the diamond, §7 the per-app workspaces), not on [the workspace under test](README.md#the-workspace-under-test).
 
 ## 1. The Gate: `link-workspace-packages`
 
@@ -17,7 +17,7 @@ This repo sets `link-workspace-packages=false`. Only `workspace:` forces local l
 
 `"@demo/lib-09": "workspace:^1.4.9"` has two halves: `workspace:` is the resolution source (local only, never registry); `^1.4.9` is the version contract — an install-time check (bare `*`/`~`/`^` always satisfies; an explicit range can fail and surface drift) and the publish template.
 
-`pnpm pack` on a `--versioned` lib rewrites source → tarball:
+`pnpm pack` on a `--versioned` lib of the workspace under test rewrites source → tarball:
 
 ```
 "@demo/lib-09": "workspace:^1.4.9"  ->  "@demo/lib-09": "^1.4.9"

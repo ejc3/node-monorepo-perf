@@ -138,8 +138,9 @@ function libDeps(i) {
   return [...deps].sort((a, b) => a - b);
 }
 
-// App i depends on APP_DEPS libs biased toward the top (feature) layers, plus the
-// whole foundation tier (so revving a foundation lib invalidates every app).
+// App i depends on APP_DEPS libs spread deterministically across the whole lib range
+// (all layers), plus the whole foundation tier (so revving a foundation lib
+// invalidates every app).
 function appDeps(i) {
   const deps = new Set();
   for (let k = 0; k < APP_DEPS; k++) {

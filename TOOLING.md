@@ -2,7 +2,7 @@
 
 ## Install: bun vs pnpm vs yarn 4
 
-`scripts/install-bench.mjs` (`bench/env.json`: Neoverse-V1, 64 cores, 135 GB). Each manager runs at its default; pnpm and yarn also run under the alternate linker:
+`scripts/install-bench.mjs`, installing [the workspace under test](README.md#the-workspace-under-test) at the table's apps/libs scales (`bench/env.json`: Neoverse-V1, 64 cores, 135 GB). Each manager runs at its default; pnpm and yarn also run under the alternate linker:
 
 - pnpm-isolated (default) / pnpm-hoisted (flat)
 - bun (isolated `node_modules/.bun` store since 1.3)
@@ -40,9 +40,9 @@ bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decata
 
 `scripts/pnp-compat-bench.mjs` (20 apps / 10 libs, PnP vs node-modules control): oxlint, tsc and turbo focused typecheck run under PnP; **tsgo fails** (`TS2503`/`TS2307`) and **`next build` fails** (Turbopack can't find `next/package.json`) — both work under node-modules (`bench/pnp-compat-bench.json`).
 
-**Closing the gap:** `scripts/tsgo-pnp-bench.mjs` — a native PnP resolver for tsgo ([microsoft/typescript-go#460](https://github.com/microsoft/typescript-go/issues/460)) matches the control (0 errors / 83 files vs stock tsgo's 3× `TS2307`, 67 files); `next build --webpack` builds under PnP, Turbopack fails ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651), `bench/tsgo-pnp-bench.json`).
+**Closing the gap:** `scripts/tsgo-pnp-bench.mjs`, on one scaffolded Next app (a workspace lib + npm deps) — a native PnP resolver for tsgo ([microsoft/typescript-go#460](https://github.com/microsoft/typescript-go/issues/460)) matches the control (0 errors / 83 files vs stock tsgo's 3× `TS2307`, 67 files); `next build --webpack` builds under PnP, Turbopack fails ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651), `bench/tsgo-pnp-bench.json`).
 
-**Fast bundler under PnP:** `scripts/rspack-pnp-bench.mjs` — **rspack** (via `next-rspack`) builds under PnP alongside webpack; Turbopack still fails (`bench/rspack-pnp-bench.json`).
+**Fast bundler under PnP:** `scripts/rspack-pnp-bench.mjs`, one Next App Router app — **rspack** (via `next-rspack`) builds under PnP alongside webpack; Turbopack still fails (`bench/rspack-pnp-bench.json`).
 
 **Build speed** (`scripts/rspack-turbopack-speed-bench.mjs`, 60-route app, node-modules, median of 3, `bench/rspack-turbopack-speed-bench.json`): Turbopack **9.0s** cold (×1), rspack 15.5s (×1.72), webpack 19.0s (×2.10). rspack is ~1.22× faster than webpack cold.
 
@@ -58,7 +58,7 @@ bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decata
 
 ## Lint: ESLint vs oxlint
 
-`scripts/lint-bench.mjs` races oxlint (native Rust, from oxc; this repo's linter) against ESLint on 800 `.ts`/`.tsx` modules, matched for engine speed. ESLint is pointed at oxlint's rule set via `eslint-plugin-oxlint`, running a strict subset (524 rules with an ESLint port that aren't type-checked, vs oxlint's own 567) — the claim is "subset," not "567 > 524." oxlint is multithreaded, ESLint single-process (64-core box, so the ratio narrows on fewer cores). (`oxlint` 1.71.0, `eslint` 9.39.4, `oxlint-tsgolint` 0.23.0.)
+`scripts/lint-bench.mjs` races oxlint (native Rust, from oxc; this repo's linter) against ESLint on a self-contained generated corpus of 800 `.ts`/`.tsx` modules (not the workspace under test), matched for engine speed. ESLint is pointed at oxlint's rule set via `eslint-plugin-oxlint`, running a strict subset (524 rules with an ESLint port that aren't type-checked, vs oxlint's own 567) — the claim is "subset," not "567 > 524." oxlint is multithreaded, ESLint single-process (64-core box, so the ratio narrows on fewer cores). (`oxlint` 1.71.0, `eslint` 9.39.4, `oxlint-tsgolint` 0.23.0.)
 
 | pass                        | ESLint               | oxlint                | ratio |
 | --------------------------- | -------------------- | --------------------- | ----- |
@@ -72,6 +72,6 @@ The type-aware row is mostly the type-checker underneath — oxlint's `oxlint-ts
 
 Vite+ is VoidZero's unified toolchain CLI: one `vp` binary wrapping Rolldown-Vite, Vitest, Oxlint, and **Vite Task**, a Rust monorepo task runner competing with Turborepo. v0.2.2, `scripts/vite-task-bench.mjs` + `scripts/vite-plus-tools-bench.mjs`.
 
-**Task orchestration** (`bench/vite-task-bench.json`, dep-free `typecheck:tsgo` set): turbo hashes declared inputs; Vite Task fs-traces reads and cached the gitignored tree with zero config. Whole-repo typecheck turbo wins 2–3.7× (cold 1,000:200 turbo 31.5s vs vp 117.3s). Focused, vp wins and stays flat across 3× repo growth (0.85s → 0.86s warm) while turbo's focused warm grows O(repo) (1.2s → 3.0s, [LIMITS.md](LIMITS.md)). On a cross-package edit (1,000:200), vp recomputed exactly the 559 tasks whose traced reads touch the file; turbo recomputed 1 of 1,200. vp refuses to cache self-mutating tasks (`next build`, `vite build`, `tsc --noEmit` with `incremental: true`).
+**Task orchestration** (`bench/vite-task-bench.json`; the workspace under test with a dep-free `typecheck:tsgo` task set): turbo hashes declared inputs; Vite Task fs-traces reads and cached the gitignored tree with zero config. Whole-repo typecheck turbo wins 2–3.7× (cold 1,000:200 turbo 31.5s vs vp 117.3s). Focused, vp wins and stays flat across 3× repo growth (0.85s → 0.86s warm) while turbo's focused warm grows O(repo) (1.2s → 3.0s, [LIMITS.md](LIMITS.md)). On a cross-package edit (1,000:200), vp recomputed exactly the 559 tasks whose traced reads touch the file; turbo recomputed 1 of 1,200. vp refuses to cache self-mutating tasks (`next build`, `vite build`, `tsc --noEmit` with `incremental: true`).
 
-**Tool layer** (`bench/vite-plus-tools-bench.json`): `vp check --no-fmt` (one pass) 2.44s vs the same engines standalone (`oxlint --type-aware --type-check` **1.88s**) vs this repo's gate (`oxlint` + whole-program `tsgo --noEmit` **0.77s**) — 3.2× slower than the optimal-gate shape. `vp build` vs `vite build` (40:24): byte-identical `dist`, 856ms vs 546ms (~1.6× wrapper cost). The Vite+ layer costs time except the focused loop; its fs-traced cache is the first measured runner correct on gitignored source and cross-package edits with zero config.
+**Tool layer** (`bench/vite-plus-tools-bench.json`, self-contained temp scaffolds): `vp check --no-fmt` (one pass) 2.44s vs the same engines standalone (`oxlint --type-aware --type-check` **1.88s**) vs this repo's gate (`oxlint` + whole-program `tsgo --noEmit` **0.77s**) — 3.2× slower than the optimal-gate shape. `vp build` vs `vite build` (one generated Vite app, 40:24 scaffold): byte-identical `dist`, 856ms vs 546ms (~1.6× wrapper cost). The Vite+ layer costs time except the focused loop; its fs-traced cache is the first measured runner correct on gitignored source and cross-package edits with zero config.

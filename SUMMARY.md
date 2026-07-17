@@ -1,8 +1,8 @@
 # A 4,000-App Monorepo on bun + tsgo + oxlint + turbo, Measured
 
 Day-to-day costs when a pnpm + Turborepo monorepo of **4,000 Next.js apps and 400 shared
-libraries** (4,400 packages) runs on one native-compiled tool per job. Figures trace to
-`bench/*.json`; extrapolations are labeled.
+libraries** (4,400 packages; [the workspace under test](README.md#the-workspace-under-test)) runs
+on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolations are labeled.
 
 **Machine:** 64-core Neoverse-V1, 135 GB RAM. **Versions:** bun 1.3.14, tsgo 7.0.0-dev.20260614.1,
 oxlint 1.71.0, turbo 2.9.18, tsc 5.9.3, Node 22 (`bench/env.json`).
@@ -43,13 +43,14 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 - **Lib developer** (O(closure)): tsgo 190ms, oxlint ~65ms; pre-merge `turbo --filter=...lib` gate
   22.8s cold (237 tasks) / 13.6s warm — blast radius is the lib's dependents, not the repo. Revving
   a workspace dep is a source edit only (symlinks, no reinstall/publish).
-- **Workspace author** (O(repo), the worst case — rev the lib all 4,000 apps import,
-  `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in **1.32s**, and
-  catches a breaking change in **1.39s** with 4,000 / 4,000 apps red and named (TS2554). tsgo agrees
-  with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors. The same gate via
-  orchestrated turbo (also emits dist) is 80.1s / 4,800 tasks — the single tsgo process reads each
-  lib's source once, skipping the 400 dist builds. The npm-dep version bump fanout is catalog **2**
-  workspace-yaml lines vs per-consumer pin **one manifest each**.
+- **Workspace author** (O(repo), the worst case — rev the universal foundation lib all 4,000 apps
+  import, `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in
+  **1.32s**, and catches a breaking change in **1.39s** with 4,000 / 4,000 apps red and named
+  (TS2554). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
+  measured on a separate type-heavy 4,000:400 scaffold (`bench/typecheck-parity-bench.json`). The
+  same gate via orchestrated turbo (also emits dist) is 80.1s / 4,800 tasks — the single tsgo
+  process reads each lib's source once, skipping the 400 dist builds. The npm-dep version bump
+  fanout is catalog **2** workspace-yaml lines vs per-consumer pin **one manifest each**.
 - **Opening the editor** (`bench/editor-loop-bench.json`, 4,000 apps / 300 libs): cold open
   (spawn → first def) tsserver 1,620ms vs tsgo LSP **86ms** (18.8×); peak RSS 380MB vs **275MB**;
   warm go-to-def/hover ≤2ms both. Cost tracks the opened app's closure (65 libs / 1,123 files), flat
@@ -61,8 +62,9 @@ Two operations are genuinely O(repo) and cannot be scoped away:
 
 - **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm's
   no-lockfile cold-resolve is 233s at 1,000:200 (`bench/install-modes-bench.json`); on a full
-  re-resolve bun is ~62–357× faster than pnpm (`bench/install-bench.json`). yarn 4 is fastest cold
-  and warm at 2,000 apps, but PnP can't run stock tsgo or Next's default Turbopack
+  re-resolve bun is ~62–357× faster than pnpm across the 200–2,000-app scales
+  (`bench/install-bench.json`). yarn 4 is fastest cold and warm at 2,000 apps, but PnP can't run
+  stock tsgo or Next's default Turbopack
   (`bench/pnp-compat-bench.json`; green paths exist via native-PnP tsgo and `next build` with
   webpack/rspack). bun-vs-yarn reconciliation in
   [OPTIMAL-STACK.md](OPTIMAL-STACK.md#installing-the-workspace); yarn as rollout driver vetted in
@@ -72,8 +74,8 @@ Two operations are genuinely O(repo) and cannot be scoped away:
 Whole-repo build and typecheck amortize across a CI fleet via a remote cache: after the first
 runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 23.6s →
 1.9s (12.5×) at 300:100 and 67.2s → 5.9s (11.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
-helps only the second-and-later consumer of an *unchanged* artifact: a leaf edit lets a fresh runner
-restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
+helps only the second-and-later consumer of an *unchanged* artifact: at 300:100, a leaf edit lets a
+fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
 [LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start).
 
 Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.3s, whole lint 0.18s).

@@ -3,12 +3,14 @@
 Advance a shared internal library across a 4,000-app monorepo: gate it against every app before merge, move consumers
 in waves, hold some on a pinned stable version while others track in-repo HEAD. Every package publishes to AWS
 CodeArtifact. Every mechanic is measured in `bench/wave-rollout-bench.json` (`node scripts/wave-rollout-bench.mjs`,
-bun-vs-pnpm), bun behaviors cross-checked against source at `bun-v1.3.14`.
+bun-vs-pnpm, five rungs on small self-contained temp scaffolds with one real registry dep, not the 4,000-app tree),
+bun behaviors cross-checked against source at `bun-v1.3.14`.
 
 ## The Recommendation
 
-Drive with bun: it runs the entire rollout natively (below) and beats pnpm's full re-resolve by ~62–357×
-(`bench/install-bench.json`, no lockfile, fresh `node_modules`, warm store):
+Drive with bun: it runs the entire rollout natively (below) and beats pnpm's full re-resolve by ~62–357× on
+[the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, no lockfile, fresh
+`node_modules`, warm store):
 
 | workspace | pnpm (isolated) cold | bun cold | bun is |
 |---|---|---|---|
@@ -24,14 +26,15 @@ path. Every fresh container or clone re-materializes from the committed lockfile
 
 ### yarn as a driver
 
-**yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.17.0), including the CI
+**yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.17.0, the same temp-scaffold
+rungs), including the CI
 auto-immutable default bun lacks, but its fastest mode (PnP) doesn't run this repo's toolchain. **pnpm** does every
 mechanic and defaults on two guardrails bun makes you configure (auto-frozen in CI; rejecting a `workspace:` spec as a
 catalog value) — pick it only if you want those and will pay the install cost.
 
 ### Adoption safety
 
-**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 10): two bun gaps (a trusted allowlist runs
+**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 10, temp scaffolds): two bun gaps (a trusted allowlist runs
 some registry `postinstall` scripts without opt-in; no fail-closed strict-peer knob), one pnpm edge (phantom import
 resolves under bun in single-package projects, parity in workspaces), otherwise parity including `@ejc3` CodeArtifact
 auth.
@@ -52,7 +55,7 @@ diff is the change. The install cost differs sharply: from-scratch resolve 233s 
    true`, plus a redundant `bun install && git diff --exit-code bun.lock` CI check.
 2. **Named catalogs route cohorts.** Two catalogs in the root `package.json` (`stable`, `next`) are two channels; a
    consumer joins by spec (`"@acme/core": "catalog:stable"`). Repointing `stable` moves the cohort with 0 of 2
-   manifests edited (`namedCatalogLanes`; a per-app pin edits 25, `bench/lockfile-merge-bench.json`). A wave codemods a
+   manifests edited (`namedCatalogLanes`; a per-app pin edits 25, `bench/lockfile-merge-bench.json`, 200/50). A wave codemods a
    batch onto `catalog:next`, runs the frozen gate, deploys; a promote is one line.
 3. **`workspace:` cohort tracks HEAD.** The co-dev team links `workspace:*`/`workspace:^` for instant local edits. bun
    accepts a `workspace:` spec as a catalog value (`workspaceInCatalog`); pnpm rejects every form.
@@ -72,12 +75,14 @@ the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-lin
    every dependent's tarball. "Wave = one catalog line" holds only for a directly-consumed lib or a non-breaking
    advance ([WORKSPACE-VS-SEMVER.md §3](WORKSPACE-VS-SEMVER.md#3-diamond-resolution-under-semver)).
 2. **A breaking change is expand → migrate → contract, because the gate is global and synchronous.** A breaking
-   signature turns every dependent red at once (4,399 `TS2554` diagnostics in 1.39s, `bench/optimal-gate-bench.json`):
+   signature turns every dependent red at once (4,399 `TS2554` diagnostics in 1.39s at 4,000/400 `--universal 1`,
+   `bench/optimal-gate-bench.json`):
    ship the new API additively (expand), move cohorts wave by wave (migrate, codemod), remove the old API last (contract).
 
 ## Gating the Artifact
 
-The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.32s) checks `@demo/*`→`packages/*/src` source, what a
+The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.32s, same 4,000/400 tree) checks
+`@demo/*`→`packages/*/src` source, what a
 `workspace:`-linked consumer compiles. A registry-pinned cohort consumes the published tarball, so the wave gate must
 also resolve that published version and run the declaration build. Two caveats apply. The fast gate runs
 `declaration:false` and misses a `.d.ts` portability error a `declaration:true` check catches
