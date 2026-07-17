@@ -138,6 +138,10 @@ const made = [];
 // verified, warmup-isolated datapoint: cold+warm ran OK, the daemon warmup is
 // confirmed (warmupOk === true), and both timings are finite. Pre-warmup results
 // lack warmupOk and are confounded by daemon spin-up, so they're skipped.
+// The title names the mechanism (turbo-orchestrated tsc): presenting this as THE
+// whole-workspace typecheck cost would mislead now that the README table shows the
+// recommended whole-program tsgo checking the same tree in ~1s, so the subtitle
+// carries that number when the tsgo dataset has the matching scale point.
 const tcBig = big?.phases?.typecheck;
 if (
   tcBig &&
@@ -147,11 +151,20 @@ if (
   Number.isFinite(tcBig.coldMs) &&
   Number.isFinite(tcBig.warmMs)
 ) {
+  const tsgoTablePath = join(ROOT, "bench", "tsgo-scale-table.json");
+  let tsgoNote = "";
+  if (existsSync(tsgoTablePath)) {
+    const tsgoScale = JSON.parse(readFileSync(tsgoTablePath, "utf8")).scales?.find(
+      (s) => s.apps === big.apps && s.libs === big.libs,
+    );
+    if (Number.isFinite(tsgoScale?.coldMedianMs))
+      tsgoNote = `; whole-program tsgo checks the same tree in ${fmtMs(tsgoScale.coldMedianMs)} (no cache)`;
+  }
   made.push(
     barChart({
       file: "typecheck-cold-vs-warm.svg",
-      title: "Whole-workspace typecheck: cold vs warm cache",
-      subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache`,
+      title: "Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache",
+      subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache${tsgoNote}`,
       logScale: true,
       bars: [
         { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: "#ef4444" },

@@ -6,7 +6,34 @@ Whole-workspace operations (install, typecheck, warm `turbo run`, `turbo prune`'
 
 Three layers of focus: install-time (`pnpm deploy` / `turbo prune @demo/app-2000 --docker`), task-time (`turbo run build --filter=@demo/app-2000...`), artifact-time (`turbo prune ... --docker` → `out/`). Measured by `scripts/measure.mjs` → [`bench/results.json`](bench/results.json).
 
-Apps are tiny (count is the variable under test); libraries re-export ~16 modules in a layered DAG. pnpm catalogs pin one Next/React/TS version set; `workspace:*` links internal deps locally (`--versioned` → `workspace:^x.y.z`, see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md)); libs build to `dist/` (`dependsOn: ["^build"]`).
+## The Workspace Under Test
+
+The workspace-scaling numbers in these docs are measured on one generated workspace shape, scaled by `APPS`/`LIBS`:
+
+- **N Next.js apps** (`apps/app-*`): App Router, one layout + one page each — deliberately tiny, so app *count* is the variable under test, not app size.
+- **M shared TypeScript libs** (`packages/lib-*`): each holds 16 generated modules re-exported through `src/index.ts`, and builds to `dist/` with tsc (`dependsOn: ["^build"]`).
+- **A layered lib graph**: libs split into 6 layers; each lib imports up to 3 libs from the layer directly below it, and layer-0 libs import nothing. The graph is a DAG — closure depth is bounded by the layer count, and closures overlap heavily (many features share the same low-layer libs).
+- **Each app imports 4 libs** spread across the lib range; with transitive deps an app's closure is 75–124 packages at the measured scales.
+- **An optional universal foundation tier** (`--universal K`): libs 1..K become pure sinks imported by every app and every other lib — the `@acme/core` everyone imports. Off in the scaling table below; the blast-radius benches (lib-rev, optimal-gate, test-axis, the remote-cache partial-invalidation rung) turn it on.
+- **Internal deps** are `workspace:*` links; one pnpm catalog pins the Next/React/TS versions (`--versioned` switches to `workspace:^x.y.z`, see [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md)).
+
+At 100 libs / 6 layers the shape is:
+
+```
+apps     app-001 … app-N            each app imports 4 libs, from any layer
+           │
+           ▼
+libs     layer 5   lib-086 … lib-100  ─┐
+         layer 4   lib-069 … lib-085   │  each lib imports ≤3 libs
+         layer 3   lib-052 … lib-068   │  from the layer directly
+         layer 2   lib-035 … lib-051   │  below it
+         layer 1   lib-018 … lib-034   │
+         layer 0   lib-001 … lib-017  ─┘  imports nothing (sinks)
+
+         --universal K:  libs 1..K imported by every app and every other lib
+```
+
+A few benches measure a different corpus and say so where they report: the million-module checker sweeps (one program, not a workspace), the lint corpus, the type-parity scaffold, and the real-app vet.
 
 ### Quick start
 
@@ -52,7 +79,7 @@ Scaling factor, 200 → 4,000 apps:
 Two things stay cheap as the repo grows. The focus build tracks one app's closure (75–124 packages), not app count. And the whole-workspace type-error gate is cheap on the recommended checker: tsgo checks all 4,000 apps from source in **1.18s** — 198× the turbo-orchestrated tsc column (which also builds each lib's dist, work tsgo skips), and faster than even its warm-cache hit — so it stays O(repo) but in seconds, not minutes. Extrapolating to 20,000 apps: the tsc build+typecheck path reaches tens of minutes, the tsgo whole-program gate stays in low single-digit seconds, the focused build in tens of seconds. What stays irreducibly O(repo) is in [LIMITS.md](LIMITS.md). To avoid the tsc-path O(repo) cost, scope with `--filter=<app>...` / `--affected`; an unscoped `turbo run` enumerates the whole graph even on cache hits. Past ~20,000 apps, loading one graph is itself O(repo), so shard.
 
 ### Charts
-![typecheck cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)
+![whole-workspace typecheck via turbo-orchestrated tsc, cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)
 ![focus vs full](bench/charts/focus-vs-full.svg)
 ![lockfile size vs scale](bench/charts/lockfile-vs-scale.svg)
 

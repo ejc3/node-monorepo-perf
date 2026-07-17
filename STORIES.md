@@ -3,8 +3,11 @@
 The independently-published model (every lib published, apps consuming only published
 packages). Mechanics live in
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md), [ROLLOUT.md](ROLLOUT.md),
-[FEASIBILITY.md](FEASIBILITY.md). The registry is AWS CodeArtifact. The cast: **Maya** (app dev,
-`checkout-app`); **Sam** (lib dev, `@acme/ui` → `@acme/core`); **Priya** (platform).
+[FEASIBILITY.md](FEASIBILITY.md). The registry is AWS CodeArtifact; the publish/semver
+mechanics are measured on small CodeArtifact scaffolds, and the shared-workspace costs they
+are contrasted with come from [the workspace under test](README.md#the-workspace-under-test).
+The cast: **Maya** (app dev, `checkout-app`); **Sam** (lib dev, `@acme/ui` → `@acme/core`);
+**Priya** (platform).
 
 ---
 

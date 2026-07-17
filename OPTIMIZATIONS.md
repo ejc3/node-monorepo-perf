@@ -1,6 +1,6 @@
 # Optimization Playbook: pnpm + Turborepo + Next.js at 10k-App Scale
 
-Any operation touching all packages scales with repo size. These techniques scope work to the changed subset, cache the rest, and avoid materializing the whole tree. Costs are measured to 4,000 apps ([README results](README.md#results-scaling-behavior)) and extrapolated; 10k is the target, not a measured scale.
+Any operation touching all packages scales with repo size. These techniques scope work to the changed subset, cache the rest, and avoid materializing the whole tree. Costs are measured on [the workspace under test](README.md#the-workspace-under-test) to 4,000 apps ([README results](README.md#results-scaling-behavior)) and extrapolated; 10k is the target, not a measured scale.
 
 ## 0. The Mental Model: Three Layers of "Focus"
 
@@ -9,7 +9,7 @@ Three composing scopes: install-time (one app's closure, `turbo prune <app> --do
 ## 1. Install Time (pnpm)
 
 ### 1.1 `node-linker` Mode
-The default `isolated` linker builds a symlink farm scaling with `packages × deps`. Isolated and hoisted install within ~3.4% of each other (`perf-matrix.mjs`) — the linker is a footprint/strictness choice, not a speed one. `hoisted` (flat, reintroduces phantom deps) suits symlink-incompatible tooling; `pnp` + `symlink: false` removes the farm, but tsgo and `next build` fail under PnP while tsc/turbo/oxlint pass ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
+The default `isolated` linker builds a symlink farm scaling with `packages × deps`. Isolated and hoisted install within ~3.4% of each other (`perf-matrix.mjs`, 300/100) — the linker is a footprint/strictness choice, not a speed one. `hoisted` (flat, reintroduces phantom deps) suits symlink-incompatible tooling; `pnp` + `symlink: false` removes the farm, but tsgo and `next build` fail under PnP while tsc/turbo/oxlint pass ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
 ### 1.2 `package-import-method` on Copy-on-Write Filesystems
 `auto` tries reflink clone → hardlink → copy. On **ext4** pnpm hardlinks; on **btrfs** it reflinks (CoW), with `node_modules` holding only **0.4 MB exclusive of 338 MB apparent** (`bench/fs-bench.json`; 300/100, warm store). CoW costs nothing extra and gives independent inodes; no config needed.
@@ -54,7 +54,7 @@ Turborepo hashes each task's inputs and skips unchanged ones (`>>> FULL TURBO`).
 Aggregate build cost is dominated by per-app startup × app count, not any single build's duration. The main lever is skipping unchanged builds ([§2.2](#22---affected)/[§2.3](#23-caching-local-then-remote)).
 
 ### 3.1 Turbopack for Builds
-On Next 16.2.9, `next build` and `next build --turbopack` produce identical output and the same bundler (2.6s, 3.90 MB); `--turbopack` is a no-op because Turbopack is the default (`bench/turbopack-bench.json`).
+On Next 16.2.9, `next build` and `next build --turbopack` produce identical output and the same bundler (2.6s, 3.90 MB); `--turbopack` is a no-op because Turbopack is the default (`bench/turbopack-bench.json`, one generated app on an 8/4 tree).
 
 A few other levers remain:
 
@@ -66,7 +66,7 @@ A few other levers remain:
 ## 4. CI and Deploy
 
 ### 4.1 `turbo prune <app> --docker`
-Produces a layer-cacheable build context: `out/json/` = manifests + pruned lockfile (install layer); `out/full/` = source of only the internal packages the app needs (source layer). A Dockerfile copies `out/json`, installs `--frozen-lockfile`, copies `out/full` + `tsconfig.base.json`, then `turbo run build --filter=<app>`. Verified (turbo 2.9.18, `bench/focus-install-bench.json`): prune included **all 15** closure packages (0 missing) and the build succeeded — but only after copying `tsconfig.base.json`, which prune omits. An earlier report that prune drops internal deps ([turborepo#7732](https://github.com/vercel/turborepo/issues/7732)) did not reproduce. The gap is root configs, which `deploy-vercel.mjs` copies.
+Produces a layer-cacheable build context: `out/json/` = manifests + pruned lockfile (install layer); `out/full/` = source of only the internal packages the app needs (source layer). A Dockerfile copies `out/json`, installs `--frozen-lockfile`, copies `out/full` + `tsconfig.base.json`, then `turbo run build --filter=<app>`. Verified (turbo 2.9.18, `bench/focus-install-bench.json`, 80/25): prune included **all 15** closure packages (0 missing) and the build succeeded — but only after copying `tsconfig.base.json`, which prune omits. An earlier report that prune drops internal deps ([turborepo#7732](https://github.com/vercel/turborepo/issues/7732)) did not reproduce. The gap is root configs, which `deploy-vercel.mjs` copies.
 
 A reasonable CI baseline is `turbo run lint typecheck build --affected --cache=local:rw,remote:rw --concurrency=100%`.
 

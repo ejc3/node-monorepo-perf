@@ -14,8 +14,9 @@ One native-compiled tool per job, no slower baseline in the loop. The sources of
 
 ## The Scenario
 
-A library owner revs a foundation lib every app imports (`@demo/lib-001`, generated
-`--universal 1`). At 4,000 apps / 400 libs the daily question: rev it and catch a breaking
+A library owner revs a foundation lib every app imports (`@demo/lib-001`:
+[the workspace under test](README.md#the-workspace-under-test) generated `--universal 1`, the
+foundation tier on). At 4,000 apps / 400 libs the daily question: rev it and catch a breaking
 type error in any of the 4,000 apps before merge, fast.
 
 ## Installing the Workspace
@@ -27,8 +28,8 @@ bun wins the full re-resolve (~62–357× vs pnpm) and the fresh CI-runner insta
 pnpm's 8.9s at 1,000 apps). At 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
-work; `bench/pnp-compat-bench.json`), with green paths (`bench/tsgo-pnp-bench.json` +
-`bench/rspack-pnp-bench.json`).
+work; measured on a small 20:10 tree, `bench/pnp-compat-bench.json`), with green paths
+(`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`).
 
 ## The Whole-Workspace Type-Error Gate
 
@@ -51,9 +52,11 @@ in under a second and a half.
 
 ## Parity with tsc on Real Types
 
-A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program shape over a
-type-heavy tree (recursive conditional + mapped types, 48-member unions, cross-lib
-intersections) at 4,000:400:8. One tsgo program checks it in **1.96s**, peak RSS **1281MB**.
+A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program shape over its
+own throwaway scaffold at 4,000:400:8 — libs carrying genuinely heavy types (recursive
+conditional + mapped types, 48-member unions, cross-lib intersections), not the standard
+workspace's 16-line re-export modules, so the parity claim rests on real type complexity. One
+tsgo program checks it in **1.96s**, peak RSS **1281MB**.
 On the valid tree both tsc and tsgo report **0**. Injecting 25 error sites, tsgo flags the
 same **25 locations**, missing **0** and adding **0**; codes match on 20 of 25 (at the
 arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **17.2s** to
@@ -99,6 +102,7 @@ O(repo) (1.4s as one tsgo program); a developer's edit reaches only their closur
 - **Lint.** oxlint checks the whole 4,400-package tree in **180ms** (0 findings), off the
   critical path.
 - **Declaration-emit caveat.** The gate's `declaration:false` validates the code but not the
-  published `.d.ts`: a declaration-portability error passes the gate yet is flagged under
+  published `.d.ts`: on a self-contained scaffold, a declaration-portability error passes the
+  gate yet is flagged under
   `declaration:true` (tsc `TS2742` / tsgo `TS2883`) with no emit needed, so `.d.ts` validation
   stays with the per-package build (`bench/decl-emit-caveat.json`).

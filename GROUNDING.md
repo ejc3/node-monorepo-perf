@@ -17,7 +17,7 @@ The primary source behind each practice in the benchmark, where pnpm + Turborepo
 | Remote caching | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
 | One Vercel project per app | [Vercel monorepos](https://vercel.com/docs/monorepos), [Vercel limits](https://vercel.com/docs/limits) |
 
-- **`node-linker`.** Cold install within ~3% across linkers; warm relink 1.6–3.3× faster hoisted (`bench/install-bench.json`).
+- **`node-linker`.** Cold install within ~3% across linkers; warm relink 1.6–3.3× faster hoisted, at 200–2,000 apps on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`).
 - **Vercel.** Skip-unaffected does not consume a build slot; legacy turbo-ignore does.
 
 ## The Ceiling
