@@ -1,6 +1,6 @@
 # Benchmark results
 
-Machine: linux, generated from `bench/results.json`.
+Machine: Neoverse-V1 (arm64), linux 6.18.3-fcvm-8ee6c35df0e1, generated from `bench/results.json`.
 
 | scale | gen | install | lockfile | node_modules | typecheck cold | typecheck warm | focus build | full build tasks | focus pkgs | prune |
 |---|---|---|---|---|---|---|---|---|---|---|
