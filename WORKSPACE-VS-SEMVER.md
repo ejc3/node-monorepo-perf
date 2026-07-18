@@ -11,7 +11,7 @@ Being in a workspace does not force the `workspace:` protocol. App `foo` can dec
 | `false` (pnpm 8+ default) | the registry, even if a matching local `b` exists |
 | `true` | the local `b` if its version satisfies `^1.2.0`, else the registry |
 
-This repo sets `link-workspace-packages=false`. Only `workspace:` forces local linking unconditionally.
+The two halves of this repo sit on opposite sides of the gate: the benchmark workspace's root `.npmrc` sets `link-workspace-packages=true` + `prefer-workspace-packages=true` (its packages always link local), while the independently-published model this doc describes runs with the gate closed — the demo scaffolds (§§3–7) either write `link-workspace-packages=false` in their own `.npmrc` or sit on pnpm's `false` default in their standalone roots, the setting ROLLOUT.md requires for a registry-pinned cohort. Only `workspace:` forces local linking unconditionally.
 
 ## 2. `workspace:<range>`
 
@@ -96,9 +96,44 @@ Same registry `@ejc3/ui`, yet transitive `@ejc3/util` is local in `web`, registr
 
 This buys per-app divergence on a transitive dep and per-app install/lockfile scope. Against the single root it loses the shared catalog (becomes per-app pins), the fleet `turbo` graph + cross-app `--affected`, instant lib-edit feedback (now publish-then-bump), and the atomic lib+consumers refactor. [FEASIBILITY.md](FEASIBILITY.md) carries the cost model and decision criteria.
 
+## 8. When Two Copies Exist (and When They Converge)
+
+Whether one package ends up installed once or twice follows two rules, applied per package:
+
+**Rule 1 — a `workspace:` edge and a registry edge don't merge.** A `workspace:` edge resolves to
+the local symlink; a plain semver edge on a registry-installed package's *transitive* graph resolves
+from the registry. If the same package is reached through one of each — the app links `workspace:*`
+core while a registry-installed ui's baked `^2.5.0` pulls a registry core — there are **two
+copies**, even when the version numbers match: pnpm does not compare a workspace copy's committed
+version against a registry edge's range and unify. This holds at `link-workspace-packages=false`
+(the default) and `true` (which local-links only a workspace project's own *direct* plain edges,
+§1); the one setting that reaches into transitive edges is `link-workspace-packages=deep`. One copy
+therefore means picking a side for that package: all-workspace (every consumer on `workspace:`, or
+a root override forcing the transitive edges there, §4) or all-registry (your own edge becomes a
+plain range, then Rule 2 decides).
+
+**Rule 2 — on a fresh resolve, registry edges converge when their ranges pick the same version.**
+When pnpm actually resolves (no lockfile entry yet), each dependency edge takes the highest version
+satisfying *its* range, independently. Same-major carets (`^2.5.0` + `^2.6.0`) pick the same newest
+2.x — one shared copy, which is how a pinned old consumer picks a compatible release up at its next
+re-resolve. Disjoint ranges (`^2` vs `^3`) necessarily split — the diamond of §3, safe under the
+isolated linker, each dependent wired to the API it was built against.
+Overlapping-but-different-shaped ranges (`^2.5.0` + `~2.5.0`) can also split, because each edge
+takes its own maximum rather than hunting for a shared solution. Two scopes on this rule: an
+existing lockfile **keeps prior choices** — already-split edges stay split and nothing rides
+forward until something re-resolves (`pnpm update`, an install after a manifest change,
+`pnpm dedupe`, which re-resolves toward fewer copies within declared ranges) — and
+peer-dependency contexts can instantiate even a single chosen version more than once
+([`dedupe-peer-dependents`](https://pnpm.io/settings#dedupepeerdependents)).
+
+A split's cost is duplicate bytes plus the crossing-instance hazards (`instanceof` across copies,
+doubled singletons, two React contexts). Collapsing one: durably, the lagging consumer republishes
+against the newer range; immediately, a root override (§4) — which ignores declared ranges
+entirely, so it is exactly as safe as the compatibility claim behind it.
+
 ## Reproduce
 ```bash
-bash scripts/diamond-demo.sh            # publish, diamond, collapse
+bash scripts/diamond-demo.sh            # publish, diamond, collapse (both halves asserted)
 bash scripts/per-app-workspace-demo.sh  # per-app workspaces: transitive divergence + publish rewrite
 pnpm gen --versioned                    # workspace with semver + workspace:^x.y.z
 ```

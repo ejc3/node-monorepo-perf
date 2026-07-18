@@ -86,6 +86,18 @@ echo "════════ 4. DIAMOND: consumer depends on alpha+beta by sem
   pnpm why @ejc3/widget 2>&1 | grep -E 'widget|alpha|beta' | head -20 || true
   echo "--- widget versions materialized in the store ---"
   ls node_modules/.pnpm | grep '@ejc3+widget' || true
+  # Wiring assert (layout-independent): the diamond only demonstrates coexistence if
+  # alpha is wired to widget@1 AND beta to widget@2 — a silently-deduped install must
+  # fail here, not read as a demo. pnpm list --json reports the resolved graph.
+  pnpm list --ignore-workspace --json --depth 2 | node -e '
+    const t = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    const proj = (Array.isArray(t) ? t : [t]).find((p) => p.name === "@ejc3/diamond-consumer");
+    const deps = proj?.dependencies ?? {};
+    const w = (p) => deps["@ejc3/" + p]?.dependencies?.["@ejc3/widget"]?.version;
+    if (w("alpha") !== "1.0.0" || w("beta") !== "2.0.0") {
+      console.error(`ASSERT FAILED: no diamond — alpha->widget@${w("alpha")}, beta->widget@${w("beta")} (expected 1.0.0 / 2.0.0)`);
+      process.exit(1);
+    }'
   echo "--- run consumer (BOTH versions coexist → both work) ---"
   node run.mjs )
 
@@ -100,8 +112,38 @@ cp -r "$DIR/consumer" "$DIR/override/consumer"; rm -rf "$DIR/override/consumer/n
   pnpm install --config.confirm-modules-purge=false 2>&1 | tail -5
   echo "--- widget versions now (collapsed to the single local copy) ---"
   ls node_modules/.pnpm | grep '@ejc3+widget' || true
-  echo "--- run consumer (alpha was built for widget v1 API → expect a break) ---"
-  ( cd consumer && node run.mjs ) || echo ">>> RUNTIME ERROR (EXPECTED): alpha needs widget v1's render(), but the override forced everyone onto local widget v2"
+  # Wiring assert (layout-independent): the override must have COLLAPSED the diamond —
+  # BOTH alpha's and beta's widget edges must now resolve to the local link, not a
+  # registry version.
+  ( cd consumer && pnpm list --json --depth 2 | node -e '
+    const t = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    const proj = (Array.isArray(t) ? t : [t]).find((p) => p.name === "@ejc3/diamond-consumer");
+    const deps = proj?.dependencies ?? {};
+    const w = (p) => deps["@ejc3/" + p]?.dependencies?.["@ejc3/widget"]?.version ?? "missing";
+    for (const p of ["alpha", "beta"]) {
+      if (!w(p).startsWith("link:")) {
+        console.error(`ASSERT FAILED: ${p}->widget is "${w(p)}", not the workspace link — no collapse`);
+        process.exit(1);
+      }
+    }' )
+  echo "--- run consumer (alpha was built for widget v1 API → must break) ---"
+  # The break IS the finding, so assert it: the run must fail AND fail for the right
+  # reason (alpha importing v1's render() from the forced v2). A passing run, or a
+  # different error, means the demonstrated behavior drifted — fail the demo.
+  set +e
+  out="$( (cd consumer && node run.mjs) 2>&1 )"
+  status=$?
+  set -e
+  echo "$out" | tail -3
+  if [ "$status" -eq 0 ]; then
+    echo "ASSERT FAILED: consumer ran clean — the override collapse no longer breaks alpha"
+    exit 1
+  fi
+  if ! echo "$out" | grep -q "does not provide an export named 'render'"; then
+    echo "ASSERT FAILED: consumer failed, but not with the expected missing-export error (render)"
+    exit 1
+  fi
+  echo ">>> RUNTIME ERROR (EXPECTED, asserted): alpha needs widget v1's render(), the override forced everyone onto local widget v2"
 )
 
 echo "════════ done ════════"
