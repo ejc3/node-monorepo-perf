@@ -1,12 +1,14 @@
 # The Fleet Preset: a Measured Production Shape
 
-`--preset fleet` generates the workspace shape measured on a production fleet of ~30,000 small Next.js apps sharing 460 TypeScript libraries. The standard generated workspace is uniform by design (every app imports the same number of libs, every lib layer looks the same); the measured fleet is skewed on every axis that drives benchmark behavior. This preset reproduces that skew deterministically: the tree-agnostic operations (`make install/build/typecheck/graph/focus/prune`) and the gate bench run against a real-world shape at real-world scale and stay reproducible (the self-generating bench scripts still scaffold their own layered trees). Sources of record: `bench/fleet-shape.json` (shape targets vs the generated tree), `bench/fleet-gate-bench.json` (the optimal-stack gate on this shape, once run).
+`--preset fleet` generates the workspace shape measured on a production fleet of ~30,000 small Next.js apps sharing 460 TypeScript libraries. The standard generated workspace is uniform by design (every app imports the same number of libs, every lib layer looks the same); the measured fleet is skewed on every axis that drives benchmark behavior. This preset reproduces that skew deterministically: the tree-agnostic operations (`make install/build/typecheck/graph/focus/prune`) and the gate bench run against a real-world shape at real-world scale and stay reproducible (the self-generating bench scripts still scaffold their own layered trees). Sources of record: `bench/fleet-shape.json` (shape targets vs the generated tree), `bench/fleet-gate-bench.json` / `bench/fleet-gate-bench.pbox.json` (the optimal-stack gate on this shape, measured on a 64-core and a 192-core box — the Results section below).
 
 ```bash
-make gen-fleet                 # 30,000 apps / 460 libs, ~1.03M files
+make gen-fleet                 # 30,000 apps / 460 libs, ~1.03M generated files
 make gen-fleet APPS=3000       # same lib graph, scaled-down app count
 make fleet-verify              # recompute the tree's graph metrics vs the targets
 make fleet-gate-bench          # bun install + tsgo whole-program gate + turbo + oxlint
+make typecheck-whole           # the one-command whole-workspace type gate (pre-push)
+make fleet-chart               # re-render the results infographic from the bench JSONs
 ```
 
 ## The Shape
@@ -51,6 +53,51 @@ Divergences from the measured fleet, recorded in `bench/fleet-shape.json` `fleet
 - **Version spread.** Two ranges of the framework dependency dominate the fleet at roughly 73%/25% (a rollout mid-flight), with long-tail spec divergence on most popular externals. The generated tree models the post-catalog end state; `--skew 25` approximates the two-version split (on react rather than next).
 - **Per-package scripts.** Nearly every fleet app has a lint script (98.7%, ESLint 9 flat config) but only 11.7% of apps and 36.3% of libs have a test setup (vitest where present). The generated tree emits `typecheck` everywhere and `test` only under `--test-task`, which emits it for every package; scale test-axis results accordingly.
 
-## Running the Gate at This Shape
+## Results: the Gate at Full Scale
 
 `node scripts/optimal-gate-bench.mjs fleet` runs the same scenario as the 4000:400 gate — bun installs the workspace, a foundation lib revs, one tsgo program checks every app from source, a breaking signature must turn all 30,000 apps red, turbo prices the orchestrated per-package path, oxlint sweeps the tree — and writes `bench/fleet-gate-bench.json` (the canonical `bench/optimal-gate-bench.json` stays the 4000:400 record). `fleet:<apps>` scales the app count while keeping the lib graph at its measured size, for machines that cannot hold the full shape.
+
+Measured at full scale on two machines — a 64-core dev box (`bench/fleet-gate-bench.json`)
+and a 192-core c8g.48xlarge (`bench/fleet-gate-bench.pbox.json`), the same recorded
+toolchain on both (versions in the JSONs):
+
+| phase | 64-core | 192-core |
+| --- | --- | --- |
+| bun install (30,460 packages, warm store) | 180.6s | 194.5s |
+| whole-workspace type check (one tsgo program, from source) | 60.7s / 51.3GB peak RSS | 65.8s / 52.7GB |
+| breaking foundation rev → all 30,000 apps red (TS2554, exact file:line) | 59.5s | 69.5s |
+| turbo per-package gate (30,708 tasks incl. the 460 tsc `^build`s) | 613.0s | 387.2s |
+| leaf-lib gate (`--filter=...leaf`, 100 tasks) | 116.3s | 90.4s |
+| oxlint across the tree | 2.9s | 3.6s |
+
+Three facts fall out. For a universal rev the one-program check beats the per-package
+pipeline **10.1×** on the clean pair (60.7s vs 613.0s; not like-for-like — the pipeline
+also emits each lib's dist) — the pipeline's 30,248 typecheck processes each re-read the
+same shared types, plus the 460 lib builds. The one-program check was not faster on the
+bigger machine (60.7s → 65.8s on the 192-core box; one observation per machine, a
+cross-machine comparison, not a controlled core-scaling experiment). The per-package
+pipeline ran 1.6× faster on that box. The blast-radius contrast is structural: a
+universal rev re-runs 30,708 tasks (a typecheck for each of the 30,248 packages in the
+foundation's closure + the 460 lib builds), a leaf rev 100 — 307× fewer.
+
+![Fleet-scale results: blast radius, the worst case two ways, and whether a bigger machine helps](bench/charts/fleet-gate.svg)
+
+[High-resolution PNG](bench/charts/fleet-gate.png) · rendered by `scripts/fleet-chart.mjs`
+(`make fleet-chart`) from the two gate records + `bench/fleet-shape.json`, byte-gated in CI.
+
+## The Pre-Push Command
+
+For anyone editing a foundation lib, the measured result above is packaged as a day-to-day
+command:
+
+```bash
+make typecheck-whole    # scripts/whole-typecheck.mjs
+```
+
+One tsgo process reads every app and lib from source and prints a plain verdict: `GREEN`
+(safe to push) or `RED` with a digest — error count, top error codes, how many apps/libs
+are affected, first sample lines — and exits with the checker's code, so the same command
+works as a CI gate. On this shape that is ~1 minute; the clean run records ~51GB peak RSS. A
+breaking signature comes back as every affected call site with exact file and line, the
+input a codemod consumes. It needs no build step, no cache, and no orchestration — just a
+box with the RAM.

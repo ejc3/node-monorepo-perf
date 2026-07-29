@@ -170,6 +170,9 @@ const generated = {
   covGt50: covPct.filter((p) => p > 50).length,
   covGt25: covPct.filter((p) => p > 25).length,
   covGt10: covPct.filter((p) => p > 10).length,
+  // libs imported by 100% of apps — the generated tree's universal tier,
+  // measured from the manifests (the chart's "imported by every app" claim)
+  universalLibs: covPct.filter((p) => p === 100).length,
   libInDegreeTop: inDeg.size ? Math.max(...inDeg.values()) : 0,
 };
 const detail = {

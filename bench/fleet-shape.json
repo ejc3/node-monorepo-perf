@@ -32,6 +32,7 @@
     "covGt50": 15,
     "covGt25": 16,
     "covGt10": 18,
+    "universalLibs": 5,
     "libInDegreeTop": 171
   },
   "detail": {

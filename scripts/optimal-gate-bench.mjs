@@ -37,7 +37,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { homedir } from "node:os";
+import { homedir, availableParallelism, arch } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
@@ -300,7 +300,7 @@ writeFileSync(
         turbo: toolchain.turbo,
         typescript: toolchain.typescript,
         "@typescript/native-preview": toolchain["@typescript/native-preview"],
-        oxlint: "latest",
+        oxlint: toolchain.oxlint ?? "latest", // pin when the root manifest pins
       },
     },
     null,
@@ -331,6 +331,9 @@ const result = {
   foundationLib: foundationPkg,
   leafLib: libPkg(LEAF),
   stack: { install: "bun", typecheck: "tsgo", lint: "oxlint", orchestrate: "turbo" },
+  // machine provenance, so a cross-box comparison (fleet-chart.mjs) can assert
+  // which record ran where instead of trusting file names
+  machine: { cores: availableParallelism(), arch: arch() },
   versions: {
     bun: bunVer,
     tsgo: ver("tsgo"),
