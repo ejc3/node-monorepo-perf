@@ -55,7 +55,8 @@ Divergences from the measured fleet, recorded in `bench/fleet-shape.json` `fleet
 
 ## Results: the Gate at Full Scale
 
-`node scripts/optimal-gate-bench.mjs fleet` runs the same scenario as the 4000:400 gate — bun installs the workspace, a foundation lib revs, one tsgo program checks every app from source, a breaking signature must turn all 30,000 apps red, turbo prices the orchestrated per-package path, oxlint sweeps the tree — and writes `bench/fleet-gate-bench.json` (the canonical `bench/optimal-gate-bench.json` stays the 4000:400 record). `fleet:<apps>` scales the app count while keeping the lib graph at its measured size, for machines that cannot hold the full shape.
+`node scripts/optimal-gate-bench.mjs fleet` runs the same scenario as the 4000:400 gate
+([OPTIMAL-STACK.md](OPTIMAL-STACK.md), the canonical layered record) — bun installs the workspace, a foundation lib revs, one tsgo program checks every app from source, a breaking signature must turn all 30,000 apps red, turbo prices the orchestrated per-package path, oxlint sweeps the tree — and writes `bench/fleet-gate-bench.json` (the canonical `bench/optimal-gate-bench.json` stays the 4000:400 record). `fleet:<apps>` scales the app count while keeping the lib graph at its measured size, for machines that cannot hold the full shape.
 
 Measured at full scale on two machines — a 64-core dev box (`bench/fleet-gate-bench.json`)
 and a 192-core c8g.48xlarge (`bench/fleet-gate-bench.pbox.json`), the same recorded
