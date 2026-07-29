@@ -36,7 +36,7 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
 
@@ -60,6 +60,13 @@ const env = {
   NEXT_TELEMETRY_DISABLED: "1",
   TURBO_TELEMETRY_DISABLED: "1",
   TURBO_CACHE_DIR: join(ROOT, ".turbo", "cache"),
+  // turbo resolves the root manifest's `packageManager` (bun) by PATH lookup; a
+  // shell without ~/.bun/bin (CI, background runners) otherwise fails the turbo
+  // gate with "Unable to find package manager binary" AFTER the expensive
+  // install + whole-program phases. Prepend the resolved BUN's directory — but
+  // only when BUN is a real path: for the bare-"bun" fallback dirname() would
+  // yield "." and put the CWD on PATH ahead of everything.
+  ...(BUN.includes("/") ? { PATH: `${dirname(BUN)}:${process.env.PATH ?? ""}` } : {}),
 };
 
 const sh = (cmd, opts = {}) =>

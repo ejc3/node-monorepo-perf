@@ -35,6 +35,7 @@
 
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { bunWorkspaceNameKey } from "./_wyhash11.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -143,7 +144,50 @@ const libDir = (i) => `lib-${pad(i, libW)}`;
 const libPkg = (i) => `@demo/lib-${pad(i, libW)}`;
 const libSym = (i) => `lib${pad(i, libW)}Main`;
 const appDir = (i) => `app-${pad(i, appW)}`;
-const appPkg = (i) => `@demo/app-${pad(i, appW)}`;
+const appPkgBase = (i) => `@demo/app-${pad(i, appW)}`;
+
+// bun keys workspace-name duplicate detection on a u32-TRUNCATED Wyhash11 of
+// the package name and refuses the install ("Workspace name already exists") on
+// any truncated-hash collision between two distinct names — ~10% odds at 30k
+// packages, and this generator's deterministic fleet-scale universe contains one
+// such pair (oven-sh/bun#36386: @demo/app-03511 / @demo/app-13215). Pre-scan
+// every name this run will emit and rename a colliding APP package — name only:
+// nothing imports an app, its directory keeps the plain app-<i> form, and the
+// benches that target one app resolve its name from the on-disk manifest
+// (scripts/_app-name.mjs), never by index formula. Two LIBS colliding is a hard
+// error instead (the `@demo/*` -> `packages/*/src` tsconfig paths mapping ties
+// a lib's name to its directory, so a lib rename would need a coordinated
+// directory rename); an app colliding with a lib renames the APP, since libs
+// claim their buckets first. The workspace ROOT manifest is not scanned: bun's
+// duplicate map covers glob-matched members only. Remove all of this once the
+// upstream fix ships.
+const APP_NAME_REMAP = new Map(); // app index -> replacement package name
+{
+  // claim(name): record the name's truncated key if free; return the holder if taken
+  const claimed = new Map();
+  const claim = (name) => {
+    const k = bunWorkspaceNameKey(name);
+    const holder = claimed.get(k);
+    if (holder === undefined) claimed.set(k, name);
+    return holder;
+  };
+  for (let i = 1; i <= LIBS; i++) {
+    const holder = claim(libPkg(i));
+    if (holder !== undefined) {
+      console.error(
+        `lib name bun-hash collision: ${libPkg(i)} vs ${holder} (oven-sh/bun#36386) — ` +
+          `libs cannot be renamed independently of their directory; change LIBS or the name scheme`,
+      );
+      process.exit(1);
+    }
+  }
+  for (let i = 1; i <= APPS; i++) {
+    let name = appPkgBase(i);
+    for (let r = 1; claim(name) !== undefined; r++) name = `${appPkgBase(i)}-r${r}`;
+    if (name !== appPkgBase(i)) APP_NAME_REMAP.set(i, name);
+  }
+}
+const appPkg = (i) => APP_NAME_REMAP.get(i) ?? appPkgBase(i);
 
 // ---- dependency graph ----------------------------------------------------
 const layerSize = Math.ceil(LIBS / LAYERS);
@@ -765,6 +809,12 @@ function main() {
       framework: FRAMEWORK,
       versioned: VERSIONED,
       approxFiles: fileCount,
+      // apps renamed to dodge bun's truncated-name-hash false duplicate
+      // (oven-sh/bun#36386); [] whenever the name universe has no collision
+      bunNameHashRenames: [...APP_NAME_REMAP.entries()].map(([i, name]) => ({
+        app: appPkgBase(i),
+        renamedTo: name,
+      })),
       generateMs: Math.round(ms),
     }),
   );

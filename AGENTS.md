@@ -658,6 +658,14 @@ Shared helpers the bench scripts import rather than run directly:
   visible to Turbo's hashing for a run (see lessons). Imported by `measure.mjs`,
   `axis-bench.mjs`, `dev-sim.mjs` (`sweep.mjs` shells out to `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
+- `scripts/_wyhash11.mjs`: bit-exact port of bun's legacy Wyhash11;
+  `bunWorkspaceNameKey(name)` is the u32-truncated key behind bun's workspace-name
+  duplicate check (oven-sh/bun#36386). Imported by `generate.mjs` for its
+  collision pre-scan.
+- `scripts/_app-name.mjs`: `appPkgFromDisk(root, dir)` — a generated app's package
+  name read from its manifest, rename-safe under the pre-scan above. Imported by
+  the single-app-targeting benches (`measure`, `axis-bench`, `dev-sim`,
+  `dev-loop-bench`, `test-axis-bench`, `focus-install-bench`, `turbopack-bench`).
 - `scripts/clean-state.mjs`: the worktree reset + the startup guard the
   generate-and-measure benches share. `ensureCleanState(root)`: restores any tracked file left
   patched (from its `*.bench.bak`) AFTER refusing if another bench is already running in this
@@ -868,6 +876,18 @@ Gotchas found the hard way:
   generated `apps/<name>/package.json` path (matches `/apps/`, `apps/**`,
   `/apps/app-*/`, …), and use `execFileSync` (no shell) so a probe path is never
   interpreted as a command or flag.
+- **bun dedups workspace names by a truncated hash.** bun (through 1.4.0-canary;
+  oven-sh/bun#36386) keys workspace-name duplicate detection on a u32-truncated
+  Wyhash11 of the package name, so two distinct names can collide (~10% odds at
+  30k packages) and fail the install with a false "Workspace name already
+  exists". `generate.mjs` pre-scans its name universe with `scripts/_wyhash11.mjs`
+  (a bit-exact port of bun's hash) and renames a colliding app package
+  (`bunNameHashRenames` in the generator summary); two libs colliding is a hard
+  error since lib names are tied to their directories via tsconfig `paths`. The
+  full fleet universe (30,000:460) hits exactly one pair
+  (`@demo/app-03511`/`@demo/app-13215`). Corollary: benches resolve a target
+  app's package name from its on-disk manifest (`scripts/_app-name.mjs`), never
+  by index formula — a reconstructed name silently misses the rename.
 
 ## Writing Style
 

@@ -29,6 +29,7 @@ import {
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
@@ -50,7 +51,12 @@ const FS_STATS = flag("fs-stats");
 const ROOT = process.cwd();
 
 const appW = String(APPS).length;
-const sampleApp = `@demo/app-${String(Math.max(1, Math.floor(APPS / 2))).padStart(appW, "0")}`;
+// The focus target's DIRECTORY is derived by index (never renamed); its package
+// NAME is read from the generated manifest, since generate.mjs may rename it to
+// dodge bun's truncated-name-hash false duplicate (oven-sh/bun#36386).
+const sampleAppDir = `app-${String(Math.max(1, Math.floor(APPS / 2))).padStart(appW, "0")}`;
+let _sampleApp;
+const sampleApp = () => (_sampleApp ??= appPkgFromDisk(ROOT, sampleAppDir));
 
 const env = {
   ...process.env,
@@ -257,7 +263,7 @@ if (!abort && PHASES.includes("graph")) {
   const r = timed("graph", () => {
     const all = JSON.parse(shOut(`pnpm exec turbo run build --dry=json`));
     const focus = JSON.parse(
-      shOut(`pnpm exec turbo run build --filter=${sampleApp}... --dry=json`),
+      shOut(`pnpm exec turbo run build --filter=${sampleApp()}... --dry=json`),
     );
     return { all, focus };
   });
@@ -268,7 +274,7 @@ if (!abort && PHASES.includes("graph")) {
     };
     rec.phases.graph.focusTasks = focus.tasks?.length;
     rec.phases.graph.focusPackages = focus.packages?.length;
-    rec.phases.graph.sampleApp = sampleApp;
+    rec.phases.graph.sampleApp = sampleApp();
   } else {
     const error = r.out?.message ? String(r.out.message).split("\n")[0] : String(r.out);
     rec.phases.graph = { ok: false, error };
@@ -339,12 +345,12 @@ if (!abort && PHASES.includes("focus")) {
     for (const pkg of readdirSync(groupDir))
       rmSync(join(groupDir, pkg, name), { recursive: true, force: true });
   }
-  const r = timed(`focus build ${sampleApp}...`, () =>
+  const r = timed(`focus build ${sampleApp()}...`, () =>
     sh(
-      `pnpm exec turbo run build --filter=${sampleApp}... --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,
+      `pnpm exec turbo run build --filter=${sampleApp()}... --cache=local:rw --concurrency=${CONC} --output-logs=errors-only`,
     ),
   );
-  rec.phases.focus = { ms: r.ms, ok: r.ok, app: sampleApp };
+  rec.phases.focus = { ms: r.ms, ok: r.ok, app: sampleApp() };
 }
 
 // ---- prune (artifact-time focus) ----
@@ -353,8 +359,10 @@ if (!abort && PHASES.includes("prune")) {
   // ignored, so plain prune (respecting .gitignore) copies the source subtree and
   // skips .next/dist/node_modules — no --use-gitignore=false, no manual strip.
   rmSync(join(ROOT, "out"), { recursive: true, force: true });
-  const r = timed(`prune ${sampleApp}`, () => sh(`pnpm exec turbo prune ${sampleApp} --docker`));
-  rec.phases.prune = { ms: r.ms, ok: r.ok, app: sampleApp };
+  const r = timed(`prune ${sampleApp()}`, () =>
+    sh(`pnpm exec turbo prune ${sampleApp()} --docker`),
+  );
+  rec.phases.prune = { ms: r.ms, ok: r.ok, app: sampleApp() };
   // a "successful" prune must produce out/json and out/full; missing artifacts
   // mean it didn't really work, so don't record clean zeroes.
   if (r.ok) {

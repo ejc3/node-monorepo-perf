@@ -20,6 +20,7 @@ import { execSync } from "node:child_process";
 import { appendFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => {
@@ -49,7 +50,13 @@ const env = {
 const appW = String(APPS).length,
   libW = String(LIBS).length;
 const pad = (n, w) => String(n).padStart(w, "0");
-const appPkg = (i) => `@demo/app-${pad(i, appW)}`;
+// app names from the generated manifests (generate.mjs may rename one to dodge
+// bun's truncated-name-hash false duplicate, oven-sh/bun#36386); memoized since
+// devs revisit the same apps. Lib names are formula-stable — a lib is never
+// renamed: lib-lib collisions hard-fail generation, app-lib collisions rename the app.
+const _appPkg = new Map();
+const appPkg = (i) =>
+  _appPkg.get(i) ?? _appPkg.set(i, appPkgFromDisk(ROOT, `app-${pad(i, appW)}`)).get(i);
 const libPkg = (i) => `@demo/lib-${pad(i, libW)}`;
 const appPage = (i) => join(ROOT, "apps", `app-${pad(i, appW)}`, "app", "page.tsx");
 const libSrc = (i) => join(ROOT, "packages", `lib-${pad(i, libW)}`, "src", "index.ts");

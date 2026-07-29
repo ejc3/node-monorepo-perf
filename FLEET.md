@@ -32,6 +32,15 @@ Four structural properties separate the fleet from the uniform `layered` workspa
 
 (Generated column from `bench/fleet-shape.json`; the committed file is the full-scale run.)
 
+At full scale one app is emitted under a renamed package (`@demo/app-13215` →
+`@demo/app-13215-r1`): bun rejects a workspace when two distinct member names collide
+in its u32-truncated name hash (oven-sh/bun#36386), and the 30,000:460 name universe
+contains exactly one such pair — universes below 13,215 apps contain none (the
+pair needs `app-13215` to exist; the quickstart's `APPS=3000` emits no rename). The
+generator pre-scans for these collisions and renames the colliding app — name only,
+so directories, file paths, and every graph metric are unchanged
+(`bunNameHashRenames` in the generator summary records it).
+
 ## What the Preset Deliberately Does Not Model
 
 Divergences from the measured fleet, recorded in `bench/fleet-shape.json` `fleetContext`:
