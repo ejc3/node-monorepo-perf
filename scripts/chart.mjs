@@ -238,7 +238,12 @@ for (const doc of [join(ROOT, "README.md"), join(chartsDir, "..", "summary.md")]
 // Doc-linked charts produced by a SEPARATE generator, not this script's `made` set: comparison-chart.mjs
 // owns tool-comparison.svg. Exempt them from the stale-warning and from deletion so a plain `make chart`
 // neither false-warns about a chart it doesn't render nor removes it.
-const external = new Set(["tool-comparison.svg", "checker-scale.svg", "cache-network.svg"]);
+const external = new Set([
+  "tool-comparison.svg",
+  "checker-scale.svg",
+  "cache-network.svg",
+  "fleet-gate.svg",
+]);
 // Under CHART_STRICT=1 (CI), a doc-linked chart this script owns but did not regenerate
 // is a hard failure: keeping the old file would sail through the byte-gate while the
 // committed data can no longer produce it. Locally it stays a warning (short/partial

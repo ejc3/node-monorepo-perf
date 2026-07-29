@@ -320,8 +320,10 @@ const midApp = () => {
   const name = apps[Math.floor(apps.length / 2)];
   return JSON.parse(readFileSync(join(REPO, "apps", name, "package.json"), "utf8")).name;
 };
-// package name (@demo/app-0123) -> generated dir name (app-0123)
-const focusDirName = (pkgName) => pkgName.replace(/^@demo\//, "");
+// package name (@demo/app-0123) -> generated dir name (app-0123). A `-rN`
+// suffix is a generate.mjs rename dodging bun's truncated-name-hash false
+// duplicate (oven-sh/bun#36386); the directory keeps the plain form.
+const focusDirName = (pkgName) => pkgName.replace(/^@demo\//, "").replace(/-r\d+$/, "");
 
 // ---- bench -------------------------------------------------------------------------------------
 const OUT_FILES = benchOutput(

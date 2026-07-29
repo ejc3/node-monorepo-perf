@@ -13,6 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const TURBO = join(REPO, "node_modules", ".bin", "turbo");
@@ -67,11 +68,13 @@ function setup() {
 }
 
 const appW = String(APPS).length;
-const target = `@demo/app-${String(Math.ceil(APPS / 2)).padStart(appW, "0")}`;
-const appDir = join(DIR, "apps", `app-${String(Math.ceil(APPS / 2)).padStart(appW, "0")}`);
+const targetDir = `app-${String(Math.ceil(APPS / 2)).padStart(appW, "0")}`;
+const appDir = join(DIR, "apps", targetDir);
 const nextBin = join(appDir, "node_modules", ".bin", "next");
 
 setup();
+// name from the generated manifest, not by index formula (oven-sh/bun#36386 rename)
+const target = appPkgFromDisk(DIR, targetDir);
 // build the app's closure once (libs emit dist that the app imports)
 sh(TURBO, ["run", "build", `--filter=${target}...`, "--output-logs=errors-only"]);
 

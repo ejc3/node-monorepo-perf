@@ -1,7 +1,7 @@
 name: charts
 
-# Keeps every committed chart in sync with the bench data — the three heat charts
-# (comparison-chart/scale-chart/net-cache-chart) plus chart.mjs's scaling charts and
+# Keeps every committed chart in sync with the bench data — the four heat charts
+# (comparison-chart/scale-chart/net-cache-chart/fleet-chart) plus chart.mjs's scaling charts and
 # bench/summary.md — and keeps the high-resolution PNGs (linked from the docs) freshly
 # rendered rather than hand-maintained.
 #
@@ -26,6 +26,7 @@ on:
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
+      - "scripts/fleet-chart.mjs"
       - ".github/workflows/charts.yml"
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
+      - "scripts/fleet-chart.mjs"
       - ".github/workflows/charts.yml"
 
 permissions:
@@ -58,10 +60,11 @@ jobs:
 
       - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
           node scripts/net-cache-chart.mjs
+          node scripts/fleet-chart.mjs
           # CHART_STRICT: in CI a doc-linked chart chart.mjs skips (confounded/short data)
           # must FAIL, not keep-and-warn — a kept stale SVG would pass the byte-gate below.
           CHART_STRICT=1 node scripts/chart.mjs
@@ -73,17 +76,17 @@ jobs:
           # --ignore-removal keeps a generator-deleted (orphaned) chart OUT of the index —
           # a staged removal would be silently swept into the PNG commit-back below — and
           # diffing against HEAD (not the index) is what makes that deletion fail the gate.
-          # Covers every committed SVG: the three heat charts plus chart.mjs's charts
+          # Covers every committed SVG: the four heat charts plus chart.mjs's charts
           # (typecheck-cold-vs-warm, focus-vs-full, lockfile-vs-scale) and its summary.md.
           git add -N --ignore-removal -- bench/charts/ bench/summary.md
           if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md; then
-            echo "::error::a committed chart SVG or bench/summary.md is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart' and commit the result."
+            echo "::error::a committed chart SVG or bench/summary.md is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart' and commit the result."
             exit 1
           fi
 
       - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png; do
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png; do
             test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
             dims=$(identify -format '%wx%h %m' "$png")
             echo "PNG: $png $dims"
@@ -96,14 +99,14 @@ jobs:
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png)" ]; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
-            # the build (the PNG was still validated above; refresh it locally with make comparison-chart).
-            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart' and commit it"
+            # the build (the PNGs were still validated above; refresh locally with the chart make targets).
+            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart scale-chart net-cache-chart fleet-chart' and commit them"
           fi
 
       - name: Upload the freshly-rendered PNGs (PR builds)
@@ -115,4 +118,5 @@ jobs:
             bench/charts/tool-comparison.png
             bench/charts/checker-scale.png
             bench/charts/cache-network.png
+            bench/charts/fleet-gate.png
           if-no-files-found: error

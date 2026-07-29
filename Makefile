@@ -9,7 +9,7 @@ MODULES ?= 16
 APP ?= @demo/app-00100
 SCALES ?= 300:100 1500:300
 
-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -55,6 +55,21 @@ net-cache-chart: ## Render the remote-cache network-cost heat chart SVG + high-r
 
 gen-versioned: ## Generate with semver versions + workspace:^x.y.z specifiers
 	node scripts/generate.mjs --apps $(APPS) --libs $(LIBS) --modules $(MODULES) --versioned --clean
+
+gen-fleet: ## Generate the measured production-fleet shape (30k apps / 460 libs; APPS= to scale)
+	node scripts/generate.mjs --preset fleet $(if $(filter command line,$(origin APPS)),--apps $(APPS),) --clean
+
+typecheck-whole: ## One-command whole-workspace type gate (single tsgo program from source)
+	node scripts/whole-typecheck.mjs
+
+fleet-chart: ## Render the fleet-scale infographic SVG + high-res PNG from the fleet bench JSONs
+	node scripts/fleet-chart.mjs
+
+fleet-verify: ## Recompute the generated tree's graph metrics vs the fleet targets -> bench/fleet-shape.json
+	node scripts/fleet-shape-verify.mjs --expect fleet
+
+fleet-gate-bench: ## optimal-stack gate (bun+tsgo+oxlint+turbo) on the fleet shape -> bench/fleet-gate-bench.json
+	node scripts/optimal-gate-bench.mjs fleet
 
 sweep: ## Run the full scaling sweep (200 -> 20k) -> bench/results.json
 	node scripts/sweep.mjs

@@ -1,4 +1,4 @@
-# CLAUDE.md: nextjs-monorepo-scale-demo
+# AGENTS.md: nextjs-monorepo-scale-demo
 
 Project-specific context for this repo. General git/PR/commit/testing conventions
 live in the global `~/.claude/CLAUDE.md`; this file is only what's specific here.
@@ -20,7 +20,7 @@ Scope work; optimizing unscoped commands does not remove the O(repo) cost.
 
 The apps/ and packages/ trees are **generated and gitignored**: they are build
 inputs, not source. Tracked files are `scripts/`, the docs, `bench/*.json`,
-`bench/charts/*.svg`, `bench/summary.md`, and config.
+`bench/charts/*.svg` + their committed `.png` rasters, `bench/summary.md`, and config.
 
 ## Workflows
 
@@ -36,6 +36,17 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `generate.mjs --test-task`: emit a per-package `node:test` smoke test + a `test` script
   in every package (the root `turbo.json` `test` task has no task deps, so a `turbo run test`
   isolates the test axis from build). Off by default. Used by `test-axis-bench.mjs`.
+- `generate.mjs --shape skewed` / `--preset fleet`: the measured production-fleet shape
+  (FLEET.md) — apps-only universal tier, bernoulli popular tier, sink-ramped lib graph with
+  depth-capped chains, variable app fanout, `--app-modules` per-app source files. `--shape`
+  defaults to `layered`, and the layered output is byte-identical to the pre-`--shape`
+  generator (verified across flag combos). `make gen-fleet` / `make fleet-verify`
+  (`fleet-shape-verify.mjs` gates the generated graph against the measured targets and
+  writes `bench/fleet-shape.json`); `make fleet-gate-bench` runs the optimal-stack gate on
+  it (`optimal-gate-bench.mjs fleet[:<apps>]` → `bench/fleet-gate-bench.json`).
+  `make typecheck-whole` (`whole-typecheck.mjs`) is the gate's one-command day-to-day form:
+  one tsgo program over the whole workspace from source, plain GREEN/RED verdict + error
+  digest, exits with the checker's code (FLEET.md "The Pre-Push Command").
 - `make clean`: remove generated apps/packages, `out`, `.turbo`, `node_modules/.cache/turbo`, diamond example.
 
 ### Core Operations
@@ -648,15 +659,26 @@ Shared helpers the bench scripts import rather than run directly:
 
 - `scripts/_source-visible.mjs`: `enterSourceVisible(root)` makes generated source
   visible to Turbo's hashing for a run (see lessons). Imported by `measure.mjs`,
-  `axis-bench.mjs`, `dev-sim.mjs` (`sweep.mjs` shells out to `measure.mjs`).
+  `axis-bench.mjs`, `dev-sim.mjs`, `dev-loop-bench.mjs`, `lib-rev-bench.mjs`,
+  `optimal-gate-bench.mjs`, `test-axis-bench.mjs`, `vite-task-bench.mjs`,
+  `ci-cache-bench.mjs`, `ci-cache-network-bench.mjs` (`sweep.mjs` shells out to
+  `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
+- `scripts/_wyhash11.mjs`: bit-exact port of bun's legacy Wyhash11;
+  `bunWorkspaceNameKey(name)` is the u32-truncated key behind bun's workspace-name
+  duplicate check (oven-sh/bun#36386). Imported by `generate.mjs` for its
+  collision pre-scan.
+- `scripts/_app-name.mjs`: `appPkgFromDisk(root, dir)` — a generated app's package
+  name read from its manifest, rename-safe under the pre-scan above. Imported by
+  the single-app-targeting benches (`measure`, `axis-bench`, `dev-sim`,
+  `dev-loop-bench`, `test-axis-bench`, `focus-install-bench`, `turbopack-bench`).
 - `scripts/clean-state.mjs`: the worktree reset + the startup guard the
   generate-and-measure benches share. `ensureCleanState(root)`: restores any tracked file left
   patched (from its `*.bench.bak`) AFTER refusing if another bench is already running in this
   worktree (the anti-concurrency rule, enforced in code). As a CLI (`make clean`):
   `node scripts/clean-state.mjs [--wipe] [--kill]` reports/kills stray bench procs, restores
   baks, and with `--wipe` removes the generated tree + bench scratch (never `node_modules`, never a
-  committed `bench/*.json`). Imported by `editor-loop-bench.mjs`.
+  committed `bench/*.json`). Imported by `editor-loop-bench.mjs` and `vite-task-bench.mjs`.
 - `scripts/diamond-demo.sh` (the `make diamond` driver) → `scripts/diamond-scaffold.mjs`:
   CodeArtifact publish + diamond-deps / `workspace:`-override demo.
 - `scripts/per-app-workspace-demo.sh` (the `make per-app` driver): scaffolds two
@@ -697,9 +719,20 @@ completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
 `net-cache-chart.mjs` renders `bench/charts/cache-network.svg` (+ `.png`, same contract; `make
 net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks with their cache size, columns
 = cold-compute + each shaped restore profile; per row the fastest cell is green and the rest are ×N of it)
-from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All three heat charts —
+from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All four heat charts —
 and `chart.mjs`'s own SVGs + `bench/summary.md` — ride the same
 `.github/workflows/charts.yml` byte-gate.
+`bench/fleet-shape.json` records the measured production-fleet shape targets vs the
+generated tree's recomputed metrics plus the `fleetContext` divergence numbers FLEET.md
+cites (`fleet-shape-verify.mjs --expect fleet` regenerates it); `bench/fleet-gate-bench.json`
+is the optimal-stack gate run at that shape (`optimal-gate-bench.mjs fleet` — the 4000:400
+`bench/optimal-gate-bench.json` stays the canonical layered record) and
+`bench/fleet-gate-bench.pbox.json` the same run on a 192-core c8g.48xlarge (the
+one-program-vs-cores contrast FLEET.md reads). `fleet-chart.mjs` renders
+`bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the
+fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
+two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
+`charts.yml` byte-gate.
 
 **Comparison-chart conventions (every chart generator follows these):**
 
@@ -735,12 +768,12 @@ and `chart.mjs`'s own SVGs + `bench/summary.md` — ride the same
   `pull_request` workflow runs for a conflicted PR ("no checks reported" + `mergeable:
   CONFLICTING` is the signature, not a queue delay). Rebase the PR onto main keeping the
   PR's render; checks fire on the push.
-The `.github/workflows/charts.yml` CI job re-renders both from the committed bench data and byte-gates the
-SVG (deterministic) against drift; for the PNG (whose bytes are ImageMagick-version dependent, so not
-byte-gated) it deletes the committed PNG before re-rendering (a `convert` failure then leaves it absent and
-fails the validation step rather than passing a stale one) and, on a push to `main`, commits the
-freshly-rendered PNG back, so the committed raster tracks the gated SVG instead of relying on a contributor
-to re-render it. Docs: [README.md](README.md) (overview +
+The `.github/workflows/charts.yml` CI job re-renders every chart from the committed bench data and
+byte-gates the SVGs (deterministic) against drift; for the PNGs (whose bytes are ImageMagick-version
+dependent, so not byte-gated) it deletes the committed PNGs before re-rendering (a `convert` failure then
+leaves one absent and fails the validation step rather than passing a stale raster) and, on a push to
+`main`, commits the freshly-rendered PNGs back, so the committed rasters track the gated SVGs instead of
+relying on a contributor to re-render them. Docs: [README.md](README.md) (overview +
 scaling table + dev-sim), [TOOLING.md](TOOLING.md)
 (install / build / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
@@ -778,6 +811,7 @@ rest parity), the
 `bench/yarn-rollout-bench.json`), and pnpm as the fallback; backed by
 `bench/wave-rollout-bench.json` + `bench/bun-safety-bench.json` + `bench/install-bench.json` +
 `bench/container-install-bench.json` + `bench/yarn-rollout-bench.json`),
+[FLEET.md](FLEET.md) (the measured production-fleet shape: the skewed graph model, target-vs-generated metrics, the full-scale gate results on both boxes with the fleet-gate infographic, and the one-command pre-push gate; `bench/fleet-shape.json` + `bench/fleet-gate-bench.json` + `bench/fleet-gate-bench.pbox.json`),
 [FEASIBILITY.md](FEASIBILITY.md) (when a shared workspace is worth it: the O(repo)-vs-O(closure) cost split and a
 per-situation decision table), [TYPECHECKERS.md](TYPECHECKERS.md) (tsc vs tsgo whole-repo typecheck comparison, plus "Behavior at a
 Million Files", tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`,
@@ -855,6 +889,18 @@ Gotchas found the hard way:
   generated `apps/<name>/package.json` path (matches `/apps/`, `apps/**`,
   `/apps/app-*/`, …), and use `execFileSync` (no shell) so a probe path is never
   interpreted as a command or flag.
+- **bun dedups workspace names by a truncated hash.** bun (through 1.4.0-canary;
+  oven-sh/bun#36386) keys workspace-name duplicate detection on a u32-truncated
+  Wyhash11 of the package name, so two distinct names can collide (~10% odds at
+  30k packages) and fail the install with a false "Workspace name already
+  exists". `generate.mjs` pre-scans its name universe with `scripts/_wyhash11.mjs`
+  (a bit-exact port of bun's hash) and renames a colliding app package
+  (`bunNameHashRenames` in the generator summary); two libs colliding is a hard
+  error since lib names are tied to their directories via tsconfig `paths`. The
+  full fleet universe (30,000:460) hits exactly one pair
+  (`@demo/app-03511`/`@demo/app-13215`). Corollary: benches resolve a target
+  app's package name from its on-disk manifest (`scripts/_app-name.mjs`), never
+  by index formula — a reconstructed name silently misses the rename.
 
 ## Writing Style
 

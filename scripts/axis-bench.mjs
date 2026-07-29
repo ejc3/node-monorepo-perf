@@ -25,6 +25,7 @@ import {
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const LOGFILE = "/tmp/axis-bench.log";
@@ -145,7 +146,7 @@ enterSourceVisible(REPO);
 const out = [];
 for (const { apps, libs, axis } of POINTS) {
   const appW = String(apps).length;
-  const mid = `@demo/app-${String(Math.floor(apps / 2)).padStart(appW, "0")}`;
+  const midDir = `app-${String(Math.floor(apps / 2)).padStart(appW, "0")}`;
 
   sh("node", [
     "scripts/generate.mjs",
@@ -157,6 +158,8 @@ for (const { apps, libs, axis } of POINTS) {
     "16",
     "--clean",
   ]);
+  // name from the generated manifest, not by index formula (oven-sh/bun#36386 rename)
+  const mid = appPkgFromDisk(REPO, midDir);
   rmSync(join(REPO, "node_modules"), { recursive: true, force: true });
   rmSync(join(REPO, "pnpm-lock.yaml"), { force: true });
   const installMs = timed("pnpm", ["install", "--config.confirm-modules-purge=false"]);

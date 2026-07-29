@@ -29,6 +29,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node
 import { join } from "node:path";
 import { homedir, availableParallelism, loadavg } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
 const m = spec.match(/^(\d+):(\d+)$/);
@@ -106,7 +107,6 @@ const lw = String(LIBS).length;
 const pad = (n, w) => String(n).padStart(w, "0");
 const APP = process.env.APP_LOOP_TARGET || `app-${pad(Math.max(1, Math.floor(APPS / 2)), aw)}`;
 const LIB = process.env.LIB_LOOP_TARGET || `lib-${pad(LIBS, lw)}`; // highest lib = a leaf
-const APPPKG = `@demo/${APP}`;
 const LIBPKG = `@demo/${LIB}`;
 
 // Cold = no turbo cache AND no leftover incremental state. The app's typecheck tsconfig sets
@@ -125,10 +125,12 @@ const rmLocks = () => {
 };
 
 // ---- setup: generate, decatalog, bun-installable root ---------------------------
-console.log(`# dev inner loops: ${APPS} apps / ${LIBS} libs — app ${APPPKG}, leaf lib ${LIBPKG}`);
+console.log(`# dev inner loops: ${APPS} apps / ${LIBS} libs — app dir ${APP}, leaf lib ${LIBPKG}`);
 sh(
   `node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --universal 1 --tsgo-task --clean`,
 );
+// name from the generated manifest, not `@demo/${APP}` (oven-sh/bun#36386 rename)
+const APPPKG = appPkgFromDisk(ROOT, APP);
 for (const [pkg, dir] of [
   [APP, join(ROOT, "apps", APP)],
   [LIB, join(ROOT, "packages", LIB)],

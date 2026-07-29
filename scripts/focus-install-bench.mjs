@@ -17,6 +17,7 @@
 import { spawnSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 // The bare temp workspace has no turbo of its own; drive it with the repo's turbo.
@@ -116,7 +117,11 @@ function closure(app) {
 
 const PNPM_VER = sh("pnpm", ["--version"]).trim();
 const appW = String(APPS).length;
-const target = `@demo/app-${String(Math.floor(APPS / 2)).padStart(appW, "0")}`;
+const targetDir = `app-${String(Math.floor(APPS / 2)).padStart(appW, "0")}`;
+
+setup();
+// name from the generated manifest, not by index formula (oven-sh/bun#36386 rename)
+const target = appPkgFromDisk(DIR, targetDir);
 const out = {
   apps: APPS,
   libs: LIBS,
@@ -124,8 +129,6 @@ const out = {
   pnpm: PNPM_VER,
   turbo: sh(TURBO, ["--version"]).trim(),
 };
-
-setup();
 const clo = closure(target);
 out.closurePackages = clo.length;
 
@@ -182,9 +185,11 @@ const outJson = join(DIR, "out", "json");
 const outFull = join(DIR, "out", "full");
 // claim: prune ships a pruned lockfile (a subset of the original)
 const prunedLockLines = statInt(`wc -l < ${JSON.stringify(join(outJson, "pnpm-lock.yaml"))}`);
-// completeness: every internal package in the closure is present in out/full
+// completeness: every internal package in the closure is present in out/full.
+// prune copies by WORKSPACE PATH, so map name -> dir; a `-rN` suffix is a
+// generate.mjs rename (oven-sh/bun#36386) and the directory keeps the plain form.
 const missingInPrune = clo.filter((p) => {
-  const rel = p.replace("@demo/", "");
+  const rel = p.replace("@demo/", "").replace(/-r\d+$/, "");
   return (
     !existsSync(join(outFull, "apps", rel, "package.json")) &&
     !existsSync(join(outFull, "packages", rel, "package.json"))

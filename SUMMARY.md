@@ -46,7 +46,10 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 - **Workspace author** (O(repo), the worst case — rev the universal foundation lib all 4,000 apps
   import, `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in
   **1.32s**, and catches a breaking change in **1.39s** with 4,000 / 4,000 apps red and named
-  (TS2554). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
+  (TS2554). At the measured fleet scale (30,000 apps, ~1.03M generated files) the same gate is **60.7s** clean
+  (10.1× faster than the per-package turbo path, which also emits dist) and **59.5s** to a
+  full 30,000-apps-red breaking verdict
+  (`bench/fleet-gate-bench.json`, [FLEET.md](FLEET.md)). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
   measured on a separate type-heavy 4,000:400 scaffold (`bench/typecheck-parity-bench.json`). The
   same gate via orchestrated turbo (also emits dist) is 80.1s / 4,800 tasks — the single tsgo
   process reads each lib's source once, skipping the 400 dist builds. The npm-dep version bump

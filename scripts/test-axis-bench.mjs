@@ -38,6 +38,7 @@ import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { appPkgFromDisk } from "./_app-name.mjs";
 
 const ROOT = process.cwd();
 
@@ -203,7 +204,11 @@ function regen(apps, libs, universal = 0) {
 }
 
 const pad = (n, w) => String(n).padStart(w, "0");
-const appName = (i, apps) => `@demo/app-${pad(i, String(apps).length)}`;
+// app names come from the generated manifests, not an index formula: generate.mjs
+// may rename an app to dodge bun's truncated-name-hash false duplicate
+// (oven-sh/bun#36386). Lib names are formula-stable — a lib is never renamed:
+// lib-lib collisions hard-fail generation, app-lib collisions rename the app.
+const appName = (i, apps) => appPkgFromDisk(ROOT, `app-${pad(i, String(apps).length)}`);
 const libName = (i, libs) => `@demo/lib-${pad(i, String(libs).length)}`;
 
 console.log(

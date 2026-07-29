@@ -50,6 +50,12 @@ report `error TS2554: Expected 2 arguments, but got 1` (4,399 TS2554: 4,000 apps
 dependent libs), in **1.39s**. Catch a type error in one of the 4,000 apps before it ships,
 in under a second and a half.
 
+The same gate holds at the measured production-fleet scale (30,000 apps / 460 libs,
+~1.03M generated files): clean in **60.7s** (10.1× faster than the orchestrated per-package path, which also emits
+dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **59.5s** — and a bigger box
+does not speed it up (65.8s on 192 cores)
+([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
+
 ## Parity with tsc on Real Types
 
 A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program shape over its

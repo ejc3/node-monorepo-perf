@@ -7,6 +7,15 @@
 //   orchestrate turbo       (caching + `--filter`/`--affected` scoping)
 //
 //   node scripts/optimal-gate-bench.mjs 4000:400
+//   node scripts/optimal-gate-bench.mjs fleet          # --preset fleet (30000:460)
+//   node scripts/optimal-gate-bench.mjs fleet:3000     # fleet shape, 3,000 apps
+//
+// The `fleet` spec swaps the workspace for the measured production-fleet shape
+// (generate.mjs --preset fleet; FLEET.md). Same scenario, same assertions: the
+// foundation tier is universal for apps there too, so a breaking rev of lib 001
+// still turns every app red; the leaf is the highest lib index (a long-tail
+// leaf, so the O(closure) contrast holds). `fleet:<apps>` scales the app count
+// while keeping the lib graph at its measured size and shape.
 //
 // Scenario: a lib owner owns a foundation lib every app imports (`@demo/lib-001`,
 // generated with `--universal 1`). It installs the workspace with bun, then revs the
@@ -27,19 +36,22 @@
 
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
+import { join, dirname } from "node:path";
+import { homedir, availableParallelism, arch } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
 const m = spec.match(/^(\d+):(\d+)$/);
-if (!m) {
-  console.error(`usage: optimal-gate-bench.mjs <apps>:<libs>  (got "${spec}")`);
+const fleetM = spec.match(/^fleet(?::(\d+))?$/);
+if (!m && !fleetM) {
+  console.error(`usage: optimal-gate-bench.mjs <apps>:<libs> | fleet[:<apps>]  (got "${spec}")`);
   process.exit(1);
 }
-const APPS = +m[1];
-const LIBS = +m[2];
-const MODULES = +(process.env.MODULES || 16);
+const FLEET = !!fleetM;
+// fleet numbers mirror the preset defaults in generate.mjs (PRESETS.fleet)
+const APPS = FLEET ? +(fleetM[1] || 30000) : +m[1];
+const LIBS = FLEET ? 460 : +m[2];
+const MODULES = FLEET ? 13 : +(process.env.MODULES || 16);
 const ROOT = process.cwd();
 const PKG = join(ROOT, "package.json");
 const BUN = existsSync(join(homedir(), ".bun/bin/bun")) ? join(homedir(), ".bun/bin/bun") : "bun";
@@ -48,6 +60,13 @@ const env = {
   NEXT_TELEMETRY_DISABLED: "1",
   TURBO_TELEMETRY_DISABLED: "1",
   TURBO_CACHE_DIR: join(ROOT, ".turbo", "cache"),
+  // turbo resolves the root manifest's `packageManager` (bun) by PATH lookup; a
+  // shell without ~/.bun/bin (CI, background runners) otherwise fails the turbo
+  // gate with "Unable to find package manager binary" AFTER the expensive
+  // install + whole-program phases. Prepend the resolved BUN's directory — but
+  // only when BUN is a real path: for the bare-"bun" fallback dirname() would
+  // yield "." and put the CWD on PATH ahead of everything.
+  ...(BUN.includes("/") ? { PATH: `${dirname(BUN)}:${process.env.PATH ?? ""}` } : {}),
 };
 
 const sh = (cmd, opts = {}) =>
@@ -203,10 +222,35 @@ function wholeProgram() {
 }
 
 // ---- setup: generate, decatalog, bun-installable root ---------------------------
-console.log(`# optimal-stack gate: ${APPS} apps / ${LIBS} libs, foundation=${foundationPkg}`);
-sh(
-  `node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --universal 1 --tsgo-task --clean`,
+console.log(
+  `# optimal-stack gate: ${APPS} apps / ${LIBS} libs${FLEET ? " (fleet shape)" : ""}, foundation=${foundationPkg}`,
 );
+const genOut = sh(
+  FLEET
+    ? `node scripts/generate.mjs --preset fleet --apps ${APPS} --tsgo-task --clean`
+    : `node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --universal 1 --tsgo-task --clean`,
+  { encoding: "utf8" },
+);
+// The generator honors env-var overrides (MODULES=20 etc.), which would silently
+// change the generated shape while this record still claimed the requested one.
+// Its last stdout line is a JSON summary of what it ACTUALLY generated; assert
+// the fields this bench hardcodes or reports.
+let gen;
+try {
+  gen = JSON.parse(genOut.trim().split("\n").pop());
+} catch {
+  throw new Error(`could not parse the generator summary line from:\n${genOut.slice(-400)}`);
+}
+const expected = FLEET
+  ? { apps: APPS, libs: LIBS, modulesPerLib: MODULES, shape: "skewed", preset: "fleet" }
+  : { apps: APPS, libs: LIBS, modulesPerLib: MODULES, shape: "layered", universal: 1 };
+for (const [k, v] of Object.entries(expected)) {
+  if (gen[k] !== v) {
+    throw new Error(
+      `generated workspace drifted from the requested shape (env override?): ${k}=${gen[k]}, expected ${v} — summary: ${JSON.stringify(gen)}`,
+    );
+  }
+}
 // bun ignores pnpm catalogs, so resolve catalog: specs to concrete versions
 sh(`node scripts/rewrite-protocols.mjs --dir apps --catalog ${join(ROOT, "pnpm-workspace.yaml")}`);
 sh(
@@ -256,7 +300,7 @@ writeFileSync(
         turbo: toolchain.turbo,
         typescript: toolchain.typescript,
         "@typescript/native-preview": toolchain["@typescript/native-preview"],
-        oxlint: "latest",
+        oxlint: toolchain.oxlint ?? "latest", // pin when the root manifest pins
       },
     },
     null,
@@ -283,9 +327,13 @@ const result = {
   apps: APPS,
   libs: LIBS,
   modulesPerLib: MODULES,
+  shape: FLEET ? "fleet" : "layered",
   foundationLib: foundationPkg,
   leafLib: libPkg(LEAF),
   stack: { install: "bun", typecheck: "tsgo", lint: "oxlint", orchestrate: "turbo" },
+  // machine provenance, so a cross-box comparison (fleet-chart.mjs) can assert
+  // which record ran where instead of trusting file names
+  machine: { cores: availableParallelism(), arch: arch() },
   versions: {
     bun: bunVer,
     tsgo: ver("tsgo"),
@@ -448,8 +496,10 @@ try {
     oxlintMs: result.lint.ran ? result.lint.ms : null,
   };
   mkdirSync(join(ROOT, "bench"), { recursive: true });
-  writeFileSync(join(ROOT, "bench/optimal-gate-bench.json"), JSON.stringify(result, null, 2));
-  console.log("\n--- bench/optimal-gate-bench.json written ---");
+  // the fleet shape writes its own record; the canonical 4000:400 file stays put
+  const outFile = FLEET ? "bench/fleet-gate-bench.json" : "bench/optimal-gate-bench.json";
+  writeFileSync(join(ROOT, outFile), JSON.stringify(result, null, 2));
+  console.log(`\n--- ${outFile} written ---`);
 } finally {
   restoreAll();
 }

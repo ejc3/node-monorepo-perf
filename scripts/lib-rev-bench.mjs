@@ -121,7 +121,9 @@ function turbo(task, filter, { cont = false, allowFail = false, assertCold = fal
     throw new Error(`expected a cold-cache run but ${cached}/${total} tasks were cached: ${cmd}`);
   // errors-only output prints a failed task's log prefixed with its id, so a failed
   // app typecheck shows up as `@demo/app-NNNN:typecheck` — count the distinct apps.
-  const appTypecheckFailures = new Set(out.match(/@demo\/app-\d+:typecheck/g) || []).size;
+  // `-rN` covers an app renamed by generate.mjs's bun-hash-collision pre-scan
+  // (oven-sh/bun#36386), which would otherwise be silently missed at scales >=13215.
+  const appTypecheckFailures = new Set(out.match(/@demo\/app-\d+(?:-r\d+)?:typecheck/g) || []).size;
   const sampleError = (out.match(/error TS\d+[^\n]*/) || [])[0] || null;
   return {
     ms,
