@@ -56,6 +56,15 @@ net-cache-chart: ## Render the remote-cache network-cost heat chart SVG + high-r
 gen-versioned: ## Generate with semver versions + workspace:^x.y.z specifiers
 	node scripts/generate.mjs --apps $(APPS) --libs $(LIBS) --modules $(MODULES) --versioned --clean
 
+gen-fleet: ## Generate the measured production-fleet shape (30k apps / 460 libs; APPS= to scale)
+	node scripts/generate.mjs --preset fleet $(if $(filter command line,$(origin APPS)),--apps $(APPS),) --clean
+
+fleet-verify: ## Recompute the generated tree's graph metrics vs the fleet targets -> bench/fleet-shape.json
+	node scripts/fleet-shape-verify.mjs --expect fleet
+
+fleet-gate-bench: ## optimal-stack gate (bun+tsgo+oxlint+turbo) on the fleet shape -> bench/fleet-gate-bench.json
+	node scripts/optimal-gate-bench.mjs fleet
+
 sweep: ## Run the full scaling sweep (200 -> 20k) -> bench/results.json
 	node scripts/sweep.mjs
 

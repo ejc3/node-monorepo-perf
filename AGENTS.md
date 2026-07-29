@@ -36,6 +36,14 @@ Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
 - `generate.mjs --test-task`: emit a per-package `node:test` smoke test + a `test` script
   in every package (the root `turbo.json` `test` task has no task deps, so a `turbo run test`
   isolates the test axis from build). Off by default. Used by `test-axis-bench.mjs`.
+- `generate.mjs --shape skewed` / `--preset fleet`: the measured production-fleet shape
+  (FLEET.md) — apps-only universal tier, bernoulli popular tier, sink-ramped lib graph with
+  depth-capped chains, variable app fanout, `--app-modules` per-app source files. `--shape`
+  defaults to `layered`, and the layered output is byte-identical to the pre-`--shape`
+  generator (verified across flag combos). `make gen-fleet` / `make fleet-verify`
+  (`fleet-shape-verify.mjs` gates the generated graph against the measured targets and
+  writes `bench/fleet-shape.json`); `make fleet-gate-bench` runs the optimal-stack gate on
+  it (`optimal-gate-bench.mjs fleet[:<apps>]` → `bench/fleet-gate-bench.json`).
 - `make clean`: remove generated apps/packages, `out`, `.turbo`, `node_modules/.cache/turbo`, diamond example.
 
 ### Core Operations
@@ -700,6 +708,11 @@ net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks wit
 from `bench/ci-cache-network-bench.json`, embedded in LIMITS.md. All three heat charts —
 and `chart.mjs`'s own SVGs + `bench/summary.md` — ride the same
 `.github/workflows/charts.yml` byte-gate.
+`bench/fleet-shape.json` records the measured production-fleet shape targets vs the
+generated tree's recomputed metrics plus the `fleetContext` divergence numbers FLEET.md
+cites (`fleet-shape-verify.mjs --expect fleet` regenerates it); `bench/fleet-gate-bench.json`
+is the optimal-stack gate run at that shape (`optimal-gate-bench.mjs fleet` — the 4000:400
+`bench/optimal-gate-bench.json` stays the canonical layered record).
 
 **Comparison-chart conventions (every chart generator follows these):**
 

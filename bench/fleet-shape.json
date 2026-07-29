@@ -1,0 +1,96 @@
+{
+  "preset": "fleet",
+  "targets": {
+    "apps": 30000,
+    "libs": 460,
+    "appDepsMedian": 14,
+    "appDepsP90": 17,
+    "closureMedian": 43,
+    "closureP25": 41,
+    "closureP75": 44,
+    "libDepsMean": 1.71,
+    "sinkPct": 40.4,
+    "depthMax": 15,
+    "depthMedian": 2,
+    "covGt50": 13,
+    "covGt25": 16,
+    "covGt10": 21,
+    "libInDegreeTop": 130
+  },
+  "generated": {
+    "apps": 30000,
+    "libs": 460,
+    "appDepsMedian": 14,
+    "appDepsP90": 16,
+    "closureMedian": 40,
+    "closureP25": 35,
+    "closureP75": 45,
+    "libDepsMean": 1.72,
+    "sinkPct": 42.8,
+    "depthMax": 15,
+    "depthMedian": 1,
+    "covGt50": 15,
+    "covGt25": 16,
+    "covGt10": 18,
+    "libInDegreeTop": 171
+  },
+  "detail": {
+    "appDeps": {
+      "min": 9,
+      "p25": 13,
+      "median": 14,
+      "mean": 14.13,
+      "p75": 15,
+      "p90": 16,
+      "max": 17
+    },
+    "appClosure": {
+      "min": 13,
+      "p25": 35,
+      "median": 40,
+      "mean": 40.08,
+      "p75": 45,
+      "p90": 48,
+      "max": 78
+    },
+    "libDeps": {
+      "min": 0,
+      "p25": 0,
+      "median": 2,
+      "mean": 1.72,
+      "p75": 3,
+      "p90": 4,
+      "max": 4
+    },
+    "libDepth": {
+      "min": 0,
+      "p25": 0,
+      "median": 1,
+      "mean": 4.07,
+      "p75": 8,
+      "p90": 12,
+      "max": 15
+    }
+  },
+  "fleetContext": {
+    "presetParams": {
+      "modulesPerLib": 13,
+      "appModulesPerApp": 28,
+      "approxFilesFullScale": 1027360
+    },
+    "externalDepUnion": 1430,
+    "externalDepUnionWithDev": 1710,
+    "frameworkVersionSplitPct": [
+      73,
+      25
+    ],
+    "appsWithLintScriptPct": 98.7,
+    "appsWithTestScriptPct": 11.7,
+    "libsWithTestConfigPct": 36.3,
+    "libsPointingMainAtSrc": 421,
+    "perAppLockfiles": true,
+    "libGraphCycles": 3,
+    "duplicatePackageNames": 2
+  },
+  "pass": true
+}
