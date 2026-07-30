@@ -297,11 +297,15 @@ function installRows(linker) {
   // completeness AFTER the timed installs (untimed): an exit-0 install can be
   // partial; the shared verifier walks every workspace package's deps (nm walk
   // or PnP resolver — it handles both linkers)
-  const v = spawnSync("node", [join(ROOT, "scripts", "_verify-install.cjs"), ROOT], {
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 1 << 28,
-  });
+  const v = spawnSync(
+    "node",
+    [join(ROOT, "scripts", "_verify-install.cjs"), ROOT, linker === "pnp" ? "pnp" : "nm"],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 1 << 28,
+    },
+  );
   if (v.status !== 0)
     throw new Error(
       `${linker} install incomplete per _verify-install: ${(v.stdout || v.stderr || "").slice(-400)}`,
