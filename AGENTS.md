@@ -238,6 +238,20 @@ One command each for the O(repo)-vs-O(closure) thesis:
   fake a fleet record); fail-closed cleanup; restore-on-exit incl. the revved foundation.
   Destructive → linked git worktree only. Canonical only at 30000 with `TSGO_PNP_BIN` →
   `bench/yarn-fleet-bench.json`; writeup in TOOLING.md ("yarn 4 at fleet scale").
+- `node scripts/sliced-gate-bench.mjs fleet[:<apps>]` (`SLICE_KS` default "2 4 8 16 32",
+  `SLICE_ALLOW_BUSY=1`): the **sliced-closure gate** — K concurrent tsgo programs, each all
+  lib source + 1/K of the apps (exact `files` lists: include-glob matching is
+  O(patterns×files) and would bias the sweep; find prunes node_modules/.next since `files`
+  bypasses `exclude`), between the one-program gate (755% CPU on 64 cores / 1,629% on 192,
+  its own K=1 reference) and the per-package pipeline (30,000× lib re-parse). Whole-program
+  reference
+  first (blast-radius asserted: every app red + TS2554), then the K sweep (children are
+  process-group leaders, killed on signals and every exit path; GNU-time CPU/RSS parse is fail-closed;
+  Go-runtime env scrubbed; persisted per K), then at the best K the breaking-rev UNION
+  CHECK: distinct error locations across slices must equal the reference set exactly.
+  Destructive → linked worktree only. Canonical at 30000 + the default K set →
+  `bench/sliced-gate-bench.json`; the 192-core companion is `.pbox.json`. Writeup in
+  FLEET.md ("The Sliced Gate").
 - `node scripts/vite-task-bench.mjs` (`VITE_TASK_SCALES` default `"300:100 1000:200"`,
   `VP_SAMPLES` 3, `VITE_TASK_ALLOW_BUSY=1`): **Vite Task (Vite+ `vp run`) vs Turborepo**
   on the identical dep-free `typecheck:tsgo` task set (derived per-package
@@ -377,7 +391,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   ("[The Daemons at a Million Files](TYPECHECKERS.md#the-daemons-at-a-million-files)").
 - `node scripts/relay-codegen-bench.mjs` (`RELAY_COMPONENTS` default 10000 canonical,
   `RELAY_SAMPLES` 3, `RELAY_TYPES` 100, `FLOW_BIN`/`FLOW_SOURCE` as in tsgo-scale-bench,
-  `RELAY_WORK`, `RELAY_KEEP=1`, `RELAY_ALLOW_BUSY=1`): **codegen in front of the
+  `RELAY_WORK`, `RELAY_KEEP=1`, `RELAY_ALLOW_BUSY=1`, `RELAY_FLEET_COMPONENTS` default 30000
+  canonical): **codegen in front of the
   checkers**, relay-compiler (Rust, pinned 21.0.1) over the same 10k-component tree in
   BOTH dialects (language typescript/flow, shared 100-type schema; every component
   imports and uses its query's generated $data type), then tsgo --noEmit over the TS
@@ -389,7 +404,12 @@ One command each for the O(repo)-vs-O(closure) thesis:
   codegen vs 0.7–1.6s check), and relay 21's flow artifacts need
   `experimental.deprecated_variance_sigils.excludes` on current Flow (flowConfigNote;
   a FLOW_BIN that can't parse the artifacts becomes a recorded compat outcome with a
-  released-flow fallback, never a silent hard-fail). GNU-time wall from the Elapsed
+  released-flow fallback, never a silent hard-fail). Plus the **freshness gate** (a
+  throwaway git repo over the TS tree with artifacts tracked: timed codegen +
+  `git status --porcelain -- src/__generated__`, byte-stability asserted on the no-change
+  pass, a drift control that must go dirty, re-green asserted) and the **fleet anchor**
+  (`RELAY_FLEET_COMPONENTS`, one-sample cold + no-change freshness pass at 30k components).
+  GNU-time wall from the Elapsed
   line's last token. Self-contained under RELAY_WORK (removed on exit unless `RELAY_KEEP=1`),
   load-guarded → `bench/relay-codegen-bench.json`, writeup in TYPECHECKERS.md
   ("Codegen in Front of the Checkers").
@@ -759,6 +779,8 @@ one-program-vs-cores contrast FLEET.md reads). `fleet-chart.mjs` renders
 fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
 two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
 `charts.yml` byte-gate.
+`bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core) FLEET.md's
+"The Sliced Gate" section reads.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
 batch + server rows, both boxes) and `bench/yarn-fleet-bench.json` (yarn 4 installs under both
 linkers + the native-PnP tsgo gate) extend the fleet record set; TYPECHECKERS.md and

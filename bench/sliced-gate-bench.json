@@ -1,0 +1,67 @@
+{
+  "apps": 30000,
+  "libs": 460,
+  "shape": "fleet",
+  "machine": {
+    "cores": 64,
+    "arch": "arm64"
+  },
+  "preRunLoadAvg1": 0.78,
+  "versions": {
+    "tsgo": "7.0.0-dev.20260707.2",
+    "bun": "1.3.14",
+    "node": "v22.23.1"
+  },
+  "ks": {
+    "2": {
+      "wallMs": 28842,
+      "totalCpuSec": 461,
+      "maxSliceRssMB": 25452,
+      "sumRssMB": 50893
+    },
+    "4": {
+      "wallMs": 16931,
+      "totalCpuSec": 435,
+      "maxSliceRssMB": 13614,
+      "sumRssMB": 53105
+    },
+    "8": {
+      "wallMs": 11566,
+      "totalCpuSec": 444,
+      "maxSliceRssMB": 7114,
+      "sumRssMB": 55408
+    },
+    "16": {
+      "wallMs": 9901,
+      "totalCpuSec": 518,
+      "maxSliceRssMB": 3882,
+      "sumRssMB": 60008
+    },
+    "32": {
+      "wallMs": 10378,
+      "totalCpuSec": 598,
+      "maxSliceRssMB": 2184,
+      "sumRssMB": 67710
+    }
+  },
+  "whole": {
+    "cleanMs": 59019,
+    "rssMB": 51998,
+    "cpuPct": 755,
+    "breakingMs": 59055,
+    "breakingLocations": 30171
+  },
+  "unionCheck": {
+    "k": 16,
+    "wallMs": 10131,
+    "locations": 30171,
+    "matchesWholeProgram": true
+  },
+  "summary": {
+    "wholeCleanMs": 59019,
+    "bestK": 16,
+    "bestKWallMs": 9901,
+    "speedupVsWhole": 5.96,
+    "breakingSlicedMs": 10131
+  }
+}

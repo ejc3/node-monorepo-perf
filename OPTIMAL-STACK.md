@@ -58,6 +58,10 @@ The same gate holds at the measured production-fleet scale (30,000 apps / 460 li
 dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **59.5s** — and a bigger box
 does not speed it up (65.8s on 192 cores)
 ([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
+Slicing the same check into K concurrent programs (all lib source + 1/K of the apps) cuts
+it to **9.9s** on 64 cores and **6.3s** on 192 with a union-verified identical verdict
+([FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box), `bench/sliced-gate-bench.json` +
+`.pbox.json`).
 
 ## Parity with tsc on Real Types
 
