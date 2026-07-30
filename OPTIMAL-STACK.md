@@ -28,8 +28,11 @@ bun wins the full re-resolve (~62–357× vs pnpm) and the fresh CI-runner insta
 pnpm's 8.9s at 1,000 apps). At 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
-work; measured on a small 20:10 tree, `bench/pnp-compat-bench.json`), with green paths
-(`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`).
+work; measured at 20:10 in `bench/pnp-compat-bench.json` and at full fleet scale in
+`bench/yarn-fleet-bench.json`, where stock tsgo fails with 30,000 unresolved-name errors and the
+native-PnP build runs the gate through `.pnp.cjs`), with green paths
+(`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`;
+[TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
 ## The Whole-Workspace Type-Error Gate
 

@@ -1,0 +1,38 @@
+{
+  "apps": 30000,
+  "libs": 460,
+  "shape": "fleet (Flow-dialect mirror; entry = typed composition, no JSX)",
+  "files": 876440,
+  "mirrorMs": 42298,
+  "flow": {
+    "version": "Flow, a static type checker for JavaScript, version 0.321.0",
+    "bin": "FLOW_BIN",
+    "source": "flow main @ cdb4f637 (wedge fixes in; verified in bench/flow-wedge-retest.json)"
+  },
+  "cores": 192,
+  "preRunLoadAvg1": 0.84,
+  "gates": {
+    "flowLs": 876440,
+    "seededErrors": 1
+  },
+  "check": {
+    "ms": 77653,
+    "maxRssMB": 22747
+  },
+  "server": {
+    "initMs": 80837,
+    "initRssMB": 22654,
+    "noChangeMs": 52,
+    "oneEditGreenMs": 15550,
+    "breakingIncrMs": 12894,
+    "breakingIncrErrors": 30171,
+    "breakingIncrApps": 30000
+  },
+  "breaking": {
+    "caught": true,
+    "ms": 77023,
+    "errors": 30171,
+    "appsWithErrors": 30000,
+    "sample": "/mnt/work/fleet-flow/flow-tree/apps/app-00001/entry.js:46 Cannot call `lib001Main` because function [1] requires another argument. [incompatible-type]"
+  }
+}

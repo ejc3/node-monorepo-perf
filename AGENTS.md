@@ -212,6 +212,32 @@ One command each for the O(repo)-vs-O(closure) thesis:
   Core-bound, load-guarded, self-contained (btrfs work dir, removed unless `SPEED_KEEP=1`), no
   worktree → `bench/rspack-turbopack-speed-bench.json`, folded into TOOLING.md
   ("[Build Speed: Turbopack vs rspack vs webpack](TOOLING.md#build-speed-turbopack-vs-rspack-vs-webpack)").
+- `node scripts/fleet-flow-bench.mjs` (`FLEET_FLOW_APPS`/`FLEET_FLOW_WORK`/`FLEET_FLOW_KEEP=1`/
+  `FLEET_FLOW_ALLOW_BUSY=1`, `FLOW_BIN`+`FLOW_SOURCE` as in tsgo-scale-bench): **Flow on the
+  fleet shape** — mirrors a generated fleet tree module-for-module in Flow's dialect (876,440
+  `// @flow` files derived from the on-disk manifests, so every edge incl. the bun#36386 rename
+  carries over; typed compositions, no JSX; `module.name_mapper`, no install) and runs the
+  optimal-gate scenario under Flow: gates (exact `flow ls` count; seeded-error control), batch
+  check + batch breaking rev (every app red asserted), then the SERVER rows (`start --wait`
+  init, no-change status, one-edit recheck, and the incremental breaking rev — edit-to-red for
+  the whole fleet), all parsed via `--json` (the Rust port's text summary differs from
+  OCaml-era phrasing) with RSS from a detached shell sampler (an in-process timer never fires
+  under spawnSync). Canonical only at 30000 with default WORK → `bench/fleet-flow-bench.json`;
+  the 192-core companion (WORK overridden) is committed as `bench/fleet-flow-bench.pbox.json`.
+  Writeup in TYPECHECKERS.md ("Flow on the Fleet Shape").
+- `node scripts/yarn-fleet-bench.mjs fleet[:<apps>]` (`TSGO_PNP_BIN`=native-PnP tsgo build,
+  provenance recorded; `YARN_FLEET_ALLOW_BUSY=1`): **yarn 4 at fleet scale** — the fleet tree
+  with the fleet gate's exact devDependency set (`--tsgo-task`; turbo/typescript/
+  native-preview/oxlint), decatalogged, installed by the pinned standalone yarn CLI under BOTH
+  linkers (trulyCold = no lockfile + fresh asserted-populated `YARN_GLOBAL_FOLDER` + network,
+  then warm; `.pnp.cjs` bytes vs full node_modules descendant count), then the whole-program
+  gate THROUGH PnP with the patched tsgo (untimed warmup, timed clean + GNU-time RSS, breaking
+  foundation rev asserted `appsWithErrors === APPS` + TS2554) behind a stock-tsgo-through-
+  `yarn tsgo` control that must fail unresolved (a signal/ENOBUFS death is a harness fault,
+  never the expected red). Full generator-summary knob assert (an ambient env override can't
+  fake a fleet record); fail-closed cleanup; restore-on-exit incl. the revved foundation.
+  Destructive → linked git worktree only. Canonical only at 30000 with `TSGO_PNP_BIN` →
+  `bench/yarn-fleet-bench.json`; writeup in TOOLING.md ("yarn 4 at fleet scale").
 - `node scripts/vite-task-bench.mjs` (`VITE_TASK_SCALES` default `"300:100 1000:200"`,
   `VP_SAMPLES` 3, `VITE_TASK_ALLOW_BUSY=1`): **Vite Task (Vite+ `vp run`) vs Turborepo**
   on the identical dep-free `typecheck:tsgo` task set (derived per-package
@@ -733,6 +759,10 @@ one-program-vs-cores contrast FLEET.md reads). `fleet-chart.mjs` renders
 fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
 two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
 `charts.yml` byte-gate.
+`bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
+batch + server rows, both boxes) and `bench/yarn-fleet-bench.json` (yarn 4 installs under both
+linkers + the native-PnP tsgo gate) extend the fleet record set; TYPECHECKERS.md and
+TOOLING.md carry their writeups.
 
 **Comparison-chart conventions (every chart generator follows these):**
 
@@ -780,7 +810,7 @@ and the five-way CI-runner frozen install from `bench/container-install-bench.js
 toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo + Next-build
 matrix that closes it from `bench/tsgo-pnp-bench.json`, plus the fast-bundler-under-PnP matrix and the
 Turbopack-vs-rspack-vs-webpack build-speed numbers from `bench/rspack-pnp-bench.json` +
-`bench/rspack-turbopack-speed-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`), [LIMITS.md](LIMITS.md) (what stays O(repo),
+`bench/rspack-turbopack-speed-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`, and "yarn 4 at fleet scale" from `bench/yarn-fleet-bench.json`), [LIMITS.md](LIMITS.md) (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
 (`bench/test-axis-bench.json`), plus
 "[Remote Cache: Amortizing the O(repo) Cold Start](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start)",
@@ -817,7 +847,7 @@ per-situation decision table), [TYPECHECKERS.md](TYPECHECKERS.md) (tsc vs tsgo w
 Million Files", tsgo vs tsc vs Flow swept to 1M modules, `bench/tsgo-scale-bench.json`,
 and its daemon companion tsgo --lsp/tsserver/--watch at the same scales,
 `bench/lsp-scale-bench.json`, plus "Codegen in Front of the Checkers", Relay feeding
-both dialects, `bench/relay-codegen-bench.json`),
+both dialects, `bench/relay-codegen-bench.json`, and "Flow on the Fleet Shape", the fleet mirror with batch + server rows on both boxes, `bench/fleet-flow-bench.json` + `.pbox.json`),
 [STORIES.md](STORIES.md) (the independently-published model as user stories: app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) (semver-from-registry vs `workspace:` local linking: diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),

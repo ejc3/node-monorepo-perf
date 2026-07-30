@@ -56,3 +56,10 @@ bun.lockb
 # ci-cache-network-bench scratch (remote-cache server store + log, tc-shaped)
 /.ci-cache-net/
 /bench/tsgo-scale-table.partial.json
+bench/fleet-flow-bench.partial.json
+/bench/yarn-fleet-bench.partial.json
+.yarn-fleet-scratch/
+/yarn.lock
+/.pnp.cjs
+/.pnp.loader.mjs
+/.yarn/

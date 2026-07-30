@@ -806,6 +806,7 @@ function main() {
       universal: UNIVERSAL,
       tsgoTask: TSGO_TASK,
       testTask: TEST_TASK,
+      skew: SKEW_PCT,
       framework: FRAMEWORK,
       versioned: VERSIONED,
       approxFiles: fileCount,
