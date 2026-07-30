@@ -280,7 +280,12 @@ function installRows(linker) {
   wipeInstallOutputs();
   const rowEnv = { ...env, YARN_GLOBAL_FOLDER: cache };
   const trulyCold = timed(() =>
-    execFileSync("node", [YARN, "install"], { cwd: ROOT, env: rowEnv, maxBuffer: 1 << 28 }),
+    execFileSync("node", [YARN, "install"], {
+      cwd: ROOT,
+      env: rowEnv,
+      maxBuffer: 1 << 28,
+      encoding: "utf8",
+    }),
   );
   // trulyCold is only truly cold if the fresh global folder took the download
   const populated =
@@ -292,7 +297,12 @@ function installRows(linker) {
     throw new Error(`trulyCold ${linker} install did not populate its fresh global cache`);
   wipeInstallOutputs();
   const warm = timed(() =>
-    execFileSync("node", [YARN, "install"], { cwd: ROOT, env: rowEnv, maxBuffer: 1 << 28 }),
+    execFileSync("node", [YARN, "install"], {
+      cwd: ROOT,
+      env: rowEnv,
+      maxBuffer: 1 << 28,
+      encoding: "utf8",
+    }),
   );
   // completeness AFTER the timed installs (untimed): an exit-0 install can be
   // partial; the shared verifier walks every workspace package's deps (nm walk
@@ -390,6 +400,7 @@ execFileSync("node", [YARN, "install"], {
   cwd: ROOT,
   env: { ...env, YARN_GLOBAL_FOLDER: globalCacheFor("pnp") },
   maxBuffer: 1 << 28,
+  encoding: "utf8",
 });
 
 // ---- the whole-program gate under PnP ----------------------------------------
