@@ -50,6 +50,21 @@ tsgo is **near-linear** (61ms/thousand at 10k → 69ms at 1M; 68.7s warm, 89.8s 
 
 Released Flow through 0.321 has a recheck-cancellation race that silently wedges its server at this scale (3 of 5 sweeps; [facebook/flow#9454](https://github.com/facebook/flow/issues/9454), fixed on main; retest `scripts/flow-wedge-retest.mjs`, evidence `bench/flow-0321-wedge-evidence.md`). The editor loop on one app's closure is in [LIMITS.md](LIMITS.md#editor-and-language-server).
 
+## Flow on the Fleet Shape
+
+`scripts/fleet-flow-bench.mjs` mirrors the measured fleet workspace ([FLEET.md](FLEET.md), 30,000 apps / 460 libs) in Flow's dialect — every workspace module plus a typed entry per app, 876,440 `// @flow` files derived from the generated tree's own manifests, so every workspace import edge (including the oven-sh/bun#36386 app rename) carries over. It is not file-for-file: the mirror omits each app's Next layout and the Next/React ambient type surface the TS program carries (~936k workspace files plus external `.d.ts`), so the time and memory rows compare Flow's mirror against tsgo's somewhat larger program. The workspace graph's fidelity shows in the breaking rev: **both checkers flag exactly 30,171 call sites** in their own dialects. App entries are typed function compositions, not JSX; package imports resolve via `module.name_mapper`, no install; the checker is the Rust-port build with the wedge fixes, provenance recorded. `bench/fleet-flow-bench.json` (64-core) and `bench/fleet-flow-bench.pbox.json` (192-core; run with `FLEET_FLOW_WORK` overridden, otherwise identical knobs):
+
+| row | tsgo (fleet gate) | Flow, 64-core | Flow, 192-core |
+| --- | --- | --- | --- |
+| whole-program check | **60.7s** / 51.3GB | 79.5s / **20.1GB** | 77.7s / 22.7GB |
+| breaking rev → 30,000 apps red (batch) | **59.5s** | 89.8s | 77.0s |
+| server init (one-time) | — | 80.0s / 20.1GB | 80.8s / 22.7GB |
+| status, nothing changed | — | **45ms** | 52ms |
+| foundation edit, stays green | — | 10.0s | 15.6s |
+| **foundation edit → 30,000 apps red (incremental)** | — | **14.9s** | 12.9s |
+
+Three findings. tsgo wins the batch rows (1.3× on the check, 1.5× on the batch breaking rev) in the fleet's actual dialect; Flow holds the mirrored program in **2.5× less memory**. Flow's resident server changes the foundation owner's loop: the full-fleet breaking verdict costs **14.9s incrementally** against tsgo's 59.5s-per-run batch — tsgo's resident mechanics today are its `--watch` (~22s per re-check at the million-file scale) and its LSP (an editor server, not a batch verdict); upstream's incremental work targets tsc parity, not server-style incrementality (see the daemons section). The 192-core box moves Flow's rows between −8% and +14% and tsgo's not at all — neither scales with cores at this shape, matching the fleet gate's cross-machine result. A universal-lib edit costs 10–15s even incrementally: blast radius binds every checker; the sub-second edit loops measured at 1M modules were minimal-invalidation edits (a non-exported const on a mid-corpus module, and an error seeded in a zero-dependent leaf — nothing downstream to recheck), where the fleet rev changes an exported surface every app imports.
+
 ## Ranked Levers
 
 1. tsgo (`@typescript/native-preview`): ~10x per check, drop-in; pin a nightly, keep a fallback.

@@ -102,3 +102,9 @@ works as a CI gate. On this shape that is ~1 minute; the clean run records ~51GB
 breaking signature comes back as every affected call site with exact file and line, the
 input a codemod consumes. It needs no build step, no cache, and no orchestration — just a
 box with the RAM.
+
+Two companion records run the same scenario under different tooling: a Flow-dialect
+mirror of this shape (batch + resident-server rows — server-style incrementality tsgo does not have;
+[TYPECHECKERS.md](TYPECHECKERS.md#flow-on-the-fleet-shape), `bench/fleet-flow-bench.json` +
+`.pbox.json`) and yarn 4 with a native-PnP tsgo build
+([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility), `bench/yarn-fleet-bench.json`).

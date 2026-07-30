@@ -1,0 +1,72 @@
+{
+  "apps": 30000,
+  "libs": 460,
+  "shape": "fleet",
+  "machine": {
+    "cores": 64,
+    "arch": "arm64"
+  },
+  "preRunLoadAvg1": 1.96,
+  "versions": {
+    "yarn": "4.17.0",
+    "node": "v22.23.1",
+    "tsgoPatched": {
+      "version": "Version 7.1.0-dev",
+      "sha256": "0aba2ed0d157bef4a1d9cac5cc92ee2c5538806e080e09fb3835f0986e0013e4",
+      "gitSha": "e14570937c5a279cf4387ee1a600dc1ba9465f81",
+      "gitBranch": "feat/yarn-pnp-resolution"
+    }
+  },
+  "netOrder": [
+    "pnp",
+    "node-modules"
+  ],
+  "install": {
+    "pnp": {
+      "trulyColdMs": 40808,
+      "warmMs": 38368,
+      "pnpCjsBytes": 62084761
+    },
+    "nodeModules": {
+      "trulyColdMs": 441451,
+      "warmMs": 440404,
+      "nmEntries": 4641433
+    }
+  },
+  "gateNodeModules": {
+    "tool": "tsgo patched, node-modules linker",
+    "ms": 58884,
+    "maxRssMB": 50380
+  },
+  "stockControl": {
+    "exit": 1,
+    "ts2307": 0,
+    "ts2503": 30000,
+    "ts2688": 0,
+    "sample": "error TS2503: Cannot find namespace 'React'.",
+    "unresolved": 30000
+  },
+  "gate": {
+    "tool": "tsgo patched (native PnP), one program from src",
+    "ms": 60093,
+    "maxRssMB": 53018
+  },
+  "breaking": {
+    "caught": true,
+    "ms": 59927,
+    "ts2554": 30171,
+    "appsWithErrors": 30000,
+    "sample": "error TS2554: Expected 2 arguments, but got 1."
+  },
+  "summary": {
+    "pnpTrulyColdMs": 40808,
+    "pnpWarmMs": 38368,
+    "nmTrulyColdMs": 441451,
+    "nmWarmMs": 440404,
+    "gateMs": 60093,
+    "gateRssMB": 53018,
+    "breakingCaught": true,
+    "breakingMs": 59927,
+    "stockUnresolved": 30000
+  }
+}
