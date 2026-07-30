@@ -6,13 +6,13 @@
     "cores": 64,
     "arch": "arm64"
   },
-  "preRunLoadAvg1": 1.89,
+  "preRunLoadAvg1": 1.96,
   "versions": {
     "yarn": "4.17.0",
     "node": "v22.23.1",
     "tsgoPatched": {
       "version": "Version 7.1.0-dev",
-      "sha256": "91c3482628d1790cfefd6339e5c7f7bfa793058b44a9b22f5ae74caa4e84b68c",
+      "sha256": "0aba2ed0d157bef4a1d9cac5cc92ee2c5538806e080e09fb3835f0986e0013e4",
       "gitSha": "e14570937c5a279cf4387ee1a600dc1ba9465f81",
       "gitBranch": "feat/yarn-pnp-resolution"
     }
@@ -23,42 +23,50 @@
   ],
   "install": {
     "pnp": {
-      "trulyColdMs": 41281,
-      "warmMs": 38607,
+      "trulyColdMs": 40808,
+      "warmMs": 38368,
       "pnpCjsBytes": 62084761
     },
     "nodeModules": {
-      "trulyColdMs": 436427,
-      "warmMs": 438003,
+      "trulyColdMs": 441451,
+      "warmMs": 440404,
       "nmEntries": 4641433
     }
   },
+  "gateNodeModules": {
+    "tool": "tsgo patched, node-modules linker",
+    "ms": 58884,
+    "maxRssMB": 50380
+  },
   "stockControl": {
     "exit": 1,
-    "unresolved": 30000,
-    "sample": "error TS2503: Cannot find namespace 'React'."
+    "ts2307": 0,
+    "ts2503": 30000,
+    "ts2688": 0,
+    "sample": "error TS2503: Cannot find namespace 'React'.",
+    "unresolved": 30000
   },
   "gate": {
     "tool": "tsgo patched (native PnP), one program from src",
-    "ms": 59206,
-    "maxRssMB": 50920
+    "ms": 60093,
+    "maxRssMB": 53018
   },
   "breaking": {
     "caught": true,
-    "ms": 60721,
+    "ms": 59927,
     "ts2554": 30171,
     "appsWithErrors": 30000,
     "sample": "error TS2554: Expected 2 arguments, but got 1."
   },
   "summary": {
-    "pnpTrulyColdMs": 41281,
-    "pnpWarmMs": 38607,
-    "nmTrulyColdMs": 436427,
-    "nmWarmMs": 438003,
-    "gateMs": 59206,
-    "gateRssMB": 50920,
+    "pnpTrulyColdMs": 40808,
+    "pnpWarmMs": 38368,
+    "nmTrulyColdMs": 441451,
+    "nmWarmMs": 440404,
+    "gateMs": 60093,
+    "gateRssMB": 53018,
     "breakingCaught": true,
-    "breakingMs": 60721,
+    "breakingMs": 59927,
     "stockUnresolved": 30000
   }
 }
