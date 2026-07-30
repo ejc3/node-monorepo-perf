@@ -299,6 +299,10 @@ const out = {
       "rerun with all artifacts present and nothing edited — relay's skip-unchanged path (still re-extracts and re-validates every document)",
     checkFull:
       "the checker over components + generated artifacts as one program; every component imports and uses its query's generated $data type, so the check validates codegen output against hand-written code",
+    freshnessGate:
+      "the checked-in-artifacts CI gate on the TS tree: one no-change codegen + `git status --porcelain` over src/__generated__ (status, not plain diff: it also catches UNTRACKED new artifacts); every timed sample asserts BYTE-STABILITY (a nondeterministic artifact would false-positive the gate on every PR) and a drift positive control (an edited query must dirty the status)",
+    fleetPoint:
+      "one-sample codegen cold, then the same git-tracked freshness pass (no-change codegen + status) at RELAY_FLEET_COMPONENTS (default 30,000 — one component per fleet app), the O(components) anchor for what a fleet-scale freshness pass costs",
   },
   languages: {},
 };
@@ -410,8 +414,145 @@ for (const [lang, dir] of Object.entries(trees)) {
   out.languages[label] = rec;
 }
 
+// ---- the checked-in-artifacts freshness gate (TS tree) -----------------------------------------
+{
+  const dir = trees.typescript;
+  console.log("\n== freshness gate (ts tree) ==");
+  // a throwaway git repo over the corpus: artifacts TRACKED (that is the practice
+  // under test), node_modules ignored
+  const git = (args, opts = {}) => {
+    const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", maxBuffer: 1 << 26, ...opts });
+    if (r.status !== 0) fail(`git ${args.join(" ")} failed: ${(r.stderr || "").slice(-200)}`);
+    return r.stdout;
+  };
+  rmSync(join(dir, ".git"), { recursive: true, force: true });
+  writeFileSync(join(dir, ".gitignore"), "node_modules\n");
+  git(["init", "-q"]);
+  git(["-c", "user.email=bench@local", "-c", "user.name=bench", "add", "-A"]);
+  git([
+    "-c",
+    "user.email=bench@local",
+    "-c",
+    "user.name=bench",
+    "commit",
+    "-q",
+    "-m",
+    "corpus + artifacts",
+  ]);
+
+  const gateOnce = (expectClean = false) => {
+    const cg = timedRun(RELAY, [], dir);
+    if (cg.exit !== 0) fail(`freshness codegen exited ${cg.exit}`);
+    if (cg.ms === null) fail("freshness codegen: wall parse failed");
+    const t0 = process.hrtime.bigint();
+    const st = git(["status", "--porcelain", "--", "src/__generated__"]);
+    const diffMs = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
+    const dirty = st.trim().length > 0;
+    // byte-stability is asserted on EVERY timed sample, not a separate probe run —
+    // an intermittent rewrite must not be able to publish byteStable:true
+    if (expectClean && dirty)
+      fail("no-change codegen rewrote artifact bytes — the freshness gate would false-positive");
+    return { ms: cg.ms + diffMs, exit: 0, diffMs, dirty };
+  };
+  const gate = sampleMs(() => gateOnce(true), "freshness gate");
+  console.log(`  gate ${gate.medianMs}ms (codegen + status) · byte-stable ✓ (all samples)`);
+  // drift positive control: an ALIASED existing field is always schema-valid
+  // and always changes the artifact (a new field name could not be guaranteed
+  // to exist in the generated schema)
+  const p = join(dir, "src", "Comp1.ts");
+  const orig = readFileSync(p, "utf8");
+  let drift, regreen;
+  try {
+    writeFileSync(p, orig.replace("id\n", "id\n      driftProbe: id\n"));
+    drift = gateOnce();
+  } finally {
+    writeFileSync(p, orig);
+    git(["checkout", "-q", "--", "."]);
+    git(["clean", "-qfd", "--", "src/__generated__"]);
+  }
+  regreen = gateOnce();
+  if (!drift.dirty) fail("drift control: an edited query did not dirty the artifact diff");
+  if (regreen.dirty) fail("gate not clean after restore — state fault");
+  out.freshness = {
+    gateMedianMs: gate.medianMs,
+    gateSamplesMs: gate.samplesMs,
+    byteStable: true, // asserted per timed sample above
+    driftDetected: drift.dirty,
+  };
+  console.log(`  drift detected ✓ · re-green ✓`);
+  rmSync(join(dir, ".git"), { recursive: true, force: true });
+  rmSync(join(dir, ".gitignore"), { force: true });
+}
+
+// ---- the fleet-scale anchor (one sample, labeled) ----------------------------------------------
+const FLEET_N = Number(process.env.RELAY_FLEET_COMPONENTS || 30000);
+if (!Number.isInteger(FLEET_N) || FLEET_N < 0)
+  fail(
+    `RELAY_FLEET_COMPONENTS must be a non-negative integer, got ${process.env.RELAY_FLEET_COMPONENTS}`,
+  );
+if (FLEET_N > 0) {
+  console.log(`\n== fleet anchor: ${FLEET_N.toLocaleString("en-US")} components (1 sample) ==`);
+  const fdir = join(WORK, "fleet-ts");
+  rmSync(fdir, { recursive: true, force: true });
+  mkdirSync(join(fdir, "src"), { recursive: true });
+  writeFileSync(
+    join(fdir, "schema.graphql"),
+    readFileSync(join(trees.typescript, "schema.graphql")),
+  );
+  writeFileSync(
+    join(fdir, "relay.config.json"),
+    readFileSync(join(trees.typescript, "relay.config.json")),
+  );
+  for (let i = 0; i < FLEET_N; i++) writeFileSync(join(fdir, "src", `Comp${i}.ts`), tsComponent(i));
+  mkdirSync(join(fdir, "node_modules"), { recursive: true });
+  spawnSync("ln", [
+    "-s",
+    join(toolDir, "node_modules", "relay-runtime"),
+    join(fdir, "node_modules", "relay-runtime"),
+  ]);
+  const cold = timedRun(RELAY, [], fdir);
+  if (cold.exit !== 0) fail(`fleet-anchor codegen exited ${cold.exit}:\n${cold.out.slice(-400)}`);
+  if (cold.ms === null) fail("fleet-anchor cold: wall parse failed");
+  const artifacts = countArtifacts(fdir);
+  if (artifacts !== FLEET_N) fail(`fleet anchor: ${artifacts} artifacts for ${FLEET_N} components`);
+  // the fleet row is the same GIT-TRACKED freshness pass as the 10k gate, not a bare
+  // codegen rerun — the claimed quantity is the CI freshness cost, git status included
+  const fgit = (args) => {
+    const r = spawnSync("git", args, { cwd: fdir, encoding: "utf8", maxBuffer: 1 << 26 });
+    if (r.status !== 0) fail(`fleet git ${args.join(" ")} failed: ${(r.stderr || "").slice(-200)}`);
+    return r.stdout;
+  };
+  writeFileSync(join(fdir, ".gitignore"), "node_modules\n");
+  fgit(["init", "-q"]);
+  fgit(["-c", "user.email=bench@local", "-c", "user.name=bench", "add", "-A"]);
+  fgit(["-c", "user.email=bench@local", "-c", "user.name=bench", "commit", "-q", "-m", "corpus"]);
+  const noChange = timedRun(RELAY, [], fdir);
+  if (noChange.exit !== 0) fail(`fleet-anchor no-change exited ${noChange.exit}`);
+  if (noChange.ms === null) fail("fleet-anchor no-change: wall parse failed");
+  const t0 = process.hrtime.bigint();
+  const st = fgit(["status", "--porcelain", "--", "src/__generated__"]);
+  const statusMs = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
+  if (st.trim().length > 0)
+    fail(
+      "fleet-anchor no-change codegen rewrote artifact bytes — freshness gate would false-positive",
+    );
+  out.fleetPoint = {
+    components: FLEET_N,
+    codegenColdMs: cold.ms,
+    codegenNoChangeMs: noChange.ms,
+    statusMs,
+    freshnessMs: noChange.ms + statusMs,
+    byteStable: true,
+    samples: 1,
+  };
+  console.log(
+    `  cold ${cold.ms}ms · freshness pass ${noChange.ms + statusMs}ms (codegen ${noChange.ms} + status ${statusMs}) · ${artifacts.toLocaleString("en-US")} artifacts`,
+  );
+  rmSync(fdir, { recursive: true, force: true });
+}
+
 // ---- write -------------------------------------------------------------------------------------
-const canonical = N === 10000 && SAMPLES === 3 && TYPES === 100;
+const canonical = N === 10000 && SAMPLES === 3 && TYPES === 100 && FLEET_N === 30000;
 const file = canonical
   ? "bench/relay-codegen-bench.json"
   : "bench/relay-codegen-bench.partial.json";

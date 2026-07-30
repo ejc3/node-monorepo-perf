@@ -63,3 +63,5 @@ bench/fleet-flow-bench.partial.json
 /.pnp.cjs
 /.pnp.loader.mjs
 /.yarn/
+/bench/sliced-gate-bench.partial.json
+/tsconfig.slice-*.json

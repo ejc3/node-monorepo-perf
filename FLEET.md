@@ -86,6 +86,46 @@ foundation's closure + the 460 lib builds), a leaf rev 100 — 307× fewer.
 [High-resolution PNG](bench/charts/fleet-gate.png) · rendered by `scripts/fleet-chart.mjs`
 (`make fleet-chart`) from the two gate records + `bench/fleet-shape.json`, byte-gated in CI.
 
+## The Sliced Gate: Using the Whole Box
+
+The one-program gate cannot use a big machine: its own reference run is 59.0s on 64
+cores and 67.8s on 192, at 755% / 1,629% CPU — most of either box idle. (The fleet-gate
+records above read 60.7s / 65.8s on their own trees — run-to-run spread; every ratio here
+is computed within one record.) The per-package pipeline uses every core but re-parses
+the shared libs ~30,000×. The middle point wins outright: partition the apps into K
+slices, each a tsgo program over all lib source + 1/K of the apps, run concurrently
+(`scripts/sliced-gate-bench.mjs` → `bench/sliced-gate-bench.json`; 192-core column
+`bench/sliced-gate-bench.pbox.json`):
+
+| K | 64-core wall | 192-core wall | max slice RSS† |
+| --- | --- | --- | --- |
+| 1 (reference) | 59.0s | 67.8s | 52.0GB |
+| 2 | 28.8s | 32.7s | 25.5GB |
+| 4 | 16.9s | 19.8s | 13.6GB |
+| 8 | 11.6s | 12.1s | 7.1GB |
+| 16 | **9.9s** | 8.6s | 3.9GB |
+| 24 | — | 7.2s | 2.6GB |
+| 32 | 10.4s | 6.8s | 2.2GB |
+| 48 | — | **6.3s** | 1.6GB |
+
+† RSS from the 64-core record; the K=24/48 rows come from the 192-core record because
+the 64-core sweep runs K ∈ {2, 4, 8, 16, 32} (hence its "—" wall cells). At every shared
+K the two boxes' RSS agree within 4%.
+
+**6.0× faster than the one-program gate on the same 64-core box, and 10.7× on the
+192-core box (6.3s at K=48) — the machine the one-program gate could not use is now the
+fastest way to run it.** The verdict is identical: the breaking-rev union check asserts that the distinct error locations across
+all slices equal the whole-program set exactly (30,171 = 30,171; lib-side errors dedupe,
+app-side errors neither vanish nor invent). The breaking verdict lands in 10.1s on 64
+cores and 6.6s on 192 — on each box under Flow's server-incremental row on this shape
+(14.9s / 12.9s), and the sliced number is a from-scratch batch run, not a resident
+server. Slices are exact-`files` programs (per-app globs would make config matching
+quadratic and bias the sweep). Re-parsing the lib closure K times is cheaper than it
+sounds: total CPU stays within +34% of the one-program run on the 64-core box (~446s →
+518s at K=16, 598s at K=32) and lands *below* it at every K on the 192-core box (~1,104s
+→ 849–1,033s), while per-slice memory falls to laptop-class (3.9GB at K=16 vs the 52GB
+monolith).
+
 ## The Pre-Push Command
 
 For anyone editing a foundation lib, the measured result above is packaged as a day-to-day
