@@ -97,10 +97,20 @@ the big box) is a headline finding; both sides re-measure on the new toolchain.
 ## Phase 3 — pnpm 12
 
 - [ ] pnpm12 bench lands (PR B) with 10-vs-12-vs-tip numbers
-- [ ] DECISION (owner): bump `PNPM_VERSION` in `_pins.mjs` to 12.x?
-      If yes: install-bench, container-install-bench, lockfile-bench,
-      install-modes, focus-install, lockfile-merge, perf-matrix rerun, and the
-      ROLLOUT/TOOLING install claims (incl. the bun 62–357× line) re-derive.
+- [x] DECISION (owner, 2026-09-30): BUMP. packageManager + `PNPM_VERSION` → 12.8.1
+      (`PNPM10_VERSION` kept as pnpm12-bench's JS baseline); generated/scaffold
+      workspace yamls carry `ignoreScripts` + `minimumReleaseAge: 0` (pnpm 12's
+      fail-closed defaults, relaxed identically everywhere).
+- [ ] Install-family rerun under pnpm 12 (this box): install-bench,
+      install-modes, lockfile-bench, focus-install, lockfile-merge,
+      perf-matrix, fs-bench, container-install-bench; then wave-rollout +
+      bun-safety (behavior-assert benches — outcomes that flip under 12 are
+      findings, benches updated to the measured reality); then the
+      ROLLOUT/TOOLING/SUMMARY install claims re-derive (bun-vs-pnpm-12 becomes
+      measured via install-bench's own table).
+- [ ] dev-sim reran post-bump (its segment-1 run recorded pnpm-10 onboarding);
+      pbox 2 clone must pull the bump commit before segment 2 (measure/axis/
+      ci-cache install rows).
 
 ## Phase 4 — diagrams + report refresh (PR C)
 
