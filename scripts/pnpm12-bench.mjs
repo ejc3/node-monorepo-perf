@@ -11,7 +11,7 @@
 // before any timed run — pnpm 12's launcher DELEGATES to the version in a project's
 // `packageManager` field, so the scaffold's field is stripped and the executed
 // version is asserted per leg):
-//   pnpm10  — pnpm@PNPM_VERSION (_pins.mjs), the JS CLI, spawned as
+//   pnpm10  — pnpm@PNPM10_VERSION (_pins.mjs, the last JS release), spawned as
 //             `<process.execPath> pnpm.cjs` (node startup is inherent to the JS
 //             implementation and is measured; Node version recorded)
 //   pnpm12  — pnpm@PNPM12_VERSION from npm, the Rust CLI's native binary
@@ -73,7 +73,7 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join, dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PNPM_VERSION } from "./_pins.mjs";
+import { PNPM10_VERSION } from "./_pins.mjs";
 import { pnpmEnv, median, benchOutput, loadGuard } from "./_pm-bench-lib.mjs";
 import verifyLib from "./_verify-install.cjs";
 
@@ -160,7 +160,7 @@ console.log(`# pnpm12-bench: ${APPS}:${LIBS}, samples ${SAMPLES}${TIP_BIN ? ", t
 console.log("## fetching pnpm legs");
 const tool10 = join(WORK, "tool10");
 const tool12 = join(WORK, "tool12");
-npmInstallTool(tool10, `pnpm@${PNPM_VERSION}`);
+npmInstallTool(tool10, `pnpm@${PNPM10_VERSION}`);
 npmInstallTool(tool12, `pnpm@${PNPM12_VERSION}`);
 
 // pnpm 10 is the JS CLI: measured as `<process.execPath> pnpm.cjs` — node startup
@@ -184,7 +184,7 @@ const exe12 = findNativePnpm(tool12);
 const sha256File = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 
 const LEGS = [
-  { key: "pnpm10", cmd: process.execPath, pre: [js10], version: PNPM_VERSION, impl: "js" },
+  { key: "pnpm10", cmd: process.execPath, pre: [js10], version: PNPM10_VERSION, impl: "js" },
   { key: "pnpm12", cmd: exe12, pre: [], version: PNPM12_VERSION, impl: "rust" },
   ...(TIP_BIN ? [{ key: "tip", cmd: TIP_BIN, pre: [], version: null, impl: "rust-tip" }] : []),
 ];
