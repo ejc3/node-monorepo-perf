@@ -4,8 +4,13 @@ Day-to-day costs when a pnpm + Turborepo monorepo of **4,000 Next.js apps and 40
 libraries** (4,400 packages; [the workspace under test](README.md#the-workspace-under-test)) runs
 on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolations are labeled.
 
-**Machine:** 64-core Neoverse-V1, 135 GB RAM. **Versions:** bun 1.3.14, tsgo 7.0.0-dev.20260614.1,
-oxlint 1.71.0, turbo 2.9.18, tsc 5.9.3, Node 22 (`bench/env.json`).
+**Machine:** the 4,000:400 gate (`optimal-gate-bench.json`), inner-loop (`dev-loop-bench.json`),
+and editor (`editor-loop-bench.json`) records are measured on a 192-core c8g.48xlarge (arm64,
+per each record's `machine`/`cores`); the fleet-gate, install-family, and real-app records on a
+64-core Neoverse-V1, 135 GB (`bench/env.json`). **Versions** for those 192-core records: bun
+1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`), oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3
+(the oracle), Node 22; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
+7.0.0-dev.20260614.1, oxlint 1.71.0).
 
 ## The one idea: O(repo) vs O(closure)
 
@@ -23,9 +28,9 @@ core-lib rev) are infrequent and still fast.
 
 | job                 | tool       | why                                                    |
 | ------------------- | ---------- | ------------------------------------------------------ |
-| install             | **bun**    | links the 4,400-package workspace in ~21s (warm store) |
+| install             | **bun**    | links the 4,400-package workspace in ~2.6s (warm store) |
 | typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.7× tsc 6, same error locations |
-| lint                | **oxlint** | native Rust; whole tree in 180ms                       |
+| lint                | **oxlint** | native Rust; whole tree in 251ms                       |
 | orchestrate + scope | **turbo**  | `--filter`/`--affected` + per-package caching          |
 
 Vite+'s task runner: turbo wins whole-repo typecheck by 2–3.7×; Vite Task wins the focused warm
@@ -36,28 +41,29 @@ loop (0.86s vs 3.0s at 1,000 apps) but can't cache `next build`
 
 Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 
-- **App developer** (O(closure), `bench/dev-loop-bench.json`): keystroke loop is **~170ms tsgo
-  typecheck + ~60ms oxlint lint**; onboard `bun install` 20.6s fresh / 3.8s subsequent; focused
-  `turbo --filter` gate 19.1s cold (187 tasks) / 15.2s warm. tsgo and oxlint have no incremental
+- **App developer** (O(closure), `bench/dev-loop-bench.json`): keystroke loop is **~220ms tsgo
+  typecheck + ~100ms oxlint lint**; onboard `bun install` 1.4s fresh / 0.9s subsequent; focused
+  `turbo --filter` gate 7.8s cold (187 tasks) / 3.4s warm. tsgo and oxlint have no incremental
   cache, so first run matches steady state.
-- **Lib developer** (O(closure)): tsgo 190ms, oxlint ~65ms; pre-merge `turbo --filter=...lib` gate
-  22.8s cold (237 tasks) / 13.6s warm — blast radius is the lib's dependents, not the repo. Revving
+- **Lib developer** (O(closure)): tsgo ~230ms, oxlint ~104ms; pre-merge `turbo --filter=...lib` gate
+  9.6s cold (237 tasks) / 3.8s warm — blast radius is the lib's dependents, not the repo. Revving
   a workspace dep is a source edit only (symlinks, no reinstall/publish).
 - **Workspace author** (O(repo), the worst case — rev the universal foundation lib all 4,000 apps
   import, `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in
-  **1.32s**, and catches a breaking change in **1.39s** with 4,000 / 4,000 apps red and named
-  (TS2554). At the measured fleet scale (30,000 apps, ~1.03M generated files) the same gate is **60.7s** clean
-  (10.1× faster than the per-package turbo path, which also emits dist) and **59.5s** to a
-  full 30,000-apps-red breaking verdict
+  **1.59s**, and catches a breaking change in **1.55s** with 4,000 / 4,000 apps red and named
+  (TS2554). At the measured fleet scale (30,000 apps, ~1.03M generated files; 64-core box) the same gate is
+  **60.7s** clean (10.1× faster than the per-package turbo path, which also emits dist) and
+  **59.5s** to a full 30,000-apps-red breaking verdict
   (`bench/fleet-gate-bench.json`, [FLEET.md](FLEET.md)); sliced into K concurrent programs
   the same check is **9.9s** on 64 cores / **6.3s** on 192, identical verdict union-verified
   (`bench/sliced-gate-bench.json`, [FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box)). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
   measured on a separate type-heavy 4,000:400 scaffold (`bench/typecheck-parity-bench.json`). The
-  same gate via orchestrated turbo (also emits dist) is 80.1s / 4,800 tasks — the single tsgo
+  same gate via orchestrated turbo (also emits dist) is 46.9s / 4,800 tasks — the single tsgo
   process reads each lib's source once, skipping the 400 dist builds. The npm-dep version bump
-  fanout is catalog **2** workspace-yaml lines vs per-consumer pin **one manifest each**.
+  fanout is catalog **1** workspace-yaml line vs per-consumer pin **one manifest each — 4,399
+  manifests** (`bench/lib-rev-bench.json`).
 - **Opening the editor** (`bench/editor-loop-bench.json`, 4,000 apps / 300 libs): cold open
-  (spawn → first def) tsserver 1,620ms vs tsgo LSP **86ms** (18.8×); peak RSS 380MB vs **275MB**;
+  (spawn → first def) tsserver 1,563ms vs tsgo LSP **113ms** (13.8×); peak RSS 414MB vs **309MB**;
   warm go-to-def/hover ≤2ms both. Cost tracks the opened app's closure (65 libs / 1,123 files), flat
   as the repo grows 8×. Detail in [LIMITS.md](LIMITS.md#editor-and-language-server).
 
@@ -65,7 +71,7 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 
 Two operations are genuinely O(repo) and cannot be scoped away:
 
-- **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm 12.8.1's
+- **Install** of the whole workspace (~2.6s warm store at 4,000:400), paid on clean clone or CI. pnpm 12.8.1's
   no-lockfile cold-resolve is 3.0s at 1,000:200 — within 0.5% of a frozen warm-store install
   (`bench/install-modes-bench.json`; the JS CLI paid 303.7s on that resolve,
   `bench/pnpm12-bench.json`). The pnpm-12-vs-bun head-to-head is measured
@@ -88,11 +94,12 @@ helps only the second-and-later consumer of an *unchanged* artifact: at 300:100,
 fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
 [LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start).
 
-Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.3s, whole lint 0.18s).
+Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.6s, whole lint 0.25s).
 
 ## Real apps
 
-The same stack against two real open-source Next.js apps at pinned commits
+The same tool set — at that record's measured pins (bun 1.3.14, tsgo 7.0.0-dev.20260614.1,
+oxlint 1.71.0, 64-core box) — against two real open-source Next.js apps at pinned commits
 (`bench/real-app-bench.json`):
 
 | app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm       |
@@ -109,7 +116,7 @@ dependency drift). Turbo won't cache taxonomy's red typecheck until it goes gree
 
 ## Tool caveats
 
-- **tsgo is a preview build.** No `dist` emit (turbo uses tsc via `^build`), stricter than tsc on
+- **tsgo emits no `dist`** (turbo uses tsc via `^build`) and is stricter than tsc on
   module-resolution config. Parity is 25 / 25 locations on one `skipLibCheck` corpus, not a general
   proof.
 - **bun ignores pnpm `catalog:`** — catalogs resolve to concrete versions before a bun install

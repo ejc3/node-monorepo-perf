@@ -39,27 +39,28 @@ prior records; new numbers land in `bench/*.json` through the normal PR loop.
 - [x] patched PnP tsgo at pbox2 `~/bin/tsgo-pnp`, smoke-tested: 7.1.0-dev
       @ e1457093 (`TSGO_PNP_BIN` for yarn-fleet / tsgo-pnp; its upstream base repo
       is archived, so this fork binary remains the PnP-capable checker).
-- [ ] pnpm tip binary built (in progress on the local box).
-- [ ] PR A merged (queue runs from main; review-before-expensive-run).
+- [x] pnpm tip binary built (12.8.2 @ 26aeeb11; rows in `bench/pnpm12-bench.json`).
+- [x] PR A merged (#49; queue runs from main).
 
 ## Phase 2 — pbox 2 queue (serial; each bench is load-guarded and refuses a busy box)
 
 Cheap first, long poles last. Destructive benches run in a linked worktree on
 pbox 2's clone. One record-batch PR per group, normal review loop.
 
-- [ ] relay-codegen-bench (+30k fleet anchor)
-- [ ] typecheck-parity-bench, typecheck-bench, decl-emit-caveat, env — done on the
-      local box inside PR A (listed for completeness)
-- [ ] tsgo-scale-table (4 scales)
-- [ ] optimal-gate-bench 4000:400 (canonical layered record)
-- [ ] dev-loop-bench 4000:400
-- [ ] lib-rev-bench 4000:400
-- [ ] dev-sim
-- [ ] editor-loop-bench (both sweeps)
+- [x] relay-codegen-bench (+30k fleet anchor)
+- [x] typecheck-parity-bench, typecheck-bench, decl-emit-caveat — done on the
+      local box inside PR A (listed for completeness); env refresh stays the FINAL
+      step below
+- [x] tsgo-scale-table (4 scales)
+- [x] optimal-gate-bench 4000:400 (canonical layered record)
+- [x] dev-loop-bench 4000:400
+- [x] lib-rev-bench 4000:400
+- [x] dev-sim
+- [x] editor-loop-bench (both sweeps)
 - [ ] real-app-bench (tsgo GA may change the adaptation-friction rows; that is data)
 - [ ] pnp-compat-bench, tsgo-pnp-bench (needs TSGO_PNP_BIN)
 - [ ] vite-task-bench, vite-plus-tools-bench
-- [ ] lint-bench (type-aware row rides the checker substrate)
+- [x] lint-bench (type-aware row rides the checker substrate)
 - [ ] measure.mjs sweep — the README core scaling table (its build/typecheck columns
       are tsc-driven, now native)
 - [ ] axis-bench
@@ -74,8 +75,10 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
 - [ ] tsgo-scale-bench (1M; hours; needs root drop_caches; runs solo)
 - [ ] FINAL step, after every record above has re-measured: refresh the canonical
       `bench/env.json` (`node scripts/env.mjs`) and regenerate the chart/summary
-      outputs — env.json is the machine/toolchain provenance for ALL committed
-      records, so it may only change once the records match it.
+      outputs — env.json is the machine/toolchain provenance for the 64-core-era
+      records (per-record machine fields take precedence where present; dev-sim
+      and lib-rev carry neither, per AGENTS.md Data of Record), so it may only
+      change once the records match it.
 
 Out of scope (substrate unchanged): test-axis (zero checker involvement — its tasks
 are `node:test`), build-bench + the turbopack/rspack pair (generated Next apps set
@@ -96,21 +99,21 @@ the big box) is a headline finding; both sides re-measure on the new toolchain.
 
 ## Phase 3 — pnpm 12
 
-- [ ] pnpm12 bench lands (PR B) with 10-vs-12-vs-tip numbers
+- [x] pnpm12 bench lands (PR B) with 10-vs-12-vs-tip numbers (#50)
 - [x] DECISION (owner, 2026-09-30): BUMP. packageManager + `PNPM_VERSION` → 12.8.1
       (`PNPM10_VERSION` kept as pnpm12-bench's JS baseline); generated/scaffold
       workspace yamls carry `ignoreScripts` + `minimumReleaseAge: 0` (pnpm 12's
       fail-closed defaults, relaxed identically everywhere).
-- [ ] Install-family rerun under pnpm 12 (this box): install-bench,
+- [x] Install-family rerun under pnpm 12 (this box): install-bench,
       install-modes, lockfile-bench, focus-install, lockfile-merge,
       perf-matrix, fs-bench, container-install-bench; then wave-rollout +
       bun-safety (behavior-assert benches — outcomes that flip under 12 are
       findings, benches updated to the measured reality); then the
       ROLLOUT/TOOLING/SUMMARY install claims re-derive (bun-vs-pnpm-12 becomes
       measured via install-bench's own table).
-- [ ] dev-sim reran post-bump (its segment-1 run recorded pnpm-10 onboarding);
-      pbox 2 clone must pull the bump commit before segment 2 (measure/axis/
-      ci-cache install rows).
+- [x] dev-sim ran post-bump within segment 1 (at 5981c0d, pnpm 12.8.1 —
+      no pnpm-10 rerun needed); pbox 2 clone must pull the bump commit before
+      segment 2 (measure/axis/ci-cache install rows).
 
 ## Phase 4 — diagrams + report refresh (PR C)
 

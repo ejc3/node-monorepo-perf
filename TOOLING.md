@@ -100,15 +100,15 @@ it. Both defaults change CI behavior on upgrade; both are explicit config away.
 
 ## Lint: ESLint vs oxlint
 
-`scripts/lint-bench.mjs` races oxlint (native Rust, from oxc; this repo's linter) against ESLint on a self-contained generated corpus of 800 `.ts`/`.tsx` modules (not the workspace under test), matched for engine speed. ESLint is pointed at oxlint's rule set via `eslint-plugin-oxlint`, running a strict subset (524 rules with an ESLint port that aren't type-checked, vs oxlint's own 567) — the claim is "subset," not "567 > 524." oxlint is multithreaded, ESLint single-process (64-core box, so the ratio narrows on fewer cores). (`oxlint` 1.71.0, `eslint` 9.39.4, `oxlint-tsgolint` 0.23.0.)
+`scripts/lint-bench.mjs` races oxlint (native Rust, from oxc; this repo's linter) against ESLint on a self-contained generated corpus of 800 `.ts`/`.tsx` modules (not the workspace under test), matched for engine speed. ESLint is pointed at oxlint's rule set via `eslint-plugin-oxlint`, running a strict subset (530 rules with an ESLint port that aren't type-checked, vs oxlint's own 598) — the claim is "subset," not "598 > 530." oxlint is multithreaded, ESLint single-process (192-core c8g.48xlarge, so the ratio narrows on fewer cores). (`oxlint` 1.86.0, `eslint` 9.39.5, `oxlint-tsgolint` 7.0.2003.)
 
-| pass                        | ESLint               | oxlint                | ratio |
-| --------------------------- | -------------------- | --------------------- | ----- |
-| syntactic, no cache         | 12,032ms (524 rules) | **190ms** (567 rules) | 63.3x |
-| syntactic, ESLint `--cache` | 1,923ms              | **190ms**             | 10.1x |
-| type-aware                  | 4,489ms              | **397ms**             | 11.3x |
+| pass                        | ESLint              | oxlint                | ratio |
+| --------------------------- | ------------------- | --------------------- | ----- |
+| syntactic, no cache         | 9,602ms (530 rules) | **190ms** (598 rules) | 50.5x |
+| syntactic, ESLint `--cache` | 1,568ms             | **190ms**             | 8.3x  |
+| type-aware                  | 3,566ms             | **388ms**             | 9.2x  |
 
-The type-aware row is mostly the type-checker underneath — oxlint's `oxlint-tsgolint` (alpha; 59 of 61 typescript-eslint type-aware rules) builds with tsgo (TS7), ESLint with tsc 5.9, and tsgo alone is ~12x faster at whole-program typecheck (`bench/typecheck-bench.json`, [TYPECHECKERS.md](TYPECHECKERS.md)). `eslint-plugin-oxlint` disables oxlint-covered rules, leaving ESLint to lint the residual (0 here) — oxlint on the hot path, a thin ESLint pass for the rest is the migration path.
+The type-aware row is mostly the type-checker underneath — oxlint's `oxlint-tsgolint` (alpha; 59 of 61 typescript-eslint type-aware rules; needs TS7+) builds with tsgo (TS7), ESLint with tsc 5.9, and tsgo alone is ~12x faster at whole-program typecheck (`bench/typecheck-bench.json`, [TYPECHECKERS.md](TYPECHECKERS.md)). `eslint-plugin-oxlint` disables oxlint-covered rules, leaving ESLint to lint the residual (0 here) — oxlint on the hot path, a thin ESLint pass for the rest is the migration path.
 
 ## Vite+ (`vp`): task runner and tool layer
 

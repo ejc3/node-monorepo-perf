@@ -99,13 +99,13 @@ the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-lin
    every dependent's tarball. "Wave = one catalog line" holds only for a directly-consumed lib or a non-breaking
    advance ([WORKSPACE-VS-SEMVER.md §3](WORKSPACE-VS-SEMVER.md#3-diamond-resolution-under-semver)).
 2. **A breaking change is expand → migrate → contract, because the gate is global and synchronous.** A breaking
-   signature turns every dependent red at once (4,399 `TS2554` diagnostics in 1.39s at 4,000/400 `--universal 1`,
+   signature turns every dependent red at once (4,399 `TS2554` diagnostics in 1.55s at 4,000/400 `--universal 1`,
    `bench/optimal-gate-bench.json`):
    ship the new API additively (expand), move cohorts wave by wave (migrate, codemod), remove the old API last (contract).
 
 ## Gating the Artifact
 
-The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.32s, same 4,000/400 tree) checks
+The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.59s, same 4,000/400 tree) checks
 `@demo/*`→`packages/*/src` source, what a
 `workspace:`-linked consumer compiles. A registry-pinned cohort consumes the published tarball, so the wave gate must
 also resolve that published version and run the declaration build. Two caveats apply. The fast gate runs
@@ -113,7 +113,7 @@ also resolve that published version and run the declaration build. Two caveats a
 (`bench/decl-emit-caveat.json`: `TS2883` under both checkers), so add a `tsc --declaration` build. The boundary is
 `declaration` off vs on, not the checker: typescript@7's native tsc is the shipping compiler, declaration emit
 included, and this repo has measured the `declaration:true` check, not native declaration-emit output. And it's
-typecheck-only, so signature/arity breaks surface (`TS2554` fanout) but behavior doesn't — pair a post-deploy canary. The orchestrated turbo path (80.1s / 4,800 tasks cold) is the build-and-emit form, ~60× the
+typecheck-only, so signature/arity breaks surface (`TS2554` fanout) but behavior doesn't — pair a post-deploy canary. The orchestrated turbo path (46.9s / 4,800 tasks cold) is the build-and-emit form, ~30× the
 fast gate — the per-wave CI cost.
 
 ## Codemods, Rollback, Publish Order

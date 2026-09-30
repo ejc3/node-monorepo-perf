@@ -18,7 +18,7 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <rect width="1110" height="2690" fill="#ffffff"/>
 <text x="24" y="40" font-size="20" fill="#1c2330" font-weight="700">Tooling head-to-head — wall time</text>
 <text x="24" y="62" font-size="12.5" fill="#6b7885">Like-for-like sections, columns in one order everywhere (typically-fastest leftmost). Fastest cell green; others show ×N slower.</text>
-<text x="24" y="80" font-size="12.5" fill="#6b7885">Machine: 64-core host. Every number traces to the cited bench JSON.</text>
+<text x="24" y="80" font-size="12.5" fill="#6b7885">Machine: 64-core host (lint: 192-core). Every number traces to the cited bench JSON.</text>
 <rect x="24" y="92" width="14" height="14" rx="4" fill="rgb(31,138,77)"/>
 <text x="43" y="103" font-size="11" fill="#6b7885">fastest</text>
 <rect x="99.81" y="92" width="14" height="14" rx="4" fill="rgb(209,163,43)"/>
@@ -383,29 +383,29 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <rect x="381" y="2427" width="28" height="4" rx="2" fill="#2e9e57"/>
 <text x="545" y="2407" font-size="12.5" fill="#1c2330" font-weight="700" text-anchor="middle">ESLint</text>
 <rect x="531" y="2427" width="28" height="4" rx="2" fill="#9a6ade"/>
-<text x="40" y="2465" font-size="12.5" fill="#1c2330">syntactic (524 vs 567 rules)</text>
+<text x="40" y="2465" font-size="12.5" fill="#1c2330">syntactic (530 vs 598 rules)</text>
 <rect x="321.5" y="2435.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
 <text x="395" y="2458" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.19s</text>
 <text x="395" y="2476" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
-<rect x="471.5" y="2435.5" width="147" height="51" rx="5" fill="rgb(180,66,51)"/>
-<text x="545" y="2458" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×63 slower</text>
-<text x="545" y="2476" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">12.0s</text>
+<rect x="471.5" y="2435.5" width="147" height="51" rx="5" fill="rgb(181,70,49)"/>
+<text x="545" y="2458" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×51 slower</text>
+<text x="545" y="2476" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">9.6s</text>
 <text x="40" y="2519" font-size="12.5" fill="#1c2330">syntactic, ESLint --cache</text>
 <rect x="321.5" y="2489.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
 <text x="395" y="2512" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.19s</text>
 <text x="395" y="2530" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
-<rect x="471.5" y="2489.5" width="147" height="51" rx="5" fill="rgb(194,99,37)"/>
-<text x="545" y="2512" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×10 slower</text>
-<text x="545" y="2530" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">1.9s</text>
+<rect x="471.5" y="2489.5" width="147" height="51" rx="5" fill="rgb(196,107,38)"/>
+<text x="545" y="2512" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×8.3 slower</text>
+<text x="545" y="2530" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">1.6s</text>
 <text x="40" y="2573" font-size="12.5" fill="#1c2330">type-aware</text>
 <rect x="321.5" y="2543.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="395" y="2566" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.40s</text>
+<text x="395" y="2566" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.39s</text>
 <text x="395" y="2584" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
-<rect x="471.5" y="2543.5" width="147" height="51" rx="5" fill="rgb(193,97,38)"/>
-<text x="545" y="2566" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×11 slower</text>
-<text x="545" y="2584" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.5s</text>
+<rect x="471.5" y="2543.5" width="147" height="51" rx="5" fill="rgb(195,102,37)"/>
+<text x="545" y="2566" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×9.2 slower</text>
+<text x="545" y="2584" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.6s</text>
 <text x="40" y="2612" font-size="10.5" fill="#6b7885">Source:</text>
 <a href="../../bench/lint-bench.json"><text x="84" y="2612" font-size="10.5" fill="#1a73e8" text-decoration="underline">bench/lint-bench.json</text></a>
-<text x="40" y="2626" font-size="10.5" fill="#6b7885">ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware</text>
-<text x="40" y="2640" font-size="10.5" fill="#6b7885">row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha). Versions per the JSON: oxlint 1.71.0 · ESLint 9.39.4.</text>
+<text x="40" y="2626" font-size="10.5" fill="#6b7885">ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 192-core box: oxlint is multithreaded, so the ratio scales with cores. The</text>
+<text x="40" y="2640" font-size="10.5" fill="#6b7885">type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha). Versions per the JSON: oxlint 1.86.0 · ESLint 9.39.5.</text>
 </svg>

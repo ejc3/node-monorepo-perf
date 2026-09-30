@@ -4,12 +4,12 @@
   "samples": 3,
   "versions": {
     "relayCompiler": "Relay Compiler 21.0.1",
-    "tsgo": "7.0.0-dev.20260707.2",
+    "tsgo": "Version 7.0.2",
     "flow": "0.321.0",
-    "node": "v22.23.2"
+    "node": "v22.23.3"
   },
-  "cores": 64,
-  "preRunLoadAvg1": 1.45,
+  "cores": 192,
+  "preRunLoadAvg1": 0.82,
   "flowConfigNote": "relay-compiler 21 flow artifacts use the `+` variance sigil, which current Flow (released 0.321 and main) rejects as unsupported-syntax; checking them requires `[options] experimental.deprecated_variance_sigils.excludes=<PROJECT_ROOT>/src/__generated__` in .flowconfig (set here) — without it the flow leg cannot parse relay's output at all",
   "rows": {
     "codegenCold": "relay-compiler over N fresh components, no artifacts on disk — the from-scratch codegen a CI runner pays",
@@ -21,82 +21,82 @@
   "languages": {
     "ts": {
       "codegenCold": {
-        "medianMs": 3640,
+        "medianMs": 2950,
         "samplesMs": [
-          3640,
-          3250,
-          3850
+          2950,
+          2940,
+          2970
         ],
-        "peakRssMB": 70
+        "peakRssMB": 42
       },
       "artifacts": 10000,
       "codegenNoChange": {
-        "medianMs": 3950,
+        "medianMs": 2840,
         "samplesMs": [
-          4760,
-          3950,
-          3800
+          2780,
+          2840,
+          3020
         ],
-        "peakRssMB": 70
+        "peakRssMB": 42
       },
       "check": {
-        "medianMs": 690,
+        "medianMs": 910,
         "samplesMs": [
-          690,
-          690,
-          700
+          910,
+          910,
+          890
         ],
-        "peakRssMB": 852
+        "peakRssMB": 729
       }
     },
     "flow": {
       "codegenCold": {
-        "medianMs": 3780,
+        "medianMs": 2870,
         "samplesMs": [
-          3830,
-          3780,
-          3200
+          2780,
+          2870,
+          2960
         ],
-        "peakRssMB": 71
+        "peakRssMB": 42
       },
       "artifacts": 10000,
       "codegenNoChange": {
-        "medianMs": 3460,
+        "medianMs": 2850,
         "samplesMs": [
-          4430,
-          3240,
-          3460
+          2820,
+          2850,
+          2850
         ],
-        "peakRssMB": 69
+        "peakRssMB": 42
       },
       "flowUsed": "flow-bin 0.321.0 (released)",
       "check": {
-        "medianMs": 1520,
+        "medianMs": 1700,
         "samplesMs": [
-          1560,
-          1520,
-          1510
+          1880,
+          1700,
+          1670
         ],
         "peakRssMB": null
       }
     }
   },
   "freshness": {
-    "gateMedianMs": 3822,
+    "gateMedianMs": 2955,
     "gateSamplesMs": [
-      3822,
-      3463,
-      4893
+      2955,
+      2994,
+      2864
     ],
     "byteStable": true,
     "driftDetected": true
   },
   "fleetPoint": {
     "components": 30000,
-    "codegenColdMs": 12680,
-    "codegenNoChangeMs": 12750,
-    "statusMs": 30,
-    "freshnessMs": 12780,
+    "codegenColdMs": 9340,
+    "codegenNoChangeMs": 9480,
+    "statusMs": 38,
+    "freshnessMs": 9518,
     "byteStable": true,
     "samples": 1
   }

@@ -439,8 +439,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   codegenCold / codegenNoChange (a one-shot rerun with artifacts present costs the
   same as cold, since it re-extracts and re-validates every document) / check. Gates: exact artifact count; a schema-invalid query must fail codegen; a type
   misuse of a generated $data type must fail each checker (template-drift-proofed
-  seed). Findings recorded in-JSON: the checker is not the pipeline bottleneck (~4s
-  codegen vs 0.7–1.6s check), and relay 21's flow artifacts need
+  seed). Findings recorded in-JSON: the checker is not the pipeline bottleneck (~2.9s
+  codegen vs 0.9–1.7s check), and relay 21's flow artifacts need
   `experimental.deprecated_variance_sigils.excludes` on current Flow (flowConfigNote;
   a FLOW_BIN that can't parse the artifacts becomes a recorded compat outcome with a
   released-flow fallback, never a silent hard-fail). Plus the **freshness gate** (a
@@ -457,10 +457,10 @@ One command each for the O(repo)-vs-O(closure) thesis:
   speed not coverage breadth. oxlint runs STANDALONE at its full native capability (all plugins +
   all categories; `--type-aware` via `oxlint-tsgolint` for the type-aware row); ESLint is pointed
   at oxlint's OWN rule set: `eslint-plugin-oxlint`'s coverage map is INVERTED to enable in ESLint
-  the rules it can run (registered plugin, non-type-checked), so ESLint runs a STRICT SUBSET (524
-  rules) of oxlint's coverage while oxlint itself actively ran 567; recorded, conservative since ESLint
+  the rules it can run (registered plugin, non-type-checked), so ESLint runs a STRICT SUBSET (530
+  rules) of oxlint's coverage while oxlint itself actively ran 598; recorded, conservative since ESLint
   does no MORE work (the two counts aren't a 1:1 tally across the tools' separate rule namespaces, so
-  the claim is "subset", not "567 > 524"). Numbers are wall-clock on a many-core box where oxlint is multithreaded and ESLint is
+  the claim is "subset", not "598 > 530"). Numbers are wall-clock on a many-core box where oxlint is multithreaded and ESLint is
   single-process (ratio scales with cores); the type-aware row is mostly the tsgo-vs-tsc substrate
   (both build a TS program; oxlint via tsgolint, ESLint via tsc), cross-ref TYPECHECKERS.md. Three
   passes: syntactic (ESLint noCache/cache vs oxlint single run), type-aware (ts-eslint type-checked
@@ -502,8 +502,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `@demo/lib-001` is imported by every app and every package has a `typecheck:tsgo` twin
   task). Workspace-dep rev: lockfile byte-identical (no install/publish); the lib-owner
   gate `turbo run typecheck --filter=...foundation` re-checks every dependent (O(repo)
-  because it's universal) vs a leaf lib (O(closure)), each timed under tsc and tsgo from a
-  cold cache. Breaking-change catch: a breaking foundation signature makes the gate go red
+  because it's universal), timed under tsc and tsgo from a cold cache; the leaf-lib
+  contrast (O(closure)) is timed under the tsc `typecheck` task only. Breaking-change catch: a breaking foundation signature makes the gate go red
   and name the dependent apps/libs that no longer typecheck (TS2554), under both checkers.
   tsc vs tsgo on the real lib source as one big program (pure-checker speedup). npm-dep
   version-bump fanout (catalog 1 line vs per-consumer pin) → `bench/lib-rev-bench.json`.
@@ -758,7 +758,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   [WORKSPACE-VS-SEMVER.md §7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces).
 
 ### Environment
-- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (report with every result).
+- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the machine record for the 64-core-era results; a bench JSON's own machine/cores fields take precedence where present).
 
 ### Shared Internals
 
@@ -825,7 +825,13 @@ Shared helpers the bench scripts import rather than run directly:
 ## Data of Record
 
 `bench/*.json` is the source of truth; the docs must not contain a number that
-isn't backed by one of these. `bench/env.json` records the machine. `chart.mjs`
+isn't backed by one of these. `bench/env.json` records the machine for the 64-core
+records (`results.json` and the install family); a record that carries its own
+`machine`/`cores` fields overrides it. The TS7-toolchain records — `relay-codegen-bench.json`,
+`tsgo-scale-table.json`, `optimal-gate-bench.json`, `dev-loop-bench.json`,
+`lib-rev-bench.json`, `dev-sim.json`, `editor-loop-bench.json`, `lint-bench.json` — are
+canonical on a 192-core c8g.48xlarge; all but `dev-sim.json` and `lib-rev-bench.json`
+record machine/cores in the JSON (those two carry no machine fields). `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle and `env.json` for
 summary.md's machine line — committed inputs, so the output stays deterministic);

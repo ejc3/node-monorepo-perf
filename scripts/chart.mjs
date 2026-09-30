@@ -180,11 +180,10 @@ if (
   const tsgoTablePath = join(ROOT, "bench", "tsgo-scale-table.json");
   let tsgoNote = "";
   if (existsSync(tsgoTablePath)) {
-    const tsgoScale = JSON.parse(readFileSync(tsgoTablePath, "utf8")).scales?.find(
-      (s) => s.apps === big.apps && s.libs === big.libs,
-    );
+    const tsgoTable = JSON.parse(readFileSync(tsgoTablePath, "utf8"));
+    const tsgoScale = tsgoTable.scales?.find((s) => s.apps === big.apps && s.libs === big.libs);
     if (Number.isFinite(tsgoScale?.coldMedianMs))
-      tsgoNote = `; whole-program tsgo checks the same tree in ${fmtMs(tsgoScale.coldMedianMs)} (no cache)`;
+      tsgoNote = `; whole-program tsgo: ${fmtMs(tsgoScale.coldMedianMs)} on ${tsgoTable.cores} cores (same generator shape, no cache)`;
   }
   made.push(
     barChart({

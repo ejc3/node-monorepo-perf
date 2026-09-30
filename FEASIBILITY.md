@@ -1,8 +1,9 @@
 # Feasibility: Should You Adopt a Shared-Workspace Monorepo?
 
-**Stack:** pnpm 10.29 (the core scaling records: `results.json`, `dev-sim.json`; the
-install-family records below are pnpm 12.8.1, the Rust CLI, marked where cited),
-Turborepo 2.9.18, Node 22, 64-core arm64 (`bench/env.json`); Next
+**Stack:** pnpm 10.29 (the core scaling record: `results.json`; the
+install-family records below are pnpm 12.8.1, the Rust CLI, marked where cited;
+`dev-sim.json` uses pnpm 12.8.1 and the TypeScript 6.0.3 `tsc` task, on a 192-core
+c8g.48xlarge), Turborepo 2.9.18, Node 22, 64-core arm64 (`bench/env.json`); Next
 16.2.9. Measured on [the workspace under test](README.md#the-workspace-under-test)
 at 200 / 1,000 / 2,000 / 4,000 apps (300 / 1,200 / 2,300 / 4,300 packages); larger is
 extrapolation.
@@ -18,9 +19,9 @@ buy nothing — where a polyrepo or separate installs fit better.
 
 Daily work is scoped to one app's closure, no install (`dev-sim.json`, 1,000 apps):
 
-- typecheck on save (`tsc --noEmit`) median 4.3s
-- build before push (`turbo run build --filter=app...`) median 5.8s
-- onboard a feature area 10.8s
+- typecheck on save (`tsc --noEmit`) median 2.6s
+- build before push (`turbo run build --filter=app...`) median 5.0s
+- onboard a feature area 8.6s
 - a teammate's unrelated edit adds 0 rebuilds to your closure
 - a dev server needs no install
 

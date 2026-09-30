@@ -2,51 +2,50 @@
   "apps": 4000,
   "libs": 400,
   "modulesPerLib": 16,
-  "cores": 64,
-  "preRunLoadAvg1": 0.48,
+  "cores": 192,
+  "preRunLoadAvg1": 12.63,
   "samples": 3,
   "versions": {
-    "bun": "1.3.14",
-    "tsgo": "Version 7.0.0-dev.20260614.1",
-    "tsc": "Version 5.9.3",
-    "oxlint": "Version: 1.71.0",
+    "bun": "1.4.2",
+    "tsgo": "Version 7.0.2",
+    "oxlint": "Version: 1.86.0",
     "turbo": "2.9.18",
-    "node": "v22.22.0"
+    "node": "v22.23.3"
   },
   "onboarding": {
     "tool": "bun",
     "storeWarm": true,
-    "freshMs": 20567,
-    "subsequentMs": 3776
+    "freshMs": 1361,
+    "subsequentMs": 891
   },
   "appDev": {
     "target": "@demo/app-2000",
     "typecheckOnSave": {
       "tool": "tsgo (from src)",
-      "freshMs": 167,
-      "subsequentMs": 168,
-      "maxRssMB": 187
+      "freshMs": 207,
+      "subsequentMs": 223,
+      "maxRssMB": 107
     },
     "lintOnSave": {
       "tool": "oxlint",
-      "freshMs": 64,
-      "subsequentMs": 60
+      "freshMs": 99,
+      "subsequentMs": 104
     },
     "focusedGate": {
       "tool": "turbo+tsgo",
       "filter": "@demo/app-2000...",
       "closureTasks": 187,
-      "coldMs": 19088,
+      "coldMs": 7806,
       "coldSamples": [
-        19088,
-        22991,
-        17089
+        8401,
+        7806,
+        7651
       ],
-      "warmMs": 15184,
+      "warmMs": 3403,
       "warmSamples": [
-        12221,
-        15917,
-        15184
+        3614,
+        3315,
+        3403
       ]
     }
   },
@@ -54,50 +53,50 @@
     "target": "@demo/lib-400",
     "typecheckOnSave": {
       "tool": "tsgo (from src)",
-      "freshMs": 190,
-      "subsequentMs": 190,
-      "maxRssMB": 189
+      "freshMs": 265,
+      "subsequentMs": 232,
+      "maxRssMB": 104
     },
     "lintOnSave": {
       "tool": "oxlint",
-      "freshMs": 70,
-      "subsequentMs": 65
+      "freshMs": 107,
+      "subsequentMs": 104
     },
     "focusedGate": {
       "tool": "turbo+tsgo",
       "filter": "...@demo/lib-400",
       "closureTasks": 237,
-      "coldMs": 22814,
+      "coldMs": 9614,
       "coldSamples": [
-        22814,
-        20488,
-        23683
+        9020,
+        9633,
+        9614
       ],
-      "warmMs": 13621,
+      "warmMs": 3797,
       "warmSamples": [
-        13424,
-        13621,
-        16602
+        3797,
+        3880,
+        3574
       ]
     }
   },
   "summary": {
-    "installFreshMs": 20567,
-    "installSubsequentMs": 3776,
+    "installFreshMs": 1361,
+    "installSubsequentMs": 891,
     "app": {
-      "tsgoFresh": 167,
-      "tsgoSubsequent": 168,
-      "oxlintSubsequent": 60,
-      "gateCold": 19088,
-      "gateWarm": 15184,
+      "tsgoFresh": 207,
+      "tsgoSubsequent": 223,
+      "oxlintSubsequent": 104,
+      "gateCold": 7806,
+      "gateWarm": 3403,
       "gateTasks": 187
     },
     "lib": {
-      "tsgoFresh": 190,
-      "tsgoSubsequent": 190,
-      "oxlintSubsequent": 65,
-      "gateCold": 22814,
-      "gateWarm": 13621,
+      "tsgoFresh": 265,
+      "tsgoSubsequent": 232,
+      "oxlintSubsequent": 104,
+      "gateCold": 9614,
+      "gateWarm": 3797,
       "gateTasks": 237
     }
   }

@@ -7,19 +7,20 @@ One native-compiled tool per job, no slower baseline in the loop. The sources of
 
 | job                 | tool                                     | version |
 | ------------------- | ---------------------------------------- | ------- |
-| install             | **bun**                                  | 1.3.14  |
+| install             | **bun**                                  | 1.4.2   |
 | typecheck / gate    | **tsgo** (`typescript@7`'s native `tsc`) | 7.0.2   |
-| lint                | **oxlint** (oxc)                         | 1.71.0  |
+| lint                | **oxlint** (oxc)                         | 1.86.0  |
 | orchestrate + scope | **turbo**                                | 2.9.18  |
 
 TypeScript 7 is GA: the native compiler ships as `typescript` with a `tsc` binary (the tsgo
 name is retired; this repo keeps `tsgo` as the task and record label). Pin the exact version,
 the same discipline as the old nightly pin. TypeScript 6, the last JS release, stays
-installed as the `typescript6` alias — the oracle checker and the tsserver. The gate records
-below that predate GA (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`,
-`bench/real-app-bench.json`) were measured on the `7.0.0-dev.20260614.1` nightly of the same
-compiler; `bench/typecheck-parity-bench.json` and `bench/decl-emit-caveat.json` are measured
-on 7.0.2.
+installed as the `typescript6` alias — the oracle checker and the tsserver. The gate and
+inner-loop records (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`),
+`bench/typecheck-parity-bench.json`, and `bench/decl-emit-caveat.json` are measured on
+typescript 7.0.2; the gate and inner-loop records on a 192-core c8g.48xlarge (arm64, per
+each record's `machine`/`cores`). `bench/real-app-bench.json` is still the
+`7.0.0-dev.20260614.1` nightly on the 64-core box.
 
 ## The Scenario
 
@@ -30,7 +31,7 @@ type error in any of the 4,000 apps before merge, fast.
 
 ## Installing the Workspace
 
-`bun install` materializes the 4,400-package workspace in **20.9s** (warm store, lockfile
+`bun install` materializes the 4,400-package workspace in **2.6s** (warm store, lockfile
 present, `node_modules` cold — the warm-store clone/CI-runner materialization case;
 `install.storeWarm: true`). One-time
 setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
@@ -53,7 +54,7 @@ A universal rev has nothing to scope away — every app re-checks. The fastest g
 single tsgo process over the whole workspace reading lib **source** (`tsgo --noEmit -p
 tsconfig.whole.json`, `@demo/*`→`packages/*/src/index.ts`): one process parses each lib once,
 shares it across every importing app, skips the per-lib dist builds. At 4,000:400 it
-typechecks the tree in **1.32s**, peak RSS **911MB** (0.7% of the 135GB box). Typecheck-only;
+typechecks the tree in **1.59s**, peak RSS **857MB**. Typecheck-only;
 emits no `dist`.
 
 The integrated alternative, Vite+'s `vp check`, takes 2.44s on a 920-file corpus where this
@@ -63,11 +64,11 @@ stack's gate shape takes 0.77s (`bench/vite-plus-tools-bench.json`).
 
 A breaking foundation signature turns **every** dependent app red: **4,000 of 4,000 apps**
 report `error TS2554: Expected 2 arguments, but got 1` (4,399 TS2554: 4,000 apps + 399
-dependent libs), in **1.39s**. Catch a type error in one of the 4,000 apps before it ships,
-in under a second and a half.
+dependent libs), in **1.55s**. Catch a type error in one of the 4,000 apps before it ships,
+in about a second and a half.
 
 The same gate holds at the measured production-fleet scale (30,000 apps / 460 libs,
-~1.03M generated files): clean in **60.7s** (10.1× faster than the orchestrated per-package path, which also emits
+~1.03M generated files; 64-core box): clean in **60.7s** (10.1× faster than the orchestrated per-package path, which also emits
 dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **59.5s** — and a bigger box
 does not speed it up (65.8s on 192 cores)
 ([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
@@ -92,14 +93,14 @@ tsgo's 2.04s (**8.7×**).
 ## The Orchestrated turbo Path
 
 `turbo run typecheck:tsgo --filter=...@demo/lib-001` runs one tsgo per package against built
-`dist`: **4,800 of 4,800 tasks** cold in **80.1s**, also emitting every lib's `dist` (tsc
+`dist`: **4,800 of 4,800 tasks** cold in **46.9s**, also emitting every lib's `dist` (tsc
 `^build`), which a deploy needs and the type-error gate does not. For a universal rev the
-one-program gate is ~60× faster (1.32s vs 80.1s); turbo's value here is the dist artifacts
+one-program gate is ~30× faster (1.59s vs 46.9s); turbo's value here is the dist artifacts
 and the per-package cache on the next run.
 
 ## Scoping a Non-Universal Rev
 
-A leaf lib (`...@demo/lib-400`) runs only **237 of 4,800 tasks** in **22.4s** — the graph
+A leaf lib (`...@demo/lib-400`) runs only **237 of 4,800 tasks** in **8.6s** — the graph
 tracks that lib's closure, not the repo. A universal rev takes one tsgo program; a scoped rev
 takes `turbo --filter=...<lib>` (or `--affected`).
 
@@ -111,14 +112,14 @@ leaf lib (`@demo/lib-400`), fresh / subsequent (`bench/dev-loop-bench.json`):
 
 | step                               | app dev (fresh / subsequent) | lib dev (fresh / subsequent) |
 | ---------------------------------- | ---------------------------- | ---------------------------- |
-| typecheck-on-save (tsgo, from src) | 167 / **168ms** (187MB)      | 190 / **190ms** (189MB)      |
-| lint-on-save (oxlint, one dir)     | 64 / **60ms**                | 70 / **65ms**                |
-| focused gate (turbo, cold / warm)  | **19.1s** / **15.2s** (187)  | **22.8s** / **13.6s** (237)  |
+| typecheck-on-save (tsgo, from src) | 207 / **223ms** (107MB)      | 265 / **232ms** (104MB)      |
+| lint-on-save (oxlint, one dir)     | 99 / **104ms**               | 107 / **104ms**              |
+| focused gate (turbo, cold / warm)  | **7.8s** / **3.4s** (187)    | **9.6s** / **3.8s** (237)    |
 
-Onboarding `bun install` runs fresh in **20.6s** (cold `node_modules`), subsequent **3.8s**
+Onboarding `bun install` runs fresh in **1.4s** (cold `node_modules`), subsequent **0.9s**
 (warm). tsgo and oxlint have no incremental cache, so first run matches steady state within
 noise — that is why they run on every save directly, not through turbo. A core-package rev is
-O(repo) (1.4s as one tsgo program); a developer's edit reaches only their closure (~170ms).
+O(repo) (1.6s as one tsgo program); a developer's edit reaches only their closure (~220ms).
 
 ## Real Apps, Lint, Caveats
 
@@ -126,7 +127,7 @@ O(repo) (1.4s as one tsgo program); a developer's edit reaches only their closur
   and shadcn/taxonomy (7.5k LOC), per-app tsgo `--noEmit` stays in the low hundreds of ms
   (128ms / 229ms), oxlint ~60–80ms; tsgo needs a modernized tsconfig + an ambient `*.css`
   decl to start (`bench/real-app-bench.json`).
-- **Lint.** oxlint checks the whole 4,400-package tree in **180ms** (0 findings), off the
+- **Lint.** oxlint checks the whole 4,400-package tree in **251ms** (0 findings), off the
   critical path.
 - **Declaration-emit caveat.** The gate's `declaration:false` validates the code but not the
   published `.d.ts`: on a self-contained scaffold, a declaration-portability error passes the
