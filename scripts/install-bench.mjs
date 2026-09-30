@@ -61,7 +61,7 @@ import {
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir, cpus, tmpdir } from "node:os";
-import { YARN_VERSION } from "./_pins.mjs";
+import { YARN_VERSION, PNPM_VERSION, BUN_VERSION } from "./_pins.mjs";
 import {
   yarnEnv,
   bunEnv,
@@ -255,6 +255,11 @@ const PI = ["install", "--config.confirm-modules-purge=false"];
 
 const out = {
   hostCores: CORES,
+  // pnpmVersion/bunVersion are probed from INSIDE the first scaffold (below): the
+  // scaffold root's `packageManager` field pins pnpm per-tree, so the recorded pnpm is
+  // the one the timed installs actually ran, not an ambient binary's self-report.
+  pnpmVersion: null,
+  bunVersion: null,
   yarnVersion: YARN_VERSION,
   // single samples measured in this fixed order within every scale — recorded so an
   // order effect (page cache, thermals) is at least attributable, not invisible
@@ -274,6 +279,29 @@ console.log(`yarn ${YARN_VERSION} standalone CLI: ${YARNJS}`);
 // artifact of whichever scale ran first. The truly-cold pass below uses its own
 // fresh --store-dir to measure the network-cold case.
 setup(SCALES[0].apps, SCALES[0].libs);
+// Tool provenance, probed in the scaffold cwd so `pnpm --version` resolves through the
+// scaffold's `packageManager` pin (the version the timed installs measure); bun ignores
+// the field, but the same-cwd probe keeps the two records symmetric.
+const probeVersion = (cmd, env) => {
+  const r = spawnSync(cmd, ["--version"], { cwd: DIR, encoding: "utf8", ...(env ? { env } : {}) });
+  const v = (r.stdout || "").trim();
+  if (r.error || r.status !== 0 || !v)
+    throw new Error(
+      `${cmd} --version failed in the scaffold: ${r.error?.message || (r.stderr || "").slice(-300)}`,
+    );
+  return v;
+};
+out.pnpmVersion = probeVersion("pnpm", pnpmEnv());
+out.bunVersion = probeVersion(BUN, bunEnv());
+// Enforce the _pins.mjs toolchain, not just record it: a drifted ambient bun or a
+// non-delegating pnpm executable must not promote canonical data under the pinned label.
+if (out.pnpmVersion !== PNPM_VERSION)
+  throw new Error(
+    `pnpm ${out.pnpmVersion} != pinned ${PNPM_VERSION} (scripts/_pins.mjs) — run through a launcher that honors the scaffold's packageManager pin`,
+  );
+if (out.bunVersion !== BUN_VERSION)
+  throw new Error(`bun ${out.bunVersion} != pinned ${BUN_VERSION} (scripts/_pins.mjs)`);
+console.log(`pnpm ${out.pnpmVersion} (per-scaffold pin), bun ${out.bunVersion}`);
 timedInstall("pnpm", [...PI, "--config.node-linker=isolated"], pnpmEnv()); // warm pnpm store (discard)
 rmNM();
 rmLocks();

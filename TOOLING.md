@@ -2,7 +2,7 @@
 
 ## Install: bun vs pnpm vs yarn 4
 
-`scripts/install-bench.mjs`, installing [the workspace under test](README.md#the-workspace-under-test) at the table's apps/libs scales (`bench/env.json`: Neoverse-V1, 64 cores, 135 GB). Each manager runs at its default; pnpm and yarn also run under the alternate linker:
+`scripts/install-bench.mjs`, installing [the workspace under test](README.md#the-workspace-under-test) at the table's apps/libs scales (`bench/env.json`: Neoverse-V1, 64 cores, 135 GB). Each manager runs its default and alternate linkers; non-linker knobs are normalized across tools (dependency build scripts are disabled for every tool, registries and caches pinned — see the script header). Tool provenance is in the record and pin-asserted: pnpm 12.8.1 — the Rust CLI, probed through the per-scaffold `packageManager` pin — bun 1.3.14, yarn 4.17.0:
 
 - pnpm-isolated (default) / pnpm-hoisted (flat)
 - bun (isolated `node_modules/.bun` store since 1.3)
@@ -12,27 +12,28 @@
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
-| 200 / 100 | pnpm isolated | 47.8s | 2.3s | 130% | 779 MB | 15,691 |
-| | pnpm hoisted | 46.7s | 1.4s | 131% | 903 MB | 12,246 |
-| | bun | 0.13s | 0.12s | 225% | 43 MB | 15,409 |
-| | yarn node-modules | 3.2s | 2.8s | 152% | 933 MB | 11,210 |
-| | yarn PnP | 1.7s | 1.3s | 143% | 610 MB | 64 |
-| 1,000 / 200 | pnpm isolated | 229.5s | 7.3s | 134% | 938 MB | 31,123 |
-| | pnpm hoisted | 227.3s | 3.0s | 133% | 992 MB | 16,578 |
-| | bun | 2.2s | 2.6s | 42% | 73 MB | 29,941 |
-| | yarn node-modules | 4.4s | 4.0s | 158% | 1,017 MB | 12,110 |
-| | yarn PnP | 2.3s | 2.1s | 151% | 666 MB | 64 |
-| 2,000 / 300 | pnpm isolated | 471.2s | 15.2s | 141% | 1,023 MB | 50,159 |
-| | pnpm hoisted | 456.7s | 4.7s | 142% | 1,161 MB | 21,914 |
-| | bun | 7.5s | 9.5s | 26% | 97 MB | 47,877 |
-| | yarn node-modules | 6.2s | 5.9s | 153% | 1,093 MB | 13,210 |
-| | yarn PnP | 3.2s | 2.9s | 149% | 723 MB | 64 |
+| 200 / 100 | pnpm 12.8.1 isolated | 0.83s | 0.59s | 324% | 98 MB | 15,701 |
+| | pnpm 12.8.1 hoisted | 0.81s | 0.61s | 479% | 98 MB | 12,554 |
+| | bun | 0.14s | 0.13s | 191% | 41 MB | 15,419 |
+| | yarn node-modules | 3.4s | 3.1s | 152% | 938 MB | 11,220 |
+| | yarn PnP | 1.8s | 1.5s | 141% | 609 MB | 64 |
+| 1,000 / 200 | pnpm 12.8.1 isolated | 3.1s | 3.3s | 165% | 138 MB | 31,133 |
+| | pnpm 12.8.1 hoisted | **1.4s** | **0.9s** | 789% | 118 MB | 17,786 |
+| | bun | 2.1s | 3.5s | 48% | 68 MB | 29,951 |
+| | yarn node-modules | 4.8s | 4.3s | 157% | 1,015 MB | 12,120 |
+| | yarn PnP | 2.5s | 2.2s | 146% | 660 MB | 64 |
+| 2,000 / 300 | pnpm 12.8.1 isolated | 7.7s | 7.8s | 114% | 191 MB | 50,169 |
+| | pnpm 12.8.1 hoisted | 3.4s | **1.4s** | 558% | 178 MB | 24,222 |
+| | bun | 8.7s | 10.1s | 23% | 96 MB | 47,887 |
+| | yarn node-modules | 6.6s | 6.1s | 151% | 1,095 MB | 13,220 |
+| | yarn PnP | **3.3s** | 3.1s | 148% | 721 MB | 64 |
 
-Truly-cold at 200/100 (network-bound, single sample) runs pnpm-hoisted 24.0s, bun 1.2s, yarn node-modules 9.3s, yarn PnP 7.7s.
+Truly-cold at 200/100 (network-bound, single sample) runs bun 1.3s, pnpm-hoisted 2.4s, yarn PnP 8.0s, yarn node-modules 9.7s.
 
-- pnpm cold is ~linear (47.8s → 471.2s for 10× apps); bun's constant is far smaller (0.13s → 7.5s): ~357× faster cold than pnpm-isolated at 200/100, ~103× at 1,000, ~62× at 2,000. Truly-cold bun stays faster (1.2s vs 24.0s), not a cache effect.
-- yarn's cold grows more slowly, so bun-vs-yarn flips with scale: bun faster at 200 (0.13s vs 1.7s), tied with yarn-PnP at 1,000 (2.24s vs 2.32s), and at 2,000 **yarn is fastest cold** (PnP 3.2s vs bun 7.5s).
-- Warm relink shows the linker (pnpm-hoisted 4.7s vs pnpm-isolated 15.2s at 2,000; yarn-PnP warm fastest at 1,000/2,000 apps, 2.1s/2.9s; bun warm fastest at 200, 123ms). Footprints at 2,000 apps: yarn-PnP 64, yarn-nm 13,210, pnpm-hoisted 21,914, bun/pnpm-isolated ~48–50k. pnpm's truly-cold (24.0s) undercuts its warm-store cold (46.7s). The warm metadata cache re-parses large cached packuments, while the committed lockfile skips resolving.
+- pnpm 12 (the Rust CLI) has no cold-resolve wall: pnpm cold is seconds — 0.83s → 7.7s isolated (roughly linear over 10× apps), 0.81s → 3.4s hoisted (sublinear) — at 98–191 MB peak install RSS. The pnpm-10-vs-12 rewrite is priced leg-vs-leg [below](#pnpm-12-the-rust-rewrite) (cold resolve 303.7s → 1.01s at 1,000:200).
+- The bun-vs-pnpm cold story inverts with scale. bun is ~6× faster at 200/100 (0.14s vs 0.83s) and ~1.9× faster truly-cold (1.3s vs 2.4s); at 1,000 apps **pnpm-hoisted cold beats bun** (1.4s vs 2.1s, ~1.5×), and at 2,000 bun's cold is the slowest of the five configurations (8.7s; pnpm-hoisted 3.4s is ~2.5× faster). bun's install CPU falls with scale (191% → 23%, under one core at 2,000) while pnpm-hoisted's rises (479% → 558%).
+- Cold fastest per scale: bun at 200 (0.14s), pnpm-hoisted at 1,000 (1.4s), yarn-PnP at 2,000 (3.3s, with pnpm-hoisted 3.4s within 4%).
+- Warm relink shows the linker (pnpm-hoisted 1.4s vs pnpm-isolated 7.8s at 2,000); pnpm-hoisted is the fastest warm at 1,000/2,000 (0.9s/1.4s), bun at 200 (0.13s). bun warm is slower than its own cold at 1,000/2,000 (3.5s/10.1s). Footprints at 2,000 apps: yarn-PnP 64, yarn-nm 13,220, pnpm-hoisted 24,222, bun/pnpm-isolated ~48–50k.
 
 bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decataloged copy.
 
@@ -87,11 +88,11 @@ it. Both defaults change CI behavior on upgrade; both are explicit config away.
 
 **Build speed** (`scripts/rspack-turbopack-speed-bench.mjs`, 60-route app, node-modules, median of 3, `bench/rspack-turbopack-speed-bench.json`): Turbopack **9.0s** cold (×1), rspack 15.5s (×1.72), webpack 19.0s (×2.10). rspack is ~1.22× faster than webpack cold.
 
-**Specifier form and node-linker** (`scripts/perf-matrix.mjs`, cold at 300/100): the `workspace:` form is install-neutral (71.4s vs 71.8s versioned, +0.5%); node-linker barely changes install *time* but the isolated layout has ~3× more symlinks (4,211 vs 1,459). Choose the form for publish semantics, the linker for footprint.
+**Specifier form and node-linker** (`scripts/perf-matrix.mjs`, pnpm 12.8.1, cold at 300/100): the `workspace:` form is install-neutral (0.91s vs 0.91s versioned, +0.2%). The linker is not: on this catalog workspace hoisted cold runs ~3.1× slower than isolated (2.80s vs 0.91s) and materializes far more (77,781 nm entries / 10.2 GB apparent vs isolated's 18,159 / 0.42 GB). The larger decataloged install-bench trees above point the other way (hoisted cold beats isolated at 1,000–2,000 apps); the two records vary scale and catalog form together, so they do not isolate which causes the reversal. Choose the specifier form for publish semantics.
 
 ## The CI-runner install: frozen, in a fresh container
 
-`scripts/container-install-bench.mjs`: a committed lockfile installed frozen (`pnpm --frozen-lockfile`, `bun --frozen-lockfile`, `yarn --immutable`, `npm ci`) in a fresh rootless-podman container at 1,000 apps / 200 libs, median of five. On a fresh runner (empty caches + real network), wall times are **bun 0.9s** (10× pnpm, 12× npm), yarn-PnP 4.4s, yarn-nm 6.5s, pnpm 8.9s, npm 10.4s. With a pre-warmed store, bun 0.4s, pnpm 7.0s. bun wins outright here — the warm-store yarn-overtakes-bun crossover does not appear. Fail-closed holds on all five (drift → exit 1, lockfile untouched). `bench/container-install-bench.json`.
+`scripts/container-install-bench.mjs`: a committed lockfile installed frozen (`pnpm --frozen-lockfile`, `bun --frozen-lockfile`, `yarn --immutable`, `npm ci`) in a fresh rootless-podman container at 1,000 apps / 200 libs, median of five (pnpm 12.8.1). On a fresh runner (empty caches + real network), wall times are **bun 1.04s and pnpm 1.08s — a near-tie**, then yarn-PnP 4.9s, yarn-nm 7.0s, npm 10.6s. With a pre-warmed store: bun 0.47s, pnpm 0.54s, yarn-PnP 2.3s, yarn-nm 4.5s, npm 9.9s. Fail-closed holds on all five (drift → exit 1, lockfile untouched). `bench/container-install-bench.json`.
 
 ## Build: Next vs Vite
 

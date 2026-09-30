@@ -35,8 +35,8 @@
       "readsBunPackageJsonCatalog": false,
       "installExitWithForeignCatalogsOnly": 1,
       "resolvedDespiteNoYarnCatalog": false,
-      "errorSample": "➤ YN0000: · Yarn 4.17.0\n➤ YN0000: ┌ Resolution step\n➤ YN0082: │ is-odd@catalog:: default catalog not found or empty\n➤ YN0000: └ Completed\n➤ YN0000: · Failed with errors in 0s 17ms\n"
+      "errorSample": "➤ YN0000: · Yarn 4.17.0\n➤ YN0000: ┌ Resolution step\n➤ YN0082: │ is-odd@catalog:: default catalog not found or empty\n➤ YN0000: └ Completed\n➤ YN0000: · Failed with errors in 0s 19ms\n"
     }
   },
-  "claim": "yarn 4.17.0 runs the rollout mechanics natively: byte-identical lockfile resolves (true); --immutable fails closed on drift (exit 1, lock untouched) and CI auto-enables immutable with no config (bare CI install exit 1) — the default bun gets only from a committed bunfig line; named catalogs in .yarnrc.yml route two cohorts to two versions and a repoint edits 0 consumer manifests; workspace: as a catalog value is ACCEPTED (links the local package, like bun; pnpm rejects it); yarn pack bakes workspace:^ -> \"^1.2.0\" and catalog: -> \"3.0.1\"; yarn does not read pnpm-workspace.yaml or bun package.json catalogs — author them in .yarnrc.yml."
+  "claim": "yarn 4.17.0 runs the rollout mechanics natively: byte-identical lockfile resolves (true); --immutable fails closed on drift (exit 1, lock untouched) and CI auto-enables immutable with no config (bare CI install exit 1) — the default bun gets only from a committed bunfig line; named catalogs in .yarnrc.yml route two cohorts to two versions and a repoint edits 0 consumer manifests; workspace: as a catalog value is ACCEPTED (links the local package, like bun and pnpm 12); yarn pack bakes workspace:^ -> \"^1.2.0\" and catalog: -> \"3.0.1\"; yarn does not read pnpm-workspace.yaml or bun package.json catalogs — author them in .yarnrc.yml."
 }

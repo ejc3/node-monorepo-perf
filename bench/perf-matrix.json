@@ -2,43 +2,46 @@
   {
     "label": "baseline",
     "note": "workspace:* · isolated",
+    "pnpm": "12.8.1",
     "apps": 300,
     "libs": 100,
     "linker": "isolated",
     "versioned": false,
-    "installMs": 71368,
-    "lockfileBytes": 378884,
-    "lockfileLines": 13597,
-    "nmEntries": 18081,
+    "installMs": 912,
+    "lockfileBytes": 387585,
+    "lockfileLines": 13885,
+    "nmEntries": 18159,
     "nmSymlinks": 4211,
-    "nmApparentBytes": 412625035
+    "nmApparentBytes": 417720592
   },
   {
     "label": "versioned",
     "note": "workspace:^x.y.z · isolated",
+    "pnpm": "12.8.1",
     "apps": 300,
     "libs": 100,
     "linker": "isolated",
     "versioned": true,
-    "installMs": 71756,
-    "lockfileBytes": 387455,
-    "lockfileLines": 13597,
-    "nmEntries": 18081,
+    "installMs": 914,
+    "lockfileBytes": 396156,
+    "lockfileLines": 13885,
+    "nmEntries": 18159,
     "nmSymlinks": 4211,
-    "nmApparentBytes": 412633698
+    "nmApparentBytes": 417729255
   },
   {
     "label": "hoisted",
     "note": "workspace:* · hoisted",
+    "pnpm": "12.8.1",
     "apps": 300,
     "libs": 100,
     "linker": "hoisted",
     "versioned": false,
-    "installMs": 68977,
-    "lockfileBytes": 378884,
-    "lockfileLines": 13597,
-    "nmEntries": 13304,
-    "nmSymlinks": 1459,
-    "nmApparentBytes": 410943856
+    "installMs": 2801,
+    "lockfileBytes": 387585,
+    "lockfileLines": 13885,
+    "nmEntries": 77781,
+    "nmSymlinks": 3057,
+    "nmApparentBytes": 10151637126
   }
 ]

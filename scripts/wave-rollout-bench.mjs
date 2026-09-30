@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // The mechanics of advancing an internal core lib through a hermetic, wave-based rollout, measured as a
 // bun-vs-pnpm head-to-head on self-contained repros. This is the empirical backing for ROLLOUT.md. bun
-// is the recommended driver: it does everything the rollout needs natively and cold-installs 62-357x
-// faster than pnpm on a full re-resolve (no lockfile, fresh node_modules, through the 2,000-app measured ceiling;
-// bench/install-bench.json) — warm-cached runners narrow the gap and pnpm-hoisted can win fully-warm at
-// 2,000 apps. Each rung HARD-ASSERTS a stable fact; setup failures (a seed
+// is the recommended driver for its native mechanics and the 200-app/truly-cold install cases; against
+// pnpm 12 (the Rust CLI) the full-re-resolve speed is scale-dependent — bun ~6x faster at 200 apps,
+// pnpm-hoisted faster at the measured 1,000- and 2,000-app points, the CI frozen container a near-tie
+// (bench/install-bench.json; the recorded speedContext carries both directions).
+// Each rung records a measured fact (hard-asserting where the fact is stable); setup failures (a seed
 // install that did not run, a missing lockfile, a network/registry error) HARD-FAIL, so a failed
 // measurement never reads as a clean result. The running bun is pinned to 1.3.14 (the version the source
 // line refs in the recorded note were read against).
@@ -18,8 +19,9 @@
 //   2. Lane mechanism (named catalogs). Two cohorts route to two versions in ONE lockfile, and a wave's
 //      repoint edits ZERO consumer manifests — natively on both, bun in package.json, pnpm in
 //      pnpm-workspace.yaml.
-//   3. workspace: as a catalog value. bun ACCEPTS it and links the local package; pnpm REJECTS it
-//      (ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC) for every form. bun is the more capable driver.
+//   3. workspace: as a catalog value. bun ACCEPTS it and links the local package; pnpm is measured
+//      per form, two-sided: pnpm 10 rejected every form (ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC),
+//      pnpm 12 accepts and links them all — parity, recorded either way.
 //   4. Publish bakes a CONCRETE range. `bun pm pack` / `pnpm pack` rewrite a lib's internal
 //      `workspace:^` -> `^x.y.z` (and `catalog:` -> a version) in the tarball, so advancing a lib every
 //      other lib re-exports is a republish-fanout, not a one-line catalog flip — identical on both.
@@ -70,6 +72,13 @@ const isSignalExit = (code) => code > 128 && code <= 192;
 const CRASH =
   /Command terminated by signal|panic:|Segmentation fault|out of memory|\(core dumped\)/i;
 
+// Ambient tool-config env is scrubbed from every child (PNPM_CONFIG_* / npm_config_* /
+// NPM_CONFIG_*, case-insensitively): the rungs measure each tool's defaults plus the
+// explicitly-passed surface, and an inherited config var would silently flip a leg.
+const scrubbedBaseEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !/^(PNPM_CONFIG_|NPM_CONFIG_)/i.test(k)),
+  );
 function run(cmd, cwd, env) {
   let out = "";
   let code = 0;
@@ -80,7 +89,7 @@ function run(cmd, cwd, env) {
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 300000,
       maxBuffer: 32 * 1024 * 1024,
-      env: env ? { ...process.env, ...env } : process.env,
+      env: env ? { ...scrubbedBaseEnv(), ...env } : scrubbedBaseEnv(),
     });
   } catch (e) {
     if (e.signal) throw new Error(`\`${cmd}\` killed by ${e.signal} (timeout?)`);
@@ -157,6 +166,17 @@ function scaffold(name, files) {
 const writeJSON = (p, o) => writeFileSync(p, JSON.stringify(o, null, 2));
 // One package.json shape for a consumer/leaf.
 const mf = (name, deps) => ({ name, version: "0.0.0", private: true, dependencies: deps });
+// Every ROOT-manifest rewrite must PRESERVE the `packageManager` pin scaffold() injects.
+// Dropping it mid-rung is not a harmless omission: pnpm 12's launcher records the pin in
+// pnpm-lock.yaml as a two-document YAML stream (a packageManagerDependencies preamble
+// ahead of the lockfile document), and pnpm itself then rejects that lockfile with
+// ERR_PNPM_BROKEN_LOCKFILE if the manifest's packageManager field disappears — so a
+// pin-dropping rewrite would turn the drift measurement into a broken-lockfile failure.
+const rewriteManifest = (dir, pkg) =>
+  writeJSON(
+    join(dir, "package.json"),
+    pkg.packageManager ? pkg : { ...pkg, packageManager: `pnpm@${PNPM_VERSION}` },
+  );
 
 // =================================================================================================
 // 1. DETERMINISM — the lockfile is the boundary; both drivers fail closed on drift.
@@ -175,10 +195,7 @@ if (bunSeed.code !== 0 || !existsSync(bunLock))
   );
 writeFileSync(join(bunDet, "bunfig.toml"), "[install]\nfrozenLockfile = true\n");
 const bunLockBefore = sha(bunLock);
-writeJSON(
-  join(bunDet, "package.json"),
-  mf("wave-bun-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
-);
+rewriteManifest(bunDet, mf("wave-bun-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }));
 const bunFrozen = run("bun install", bunDet); // bare install; bunfig makes it frozen
 const bunFrozenDiag = /lockfile had changes, but lockfile is frozen/i.test(bunFrozen.out);
 const bunLockChanged = !existsSync(bunLock) || sha(bunLock) !== bunLockBefore;
@@ -196,10 +213,7 @@ const bunCiLock = join(bunCi, "bun.lock");
 if (bunCiSeed.code !== 0 || !existsSync(bunCiLock))
   fail(`1a-ci: bun seed failed / no lock exit ${bunCiSeed.code}\n${bunCiSeed.out.slice(-600)}`);
 const bunCiBefore = sha(bunCiLock);
-writeJSON(
-  join(bunCi, "package.json"),
-  mf("wave-bun-ci", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
-);
+rewriteManifest(bunCi, mf("wave-bun-ci", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }));
 const bunCiRun = run("bun install", bunCi, { CI: "1" });
 const bunCiRewrote = existsSync(bunCiLock) && sha(bunCiLock) !== bunCiBefore;
 const bunCiAutoFroze =
@@ -233,10 +247,7 @@ for (let i = 0; i < PNPM_FROZEN_RUNS; i++) {
   if (resolveVer(pnpmDet, DEP) !== pnpmV1 || sha(pnpmLock) !== pnpmHash1) pnpmByteIdentical = false;
 }
 if (!pnpmByteIdentical) fail(`1b: pnpm frozen not byte-identical`);
-writeJSON(
-  join(pnpmDet, "package.json"),
-  mf("wave-pnpm-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }),
-);
+rewriteManifest(pnpmDet, mf("wave-pnpm-frozen", { [DEP]: FROZEN_SPEC, "is-even": "^1.0.0" }));
 // Fail-closed means BOTH: non-zero exit with the outdated-lockfile error AND the lockfile left
 // untouched (symmetric with the bun path, which also checks the lock did not change).
 const pnpmLockBeforeDrift = sha(pnpmLock);
@@ -260,6 +271,45 @@ if (!pnpmAutoFreezesInCi)
   fail(
     `1b-ci: pnpm should auto-enable frozen in CI (bare install fails closed, lock unchanged) exit ${pnpmCiRun.code}\n${pnpmCiRun.out.slice(-600)}`,
   );
+
+// 1c. Lockfile-portability control (measured, not prose): pnpm 12's launcher records the
+// manifest's packageManager pin in pnpm-lock.yaml as a two-document YAML stream — a
+// preamble document carrying packageManagerDependencies plus the @pnpm/exe
+// platform-binary resolutions ahead of the dependency lockfile document — and pnpm
+// rejects that lockfile on a frozen install if the pin is later removed. Seed with the
+// pin, verify the preamble, DELIBERATELY drop the pin, observe the rejection. This is
+// why every manifest rewrite above preserves the pin (rewriteManifest).
+const portDir = scaffold("1c-pnpm-portability", {
+  "package.json": mf("wave-pnpm-port", { [DEP]: FROZEN_SPEC }),
+});
+const portSeed = run("pnpm install --no-frozen-lockfile", portDir);
+const portLockP = join(portDir, "pnpm-lock.yaml");
+if (portSeed.code !== 0 || !existsSync(portLockP))
+  fail(`1c: portability seed install failed exit ${portSeed.code}\n${portSeed.out.slice(-600)}`);
+const portLock = readFileSync(portLockP, "utf8");
+const portHasPreamble =
+  portLock.includes("packageManagerDependencies") &&
+  portLock.includes("@pnpm/exe") &&
+  (portLock.match(/^---$/gm) || []).length >= 2;
+if (!portHasPreamble)
+  fail(
+    `1c: expected the launcher-written lockfile to carry the two-document preamble (packageManagerDependencies + @pnpm/exe resolutions):\n${portLock.slice(0, 400)}`,
+  );
+const portLockBefore = sha(portLockP);
+writeJSON(join(portDir, "package.json"), mf("wave-pnpm-port", { [DEP]: FROZEN_SPEC })); // pin dropped on purpose
+const portNoPin = run("pnpm install --frozen-lockfile", portDir);
+const portNoPinError = (portNoPin.out.match(/ERR_PNPM_[A-Z_]+/) || [null])[0];
+// the caveat is a stable fact this run hard-asserts: a missing rejection (or a rejection
+// for an unrelated reason, or a mutated lockfile) must not record as reproduced
+if (
+  portNoPin.code === 0 ||
+  portNoPinError !== "ERR_PNPM_BROKEN_LOCKFILE" ||
+  sha(portLockP) !== portLockBefore
+)
+  fail(
+    `1c: expected the pin-less frozen install to fail with ERR_PNPM_BROKEN_LOCKFILE and leave the lockfile untouched; exit ${portNoPin.code} (${portNoPinError})\n${portNoPin.out.slice(-400)}`,
+  );
+
 console.log(
   `  bun (bunfig frozen): exit ${bunFrozen.code} fail-closed; CI=1 without bunfig re-resolves (exit ${bunCiRun.code})  |  ` +
     `pnpm (--frozen): ${DEP}@${pnpmV1} byte-identical x${PNPM_FROZEN_RUNS}, drift -> ${pnpmDriftErr}; bare CI install -> ${pnpmCiFrozenErr}`,
@@ -343,9 +393,10 @@ console.log(
 );
 
 // =================================================================================================
-// 3. workspace: AS A CATALOG VALUE — bun accepts + links local; pnpm rejects every form.
+// 3. workspace: AS A CATALOG VALUE — bun accepts + links local; pnpm measured per form,
+//    two-sided (pnpm 12 accepts and links every form; pnpm 10 rejected them all).
 // =================================================================================================
-console.log("== 3. workspace: as a catalog value: bun accepts (links local), pnpm rejects ==");
+console.log("== 3. workspace: as a catalog value: bun accepts (links local); pnpm per form ==");
 
 // 3a. bun: catalog value workspace:* resolves the LOCAL workspace package (sentinel proves it).
 const bunWs = scaffold("3a-bun-ws-catalog", {
@@ -373,24 +424,51 @@ if (bunWsResolved.code !== 0 || bunWsResolved.out.trim() !== "LOCAL-UTIL")
     `3a: bun catalog workspace:* did not link the local package; got "${bunWsResolved.out.trim()}"`,
   );
 
-// 3b. pnpm: every workspace: form is rejected. Record per-form rejections so "every form rejected" is
-// a measured count, not a hardcoded boolean.
+// 3b. pnpm: measured PER FORM, two-sided. pnpm 10 rejected every workspace: catalog value
+// (ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC); pnpm 12 accepts them and links the local
+// package — parity with bun. Either is a valid RECORDED outcome per form; only an
+// unclassifiable result hard-fails (exit 0 without the local package linking, or a rejection
+// without pnpm's catalog error — a network failure must not read as "rejected").
 const PNPM_WS_FORMS = ["workspace:*", "workspace:^", "workspace:~", "workspace:^1.0.0"];
-let pnpmWsFormsRejected = 0;
-for (const form of PNPM_WS_FORMS) {
-  const d = scaffold(`3b-pnpm-ws-${form.replace(/[^a-z0-9]/gi, "_")}`, {
+// the form index keeps every scaffold directory unique — the sanitized names of
+// workspace:*, workspace:^ and workspace:~ are identical, and scaffold() does not
+// clear an existing directory, so a shared name would leak lockfiles/links between
+// supposedly independent form probes
+const pnpmWsPerForm = PNPM_WS_FORMS.map((form, i) => {
+  const d = scaffold(`3b-pnpm-ws-${i}-${form.replace(/[^a-z0-9]/gi, "_")}`, {
     "package.json": { name: "wave-pnpm-ws-root", version: "0.0.0", private: true },
     "pnpm-workspace.yaml": `packages:\n  - "packages/*"\n  - "consumers/*"\ncatalog:\n  "@wave/util": "${form}"\n`,
-    "packages/util/package.json": { name: "@wave/util", version: "1.0.0", private: true },
+    "packages/util/package.json": { name: "@wave/util", version: "1.0.0", main: "index.js" },
+    "packages/util/index.js": 'module.exports = "LOCAL-UTIL";\n',
     "consumers/app/package.json": mf("@wave/ws-app", { "@wave/util": "catalog:" }),
   });
   const r = run("pnpm install --no-frozen-lockfile", d);
-  if (r.code === 0 || !/ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC/.test(r.out))
-    fail(`3b: pnpm should reject catalog "${form}"; exit ${r.code}\n${r.out.slice(-600)}`);
-  pnpmWsFormsRejected++;
-}
+  if (r.code === 0) {
+    // sentinel-proved: accepted must mean the LOCAL workspace package linked
+    const res = run(`node -p "require('@wave/util')"`, join(d, "consumers/app"));
+    if (res.code !== 0 || res.out.trim() !== "LOCAL-UTIL")
+      fail(
+        `3b: pnpm accepted catalog "${form}" but did not link the local package; got "${res.out.trim().slice(-200)}"`,
+      );
+    return { form, accepted: true, linkedLocal: true, error: null };
+  }
+  if (!/ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC/.test(r.out))
+    fail(
+      `3b: pnpm failed on catalog "${form}" for a non-catalog reason (exit ${r.code}):\n${r.out.slice(-600)}`,
+    );
+  return {
+    form,
+    accepted: false,
+    linkedLocal: false,
+    error: "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC",
+  };
+});
+const pnpmWsAcceptsAll = pnpmWsPerForm.every((f) => f.accepted && f.linkedLocal);
+const pnpmWsRejectsAll = pnpmWsPerForm.every((f) => !f.accepted);
 console.log(
-  `  bun: workspace:* catalog -> linked LOCAL-UTIL  |  pnpm: every form rejected (${PNPM_WS_FORMS.join(", ")})`,
+  `  bun: workspace:* catalog -> linked LOCAL-UTIL  |  pnpm: ${pnpmWsPerForm
+    .map((f) => `${f.form}=${f.accepted ? "accepted+linked" : "rejected"}`)
+    .join(", ")}`,
 );
 
 // =================================================================================================
@@ -500,24 +578,34 @@ console.log(
 );
 
 // --- record ----------------------------------------------------------------------------------------
+// The workspace-catalog clause derives from the measured per-form record above, so the
+// claim can never assert a rejection (or an acceptance) the same file's data contradicts.
+const wsCatalogClause = pnpmWsAcceptsAll
+  ? "Both accept workspace: as a catalog value and link the local package (pnpm 12 lifted pnpm 10's " +
+    "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC rejection — parity). "
+  : pnpmWsRejectsAll
+    ? "bun ACCEPTS workspace:* as a catalog value and links the local package; pnpm rejects every form. "
+    : `bun ACCEPTS workspace:* as a catalog value; pnpm accepts ${pnpmWsPerForm.filter((f) => f.accepted).length}/${PNPM_WS_FORMS.length} forms (see workspaceInCatalog.pnpm.perForm). `;
 const result = {
   claim:
-    "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun is the recommended " +
-    "driver: it does all of it natively and cold-installs 62-357x faster than pnpm on a full re-resolve " +
-    "(no usable lockfile — a wave's catalog repoint re-resolves incrementally with the lockfile present, a smaller operation; bench/install-bench.json; warm-cached runners narrow the gap and pnpm-hoisted " +
-    "can win fully-warm at 2,000 apps). " +
+    "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun remains the " +
+    "recommended driver for its native mechanics (committed-bunfig frozen, package.json catalogs) and " +
+    "the 200-app/truly-cold install cases; against pnpm 12 (the Rust CLI) the full-re-resolve speed " +
+    "story is scale-dependent — bun ~6x faster at 200 apps, pnpm-hoisted faster at the measured 1,000- " +
+    "and 2,000-app points, the CI frozen container a near-tie " +
+    "(bench/install-bench.json; see speedContext). " +
     "Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with " +
     "one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and " +
     "auto-enables frozen in CI. Named catalogs route two cohorts to two versions in one lockfile and a " +
     "repoint edits zero consumer manifests on both (bun in package.json, pnpm in pnpm-workspace.yaml). " +
-    "bun ACCEPTS workspace:* as a catalog value and links the local package; pnpm rejects every form. " +
+    wsCatalogClause +
     "Both bake a CONCRETE range on publish (workspace:^ -> ^2.5.0), so advancing a universal lib is a " +
     "republish-fanout. bun does not read pnpm-workspace.yaml catalogs, so author them in package.json.",
   versions: { pnpm: PNPM_VER, bun: BUN_VER, node: process.version },
   registry: REGISTRY,
   speedContext: {
     source: "bench/install-bench.json",
-    note: "The install state matters and both are recorded. COLD install (fresh node_modules, warm store) bun vs pnpm-isolated: ~357x at 200 apps, ~103x at 1,000, ~62x at 2,000 (measured ceiling 2,000 apps). TRULY-COLD (cold store too, fresh container) is network-bound (a single sample): bun 1.2s vs pnpm-hoisted 24.0s at 200 apps. WARM (store + node_modules cached): single-digit seconds through 1,000 apps, but at 2,000 apps bun warm 9.5s while pnpm-hoisted warm 4.7s is ~2x faster than bun. bun wins the no-lockfile cold case; pnpm-hoisted can win the fully-warm case.",
+    note: "The install state matters and both directions are recorded (pnpm 12.8.1, the Rust CLI). COLD install (no lockfile, fresh node_modules, warm store): bun ~6x faster at 200 apps (0.14s vs pnpm-isolated 0.83s / pnpm-hoisted 0.81s); at scale the story INVERTS — pnpm-hoisted 1.4s vs bun 2.1s at 1,000 apps and 3.4s vs 8.7s at 2,000, where bun's cold is the slowest of the five measured configurations (measured ceiling 2,000 apps). TRULY-COLD (fresh store + metadata, network; single samples): bun 1.3s vs pnpm-hoisted 2.4s at 200 apps. WARM (lockfile + store, node_modules removed): pnpm-hoisted 0.9s at 1,000 / 1.4s at 2,000 vs bun 3.5s / 10.1s. bun wins the 200-app cold and truly-cold cases; the CI-runner frozen container install is a near-tie (bun 1.04s vs pnpm 1.08s fresh, 0.47s vs 0.54s cache-restored; bench/container-install-bench.json); pnpm 12 hoisted wins cold and warm at the measured 1,000- and 2,000-app points.",
   },
   determinism: {
     bun: {
@@ -543,6 +631,14 @@ const result = {
       driftError: pnpmDriftErr,
       autoEnablesFrozenInCi: pnpmAutoFreezesInCi, // measured: bare CI install fails closed on the same drift
       ciDriftError: pnpmCiFrozenErr,
+      // the 1c control, measured: seed-with-pin -> preamble present; pin removed ->
+      // frozen install rejected. The rollout lockfile-portability caveat.
+      lockfilePortability: {
+        pinRecordedInLockfile: portHasPreamble,
+        withoutPinFrozenExit: portNoPin.code,
+        withoutPinError: portNoPinError,
+        note: `pnpm ${PNPM_VER}'s launcher records the packageManager pin in pnpm-lock.yaml as a two-document YAML stream (packageManagerDependencies preamble document${portHasPreamble ? ", measured present" : " NOT found this run"}); with the pin removed a frozen install exits ${portNoPin.code}${portNoPinError ? ` (${portNoPinError})` : ""} — keep the pin with the lockfile through a rollout.`,
+      },
     },
   },
   namedCatalogLanes: {
@@ -569,10 +665,15 @@ const result = {
       linkedLocal: bunWsResolved.out.trim() === "LOCAL-UTIL",
     },
     pnpm: {
-      rejectsEveryForm: pnpmWsFormsRejected === PNPM_WS_FORMS.length,
       formsTested: PNPM_WS_FORMS,
-      formsRejected: pnpmWsFormsRejected,
-      error: "ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC",
+      perForm: pnpmWsPerForm,
+      acceptsEveryForm: pnpmWsAcceptsAll,
+      rejectsEveryForm: pnpmWsRejectsAll,
+      note: pnpmWsAcceptsAll
+        ? `pnpm ${PNPM_VER} accepts every workspace: form as a catalog value and links the local package (sentinel-proved) — parity with bun; pnpm 10 rejected every form with ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`
+        : pnpmWsRejectsAll
+          ? `pnpm ${PNPM_VER} rejects every workspace: form as a catalog value (ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC)`
+          : `pnpm ${PNPM_VER} accepts ${pnpmWsPerForm.filter((f) => f.accepted).length}/${PNPM_WS_FORMS.length} workspace: forms as catalog values — see perForm`,
     },
   },
   publishBakesConcrete: {

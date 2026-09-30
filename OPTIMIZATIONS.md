@@ -9,22 +9,22 @@ Three composing scopes: install-time (one app's closure, `turbo prune <app> --do
 ## 1. Install Time (pnpm)
 
 ### 1.1 `node-linker` Mode
-The default `isolated` linker builds a symlink farm scaling with `packages × deps`. Isolated and hoisted install within ~3.4% of each other (`perf-matrix.mjs`, 300/100) — the linker is a footprint/strictness choice, not a speed one. `hoisted` (flat, reintroduces phantom deps) suits symlink-incompatible tooling; `pnp` + `symlink: false` removes the farm, but tsgo and `next build` fail under PnP while tsc/turbo/oxlint pass ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
+The default `isolated` linker builds a symlink farm scaling with `packages × deps`. Under pnpm 12.8.1 the linker is also a speed choice, and the direction differs between the measured workload shapes: on the 300/100 catalog workspace hoisted cold runs ~3.1× slower than isolated (2.80s vs 0.91s) and materializes 77,781 nm entries / 10.2 GB apparent vs isolated's 18,159 / 0.42 GB (`perf-matrix.mjs`), while on the larger decataloged install-bench trees hoisted cold beats isolated at 1,000–2,000 apps ([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)); the two records vary scale and catalog form together, so they do not isolate which causes the reversal. `hoisted` (flat, reintroduces phantom deps) suits symlink-incompatible tooling; `pnp` + `symlink: false` removes the farm, but tsgo and `next build` fail under PnP while tsc/turbo/oxlint pass ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
 ### 1.2 `package-import-method` on Copy-on-Write Filesystems
-`auto` tries reflink clone → hardlink → copy. On **ext4** pnpm hardlinks; on **btrfs** it reflinks (CoW), with `node_modules` holding only **0.4 MB exclusive of 338 MB apparent** (`bench/fs-bench.json`; 300/100, warm store). CoW costs nothing extra and gives independent inodes; no config needed.
+`auto` tries reflink clone → hardlink → copy. On **ext4** pnpm hardlinks; on **btrfs** it reflinks (CoW), with `node_modules` holding only **0.4 MB exclusive of 336 MB apparent** (`bench/fs-bench.json`; 300/100, warm store, pnpm 12.8.1; relink near-parity, 0.61s ext4 vs 0.67s btrfs). CoW costs nothing extra and gives independent inodes; no config needed.
 
 ### 1.2.1 Device-Level I/O
-The equal relink times are a buffered page-cache result. At the device layer (`bench/fs-iops-bench.json`) the btrfs scratch NVMe beats the working-tree ext4 NVMe in every 4K `O_DIRECT` pattern: random read ×35.3 IOPS, per-file `fsync` ×15.8 (5,162/s vs 327/s) — so fsync-bound work (git, sqlite, lockfile flushes) is an order of magnitude slower on ext4. Only the buffered path is close (small-file burst ×1.31), so a `node_modules` materialization sits in the near-parity band.
+The near-parity relink times (0.61s ext4 vs 0.67s btrfs) are a buffered page-cache result. At the device layer (`bench/fs-iops-bench.json`) the btrfs scratch NVMe beats the working-tree ext4 NVMe in every 4K `O_DIRECT` pattern: random read ×35.3 IOPS, per-file `fsync` ×15.8 (5,162/s vs 327/s) — so fsync-bound work (git, sqlite, lockfile flushes) is an order of magnitude slower on ext4. Only the buffered path is close (small-file burst ×1.31), so a `node_modules` materialization sits in the near-parity band.
 
 ### 1.3 Catalogs (`catalog:`)
 Define each shared version once, reference it everywhere. Identical versions → smaller lockfile, deduped store, identical Turborepo input hashes. Rolling one shared version through the catalog changed **0** app `package.json` files versus **25** when pinned per-app (`bench/lockfile-merge-bench.json`, 200/50) — no app-manifest merge conflicts (the lockfile still moves; see [§1.5](#15-lockfile-churn-and-merge-conflicts)).
 
 ### 1.4 Focused Install
-`pnpm install --filter <app>...` still resolves the whole-workspace lockfile but on **pnpm 10.29 scopes materialization**: it linked `node_modules` for only **1 of 80 apps** vs **80/80** full (`bench/focus-install-bench.json`, 80/25). For a self-contained per-app environment use `pnpm --config.inject-workspace-packages=true --filter=<app> --prod deploy`, or a per-app subtree via [§4.1](#41-turbo-prune-app---docker) (copy `tsconfig.base.json`, which prune omits).
+`pnpm install --filter <app>...` still resolves the whole-workspace lockfile but **scopes materialization** (verified on pnpm 12.8.1): it linked `node_modules` for only **1 of 80 apps** vs **80/80** full (`bench/focus-install-bench.json`, 80/25). For a self-contained per-app environment use `pnpm --config.inject-workspace-packages=true --filter=<app> --prod deploy`, or a per-app subtree via [§4.1](#41-turbo-prune-app---docker) (copy `tsconfig.base.json`, which prune omits).
 
 ### 1.5 Lockfile Churn and Merge Conflicts
-The single shared lockfile is O(repo). Measured (`bench/lockfile-merge-bench.json`, 200/50, baseline 8,869 lines):
+The single shared lockfile is O(repo). Measured (`bench/lockfile-merge-bench.json`, 200/50, pnpm 12.8.1, baseline 9,027 lines):
 
 | change | `package.json` files changed | lockfile lines (added / removed) |
 |---|---|---|
@@ -36,7 +36,7 @@ The `package.json` column is the apples-to-apples comparison (0 vs 25 manifests 
 
 - catalogs ([§1.3](#13-catalogs-catalog))
 - `pnpm install` auto-resolution
-- Git Branch Lockfiles (`git-branch-lockfile=true`)
+- Git Branch Lockfiles — under pnpm 12 the setting lives on pnpm's native config surface, `pnpm-workspace.yaml` `gitBranchLockfile: true` (measured: writes `pnpm-lock.<branch>.yaml`, main lockfile untouched); the npm-style `.npmrc git-branch-lockfile=true` key pnpm 10 honored is ignored — with only it set, the re-resolve lands in the main lockfile (`bench/lockfile-merge-bench.json` `gitBranchLockfile`, both surfaces recorded)
 - CI via `turbo prune`'s pruned lockfile ([§4.1](#41-turbo-prune-app---docker))
 
 ## 2. Task Time (Turborepo)
@@ -78,7 +78,7 @@ Auth goes in a scoped `.npmrc`, not the global one. npm needs `--userconfig` (it
 
 ## 5. Quick Reference
 
-Verified on pnpm 10.29, turbo 2.9.18. The `isolated` linker is inode-heavy. It holds 50,159 `node_modules` entries vs hoisted's 21,914 at 2,000 apps (`install-bench.json`), and 86,749 entries / 49,712 symlinks at 4,000 apps (`results.json`). At ~10k packages this dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
+Verified on pnpm 12.8.1 (`install-bench.json`) / pnpm 10.29 (`results.json`), turbo 2.9.18. The `isolated` linker is inode-heavy. It holds 50,169 `node_modules` entries vs hoisted's 24,222 at 2,000 apps (`install-bench.json`), and 86,749 entries / 49,712 symlinks at 4,000 apps (`results.json`). At ~10k packages this dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
 
 ## Sources
 pnpm: [settings](https://pnpm.io/settings), [catalogs](https://pnpm.io/catalogs). Turborepo: [run/filtering](https://turborepo.dev/docs/reference/run), [`turbo prune`](https://turborepo.dev/repo/docs/reference/prune). [Vercel monorepos](https://vercel.com/blog/monorepos).

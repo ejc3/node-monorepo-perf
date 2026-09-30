@@ -100,7 +100,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/install-bench.json",
-    note: "Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (pnpm-isolated cold is within ~3% of hoisted).",
+    note: "Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass; pnpm-isolated was not).",
   },
   {
     title: `CI-runner install — frozen from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps, fresh podman container per sample)`,
@@ -219,8 +219,11 @@ const cellMult = (sec, ri, ci) => {
 
 // --- formatting ----------------------------------------------------------------------------------
 const fmtS = (ms) => {
-  const s = ms / 1000;
-  return (s < 1 ? s.toFixed(2) : s.toFixed(1)) + "s";
+  // round from integer MILLISECONDS (centi-second steps below 1s, deci-second above),
+  // not via float toFixed on the quotient — 605ms must print 0.61s, not 0.60s
+  return ms < 1000
+    ? (Math.round(ms / 10) / 100).toFixed(2) + "s"
+    : (Math.round(ms / 100) / 10).toFixed(1) + "s";
 };
 const fmtMult = (m) => "×" + (m < 10 ? m.toFixed(1) : Math.round(m));
 

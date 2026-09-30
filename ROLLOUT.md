@@ -8,37 +8,51 @@ bun behaviors cross-checked against source at `bun-v1.3.14`.
 
 ## The Recommendation
 
-Drive with bun: it runs the entire rollout natively (below) and beats pnpm 10's full re-resolve by ~62–357× on
-[the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, no lockfile, fresh
-`node_modules`, warm store):
+Drive with bun: it runs the entire rollout natively (below), and its remaining speed edges are the 200-app and
+truly-cold cases. Against pnpm 12.8.1 (the Rust CLI) the full re-resolve on
+[the workspace under test](README.md#the-workspace-under-test) is scale-dependent (`bench/install-bench.json`, no
+lockfile, fresh `node_modules`, warm store):
 
-| workspace | pnpm (isolated) cold | bun cold | bun is |
+| workspace | pnpm 12.8.1 cold (isolated / hoisted) | bun cold | faster |
 |---|---|---|---|
-| 200 apps / 100 libs | 47.8s | 0.13s | ~357× |
-| 1,000 apps / 200 libs | 229.5s | 2.2s | ~103× |
-| 2,000 apps / 300 libs | 471.2s | 7.5s | ~62× |
+| 200 apps / 100 libs | 0.83s / 0.81s | 0.14s | bun ~6× |
+| 1,000 apps / 200 libs | 3.1s / 1.4s | 2.1s | pnpm-hoisted ~1.5× |
+| 2,000 apps / 300 libs | 7.7s / 3.4s | 8.7s | pnpm-hoisted ~2.5× |
 
-Measured to 2,000 apps; 4,000 is below the 62× floor (extrapolation). Warm (store + `node_modules`), the gap narrows
-and pnpm-hoisted can edge bun ([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)); bun's edge is the cold/resolve
-path. Every fresh container or clone re-materializes from the committed lockfile. On the CI-runner frozen install
-(`bench/container-install-bench.json`, 1,000 apps): **bun 0.9s vs pnpm 8.9s empty-cache (~10×)**, **bun 0.4s vs pnpm
-7.0s cache-restored (~18×)**.
+Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.3s vs pnpm-hoisted 2.4s, fresh store + network,
+~1.9×); pnpm-hoisted wins warm at 1,000–2,000 (0.9s/1.4s vs bun's 3.5s/10.1s). pnpm 12's Rust CLI removed pnpm 10's
+cold-resolve wall (303.7s → 1.01s at 1,000:200, `bench/pnpm12-bench.json`). Every fresh container or clone
+re-materializes from the committed lockfile,
+and the CI-runner frozen install is a near-tie (`bench/container-install-bench.json`, 1,000 apps): **bun 1.04s
+vs pnpm 1.08s empty-cache; bun 0.47s vs pnpm 0.54s cache-restored** (fresh-runner yarn-PnP 4.9s, yarn-nm 7.0s, npm
+10.6s; cache-restored 2.3s / 4.5s / 9.9s). pnpm
+12 is a fully capable driver — the rungs below measure parity on catalog lanes, `workspace:` catalog values, and the
+publish rewrite, with pnpm auto-freezing in CI where bun needs a committed bunfig — so the choice between bun and
+pnpm 12 rests on the scale you install at and whose defaults you want, not on a blanket speed gap.
 
 ### yarn as a driver
 
 **yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.17.0, the same temp-scaffold
 rungs), including the CI
-auto-immutable default bun lacks, but its fastest mode (PnP) doesn't run this repo's toolchain. **pnpm** does every
-mechanic and defaults on two guardrails bun makes you configure (auto-frozen in CI; rejecting a `workspace:` spec as a
-catalog value) — pick it only if you want those and will pay the install cost.
+auto-immutable default bun lacks, but its fastest mode (PnP) doesn't run this repo's stock-tsgo/default-Turbopack
+path (native-PnP tsgo and `next build` via webpack/rspack are measured green,
+[TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)). **pnpm 12** does every
+mechanic and defaults on one guardrail bun makes you configure: auto-frozen in CI. (pnpm 10's second guardrail —
+rejecting a `workspace:` spec as a catalog value — is gone: pnpm 12 accepts every form and links the local package,
+parity with bun, `workspaceInCatalog`.) Its install cost is no longer the argument against it — the table above has
+pnpm-hoisted ahead of bun at the measured 1,000- and 2,000-app points.
 
 ### Adoption safety
 
-**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 12, temp scaffolds): two bun gaps (a trusted allowlist runs
-some registry `postinstall` scripts without opt-in, where pnpm blocks the build and fails the install outright —
-`ERR_PNPM_IGNORED_BUILDS`; no fail-closed strict-peer knob), one pnpm edge (phantom import
-resolves under bun in single-package projects, parity in workspaces), otherwise parity including `@ejc3` CodeArtifact
-auth.
+**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 12.8.1, temp scaffolds): two bun gaps (a
+trusted allowlist runs some registry `postinstall` scripts without opt-in, where pnpm 12 blocks the build and fails
+the install outright — `ERR_PNPM_IGNORED_BUILDS`; no fail-closed strict-peer knob — pnpm 12 exits 1 with
+`ERR_PNPM_PEER_DEP_ISSUES` on its native config surface, `--config.strict-peer-dependencies=true` /
+`pnpm-workspace.yaml strictPeerDependencies`, while none of bun's three knobs flips its exit), one pnpm edge
+(phantom import resolves under bun in single-package projects, parity in workspaces), otherwise parity including
+`@ejc3` CodeArtifact auth. One config-surface caveat rides the strict-peer knob: pnpm 12 ignores the npm-style
+`npm_config_strict_peer_dependencies` env surface pnpm 10 honored (measured on both surfaces, recorded in
+`peerDependencies.mismatch.pnpmStrict`).
 
 ## The Determinism Boundary
 
@@ -47,8 +61,16 @@ frozen install a `^`/`*` range is inert. The `determinism` rung measures this. A
 from a wiped `node_modules` is byte-identical under pnpm; drift the manifest and a frozen install fails closed (pnpm
 `ERR_PNPM_OUTDATED_LOCKFILE`; bun exit 1). So reproducibility is **commit the lockfile + install frozen everywhere**,
 not pin every range. Not-frozen runs only where you author an advance (the wave) or add/remove a dep, and the lockfile
-diff is the change. The install cost differs sharply: from-scratch resolve 233s vs frozen 7.4s warm / 9.2s cold
-(`bench/install-modes-bench.json`, 1,000/200).
+diff is the change. Under pnpm 12 the frozen discipline is for determinism, not speed: the from-scratch resolve costs
+within 0.5% of a frozen warm-store install (3.0s resolve vs 3.0s frozen-warm; frozen-cold-store 3.2s;
+`bench/install-modes-bench.json`, 1,000/200, pnpm 12.8.1 — the JS CLI paid 303.7s on a 1,000:200 cold resolve,
+`bench/pnpm12-bench.json`).
+
+One pnpm-12 lockfile-portability caveat, measured as a negative control: pnpm 12's launcher records the
+`packageManager` pin in `pnpm-lock.yaml` as a two-document YAML stream (a preamble document carrying
+`packageManagerDependencies` plus the `@pnpm/exe` platform-binary resolutions ahead of the dependency lockfile
+document), and with the pin removed a frozen install exits 1 with `ERR_PNPM_BROKEN_LOCKFILE` — keep the pin with the
+lockfile through a rollout (`bench/wave-rollout-bench.json`, `determinism.pnpm.lockfilePortability`).
 
 ## The bun-Native Rollout
 
@@ -59,7 +81,8 @@ diff is the change. The install cost differs sharply: from-scratch resolve 233s 
    manifests edited (`namedCatalogLanes`; a per-app pin edits 25, `bench/lockfile-merge-bench.json`, 200/50). A wave codemods a
    batch onto `catalog:next`, runs the frozen gate, deploys; a promote is one line.
 3. **`workspace:` cohort tracks HEAD.** The co-dev team links `workspace:*`/`workspace:^` for instant local edits. bun
-   accepts a `workspace:` spec as a catalog value (`workspaceInCatalog`); pnpm rejects every form.
+   accepts a `workspace:` spec as a catalog value and links the local package — and so does pnpm 12, every form
+   (pnpm 10 rejected them all with `ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`; `workspaceInCatalog`).
 4. **Publish bakes a concrete range.** `bun pm pack` rewrites `workspace:^`→`^2.5.0` and `catalog:`→`1.0.0`
    (`publishBakesConcrete`). bun reads catalogs from `package.json`, not `pnpm-workspace.yaml`.
 

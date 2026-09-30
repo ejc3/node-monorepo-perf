@@ -19,7 +19,7 @@ isolation blocks importing undeclared core (a "phantom dependency",
 **2. Identical CI.** As an app dev today's build matches yesterday's because her lockfile is
 the freeze; a manifest edited without re-resolving fails the frozen install closed, measured
 for five package managers in fresh containers (`bench/container-install-bench.json`;
-0.9–10.4s by tool).
+1.0–10.6s by tool).
 
 **3. Upgrades on her terms.** As an app dev I take upgrades when I choose — a lockfile diff
 (`1.8.0 → 1.9.0`, `core 2.5.1 → 2.5.3` riding ui's `^2.5.0`); breaks → stay on 1.8.0.
@@ -79,8 +79,9 @@ has no semver, so file a revert ticket.
 `file:../checkout-helpers` (unpublished, riding the app's PRs); a second app in another repo
 can't reproduce it — copy-paste drift or graduate to `@acme/*`.
 
-**15. `file:` postinstall rule.** As a platform engineer I rely on the default: pnpm 10 and
-bun **block** a `file:` dep's `postinstall` (`bench/bun-safety-bench.json` rung A);
+**15. `file:` postinstall rule.** As a platform engineer I rely on the default: pnpm 12 and
+bun **block** a `file:` dep's `postinstall` — pnpm 12 also fails the install on the blocked
+build, `ERR_PNPM_IGNORED_BUILDS` (`bench/bun-safety-bench.json` rung A);
 allowlist explicitly (`pnpm.onlyBuiltDependencies` / `trustedDependencies`) if needed.
 
 ---

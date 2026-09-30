@@ -61,3 +61,4 @@ bench/fleet-flow-bench.partial.json
 /.yarn/
 /bench/sliced-gate-bench.partial.json
 /tsconfig.slice-*.json
+/bench/lockfile-bench.partial.json

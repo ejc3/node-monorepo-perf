@@ -1,9 +1,9 @@
 {
-  "claim": "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), while in SINGLE-PACKAGE projects bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces (in workspaces bun 1.3's isolated default blocks the phantom too — parity there). The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.",
+  "claim": "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 12 blocks, failing the install (ERR_PNPM_IGNORED_BUILDS), and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1 with ERR_PNPM_PEER_DEP_ISSUES on its native config surface; pnpm 12.8.1 ignores the npm-style npm_config_ env surface for this setting (exit 0 there — the surface pnpm 10 honored)), while in SINGLE-PACKAGE projects bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces (in workspaces bun 1.3's isolated default blocks the phantom too — parity there). The rest is parity: a local file: dep's postinstall is BLOCKED by default on both, each printing a remediation hint — with different failure semantics (bun exits 0; pnpm fails the install), a missing peer is auto-installed by both at their defaults, both warn on a peer-version mismatch, bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.",
   "versions": {
-    "node": "v22.22.0",
-    "npm": "10.9.4",
-    "pnpm": "10.29.1",
+    "node": "v22.23.3",
+    "npm": "10.9.9",
+    "pnpm": "12.8.1",
     "bun": "1.3.14"
   },
   "registries": {
@@ -12,7 +12,7 @@
   },
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 0.31,
+    "preRunLoadAvg1": 0.24,
     "coreBound": false,
     "note": "behavioral assertions + I/O/network-bound context; not gated on load"
   },
@@ -31,34 +31,40 @@
         "runtimeDetail": "MODULE_NOT_FOUND",
         "blockedByDefault": true,
         "remediationHint": true,
+        "failsInstall": false,
+        "failClosedError": null,
         "signal": "Blocked 1 postinstall. Run `bun pm untrusted` for details."
       },
       "pnpm": {
-        "exit": 0,
+        "exit": 1,
         "ran": false,
         "runtimeDetail": "MODULE_NOT_FOUND",
         "blockedByDefault": true,
         "remediationHint": true,
-        "signal": "Ignored build scripts: needsbuild-probe@file:../tarballs/needsbuild-prob   │"
+        "failsInstall": true,
+        "failClosedError": "ERR_PNPM_IGNORED_BUILDS",
+        "signal": "Ignored build scripts: needsbuild-probe@file:../tarballs/needsbuild-"
       },
       "neitherRunsByDefault": true,
-      "bothBlockAndWarn": true,
-      "note": "a LOCAL file: dependency's postinstall is BLOCKED by default on BOTH tools (mainProbe: the postinstall-generated file is absent on both), and both print a remediation hint in the install output: bun 'Blocked N postinstall. Run `bun pm untrusted`' (allow via `bun pm trust`); pnpm 'Ignored build scripts ... Run pnpm approve-builds'. bun's built-in trusted ALLOWLIST (esbuild et al., rung A2) is the one place bun runs a dep's script without opt-in"
+      "bothBlockAndHint": true,
+      "note": "a LOCAL file: dependency's postinstall is BLOCKED by default on BOTH tools (mainProbe: the postinstall-generated file is absent on both), and both print a remediation hint: bun blocks the script but the install SUCCEEDS ('Blocked N postinstall. Run `bun pm untrusted`', allow via `bun pm trust`); pnpm 12 blocks the script and FAILS the install (fail-closed: ERR_PNPM_IGNORED_BUILDS, 'Ignored build scripts ... Run pnpm approve-builds'). bun's built-in trusted ALLOWLIST (esbuild et al., rung A2) is the one place bun runs a dep's script without opt-in"
     },
     "registryTrusted": {
       "dep": "esbuild@0.24.0",
       "bun": {
         "exit": 0,
         "blocked": false,
+        "failsInstall": false,
         "signal": "esbuild not listed by `bun pm untrusted` (bun reports it ran)"
       },
       "pnpm": {
-        "exit": 0,
+        "exit": 1,
         "blocked": true,
-        "signal": "Ignored build scripts: esbuild@0.24.0.                                     │"
+        "failsInstall": true,
+        "signal": "Ignored build scripts: esbuild@0.24.0"
       },
       "parityOnRegistryTrustedDep": false,
-      "note": "bun runs the postinstall by default (esbuild is on bun's built-in trusted list); pnpm 10 blocks it — bun is MORE permissive on real registry deps"
+      "note": "bun runs the postinstall by default (esbuild is on bun's built-in trusted list); pnpm 12 blocks it and fails the install (ERR_PNPM_IGNORED_BUILDS) — bun is MORE permissive on real registry deps"
     }
   },
   "peerDependencies": {
@@ -75,8 +81,16 @@
       },
       "bothWarn": true,
       "pnpmStrict": {
+        "mechanism": "--config.strict-peer-dependencies=true (pnpm-native config surface; equivalent: PNPM_CONFIG_ env, pnpm-workspace.yaml strictPeerDependencies)",
         "exit": 1,
-        "error": "ERR_PNPM_PEER_DEP_ISSUES"
+        "error": "ERR_PNPM_PEER_DEP_ISSUES",
+        "failsClosed": true,
+        "npmStyleSurface": {
+          "mechanism": "npm_config_strict_peer_dependencies env (the npm-style surface pnpm 10 honored)",
+          "exit": 0,
+          "error": null,
+          "honored": false
+        }
       },
       "bunStrict": {
         "hasKnob": false,
@@ -98,7 +112,7 @@
           }
         ]
       },
-      "note": "both warn on a peer-version mismatch (bun on stderr, pnpm on stdout); the asymmetry is the fail-closed knob: pnpm strict-peer-dependencies=true -> exit 1 (ERR_PNPM_PEER_DEP_ISSUES), while none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit"
+      "note": "both warn on a peer-version mismatch (bun on stderr, pnpm on stdout); the asymmetry is the fail-closed knob: pnpm --config.strict-peer-dependencies=true -> exit 1 (ERR_PNPM_PEER_DEP_ISSUES; pnpm 12.8.1 ignores the npm-style npm_config_ env surface for this setting (exit 0 there — the surface pnpm 10 honored)), while none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit"
     },
     "missingPeer": {
       "bun": {
@@ -181,8 +195,8 @@
   },
   "downsidesFound": {
     "bun": [
-      "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 10 blocks all build scripts until approved",
-      "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1)"
+      "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 12 blocks all build scripts until approved and fails the install on a blocked build (ERR_PNPM_IGNORED_BUILDS)",
+      "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm --config.strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1; pnpm 12.8.1 ignores the npm-style npm_config_ env surface for this setting (exit 0 there — the surface pnpm 10 honored))"
     ],
     "pnpm": [
       "(pnpm advantage, single-package projects only) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves; in a WORKSPACE bun 1.3's isolated default blocks the phantom too — parity there"

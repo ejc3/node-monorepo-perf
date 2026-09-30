@@ -1,5 +1,7 @@
 {
   "hostCores": 64,
+  "pnpmVersion": "12.8.1",
+  "bunVersion": "1.3.14",
   "yarnVersion": "4.17.0",
   "perScaleOrder": [
     "pnpmIsolated",
@@ -14,38 +16,38 @@
       "libs": 100,
       "depEdgesVerified": 2649,
       "pnpmIsolated": {
-        "coldMs": 47785,
-        "coldCpuPct": 130,
-        "coldRssMB": 779,
-        "warmMs": 2290,
-        "nmEntries": 15691
+        "coldMs": 826,
+        "coldCpuPct": 324,
+        "coldRssMB": 98,
+        "warmMs": 592,
+        "nmEntries": 15701
       },
       "pnpmHoisted": {
-        "coldMs": 46746,
-        "coldCpuPct": 131,
-        "coldRssMB": 903,
-        "warmMs": 1411,
-        "nmEntries": 12246
+        "coldMs": 806,
+        "coldCpuPct": 479,
+        "coldRssMB": 98,
+        "warmMs": 605,
+        "nmEntries": 12554
       },
       "bun": {
-        "coldMs": 134,
-        "coldCpuPct": 225,
-        "coldRssMB": 43,
-        "warmMs": 123,
-        "nmEntries": 15409
+        "coldMs": 136,
+        "coldCpuPct": 191,
+        "coldRssMB": 41,
+        "warmMs": 126,
+        "nmEntries": 15419
       },
       "yarnNm": {
-        "coldMs": 3157,
+        "coldMs": 3374,
         "coldCpuPct": 152,
-        "coldRssMB": 933,
-        "warmMs": 2803,
-        "nmEntries": 11210
+        "coldRssMB": 938,
+        "warmMs": 3071,
+        "nmEntries": 11220
       },
       "yarnPnp": {
-        "coldMs": 1670,
-        "coldCpuPct": 143,
-        "coldRssMB": 610,
-        "warmMs": 1314,
+        "coldMs": 1778,
+        "coldCpuPct": 141,
+        "coldRssMB": 609,
+        "warmMs": 1466,
         "nmEntries": 64,
         "pnpCjsBytes": 820806
       }
@@ -55,38 +57,38 @@
       "libs": 200,
       "depEdgesVerified": 11898,
       "pnpmIsolated": {
-        "coldMs": 229503,
-        "coldCpuPct": 134,
-        "coldRssMB": 938,
-        "warmMs": 7286,
-        "nmEntries": 31123
+        "coldMs": 3095,
+        "coldCpuPct": 165,
+        "coldRssMB": 138,
+        "warmMs": 3285,
+        "nmEntries": 31133
       },
       "pnpmHoisted": {
-        "coldMs": 227259,
-        "coldCpuPct": 133,
-        "coldRssMB": 992,
-        "warmMs": 2959,
-        "nmEntries": 16578
+        "coldMs": 1370,
+        "coldCpuPct": 789,
+        "coldRssMB": 118,
+        "warmMs": 915,
+        "nmEntries": 17786
       },
       "bun": {
-        "coldMs": 2238,
-        "coldCpuPct": 42,
-        "coldRssMB": 73,
-        "warmMs": 2566,
-        "nmEntries": 29941
+        "coldMs": 2078,
+        "coldCpuPct": 48,
+        "coldRssMB": 68,
+        "warmMs": 3462,
+        "nmEntries": 29951
       },
       "yarnNm": {
-        "coldMs": 4387,
-        "coldCpuPct": 158,
-        "coldRssMB": 1017,
-        "warmMs": 4029,
-        "nmEntries": 12110
+        "coldMs": 4770,
+        "coldCpuPct": 157,
+        "coldRssMB": 1015,
+        "warmMs": 4333,
+        "nmEntries": 12120
       },
       "yarnPnp": {
-        "coldMs": 2320,
-        "coldCpuPct": 151,
-        "coldRssMB": 666,
-        "warmMs": 2068,
+        "coldMs": 2512,
+        "coldCpuPct": 146,
+        "coldRssMB": 660,
+        "warmMs": 2213,
         "nmEntries": 64,
         "pnpCjsBytes": 2036746
       }
@@ -96,38 +98,38 @@
       "libs": 300,
       "depEdgesVerified": 23350,
       "pnpmIsolated": {
-        "coldMs": 471243,
-        "coldCpuPct": 141,
-        "coldRssMB": 1023,
-        "warmMs": 15193,
-        "nmEntries": 50159
+        "coldMs": 7662,
+        "coldCpuPct": 114,
+        "coldRssMB": 191,
+        "warmMs": 7788,
+        "nmEntries": 50169
       },
       "pnpmHoisted": {
-        "coldMs": 456721,
-        "coldCpuPct": 142,
-        "coldRssMB": 1161,
-        "warmMs": 4667,
-        "nmEntries": 21914
+        "coldMs": 3433,
+        "coldCpuPct": 558,
+        "coldRssMB": 178,
+        "warmMs": 1372,
+        "nmEntries": 24222
       },
       "bun": {
-        "coldMs": 7548,
-        "coldCpuPct": 26,
-        "coldRssMB": 97,
-        "warmMs": 9476,
-        "nmEntries": 47877
+        "coldMs": 8734,
+        "coldCpuPct": 23,
+        "coldRssMB": 96,
+        "warmMs": 10132,
+        "nmEntries": 47887
       },
       "yarnNm": {
-        "coldMs": 6215,
-        "coldCpuPct": 153,
-        "coldRssMB": 1093,
-        "warmMs": 5858,
-        "nmEntries": 13210
+        "coldMs": 6576,
+        "coldCpuPct": 151,
+        "coldRssMB": 1095,
+        "warmMs": 6066,
+        "nmEntries": 13220
       },
       "yarnPnp": {
-        "coldMs": 3177,
-        "coldCpuPct": 149,
-        "coldRssMB": 723,
-        "warmMs": 2924,
+        "coldMs": 3325,
+        "coldCpuPct": 148,
+        "coldRssMB": 721,
+        "warmMs": 3096,
         "nmEntries": 64,
         "pnpCjsBytes": 3536266
       }
@@ -136,10 +138,10 @@
   "trulyCold": {
     "apps": 200,
     "libs": 100,
-    "pnpmHoistedMs": 24027,
-    "bunMs": 1192,
-    "yarnNmMs": 9278,
-    "yarnPnpMs": 7730,
+    "pnpmHoistedMs": 2360,
+    "bunMs": 1252,
+    "yarnNmMs": 9736,
+    "yarnPnpMs": 8009,
     "order": [
       "pnpm-hoisted",
       "bun",

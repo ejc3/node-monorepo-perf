@@ -18,7 +18,7 @@
 //      versions in one lockfile (catalogs live in .yarnrc.yml); a repoint edits 0
 //      consumer manifests.
 //   3  `workspace:` as a catalog value — accepted or rejected, and if accepted whether
-//      it links the local package (bun accepts; pnpm rejects every form).
+//      it links the local package (bun and pnpm 12 accept and link it too; pnpm 10 rejected it).
 //   4  Publish bakes a CONCRETE range — `yarn pack` rewrites `workspace:^` AND
 //      `catalog:` to real ranges/versions in the packed manifest.
 //   5  Cross-tool — yarn does not read pnpm-workspace.yaml catalogs or bun's
@@ -392,9 +392,9 @@ const allNative =
   X.readsBunPackageJsonCatalog === false;
 const wsCat = R.workspaceAsCatalogValue.accepted
   ? R.workspaceAsCatalogValue.linksLocalPackage
-    ? "ACCEPTED (links the local package, like bun; pnpm rejects it)"
+    ? "ACCEPTED (links the local package, like bun and pnpm 12)"
     : "ACCEPTED but the local package did not link"
-  : "REJECTED (like pnpm)";
+  : "REJECTED";
 const ciClause = D.ciBareInstallFailsClosedOnDrift
   ? `and CI auto-enables immutable with no config (bare CI install exit ${D.ciBareExit}) — the ` +
     `default bun gets only from a committed bunfig line`

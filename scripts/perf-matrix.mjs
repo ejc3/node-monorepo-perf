@@ -13,6 +13,7 @@
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => {
@@ -61,6 +62,12 @@ rmSync(join(ROOT, "node_modules"), { recursive: true, force: true });
 rmSync(join(ROOT, "pnpm-lock.yaml"), { force: true });
 sh(`pnpm install --config.confirm-modules-purge=false`);
 
+// tool provenance: the bench runs in the repo working tree, so `pnpm --version` here
+// resolves through the root package.json packageManager pin; recorded per variant so
+// the docs' version attribution traces to the artifact itself
+const PNPM_VER = sh(`pnpm --version`).trim();
+if (PNPM_VER !== PNPM_VERSION)
+  throw new Error(`pnpm ${PNPM_VER} != pinned ${PNPM_VERSION} (scripts/_pins.mjs)`);
 const results = [];
 for (const v of VARIANTS) {
   console.log(`\n=== ${v.label} (${v.note}) @ ${APPS} apps / ${LIBS} libs ===`);
@@ -78,6 +85,7 @@ for (const v of VARIANTS) {
   const rec = {
     label: v.label,
     note: v.note,
+    pnpm: PNPM_VER,
     apps: +APPS,
     libs: +LIBS,
     linker: v.linker,

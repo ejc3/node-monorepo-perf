@@ -21,6 +21,10 @@ catalog:
   typescript: 6.0.3
   "@types/node": ^25.0.0
   "@types/react": 19.2.17
-  "@types/react-dom": ^19.0.0
+  # Exact pin, no caret: a floating ^19 range drifts — @types/react-dom 19.3.0 raised
+  # its @types/react peer to ^19.3.0, which ERESOLVEs against the 19.2.17 pin above on
+  # the npm leg of container-install-bench. 19.2.7 is the newest version whose peer
+  # range (^19.2.0) accepts @types/react 19.2.17.
+  "@types/react-dom": 19.2.7
   vite: 8.0.16
   "@vitejs/plugin-react": 6.0.2
