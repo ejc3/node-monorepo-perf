@@ -65,9 +65,11 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 
 Two operations are genuinely O(repo) and cannot be scoped away:
 
-- **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm's
+- **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm 10's
   no-lockfile cold-resolve is 233s at 1,000:200 (`bench/install-modes-bench.json`); on a full
-  re-resolve bun is ~62–357× faster than pnpm across the 200–2,000-app scales
+  re-resolve bun is ~62–357× faster than pnpm 10 across the 200–2,000-app scales
+  (pnpm 12's Rust rewrite removes most of that JS resolve cost on its own head-to-head:
+  301× at 1,000:200, `bench/pnpm12-bench.json`; pnpm-12-vs-bun is unmeasured)
   (`bench/install-bench.json`). yarn 4 is fastest cold and warm at 2,000 apps, but PnP can't run
   stock tsgo or Next's default Turbopack
   (`bench/pnp-compat-bench.json`; green paths exist via native-PnP tsgo and `next build` with
