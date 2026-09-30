@@ -24,7 +24,8 @@ type error in any of the 4,000 apps before merge, fast.
 `bun install` materializes the 4,400-package workspace in **20.9s** (warm store, lockfile
 present, `node_modules` cold — the clone/CI case; `install.storeWarm: true`). One-time
 setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
-bun wins the full re-resolve (~62–357× vs pnpm) and the fresh CI-runner install (0.9s vs
+bun wins the full re-resolve (~62–357× vs pnpm 10; pnpm 12's Rust resolver closes most of
+that gap on its own head-to-head, `bench/pnpm12-bench.json`, pnpm-12-vs-bun unmeasured) and the fresh CI-runner install (0.9s vs
 pnpm's 8.9s at 1,000 apps). At 2,000 apps yarn 4 is fastest cold and warm. Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint

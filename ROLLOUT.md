@@ -8,7 +8,7 @@ bun behaviors cross-checked against source at `bun-v1.3.14`.
 
 ## The Recommendation
 
-Drive with bun: it runs the entire rollout natively (below) and beats pnpm's full re-resolve by ~62–357× on
+Drive with bun: it runs the entire rollout natively (below) and beats pnpm 10's full re-resolve by ~62–357× on
 [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, no lockfile, fresh
 `node_modules`, warm store):
 

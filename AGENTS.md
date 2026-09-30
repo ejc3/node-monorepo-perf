@@ -108,6 +108,30 @@ One command each for the O(repo)-vs-O(closure) thesis:
   at the canonical scales `200:100 1000:200 2000:300` → `bench/install-bench.json`; any other
   scales (and any run's in-progress state) go to gitignored `install-bench.partial.json`, promoted
   on completion only.
+- `node scripts/pnpm12-bench.mjs` (canonical `1000:200`, `PNPM12_SAMPLES` 3, `PNPM12_SCALE`,
+  `PNPM12_WORK` default `/mnt/fcvm-btrfs/pnpm12-bench` — canonical pins the default btrfs WORK,
+  fs geometry recorded; `PNPM_TIP_BIN`+`PNPM_TIP_SOURCE` (sha-leading) required for canonical,
+  tip binary sha256'd + asserted distinct from stable; `PNPM12_KEEP=1`, `PNPM12_ALLOW_BUSY=1`):
+  **pnpm 12 (the Rust rewrite) vs the pinned JS pnpm 10 vs tip-of-main**, three explicit-binary
+  legs (JS CLI via `process.execPath`; 12's `@pnpm/exe` native binary; never PATH/`.bin`;
+  the pinned legs are version-asserted untimed and tip's reported version + binary sha256 are
+  recorded, sha256 asserted distinct from stable — pnpm 12's launcher DELEGATES to a
+  `packageManager` field, so the scaffolds strip it), one identically-generated workspace per
+  leg (scale/modules pinned on the CLI, the ambient generator knob env scrubbed, and the
+  printed summary's apps/libs/framework/shape/skew asserted; package-identity equivalence
+  gate: every leg must lock the IDENTICAL package key set and importer count), rows
+  coldResolve/warm/frozen as rotated-order
+  medians + trulyCold (fresh store+cache+network, store-populated asserted, lockfile retained
+  + frozen) + three UNTIMED verdicts (pnpm12 frozen on the pnpm10 lockfile succeeds
+  bytes-unchanged; a drifted manifest fails closed with `ERR_PNPM_OUTDATED_LOCKFILE`; the
+  two-sided ignored-builds probe: pnpm 10 flags blocked build scripts and exits 0 where
+  pnpm 12 fails closed with `ERR_PNPM_IGNORED_BUILDS`). Every timed row runs
+  `--ignore-scripts` + `--config.minimum-release-age=0` (the latter relaxes pnpm 12's
+  supply-chain gate, whose trigger depends on registry publish times and is therefore not
+  probed). WORK-path safety marker
+  + atomic anti-concurrency lock; shared `_verify-install.cjs` completeness after every timed
+  install → `bench/pnpm12-bench.json`, writeup in TOOLING.md
+  ("[pnpm 12: the Rust Rewrite](TOOLING.md#pnpm-12-the-rust-rewrite)").
 - `node scripts/container-install-bench.mjs` (canonical `1000:200`, `CONTAINER_INSTALL_SAMPLES`
   default 5): the **CI-runner install** install-bench's cold column deliberately omits, a FROZEN
   install from the committed lockfile, per tool (pnpm/bun `--frozen-lockfile`, yarn-nm/yarn-PnP
@@ -827,7 +851,7 @@ leaves one absent and fails the validation step rather than passing a stale rast
 `main`, commits the freshly-rendered PNGs back, so the committed rasters track the gated SVGs instead of
 relying on a contributor to re-render them. Docs: [README.md](README.md) (overview +
 scaling table + dev-sim), [TOOLING.md](TOOLING.md)
-(install / build / lint comparisons, incl. ESLint-vs-oxlint from `bench/lint-bench.json`
+(install / build / lint comparisons, incl. the pnpm-12 Rust-rewrite head-to-head from `bench/pnpm12-bench.json`, ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
 toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo + Next-build
 matrix that closes it from `bench/tsgo-pnp-bench.json`, plus the fast-bundler-under-PnP matrix and the

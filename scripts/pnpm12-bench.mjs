@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-// pnpm 12 (the Rust rewrite) vs pnpm 10 (the pinned JS baseline) vs tip-of-main,
-// on this repo's generated workspace shape. pnpm 12.0.0 shipped 2026-08-26 as the
-// Rust port (internal project name "pacquet"); the press claims up to 90% faster
-// installs amid a dispute over third-party benchmark methodology. This bench prices
-// the rewrite under this repo's install discipline: same scaffold, per-leg isolated
-// stores, completeness verified by the shared verifier after every timed install,
-// and a lockfile-graph equivalence gate so a leg cannot win by resolving less.
+// pnpm 12 (the Rust rewrite, shipping as a native binary) vs pnpm 10 (the pinned
+// JS baseline) vs tip-of-main, on this repo's generated workspace shape: same
+// scaffold per leg, per-leg isolated stores, completeness verified by the shared
+// verifier after every timed install, and a package-identity equivalence gate so a
+// leg cannot win by resolving less.
 //
 //   node scripts/pnpm12-bench.mjs                # canonical 1000:200
 //
@@ -347,12 +345,19 @@ const lockHash = (dir) => sha256File(lockPath(dir)).slice(0, 16);
 const lockStats = (dir) => {
   const txt = readFileSync(lockPath(dir), "utf8");
   const v = txt.match(/lockfileVersion:\s*'?([\d.]+)'?/);
-  // "packages:" section keys only (cut before the next top-level section, e.g.
-  // v9's "snapshots:") — the resolver-equivalence metric compared across legs
-  const after = txt.split(/\npackages:\n/)[1] || "";
-  const section = after.split(/\n(?=[A-Za-z])/)[0];
-  const pkgs = (section.match(/^ {2}[^ \n][^\n]*:\s*$/gm) || []).length;
-  return { lockfileVersion: v ? v[1] : null, lockPackages: pkgs };
+  const sectionKeys = (name) => {
+    const after = txt.split(new RegExp(`\\n${name}:\\n`))[1] || "";
+    const section = after.split(/\n(?=[A-Za-z])/)[0];
+    return (section.match(/^ {2}[^ \n][^\n]*(?=:)/gm) || []).map((k) => k.trim()).sort();
+  };
+  const pkgKeys = sectionKeys("packages");
+  const importerKeys = sectionKeys("importers");
+  return {
+    lockfileVersion: v ? v[1] : null,
+    lockPackages: pkgKeys.length,
+    pkgKeys,
+    importers: importerKeys.length,
+  };
 };
 // verifyNm THROWS on an incomplete install and returns the verified edge count
 const verify = (dir) => verifyLib.verifyNm(dir);
@@ -394,7 +399,9 @@ const out = {
     ignoredBuildsPolicy:
       "--ignore-scripts on every install row for every leg; absent it pnpm 10 warns and exits 0 while pnpm 12 fails closed with ERR_PNPM_IGNORED_BUILDS",
     minimumReleaseAge:
-      "relaxed to 0 on every leg: pnpm 12's default supply-chain gate fails lockfile verification closed for recently-published packages (ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION), which would make results depend on publish-date wall clock",
+      "relaxed to 0 on every leg: pnpm 12 ships a supply-chain gate that fails lockfile verification closed for packages published within the cutoff (ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION); its trigger depends on registry publish times relative to the run, so it is relaxed rather than probed",
+    ignoredBuildsProbe:
+      "untimed two-sided control on the pnpm10 tree, warm store, no --ignore-scripts: pnpm 10 must exit 0 while flagging the blocked build ('Ignored build scripts'); pnpm 12 must fail closed (ERR_PNPM_IGNORED_BUILDS)",
   },
   legOrderByRound: [],
   rows: {},
@@ -404,7 +411,7 @@ const out = {
     warm: "lockfile + warm store, node_modules wiped: the rebuild (median; rotated)",
     frozen: "--frozen-lockfile from the leg's own lockfile: the CI row (median; rotated)",
     trulyCold:
-      "fresh store-dir + cache-dir (asserted populated after) + real network, lockfile retained + --frozen-lockfile: first-ever install (1 sample per leg, order recorded)",
+      "fresh store-dir + cache-dir + real network, lockfile retained + --frozen-lockfile (store+network cost, not re-resolution): 1 network-bound sample per leg in the recorded fixed order; the content store is asserted populated, the metadata cache is recorded (a frozen install may never touch it)",
     crossFrozen12on10:
       "UNTIMED verdict: pnpm12 --frozen-lockfile against the pnpm10-authored lockfile — success + completeness + lock bytes unchanged",
     crossFrozenDrift:
@@ -428,18 +435,32 @@ for (const leg of LEGS) {
   lockMeta[leg.key] = lockStats(dir);
   out.rows[leg.key].lockfileVersion = lockMeta[leg.key].lockfileVersion;
   out.rows[leg.key].lockPackages = lockMeta[leg.key].lockPackages;
+  out.rows[leg.key].importers = lockMeta[leg.key].importers;
   console.log(
     `  ${leg.key}: lockfileVersion ${lockMeta[leg.key].lockfileVersion} · ${lockMeta[leg.key].lockPackages} locked packages`,
   );
 }
 {
-  const counts = LEGS.map((l) => lockMeta[l.key].lockPackages);
-  if (new Set(counts).size !== 1)
-    fail(
-      `resolver-equivalence gate: legs locked different package counts (${LEGS.map(
-        (l) => `${l.key}=${lockMeta[l.key].lockPackages}`,
-      ).join(", ")}) — not like-for-like`,
-    );
+  const ref = lockMeta[LEGS[0].key];
+  if (ref.importers !== APPS + LIBS + 1)
+    fail(`importer count ${ref.importers} !== apps+libs+root ${APPS + LIBS + 1}`);
+  for (const leg of LEGS.slice(1)) {
+    const m = lockMeta[leg.key];
+    if (m.importers !== ref.importers)
+      fail(
+        `resolver-equivalence gate: ${leg.key} has ${m.importers} importers vs ${ref.importers}`,
+      );
+    const a = ref.pkgKeys.join("\n");
+    const b = m.pkgKeys.join("\n");
+    if (a !== b) {
+      const sa = new Set(ref.pkgKeys);
+      const sb = new Set(m.pkgKeys);
+      const diff = [...sa].filter((k) => !sb.has(k)).concat([...sb].filter((k) => !sa.has(k)));
+      fail(
+        `resolver-equivalence gate: ${leg.key} locked a different package set than ${LEGS[0].key} (first diffs: ${diff.slice(0, 4).join(", ")})`,
+      );
+    }
+  }
 }
 
 // ---- rotated sample rounds ---------------------------------------------------------------------
@@ -542,6 +563,53 @@ for (const leg of LEGS) {
   } finally {
     writeFileSync(probePkg, orig);
   }
+}
+
+// ---- ignored-builds policy probe (untimed, two-sided, measured) --------------------------------
+// The one policy divergence that CAN be probed deterministically (the tree always
+// carries a script-bearing dependency): a bare install without --ignore-scripts.
+{
+  const leg10 = LEGS.find((l) => l.key === "pnpm10");
+  const leg12 = LEGS.find((l) => l.key === "pnpm12");
+  const dir10 = legDirs.pnpm10;
+  const bare = (leg) => {
+    const logFile = join(WORK, "run-policy.log");
+    const logFd = openSync(logFile, "w");
+    const r = spawnSync(
+      leg.cmd,
+      [
+        ...leg.pre,
+        "install",
+        "--frozen-lockfile",
+        "--config.minimum-release-age=0",
+        "--store-dir",
+        join(WORK, `store-${leg.key}`),
+        `--config.cache-dir=${join(WORK, `cache-${leg.key}`)}`,
+        "--config.node-linker=isolated",
+      ],
+      { cwd: dir10, stdio: ["ignore", logFd, logFd], env: runEnv() },
+    );
+    closeSync(logFd);
+    return { status: r.status, log: readFileSync(logFile, "utf8") };
+  };
+  wipeNm(dir10);
+  const p10 = bare(leg10);
+  if (p10.status !== 0)
+    fail(`ignoredBuildsProbe: pnpm10 bare install exited ${p10.status}:\n${p10.log.slice(-400)}`);
+  if (!/Ignored build scripts/i.test(p10.log))
+    fail("ignoredBuildsProbe: pnpm10 exited 0 but did not flag the blocked build");
+  wipeNm(dir10);
+  const p12 = bare(leg12);
+  if (p12.status === 0) fail("ignoredBuildsProbe: pnpm12 accepted blocked builds with exit 0");
+  if (!/ERR_PNPM_IGNORED_BUILDS/.test(p12.log))
+    fail(
+      `ignoredBuildsProbe: pnpm12 failed without ERR_PNPM_IGNORED_BUILDS:\n${p12.log.slice(-400)}`,
+    );
+  out.ignoredBuildsProbe = {
+    pnpm10: { exit: 0, flagged: true, marker: "Ignored build scripts" },
+    pnpm12: { failedClosed: true, marker: "ERR_PNPM_IGNORED_BUILDS" },
+  };
+  console.log("ignoredBuildsProbe: pnpm10 warns+exits 0, pnpm12 fails closed (untimed verdicts)");
 }
 
 if (CANONICAL) OUT.promote(out);

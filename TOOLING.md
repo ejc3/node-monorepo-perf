@@ -36,6 +36,45 @@ Truly-cold at 200/100 (network-bound, single sample) runs pnpm-hoisted 24.0s, bu
 
 bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decataloged copy.
 
+## pnpm 12: the Rust Rewrite
+
+pnpm 12 is a Rust port of the pnpm CLI shipping as a native binary behind the
+install surface this bench exercises. `scripts/pnpm12-bench.mjs` prices the rewrite
+against the pinned JS baseline on one 1,000:200 workspace per leg (generator
+scale/modules pinned and the printed summary asserted; package-identity
+equivalence gate: every leg must lock the identical package set — 58 packages,
+1,201 importers; leg order rotated per sample round and recorded; completeness
+verified by the shared `_verify-install.cjs` after every timed install;
+`bench/pnpm12-bench.json`, 64-core, btrfs):
+
+| row | pnpm 10.29.1 (JS) | pnpm 12.8.1 (Rust) | tip (12.8.2 @ 26aeeb11) |
+|---|---|---|---|
+| cold resolve (no lockfile, warm store; median of 3) | 303.7s | 1.01s | 1.00s |
+| warm rebuild (lockfile + store, no `node_modules`; median of 3) | 5.35s | 0.57s | 0.57s |
+| frozen rebuild (`--frozen-lockfile`, same tree; median of 3) | 5.17s | 0.53s | 0.53s |
+| truly cold (fresh store + cache + network; lockfile retained, frozen; 1 sample, fixed order) | 7.55s | 1.12s | 1.14s |
+
+The rewrite is **301× faster on cold resolution** at this shape — the JS
+implementation's cold resolve grows ~linearly with importer count and pays five
+minutes on this 1,201-importer workspace — and 9–10× on the warm and frozen rows,
+6.7× truly-cold. Tip of main measures within ±2% of stable on every row. These rows
+are leg-vs-leg inside this bench (separate runs, its own flag set and install-state
+definitions); they are not directly comparable to the install-bench table above,
+and the containerized frozen install is measured separately in
+[the CI-runner section](#the-ci-runner-install-frozen-in-a-fresh-container).
+
+Migration mechanics (untimed verdicts in the record): pnpm 12 writes the same
+`lockfileVersion: '9.0'`; `--frozen-lockfile` against a pnpm-10-authored lockfile
+succeeds with the lockfile bytes unchanged; a drifted manifest fails closed with
+`ERR_PNPM_OUTDATED_LOCKFILE`; and the measured two-sided build-scripts probe shows
+the hardened default — a blocked dependency build script fails the install in 12
+(`ERR_PNPM_IGNORED_BUILDS`) where 10 flags it and exits 0. pnpm 12 also ships a
+supply-chain gate (`minimumReleaseAge`) that fails lockfile verification closed for
+packages published within its cutoff (`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`);
+its trigger depends on registry publish times relative to the run, so the bench
+relaxes it (`--config.minimum-release-age=0` on every leg) rather than gating on
+it. Both defaults change CI behavior on upgrade; both are explicit config away.
+
 ## yarn PnP toolchain compatibility
 
 `scripts/pnp-compat-bench.mjs` (20 apps / 10 libs, PnP vs node-modules control): oxlint, tsc and turbo focused typecheck run under PnP; **tsgo fails** (`TS2503`/`TS2307`) and **`next build` fails** (Turbopack can't find `next/package.json`) — both work under node-modules (`bench/pnp-compat-bench.json`).
