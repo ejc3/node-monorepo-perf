@@ -171,6 +171,10 @@ const rec = {
   modules: Number(MODULES),
   framework: FRAMEWORK,
   versioned: VERSIONED,
+  // the pnpm that actually runs in this tree (corepack / pnpm's own launcher
+  // resolve the root packageManager pin per-tree, so ambient state is not what
+  // installs) — probed once per run so every appended row names the version it measured
+  versions: { pnpm: shOut("pnpm --version").trim() },
   phases: {},
 };
 // Prerequisite gate: a failed gen or install means later phases would measure a

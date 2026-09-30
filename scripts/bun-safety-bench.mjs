@@ -10,12 +10,13 @@
 //   node scripts/bun-safety-bench.mjs
 //   BUN_SAFETY_NO_CA=1 ...   # skip the CodeArtifact rung (no AWS creds / offline)
 //
-// Four rungs, bun 1.3.14 vs pnpm 10:
+// Four rungs, bun 1.3.14 vs pnpm 12:
 //   A  lifecycle scripts / native deps — (1) a local file: dep whose postinstall is BLOCKED by
-//      default on BOTH, each surfacing a remediation (bun "Blocked N postinstall" / `bun pm trust`;
-//      pnpm "Ignored build scripts" / `pnpm approve-builds`) — the baseline; (2) a registry
-//      default-trusted dep (esbuild) — bun RUNS its postinstall (built-in allowlist), pnpm BLOCKS
-//      it, so the one place bun is MORE permissive is its built-in trusted allowlist.
+//      default on BOTH, each surfacing a remediation (bun "Blocked N postinstall" / `bun pm trust`,
+//      exit 0; pnpm 12 FAILS the install outright — ERR_PNPM_IGNORED_BUILDS, "Ignored build
+//      scripts" / `pnpm approve-builds`) — the baseline; (2) a registry default-trusted dep
+//      (esbuild) — bun RUNS its postinstall (built-in allowlist), pnpm BLOCKS it and fails the
+//      install, so the one place bun is MORE permissive is its built-in trusted allowlist.
 //   B  CodeArtifact private-registry auth — publish + install round-trip on bun vs pnpm against the
 //      real @ejc3 registry, host-verified; skips (partial.json) without AWS creds.
 //   C  peer resolution — version mismatch and a missing peer. Both warn on a mismatch and both
@@ -34,6 +35,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from "node:
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import os from "node:os";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 // --- constants -----------------------------------------------------------------------------------
 const REGISTRY = "https://registry.npmjs.org/";
@@ -135,6 +137,14 @@ if (BUN_VER !== BUN_PINNED)
   fail(
     `bun ${BUN_VER} != ${BUN_PINNED}: recorded source refs are pinned to ${BUN_SOURCE_TAG}; re-verify before recording another version.`,
   );
+// The pnpm legs must measure the pinned pnpm 12 (scripts/_pins.mjs): every scaffold
+// root carries a `packageManager` pin (below), which corepack and pnpm's own launcher
+// resolve per-tree; this asserts the pnpm answering here IS that pin — a standalone
+// pnpm binary would silently ignore the field.
+if (PNPM_VER !== PNPM_VERSION)
+  fail(
+    `pnpm ${PNPM_VER} != pinned ${PNPM_VERSION} (scripts/_pins.mjs) — run through corepack or a pnpm launcher that honors packageManager, so the scaffolds' pin decides the measured version.`,
+  );
 
 const ROOT = mkdtempSync(join(tmpdir(), "bun-safety-"));
 const caCleanup = [];
@@ -154,9 +164,16 @@ process.on("SIGTERM", () => process.exit(143));
 
 // Scaffold under ROOT. `npmrc` defaults to the public registry; callers override for CodeArtifact /
 // pinned pnpm settings.
+// Every scaffold ROOT manifest gets an explicit `packageManager: pnpm@<pin>`: corepack
+// and pnpm's own launcher resolve pnpm per-tree from that field, so ambient state must
+// never decide which pnpm a bare `pnpm` run in a scaffold measures (bun ignores the
+// field; member manifests under subdirs need no pin — resolution walks up to this root).
 function scaffold(name, files, npmrc = `registry=${REGISTRY}\n`) {
   const base = join(ROOT, name);
   const all = { ".npmrc": npmrc, ...files };
+  const rootPkg = all["package.json"];
+  if (rootPkg && typeof rootPkg === "object" && !rootPkg.packageManager)
+    all["package.json"] = { ...rootPkg, packageManager: `pnpm@${PNPM_VERSION}` };
   for (const [rel, content] of Object.entries(all)) {
     const p = join(base, rel);
     mkdirSync(join(p, ".."), { recursive: true });
@@ -210,13 +227,14 @@ const result = {
 // RUNG A — lifecycle scripts / native deps
 // =================================================================================================
 console.log(
-  "== A. lifecycle scripts: local file: dep (both BLOCK + warn) + registry default-trusted esbuild (asymmetry) ==",
+  "== A. lifecycle scripts: local file: dep (both BLOCK + hint; pnpm 12 fails the install) + registry default-trusted esbuild (asymmetry) ==",
 );
 
 // A1 — a LOCAL file: tarball with a postinstall. BOTH tools default-deny its lifecycle script and each
-// surface a remediation (bun "Blocked N postinstall" + `bun pm untrusted`/`bun pm trust`; pnpm "Ignored
-// build scripts" + `pnpm approve-builds`). This is the baseline that isolates the one asymmetry to A2:
-// bun's built-in trusted ALLOWLIST (esbuild et al.), the only place bun runs a dep's script unprompted.
+// surface a remediation (bun exits 0, "Blocked N postinstall" + `bun pm untrusted`/`bun pm trust`;
+// pnpm 12 FAILS the install — ERR_PNPM_IGNORED_BUILDS with "Ignored build scripts" + `pnpm
+// approve-builds`). This is the baseline that isolates the one asymmetry to A2: bun's built-in
+// trusted ALLOWLIST (esbuild et al.), the only place bun runs a dep's script unprompted.
 // index.js needs a file the postinstall generates, so it resolves iff the postinstall actually ran.
 const NB = "needsbuild-probe";
 const nbTgz = mkTarball(
@@ -232,17 +250,28 @@ function localFileDep(tool) {
     "package.json": mf(`a1-${tool}`, { [NB]: `file:${nbTgz}` }),
   });
   const r = install[tool](dir, {});
-  if (r.code !== 0) fail(`A1 ${tool} install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
+  // Each leg asserts its own measured default-deny contract: bun blocks the script but the
+  // install SUCCEEDS (exit 0); pnpm 12 blocks the script and FAILS the install (fail-closed,
+  // ERR_PNPM_IGNORED_BUILDS) — the dep still materializes, only its build script is denied.
+  if (tool === "bun" && r.code !== 0)
+    fail(`A1 bun install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
+  if (tool === "pnpm" && (r.code === 0 || !/ERR_PNPM_IGNORED_BUILDS/.test(r.out)))
+    fail(
+      `A1 pnpm should fail closed on the blocked build (non-zero + ERR_PNPM_IGNORED_BUILDS); exit ${r.code}:\n${r.out.slice(-400)}`,
+    );
   // mainProbe (not presence): the main needs the postinstall-generated file, so it loads iff the script ran.
   const probe = mainProbe(dir, NB);
   // Both tools default-deny a file: dep's lifecycle script AND print a remediation hint. bun prints
   // "Blocked N postinstall. Run `bun pm untrusted`"; pnpm prints "Ignored build scripts ... Run pnpm
-  // approve-builds". Capture the hint from the actual output (don't assert one that wasn't printed).
+  // approve-builds" inside its install-failing error. Capture the hint from the actual output
+  // (don't assert one that wasn't printed).
   let blockedByDefault, remediationHint, signal;
   if (tool === "pnpm") {
     blockedByDefault = /Ignored build scripts/i.test(r.out);
     remediationHint = /approve-builds/i.test(r.out);
-    signal = (r.out.match(/Ignored build scripts:?[^\n]*/i) || ["(none)"])[0].trim();
+    signal = (r.out.match(/Ignored build scripts:?[^\n]*/i) || [
+      "ERR_PNPM_IGNORED_BUILDS",
+    ])[0].trim();
   } else {
     const u = run("bun pm untrusted", dir);
     if (u.code !== 0)
@@ -263,23 +292,26 @@ function localFileDep(tool) {
     runtimeDetail: probe.detail,
     blockedByDefault,
     remediationHint,
+    // fail-closed vs warn: pnpm 12 fails the install on the blocked build; bun exits 0
+    failsInstall: r.code !== 0,
+    failClosedError: (r.out.match(/ERR_PNPM_IGNORED_BUILDS/) || [null])[0],
     signal,
   };
 }
 const a1 = { bun: localFileDep("bun"), pnpm: localFileDep("pnpm") };
 const a1NeitherRuns = !a1.bun.ran && !a1.pnpm.ran;
-const a1BothBlockAndWarn =
+const a1BothBlockAndHint =
   a1.bun.blockedByDefault &&
   a1.pnpm.blockedByDefault &&
   a1.bun.remediationHint &&
   a1.pnpm.remediationHint;
 console.log(
-  `  A1 local file: dep: bun ran=${a1.bun.ran} blocked=${a1.bun.blockedByDefault} hint=${a1.bun.remediationHint} | pnpm ran=${a1.pnpm.ran} blocked=${a1.pnpm.blockedByDefault} hint=${a1.pnpm.remediationHint} (both default-deny + print a remediation hint)`,
+  `  A1 local file: dep: bun ran=${a1.bun.ran} blocked=${a1.bun.blockedByDefault} hint=${a1.bun.remediationHint} exit=${a1.bun.exit} | pnpm ran=${a1.pnpm.ran} blocked=${a1.pnpm.blockedByDefault} hint=${a1.pnpm.remediationHint} exit=${a1.pnpm.exit} (both default-deny + hint; pnpm 12 fails the install, ${a1.pnpm.failClosedError})`,
 );
 
 // A2 — a REGISTRY default-trusted dep. esbuild is on bun's built-in trusted list, so bun runs its
-// postinstall by default; pnpm 10 blocks it ("Ignored build scripts"). This is where bun is more
-// permissive than pnpm — the case a file: tarball hides.
+// postinstall by default; pnpm 12 blocks it AND fails the install (ERR_PNPM_IGNORED_BUILDS). This
+// is where bun is more permissive than pnpm — the case a file: tarball hides.
 const ESB = "esbuild";
 const ESB_VER = "0.24.0";
 // "blocked" is each tool's OWN report of what it did with the script — the authoritative signal, since
@@ -289,16 +321,25 @@ const ESB_VER = "0.24.0";
 function lifecycleRegistry(tool) {
   const dir = scaffold(`A2-${tool}`, { "package.json": mf(`a2-${tool}`, { [ESB]: ESB_VER }) });
   const r = install[tool](dir, {});
-  if (r.code !== 0) fail(`A2 ${tool} install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
+  // bun runs the allowlisted script and the install succeeds; pnpm 12 blocks the build and
+  // FAILS the install (fail-closed, ERR_PNPM_IGNORED_BUILDS) — assert each measured contract.
+  if (tool === "bun" && r.code !== 0)
+    fail(`A2 bun install failed (exit ${r.code}):\n${r.out.slice(-400)}`);
+  if (tool === "pnpm" && (r.code === 0 || !/ERR_PNPM_IGNORED_BUILDS/.test(r.out)))
+    fail(
+      `A2 pnpm should fail closed on the blocked esbuild build (non-zero + ERR_PNPM_IGNORED_BUILDS); exit ${r.code}:\n${r.out.slice(-400)}`,
+    );
   let blocked, signal;
   if (tool === "pnpm") {
-    // pnpm self-reports a blocked script as "Ignored build scripts: ...esbuild" in the install output.
-    // Detect the block from the header alone (as A1 does); pnpm wraps long names onto following lines,
-    // so confirm esbuild with [\s\S] (esbuild is the sole dep here) — a wrapped name must not read as
-    // "not blocked".
+    // pnpm self-reports a blocked script as "Ignored build scripts: ...esbuild" inside its
+    // install-failing error. Detect the block from the header alone (as A1 does); pnpm wraps long
+    // names onto following lines, so confirm esbuild with [\s\S] (esbuild is the sole dep here) —
+    // a wrapped name must not read as "not blocked".
     blocked =
       /Ignored build scripts/i.test(r.out) && /Ignored build scripts[\s\S]*esbuild/i.test(r.out);
-    signal = (r.out.match(/Ignored build scripts:[^\n]*/i) || ["(none)"])[0].trim();
+    signal = (r.out.match(/Ignored build scripts:[^\n]*/i) || [
+      "ERR_PNPM_IGNORED_BUILDS",
+    ])[0].trim();
   } else {
     // bun lists every script it blocked under `bun pm untrusted`; absence there is bun's report that it
     // ran the script. Path-anchored so @esbuild/<plat> platform packages don't false-match the line.
@@ -311,12 +352,12 @@ function lifecycleRegistry(tool) {
       ? "esbuild listed by `bun pm untrusted`"
       : "esbuild not listed by `bun pm untrusted` (bun reports it ran)";
   }
-  return { exit: r.code, blocked, signal };
+  return { exit: r.code, blocked, failsInstall: r.code !== 0, signal };
 }
 const a2 = { bun: lifecycleRegistry("bun"), pnpm: lifecycleRegistry("pnpm") };
 const a2ParityOnTrusted = a2.bun.blocked === a2.pnpm.blocked;
 console.log(
-  `  A2 esbuild: bun blocked=${a2.bun.blocked} (${a2.bun.signal}) | pnpm blocked=${a2.pnpm.blocked} (${a2.pnpm.signal})`,
+  `  A2 esbuild: bun blocked=${a2.bun.blocked} exit=${a2.bun.exit} (${a2.bun.signal}) | pnpm blocked=${a2.pnpm.blocked} exit=${a2.pnpm.exit} (${a2.pnpm.signal})`,
 );
 
 result.lifecycleScripts = {
@@ -324,8 +365,8 @@ result.lifecycleScripts = {
     bun: a1.bun,
     pnpm: a1.pnpm,
     neitherRunsByDefault: a1NeitherRuns,
-    bothBlockAndWarn: a1BothBlockAndWarn,
-    note: "a LOCAL file: dependency's postinstall is BLOCKED by default on BOTH tools (mainProbe: the postinstall-generated file is absent on both), and both print a remediation hint in the install output: bun 'Blocked N postinstall. Run `bun pm untrusted`' (allow via `bun pm trust`); pnpm 'Ignored build scripts ... Run pnpm approve-builds'. bun's built-in trusted ALLOWLIST (esbuild et al., rung A2) is the one place bun runs a dep's script without opt-in",
+    bothBlockAndHint: a1BothBlockAndHint,
+    note: "a LOCAL file: dependency's postinstall is BLOCKED by default on BOTH tools (mainProbe: the postinstall-generated file is absent on both), and both print a remediation hint: bun blocks the script but the install SUCCEEDS ('Blocked N postinstall. Run `bun pm untrusted`', allow via `bun pm trust`); pnpm 12 blocks the script and FAILS the install (fail-closed: ERR_PNPM_IGNORED_BUILDS, 'Ignored build scripts ... Run pnpm approve-builds'). bun's built-in trusted ALLOWLIST (esbuild et al., rung A2) is the one place bun runs a dep's script without opt-in",
   },
   registryTrusted: {
     dep: `${ESB}@${ESB_VER}`,
@@ -334,7 +375,7 @@ result.lifecycleScripts = {
     parityOnRegistryTrustedDep: a2ParityOnTrusted,
     note: a2ParityOnTrusted
       ? "bun and pnpm agree on this registry dep"
-      : "bun runs the postinstall by default (esbuild is on bun's built-in trusted list); pnpm 10 blocks it — bun is MORE permissive on real registry deps",
+      : "bun runs the postinstall by default (esbuild is on bun's built-in trusted list); pnpm 12 blocks it and fails the install (ERR_PNPM_IGNORED_BUILDS) — bun is MORE permissive on real registry deps",
   },
 };
 result.rungsReproduced.lifecycle = true;
@@ -657,7 +698,14 @@ if (process.env.BUN_SAFETY_NO_CA === "1") {
           { "package.json": mf(`b-con-${tool}`, { [pkgName(tool)]: FIXED }) },
           AUTH,
         );
-        const ins = install[tool](conDir, {});
+        // Rung B measures AUTH, not supply-chain policy: the just-published FIXED
+        // version is seconds old, so pnpm 12's default minimumReleaseAge would
+        // reject it for a non-auth reason. Relaxed here only; rung A keeps pure
+        // defaults (the flag is honored where the yaml would be, per the demos).
+        const ins =
+          tool === "pnpm"
+            ? run("pnpm install --no-frozen-lockfile --config.minimum-release-age=0", conDir, {})
+            : install[tool](conDir, {});
         installOk = ins.code === 0;
         if (installOk) {
           const probe = runtimeProbe(conDir, pkgName(tool));
@@ -742,7 +790,7 @@ if (
   !result.lifecycleScripts.registryTrusted.bun.blocked
 )
   bunDownsides.push(
-    "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 10 blocks all build scripts until approved",
+    "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 12 blocks all build scripts until approved and fails the install on a blocked build (ERR_PNPM_IGNORED_BUILDS)",
   );
 if (
   result.peerDependencies.mismatch.bunStrict.hasKnob === false &&
@@ -781,9 +829,9 @@ const phantomClause =
       : `while bun's layout resolves phantom (undeclared) imports that pnpm's isolation surfaces in single-package projects (workspace measurement: bun resolves=${wsBun}, pnpm resolves=${wsPnpm} — see phantomDependency.workspace)`
     : "and the phantom-import probe did not reproduce a pnpm isolation edge this run (see phantomDependency)";
 result.claim =
-  "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 10 blocks, and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), " +
+  "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 12 blocks, failing the install (ERR_PNPM_IGNORED_BUILDS), and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), " +
   phantomClause +
-  ". The rest is parity: a local file: dep's postinstall is BLOCKED by default on both (each printing a remediation hint), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.";
+  ". The rest is parity on the block itself: a local file: dep's postinstall is BLOCKED by default on both, each printing a remediation hint (bun exits 0; pnpm 12 fails the install), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.";
 
 mkdirSync(join(process.cwd(), "bench"), { recursive: true });
 // honor the partial-guard convention: a skipped rung never overwrites the canonical dataset

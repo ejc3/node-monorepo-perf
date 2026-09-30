@@ -26,6 +26,7 @@ import {
 } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { homedir } from "node:os";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const DIR = "/tmp/lockfile-bench";
@@ -140,11 +141,23 @@ function setup(apps, libs) {
     "--catalog",
     join(REPO, "pnpm-workspace.yaml"),
   ]);
-  writeFileSync(join(DIR, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+  writeFileSync(
+    join(DIR, "pnpm-workspace.yaml"),
+    // ignoreScripts + minimumReleaseAge: pnpm 12's fail-closed defaults relaxed
+    // identically for every scaffold (pnpm 10 accepts both keys; bun ignores
+    // this file) — see the root pnpm-workspace.yaml comment.
+    'packages:\n  - "apps/*"\n  - "packages/*"\nignoreScripts: true\nminimumReleaseAge: 0\n',
+  );
   writeFileSync(
     join(DIR, "package.json"),
-    JSON.stringify({ name: "lf-bench", private: true, workspaces: ["apps/*", "packages/*"] }) +
-      "\n",
+    // packageManager: corepack / pnpm's own launcher resolve pnpm per-tree from this
+    // field — ambient state must not decide which pnpm the bare `pnpm` runs here measure.
+    JSON.stringify({
+      name: "lf-bench",
+      private: true,
+      packageManager: `pnpm@${PNPM_VERSION}`,
+      workspaces: ["apps/*", "packages/*"],
+    }) + "\n",
   );
 }
 const rmAll = () => {

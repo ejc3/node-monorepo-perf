@@ -11,9 +11,10 @@
 // before any timed run — pnpm 12's launcher DELEGATES to the version in a project's
 // `packageManager` field, so the scaffold's field is stripped and the executed
 // version is asserted per leg):
-//   pnpm10  — pnpm@PNPM10_VERSION (_pins.mjs, the last JS release), spawned as
-//             `<process.execPath> pnpm.cjs` (node startup is inherent to the JS
-//             implementation and is measured; Node version recorded)
+//   pnpm10  — pnpm@PNPM10_VERSION (_pins.mjs, the JS implementation this repo
+//             previously pinned; pnpm 11 remains the maintained TS line upstream),
+//             spawned as `<process.execPath> pnpm.cjs` (node startup is inherent to
+//             the JS implementation and is measured; Node version recorded)
 //   pnpm12  — pnpm@PNPM12_VERSION from npm, the Rust CLI's native binary
 //             (@pnpm/exe.linux-<arch>), exec'd directly
 //   tip     — PNPM_TIP_BIN (a cargo release build of pnpm/pnpm main), provenance
@@ -34,7 +35,8 @@
 // and are not comparable to the medians above):
 //   crossFrozen12on10   — pnpm12 --frozen-lockfile against the pnpm10-authored
 //                         lockfile: must succeed, verify complete, lock bytes
-//                         unchanged (the "pnpm 11 workflows carry over" claim)
+//                         unchanged (the pnpm-10-authored-lockfile carry-over claim
+//                         — only that; other-version workflows are not tested)
 //   crossFrozenDrift    — the negative control: a manifest edit + pnpm12
 //                         --frozen-lockfile against the stale pnpm10 lockfile must
 //                         FAIL CLOSED (ERR_PNPM_OUTDATED_LOCKFILE, lock unchanged)

@@ -36,9 +36,10 @@
 // pnpm-workspace.yaml (read by pnpm) and a package.json "workspaces" field (read by bun
 // and yarn) — the same dependency set for all three tools.
 //
-// Lifecycle scripts: pnpm 10 and yarn 4 block dependency build scripts by default
-// (yarn 4.17 `enableScripts` defaults to false; the bench pins it to the same value);
-// bun blocks them except for its built-in allowlist.
+// Lifecycle scripts: dependency build scripts never run — the scaffold pins pnpm's
+// ignoreScripts: true explicitly (pnpm 12's default is to FAIL the install on a blocked
+// build, ERR_PNPM_IGNORED_BUILDS) and yarn's enableScripts: false (yarn 4.17's own
+// default); bun blocks them except for its built-in allowlist.
 //
 // yarn is the pinned standalone CLI from the @yarnpkg/cli-dist npm tarball, run as
 // `node yarn.js` directly (no corepack indirection), so /usr/bin/time measures the

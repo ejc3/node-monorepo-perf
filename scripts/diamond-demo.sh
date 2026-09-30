@@ -82,7 +82,13 @@ echo "════════ 4. DIAMOND: consumer depends on alpha+beta by sem
   rm -rf node_modules pnpm-lock.yaml
   # --ignore-workspace: consumer is nested under the main pnpm workspace; without
   # this pnpm grabs the parent root and installs nothing for the consumer.
-  pnpm install --ignore-workspace --config.confirm-modules-purge=false 2>&1 | tail -5
+  # --config.minimum-release-age=0: the consumer installs alpha/beta/widget minutes
+  # after this run published them — pnpm 12's default minimum-release-age gate would
+  # reject the fresh publish, and --ignore-workspace also ignores a local
+  # pnpm-workspace.yaml, so the relax must ride the command line here. (The override
+  # root in §5 gets the same relax via its scaffolded pnpm-workspace.yaml.)
+  pnpm install --ignore-workspace --config.confirm-modules-purge=false \
+    --config.minimum-release-age=0 2>&1 | tail -5
   echo "--- pnpm why @ejc3/widget (two versions via the diamond) ---"
   pnpm why @ejc3/widget 2>&1 | grep -E 'widget|alpha|beta' | head -20 || true
   echo "--- widget versions materialized in the store ---"

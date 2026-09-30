@@ -18,6 +18,7 @@ import { spawnSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { appPkgFromDisk } from "./_app-name.mjs";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 // The bare temp workspace has no turbo of its own; drive it with the repo's turbo.
@@ -93,11 +94,23 @@ function setup() {
       { cwd: DIR },
     );
   }
-  writeFileSync(join(DIR, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+  writeFileSync(
+    join(DIR, "pnpm-workspace.yaml"),
+    // ignoreScripts + minimumReleaseAge: pnpm 12's fail-closed defaults relaxed
+    // identically for every scaffold (pnpm 10 accepts both keys) — see the root
+    // pnpm-workspace.yaml comment.
+    'packages:\n  - "apps/*"\n  - "packages/*"\nignoreScripts: true\nminimumReleaseAge: 0\n',
+  );
   writeFileSync(
     join(DIR, "package.json"),
-    JSON.stringify({ name: "focus-bench", private: true, packageManager: `pnpm@${PNPM_VER}` }) +
-      "\n",
+    // packageManager: the _pins.mjs pin, not an ambient probe — corepack / pnpm's own
+    // launcher resolve pnpm per-tree from this field, so ambient state never decides
+    // which pnpm this bench's installs measure.
+    JSON.stringify({
+      name: "focus-bench",
+      private: true,
+      packageManager: `pnpm@${PNPM_VERSION}`,
+    }) + "\n",
   );
   // turbo + base tsconfig are root configs generate.mjs doesn't emit into a bare dir
   for (const f of ["turbo.json", "tsconfig.base.json"]) {
@@ -115,11 +128,13 @@ function closure(app) {
   return pkgs.filter((p) => p.startsWith("@demo/"));
 }
 
-const PNPM_VER = sh("pnpm", ["--version"]).trim();
 const appW = String(APPS).length;
 const targetDir = `app-${String(Math.floor(APPS / 2)).padStart(appW, "0")}`;
 
 setup();
+// probed from the scaffold, so the recorded version is what corepack actually
+// resolves through the packageManager pin the installs below run under
+const PNPM_VER = sh("pnpm", ["--version"], { cwd: DIR }).trim();
 // name from the generated manifest, not by index formula (oven-sh/bun#36386 rename)
 const target = appPkgFromDisk(DIR, targetDir);
 const out = {

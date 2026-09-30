@@ -47,6 +47,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 // is-odd has long-stable ancient versions; 1.0.0 = "stable" channel, 3.0.0 = "next" channel.
 const DEP = "is-odd";
@@ -121,6 +122,14 @@ if (BUN_VER !== BUN_PINNED)
   fail(
     `bun ${BUN_VER} != ${BUN_PINNED}: the recorded source line refs are pinned to ${BUN_SOURCE_TAG}; re-verify them before recording another version.`,
   );
+// The pnpm legs must measure the pinned pnpm 12 (scripts/_pins.mjs): every scaffold
+// root carries a `packageManager` pin (below), which corepack and pnpm's own launcher
+// resolve per-tree; this asserts the pnpm that answers here IS that pin — a standalone
+// pnpm binary would silently ignore the field.
+if (PNPM_VER !== PNPM_VERSION)
+  fail(
+    `pnpm ${PNPM_VER} != pinned ${PNPM_VERSION} (scripts/_pins.mjs) — run through corepack or a pnpm launcher that honors packageManager, so the scaffolds' pin decides the measured version.`,
+  );
 
 const ROOT = mkdtempSync(join(tmpdir(), "wave-rollout-"));
 process.on("exit", () => rmSync(ROOT, { recursive: true, force: true }));
@@ -128,9 +137,16 @@ process.on("SIGINT", () => process.exit(130));
 process.on("SIGTERM", () => process.exit(143));
 
 // Scaffold helper: write files under a named scaffold dir, always with a public-registry .npmrc.
+// Every scaffold ROOT manifest gets an explicit `packageManager: pnpm@<pin>`: corepack
+// and pnpm's own launcher resolve pnpm per-tree from that field, so ambient state must
+// never decide which pnpm a bare `pnpm` run in a scaffold measures (bun ignores the field;
+// member manifests under subdirs need no pin — resolution walks up to this root).
 function scaffold(name, files) {
   const base = join(ROOT, name);
   const all = { ".npmrc": `registry=${REGISTRY}\n`, ...files };
+  const rootPkg = all["package.json"];
+  if (rootPkg && typeof rootPkg === "object" && !rootPkg.packageManager)
+    all["package.json"] = { ...rootPkg, packageManager: `pnpm@${PNPM_VERSION}` };
   for (const [rel, content] of Object.entries(all)) {
     const p = join(base, rel);
     mkdirSync(join(p, ".."), { recursive: true });

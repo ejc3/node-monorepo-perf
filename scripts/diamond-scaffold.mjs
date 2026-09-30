@@ -137,9 +137,13 @@ const ovr = join(ROOT, "override");
 mkdirSync(ovr, { recursive: true });
 writeFileSync(
   join(ovr, "pnpm-workspace.yaml"),
+  // minimumReleaseAge 0: the driver installs @ejc3/alpha + @ejc3/beta here minutes
+  // after publishing them — pnpm 12's default minimum-release-age supply-chain gate
+  // would reject the fresh publish.
   `packages:
   - "packages/*"
   - "consumer"
+minimumReleaseAge: 0
 `,
 );
 writeFileSync(

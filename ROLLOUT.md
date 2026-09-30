@@ -34,8 +34,9 @@ catalog value) — pick it only if you want those and will pay the install cost.
 
 ### Adoption safety
 
-**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 10, temp scaffolds): two bun gaps (a trusted allowlist runs
-some registry `postinstall` scripts without opt-in; no fail-closed strict-peer knob), one pnpm edge (phantom import
+**Adoption safety** (`bench/bun-safety-bench.json`, bun 1.3.14 vs pnpm 12, temp scaffolds): two bun gaps (a trusted allowlist runs
+some registry `postinstall` scripts without opt-in, where pnpm blocks the build and fails the install outright —
+`ERR_PNPM_IGNORED_BUILDS`; no fail-closed strict-peer knob), one pnpm edge (phantom import
 resolves under bun in single-package projects, parity in workspaces), otherwise parity including `@ejc3` CodeArtifact
 auth.
 

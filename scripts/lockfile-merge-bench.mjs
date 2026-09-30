@@ -20,6 +20,7 @@
 import { spawnSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const [a, l] = (process.argv[2] || "200:50").split(":");
@@ -99,10 +100,13 @@ function setup() {
   // that materializes catalog:->concrete for the bun/deploy path and would defeat
   // the catalog test.) Copy the repo's pnpm-workspace.yaml so catalog: resolves.
   copyFileSync(join(REPO, "pnpm-workspace.yaml"), join(DIR, WS));
-  const pkgVer = sh("pnpm", ["--version"]).trim();
   writeFileSync(
     join(DIR, "package.json"),
-    JSON.stringify({ name: "lf-bench", private: true, packageManager: `pnpm@${pkgVer}` }) + "\n",
+    // packageManager: the _pins.mjs pin, not an ambient probe — corepack / pnpm's own
+    // launcher resolve pnpm per-tree from this field, so this is what makes every
+    // `pnpm` run in the scaffold the pinned version regardless of ambient state.
+    JSON.stringify({ name: "lf-bench", private: true, packageManager: `pnpm@${PNPM_VERSION}` }) +
+      "\n",
   );
   writeFileSync(join(DIR, ".gitignore"), "node_modules\n");
   lockfileOnly();
