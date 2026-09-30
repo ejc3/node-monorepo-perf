@@ -83,7 +83,13 @@ export function scaffoldWorkspace(
       "--catalog",
       join(repoRoot, "pnpm-workspace.yaml"),
     ]);
-  writeFileSync(join(dir, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+  writeFileSync(
+    join(dir, "pnpm-workspace.yaml"),
+    // ignoreScripts + minimumReleaseAge: pnpm 12's fail-closed defaults relaxed
+    // identically for every scaffold (pnpm 10 accepts both keys; bun/yarn ignore
+    // this file) — see the root pnpm-workspace.yaml comment.
+    'packages:\n  - "apps/*"\n  - "packages/*"\nignoreScripts: true\nminimumReleaseAge: 0\n',
+  );
   writeFileSync(
     join(dir, "package.json"),
     JSON.stringify({ name, private: true, workspaces: ["apps/*", "packages/*"] }) + "\n",

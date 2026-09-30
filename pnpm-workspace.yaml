@@ -1,3 +1,12 @@
+# pnpm 12 fail-closed defaults, relaxed identically for every bench run (pnpm 10
+# accepts both keys): dependency build scripts never run (hermetic installs; without
+# this pnpm 12 exits 1 with ERR_PNPM_IGNORED_BUILDS on the blocked sharp build where
+# pnpm 10 warned and exited 0), and the supply-chain minimum-release-age gate is off
+# (its trigger depends on registry publish times relative to the run, which would
+# make bench results time-dependent; ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION).
+ignoreScripts: true
+minimumReleaseAge: 0
+
 packages:
   - "apps/*"
   - "packages/*"
