@@ -17,7 +17,7 @@ The semantic static gate. `node --check` / `bash -n` are syntax-only; tsc is sem
 - **Workspace:** `turbo run typecheck`, cached, scoped with `--filter` / `--affected`.
 - **Faster:** `tsgo --noEmit` (native port), ~12x on a single 3,000-module program — [TYPECHECKERS.md](TYPECHECKERS.md).
 
-Lint runs as a separate task, not inside `next build` (wasted per-build work at thousands of apps): oxlint ([TOOLING.md](TOOLING.md#lint-eslint-vs-oxlint), 63.3× ESLint on its 800-file synthetic corpus), ESLint for unported rules.
+Lint runs as a separate task, not inside `next build` (wasted per-build work at thousands of apps): oxlint ([TOOLING.md](TOOLING.md#lint-eslint-vs-oxlint), 50.5× ESLint on its 800-file synthetic corpus), ESLint for unported rules.
 
 ## 3. Review Before Commit
 

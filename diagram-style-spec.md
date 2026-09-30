@@ -56,7 +56,7 @@ captions.
    isolated (symlink store) / PnP (no node_modules, .pnp.cjs table). Data:
    install-bench + yarn-fleet (sizes/entries).
 7. **Freshness gate loop** (TYPECHECKERS): cycle diagram — codegen → git status →
-   green/red fork, with measured costs on edges (3.8s @10k, 12.8s @30k). Data:
+   green/red fork, with measured costs on edges (3.0s @10k, 9.5s @30k). Data:
    relay-codegen-bench.json.
 8. **Remote cache economics** (LIMITS): seed-once/restore-many fan; edge labels from
    ci-cache-bench (already partly charted — restyle to match).

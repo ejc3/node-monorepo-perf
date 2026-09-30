@@ -90,5 +90,5 @@ allowlist explicitly (`pnpm.onlyBuiltDependencies` / `trustedDependencies`) if n
 
 Maya changes by lockfile, Sam by release, Priya across both. The shared-workspace model
 ([README.md](README.md), [FEASIBILITY.md](FEASIBILITY.md)) flips both pains — the lib dev
-sees every app break before merge (whole-workspace gate 1.3s at 4,000 apps,
+sees every app break before merge (whole-workspace gate 1.6s at 4,000 apps,
 `bench/optimal-gate-bench.json`), the app dev never waits — at the cost that all ride HEAD.

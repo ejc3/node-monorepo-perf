@@ -58,23 +58,23 @@ This is §3's blast radius from the cache's side: scope an edit and the cache ab
 
 ## Editor and Language Server
 
-Before answering a keystroke, the language server loads a project. Racing `tsserver` (VS Code's) vs `tsgo --lsp` (the native compiler's LSP; since GA it ships as `typescript@7`'s native `tsc --lsp`), opening one app's `page.tsx`; cross-package nav resolves to source build-free (tsconfig `paths` → `packages/*/src`), pulling the app's real closure (65 libs / 1,123 files at 4,000:300) into the server (`bench/editor-loop-bench.json`; tsgo `7.0.0-dev.20260614.1`, TypeScript 5.9.3; 64-core box):
+Before answering a keystroke, the language server loads a project. Racing `tsserver` (VS Code's) vs `tsgo --lsp` (the native compiler's LSP; since GA it ships as `typescript@7`'s native `tsc --lsp`), opening one app's `page.tsx`; cross-package nav resolves to source build-free (tsconfig `paths` → `packages/*/src`), pulling the app's real closure (65 libs / 1,123 files at 4,000:300) into the server (`bench/editor-loop-bench.json`; tsgo 7.0.2, typescript 6.0.3's tsserver; 192-core c8g.48xlarge):
 
 | metric                        | tsserver | tsgo LSP | ratio |
 | ----------------------------- | -------- | -------- | ----- |
-| cold open (spawn → first def) | 1,620ms  | 86ms     | 18.8× |
-| peak RSS                      | 380MB    | 275MB    | 1.4×  |
+| cold open (spawn → first def) | 1,563ms  | 113ms    | 13.8× |
+| peak RSS                      | 414MB    | 309MB    | 1.3×  |
 | warm go-to-def                | 1ms      | 0ms      | —     |
-| warm hover                    | 1ms      | 2ms      | —     |
+| warm hover                    | 1ms      | 1ms      | —     |
 
-(4,000 apps / 300 libs.) tsgo loads the same closure ~19× faster and with ~30% less memory; once warm both answer in ≤2ms. Both resolve the cross-package definition to the exact lib source with zero fatal diagnostics. (Completion is recorded by item count, not scored: tsgo 6,247 items vs tsserver 1,009 at the same position.)
+(4,000 apps / 300 libs.) tsgo loads the same closure ~14× faster and with ~25% less memory; once warm both answer in ≤2ms. Both resolve the cross-package definition to the exact lib source with zero fatal diagnostics. (Completion is recorded by item count, not scored: tsgo 6,258 items vs tsserver 1,066 at the same position.)
 
 **It is O(closure), not O(repo)**, shown from both sides:
 
-- **Apps grow, closure fixed** (300 libs; 500 → 4,000 apps): closure stays 65 libs / 1,123 files; cost flat (tsserver 1,619 → 1,620ms, tsgo 84 → 86ms). 8× the repo, ~1.0× the cost.
-- **Closure grows** (2,000 apps; 100 → 300 libs): closure grows 628 → 1,123 files; cost rises (tsserver 1,393 → 1,614ms, 355 → 380MB; tsgo 80 → 84ms, 238 → 272MB).
+- **Apps grow, closure fixed** (300 libs; 500 → 4,000 apps): closure stays 65 libs / 1,123 files; cost near-flat (tsserver 1,325 → 1,563ms, tsgo 113 → 113ms). 8× the repo, ≤1.2× the cost.
+- **Closure grows** (2,000 apps; 100 → 300 libs): closure grows 628 → 1,123 files; memory rises (tsserver 389 → 413MB; tsgo 272 → 282MB) and cold open rises modestly (tsserver 1,324 → 1,328ms, tsgo 98 → 104ms).
 
-The lever is the same: scope the open to one app's closure; a faster server (tsgo) cuts the one cost that scales by ~19×. Opening the *whole* workspace at 20k still means a repo-sized program; where that's unavoidable, the daemons are measured to 1,000,000 modules on a standalone generated layered program (not this workspace) in [TYPECHECKERS.md](TYPECHECKERS.md#the-daemons-and-codegen) (`bench/lsp-scale-bench.json`): tsgo `--lsp` opens 1M in 17.5s and serves a 2.2s squiggle at 66.1GB.
+The lever is the same: scope the open to one app's closure; a faster server (tsgo) cuts the one cost that scales by ~14×. Opening the *whole* workspace at 20k still means a repo-sized program; where that's unavoidable, the daemons are measured to 1,000,000 modules on a standalone generated layered program (not this workspace) in [TYPECHECKERS.md](TYPECHECKERS.md#the-daemons-and-codegen) (`bench/lsp-scale-bench.json`): tsgo `--lsp` opens 1M in 17.5s and serves a 2.2s squiggle at 66.1GB.
 
 ## Open Questions
 

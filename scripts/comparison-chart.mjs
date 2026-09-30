@@ -338,7 +338,7 @@ const SECTIONS = [
       ["type-aware", { eslint: LB.typeAware.eslint.ms, oxlint: LB.typeAware.oxlint.ms }],
     ],
     source: "bench/lint-bench.json",
-    note: `ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a 64-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha). Versions per the JSON: oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
+    note: `ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a ${need(LB, "cores", "bench/lint-bench.json")}-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha). Versions per the JSON: oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
   },
 ];
 
@@ -389,10 +389,15 @@ T.push(
   ),
 );
 T.push(
-  txt(PAD, 80, `Machine: ${PAR.cores}-core host. Every number traces to the cited bench JSON.`, {
-    size: 12.5,
-    fill: MUTED,
-  }),
+  txt(
+    PAD,
+    80,
+    `Machine: ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core). Every number traces to the cited bench JSON.`,
+    {
+      size: 12.5,
+      fill: MUTED,
+    },
+  ),
 );
 {
   const { parts, endX } = legendRow(PAD, 102, rampLegendItems());

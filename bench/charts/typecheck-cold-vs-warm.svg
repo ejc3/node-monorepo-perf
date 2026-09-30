@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache — 4,000 apps + 300 libs — Turborepo local cache; whole-program tsgo checks the same tree in 1.2s (no cache)" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache — 4,000 apps + 300 libs — Turborepo local cache; whole-program tsgo: 1.5s on 192 cores (same generator shape, no cache)" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -17,7 +17,7 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 }</style>
 <rect width="760" height="420" fill="#ffffff"/>
 <text x="70" y="34" font-size="18" fill="#1c2330" font-weight="700">Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache</text>
-<text x="70" y="54" font-size="12.5" fill="#6b7885">4,000 apps + 300 libs — Turborepo local cache; whole-program tsgo checks the same tree in 1.2s (no cache)</text>
+<text x="70" y="54" font-size="12.5" fill="#6b7885">4,000 apps + 300 libs — Turborepo local cache; whole-program tsgo: 1.5s on 192 cores (same generator shape, no cache)</text>
 <line x1="70" y1="330" x2="736" y2="330" stroke="#e4e8ec"/>
 <rect x="88" y="86" width="120" height="244" rx="4" fill="rgb(176,58,54)"/>
 <text x="148" y="78" font-size="13" fill="#1c2330" font-weight="600" text-anchor="middle">233s</text>

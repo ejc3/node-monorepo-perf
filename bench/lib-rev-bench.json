@@ -1,0 +1,111 @@
+{
+  "apps": 4000,
+  "libs": 400,
+  "modulesPerLib": 16,
+  "universal": 1,
+  "foundationLib": "@demo/lib-001",
+  "leafLib": "@demo/lib-400",
+  "pnpm": "12.8.1",
+  "turbo": "2.9.18",
+  "tsgo": "Version 7.0.2",
+  "node": "v22.23.3",
+  "blastRadius": {
+    "allPackages": 4400,
+    "foundationClosure": 4400,
+    "leafClosure": 41
+  },
+  "workspaceRev": {
+    "lockfileLines": 169119,
+    "lockfileIdentical": true,
+    "installNeeded": false,
+    "gate": {
+      "tsc": {
+        "ms": 89209,
+        "ran": 4800,
+        "total": 4800
+      },
+      "tsgo": {
+        "ms": 57025,
+        "ran": 4800,
+        "total": 4800
+      },
+      "wallClockSpeedup": 1.56,
+      "note": "wall-clock ratio; both gates share the tsc ^build step, so this is build-diluted, not the pure-checker speedup"
+    }
+  },
+  "breakingChange": {
+    "change": "foundation exported function gains a required parameter",
+    "tsc": {
+      "caught": true,
+      "ms": 87359,
+      "failed": 4798,
+      "total": 4800,
+      "appTypecheckFailures": 4000,
+      "sampleError": "error TS2554: Expected 2 arguments, but got 1."
+    },
+    "tsgo": {
+      "caught": true,
+      "ms": 48376,
+      "failed": 4798,
+      "total": 4800,
+      "appTypecheckFailures": 4000,
+      "sampleError": "error TS2554: Expected 2 arguments, but got 1."
+    }
+  },
+  "leafRev": {
+    "leafLib": "@demo/lib-400",
+    "gate": {
+      "ms": 13186,
+      "ran": 237,
+      "total": 237
+    }
+  },
+  "tscVsTsgo": {
+    "libProgramFiles": 6800,
+    "tscMs": 3220,
+    "tsgoMs": 500,
+    "speedup": 6.44,
+    "tsc": {
+      "medianMs": 3220,
+      "minMs": 3213,
+      "samples": [
+        3213,
+        3229,
+        3220
+      ]
+    },
+    "tsgo": {
+      "medianMs": 500,
+      "minMs": 498,
+      "samples": [
+        498,
+        500,
+        526
+      ]
+    },
+    "note": null
+  },
+  "npmFanout": {
+    "appConsumers": 4000,
+    "libConsumers": 399,
+    "catalog": {
+      "workspaceYamlLinesChanged": 1,
+      "manifestsChanged": 0
+    },
+    "perPin": {
+      "manifestsChanged": 4399
+    },
+    "note": "re-resolve/install time + lockfile churn after such a bump: see install-modes-bench (catalog bump) and lockfile-merge-bench"
+  },
+  "summary": {
+    "foundationRevReruns": 4800,
+    "leafRevReruns": 237,
+    "workspaceRevTouchesLockfile": false,
+    "workspaceRevNeedsInstall": false,
+    "gateTscMs": 89209,
+    "gateTsgoMs": 57025,
+    "gateWallClockSpeedup": 1.56,
+    "breakingChangeCaught": true,
+    "pureCheckerSpeedup": 6.44
+  }
+}
