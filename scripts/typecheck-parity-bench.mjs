@@ -57,8 +57,14 @@ const BUN = existsSync(join(homedir(), ".bun/bin/bun")) ? join(homedir(), ".bun/
 // rather than hardcoding literals, so the vet measures the same checker the optimal gate
 // installs (a hardcoded version silently drifts when the repo bumps typescript).
 const rootDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies || {};
-const TS7_VER = rootDeps.typescript || "7.0.2"; // the native compiler (formerly tsgo)
-const TS6_VER = rootDeps.typescript6 || "npm:typescript@6.0.3"; // the JS oracle
+const TS7_VER = rootDeps.typescript; // the native compiler (formerly tsgo)
+const TS6_VER = rootDeps.typescript6; // the JS oracle
+if (!TS7_VER || !TS6_VER) {
+  console.error(
+    `root package.json no longer pins typescript / typescript6 (got typescript=${TS7_VER}, typescript6=${TS6_VER})`,
+  );
+  process.exit(1);
+}
 const sh = (c, o = {}) =>
   execSync(c, { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28, ...o });
 

@@ -57,8 +57,9 @@ for (const [label, p] of [
     process.exit(1);
   }
 }
-assertTs7(execSync(`${TSGO} --version`, { encoding: "utf8" }));
-assertTs6(execSync(`${TSC} --version`, { encoding: "utf8" }));
+// once, untimed: assert each resolved checker's major and keep the version string
+const TSGO_VERSION = assertTs7(execSync(`${TSGO} --version`, { encoding: "utf8" }));
+const TSC_VERSION = assertTs6(execSync(`${TSC} --version`, { encoding: "utf8" }));
 
 // A kill (OOM/panic/segfault) exits 128+signo through the shell; treat any such exit as a crash so a
 // killed checker never reads as a clean pass/fail. A checker exiting non-zero on type/emit errors is
@@ -80,8 +81,6 @@ function run(cmd, cwd) {
     throw new Error(`crash in \`${cmd}\` (exit ${code}):\n${out.slice(-800)}`);
   return { code, out };
 }
-const ver = (p) => execSync(`${p} --version`, { encoding: "utf8" }).trim();
-
 // --- scaffold a throwaway workspace ----------------------------------------------------------------
 const WORK = mkdtempSync(join(tmpdir(), "decl-emit-caveat-"));
 process.on("exit", () => rmSync(WORK, { recursive: true, force: true }));
@@ -323,7 +322,7 @@ const result = {
     "TS2742); the boundary is declaration off-vs-on, not noEmit-vs-emit. " +
     "The load-bearing fix is promoting the transitive type to a directly-resolvable dependency; the " +
     "explicit annotation TS2883 suggests is insufficient alone here (it cannot resolve the nested type).",
-  versions: { tsgo: ver(TSGO), tsc: ver(TSC), node: process.version },
+  versions: { tsgo: TSGO_VERSION, tsc: TSC_VERSION, node: process.version },
   gate: {
     config: "declaration:false, --noEmit (@demo/*->src whole program — the optimal gate)",
     tsgo: { exit: gateTsgo.code, errors: errs(gateTsgo.out) },

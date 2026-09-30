@@ -75,8 +75,11 @@ const tsgo = tsNativeShim(ROOT);
 if (!existsSync(tsc)) {
   throw new Error(`tsc not found at ${tsc} — run \`pnpm install\` at the repo root first`);
 }
-assertTs6(execSync(`node ${tsc} --version`, { encoding: "utf8" }));
-if (existsSync(tsgo)) assertTs7(execSync(`node ${tsgo} --version`, { encoding: "utf8" }));
+// once, untimed: assert each resolved checker's major and keep the version string
+const tscVersion = assertTs6(execSync(`node ${tsc} --version`, { encoding: "utf8" }));
+const tsgoVersion = existsSync(tsgo)
+  ? assertTs7(execSync(`node ${tsgo} --version`, { encoding: "utf8" }))
+  : null;
 const cfg = join(DIR, "tsconfig.json");
 const run = (bin) => {
   const t = process.hrtime.bigint();
@@ -111,8 +114,8 @@ const out = {
   modules: N,
   samples: SAMPLES,
   versions: {
-    tsc: execSync(`node ${tsc} --version`, { encoding: "utf8" }).trim(),
-    tsgo: tsgoResult ? execSync(`node ${tsgo} --version`, { encoding: "utf8" }).trim() : null,
+    tsc: tscVersion,
+    tsgo: tsgoVersion,
   },
   tscMs: tscResult.medianMs,
   tsgoMs: tsgoResult ? tsgoResult.medianMs : null,

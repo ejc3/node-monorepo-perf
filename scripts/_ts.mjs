@@ -10,22 +10,15 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
-import { pathToFileURL } from "node:url";
 
-// typescript@7's node shim (bin/tsc → lib/tsc.js → the native binary). Spawn
-// as `node <shim>` — like-for-like with the old `.bin/tsgo` node shim the
-// existing records were measured through.
+// typescript@7's node shim (bin/tsc). On node >=22.15 the shim EXECVE-REPLACES
+// the node process with the native binary, so a process spawned as
+// `node <shim>` BECOMES the checker itself — same pid, no wrapper-with-child
+// geometry, and GNU-time/RSS attribution is direct. Like-for-like with the old
+// `.bin/tsgo` node shim the existing records were measured through, which
+// exec'd the same way.
 export function tsNativeShim(root) {
   return join(root, "node_modules", "typescript", "bin", "tsc");
-}
-
-// The raw native binary, resolved by typescript@7's official resolver
-// (lib/getExePath.js, an ESM default export returning the absolute exe path).
-// For the benches that exec the binary directly (LSP servers, scale probes).
-export async function tsNativeExe(root) {
-  const url = pathToFileURL(join(root, "node_modules", "typescript", "lib", "getExePath.js"));
-  const mod = await import(url.href);
-  return mod.default();
 }
 
 // Sync mirror of getExePath's installed-package resolution, for call sites

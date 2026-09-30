@@ -351,7 +351,14 @@ export default defineConfig({ lint: { options: { typeAware: true, typeCheck: tru
   }
   const tsgoWhole = sampled(
     "tsgo --noEmit -p tsconfig.whole.json (one program)",
-    () => run("node", [tsNativeShim(dir), "--noEmit", "-p", "tsconfig.whole.json"], { cwd: dir }),
+    // Through `pnpm exec`, matching the launcher geometry of the vp/oxlint rows
+    // above AND of the committed record (measured as `pnpm exec tsgo` = pnpm
+    // launcher + node shim). A direct `node <shim>` would shave the ~0.36s pnpm
+    // launcher cost off this one row and bias the comparison.
+    () =>
+      run("pnpm", ["exec", "node", tsNativeShim(dir), "--noEmit", "-p", "tsconfig.whole.json"], {
+        cwd: dir,
+      }),
     (r) => {
       if (r.code !== 0) fail(`tsgo whole-program exited ${r.code}:\n${r.out.slice(-600)}`);
     },

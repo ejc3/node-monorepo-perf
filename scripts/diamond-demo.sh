@@ -14,7 +14,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIR="$ROOT/examples/diamond"
-TSC="$ROOT/node_modules/.bin/tsc"
+# The TS6 JS tsc by explicit path — .bin/tsc is a ts7/ts6 bin collision (install-order dependent)
+TSC="$ROOT/node_modules/typescript6/bin/tsc"
 DOMAIN=ejc3; OWNER=928413605543; REPO=npm; REGION=us-west-2
 EP="https://${DOMAIN}-${OWNER}.d.codeartifact.${REGION}.amazonaws.com/npm/${REPO}/"
 HOST="${DOMAIN}-${OWNER}.d.codeartifact.${REGION}.amazonaws.com/npm/${REPO}/"
@@ -56,7 +57,7 @@ echo "wrote scoped .npmrc (registry=$EP)"
 echo "════════ pre-delete any prior versions (publish fresh) ════════"
 for p in widget alpha beta; do del_all_versions "$p"; done
 
-build() { ( cd "$DIR/$1"; [ "${2:-}" = withdeps ] && npm install --omit=dev --no-package-lock --userconfig "$NPMRC" >/dev/null 2>&1; "$TSC" ); }
+build() { ( cd "$DIR/$1"; [ "${2:-}" = withdeps ] && npm install --omit=dev --no-package-lock --userconfig "$NPMRC" >/dev/null 2>&1; node "$TSC" ); }
 pub() {
   ( cd "$DIR/$1"
     local t0 t1; t0=$(date +%s%3N)
@@ -105,7 +106,7 @@ echo "════════ 5. OVERRIDE: flip widget to workspace: → diamon
 rm -rf "$DIR/override/packages" "$DIR/override/consumer"
 mkdir -p "$DIR/override/packages"
 cp -r "$DIR/registry/widget-v2" "$DIR/override/packages/widget"   # local @ejc3/widget@2.0.0
-( cd "$DIR/override/packages/widget"; "$TSC" )
+( cd "$DIR/override/packages/widget"; node "$TSC" )
 cp -r "$DIR/consumer" "$DIR/override/consumer"; rm -rf "$DIR/override/consumer/node_modules" "$DIR/override/consumer/pnpm-lock.yaml" "$DIR/override/consumer/.npmrc"
 ( cd "$DIR/override"
   rm -rf node_modules pnpm-lock.yaml packages/widget/node_modules

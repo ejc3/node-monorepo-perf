@@ -203,7 +203,7 @@ const TSGO = (() => {
     fail(`native tsc (typescript@7) not resolvable: ${e.message}`);
   }
 })();
-assertTs7(spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout);
+const TSGO_VERSION = assertTs7(spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout);
 // each tree needs relay-runtime resolvable for the artifact/type imports
 for (const dir of Object.values(trees)) {
   mkdirSync(join(dir, "node_modules"), { recursive: true });
@@ -277,7 +277,7 @@ const out = {
   samples: SAMPLES,
   versions: {
     relayCompiler: relayVersion,
-    tsgo: spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout.trim(),
+    tsgo: TSGO_VERSION,
     flow: flowVersion,
     node: process.version,
   },

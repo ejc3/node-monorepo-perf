@@ -197,11 +197,11 @@ const TSGO = (() => {
 })();
 const tsgoInvocation =
   TSGO === tsgoShim
-    ? "node shim (native platform package not resolvable; the shim spawns the native binary)"
+    ? "node shim (native platform package not resolvable; on node >=22.15 the shim execve-replaces the node process with the native binary, so the timed process still becomes the checker and GNU-time attribution stays direct)"
     : "native binary (direct)";
-if (spawnSync(TSGO, ["--version"], { encoding: "utf8" }).status !== 0)
-  fail(`resolved native tsc does not run: ${TSGO}`);
-assertTs7(spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout);
+const tsgoVerRun = spawnSync(TSGO, ["--version"], { encoding: "utf8" });
+if (tsgoVerRun.status !== 0) fail(`resolved native tsc does not run: ${TSGO}`);
+const TSGO_VERSION = assertTs7(tsgoVerRun.stdout);
 assertTs6(spawnSync(TSC, ["--version"], { encoding: "utf8" }).stdout);
 
 // FLOW_BIN: benchmark a specific flow binary (e.g. a build of flow main with the
@@ -1097,8 +1097,8 @@ function benchFlow(n, skipServer = false) {
 // ---- sweep -----------------------------------------------------------------------------------------
 const out = {
   versions: {
-    // typescript@7's native tsc (formerly tsgo), read from the resolved binary itself
-    tsgo: spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout.trim(),
+    // typescript@7's native tsc (formerly tsgo), asserted once from the resolved binary
+    tsgo: TSGO_VERSION,
     // the JS oracle: the typescript6 alias (TypeScript 6, the last JS release)
     typescript: JSON.parse(
       readFileSync(join(REPO, "node_modules", "typescript6", "package.json"), "utf8"),
