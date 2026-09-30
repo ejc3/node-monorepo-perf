@@ -4,13 +4,13 @@ Each package in [the workspace under test](README.md#the-workspace-under-test) r
 
 ## tsc vs tsgo
 
-`scripts/typecheck-bench.mjs` times `--noEmit` over one N-module program (median of five runs) for tsc and tsgo (the native Go port, `@typescript/native-preview`).
+`scripts/typecheck-bench.mjs` times `--noEmit` over one N-module program (median of five runs) for tsc and tsgo (the native compiler, shipped since GA as `typescript@7` with a native `tsc` binary; the tsc column is TypeScript 6, the last JS release, installed as the `typescript6` alias — the oracle).
 
 | modules | tsc | tsgo | speedup |
 |---|---|---|---|
-| 3,000 | 3,101ms | 255ms | 12.2x |
+| 3,000 | 3,188ms | 265ms | 12.0x |
 
-Consistent with Microsoft's ~10x claim. `tsgo --noEmit` drops into the per-package Turborepo task for modern configs. Beta as of 2026-06 (`7.0.0-dev.*` nightlies, no GA), it drops some legacy config (bare `baseUrl`, `moduleResolution: node10`, older `target`s) and has no plugin API. Pin a nightly, keep tsc as the CI fallback.
+Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the per-package Turborepo task for modern configs. TypeScript 7 is GA: it ships as `typescript` (this repo pins `7.0.2` exactly) with a native `tsc` — the tsgo name is retired, though this repo keeps `tsgo` as the task/record label. It drops some legacy config (bare `baseUrl`, `moduleResolution: node10`, older `target`s), has no plugin API, and ships no tsserver. TypeScript 6 is the last JS release; keep it installed (here as the `typescript6` alias) for tsserver and as the oracle checker. With both majors installed, `node_modules/.bin/tsc` is ambiguous — every bench resolves both checkers by direct path (`scripts/_ts.mjs`) and asserts the version before timing.
 
 ## Behavior at a Million Files: tsgo vs tsc vs Flow
 
@@ -67,7 +67,7 @@ Three findings. tsgo wins the batch rows (1.3× on the check, 1.5× on the batch
 
 ## Ranked Levers
 
-1. tsgo (`@typescript/native-preview`): ~10x per check, drop-in; pin a nightly, keep a fallback.
+1. tsgo (`typescript@7`'s native `tsc`): ~10x per check, drop-in; pin the exact version, keep TypeScript 6 (the `typescript6` alias) as the oracle and tsserver.
 2. Cheap config: `skipLibCheck: true`; `incremental: true` with `tsBuildInfoFile` in Turborepo `outputs`; `"types": []`; `turbo --affected`.
 3. Do not adopt TS project references with Turborepo (a second config + cache layer; `composite` forces `.d.ts` emit on every package, heavier than `--noEmit`).
 

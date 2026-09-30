@@ -45,6 +45,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { tsNativeShim, ts6Tsc, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
 const m = spec.match(/^(\d+):(\d+)$/);
@@ -207,9 +208,7 @@ const result = {
   leafLib: libPkg(LEAF),
   pnpm: execSync("pnpm --version", { encoding: "utf8" }).trim(),
   turbo: execSync("pnpm exec turbo --version", { cwd: ROOT, encoding: "utf8" }).trim(),
-  tsgo: execSync(`${join(ROOT, "node_modules", ".bin", "tsgo")} --version`, {
-    encoding: "utf8",
-  }).trim(),
+  tsgo: assertTs7(execSync(`node ${tsNativeShim(ROOT)} --version`, { encoding: "utf8" })),
   node: process.version,
 };
 const restoreGi = enterSourceVisible(ROOT);
@@ -370,9 +369,9 @@ try {
           skipLibCheck: true,
           esModuleInterop: true,
           isolatedModules: true,
-          // No baseUrl and a relative path pattern: tsgo (TS7) removed baseUrl
-          // (TS5102) and rejects non-relative path values (TS5090); this form
-          // resolves @demo/* to source in both tsc 5.x and tsgo 7.x.
+          // No baseUrl and a relative path pattern: the native TS7 checker removed
+          // baseUrl (TS5102) and rejects non-relative path values (TS5090); this
+          // form resolves @demo/* to source in both the TS6 oracle and native TS7.
           paths: { "@demo/*": ["./packages/*/src/index.ts"] },
         },
         include: ["packages/*/src/**/*.ts"],
@@ -381,8 +380,11 @@ try {
       2,
     ),
   );
-  const tsc = join(ROOT, "node_modules", ".bin", "tsc");
-  const tsgo = join(ROOT, "node_modules", ".bin", "tsgo");
+  // Direct paths, spawned as `node <script>` (never .bin — `.bin/tsc` is a ts7/ts6
+  // collision at the root): tsc is the TypeScript 6 JS oracle, tsgo the native TS7 tsc.
+  const tsc = `node ${ts6Tsc(ROOT)}`;
+  const tsgo = `node ${tsNativeShim(ROOT)}`;
+  assertTs6(execSync(`${tsc} --version`, { encoding: "utf8" }));
   const errText = (e) => ((e.stdout || "") + (e.stderr || "")).toString() || e.message || "";
   let tscAgg = null;
   let tsgoAgg = null;
@@ -394,8 +396,10 @@ try {
     tscNote = `tsc failed on the lib program: ${errText(e).slice(-400)}`;
   }
   try {
-    tsgoAgg = existsSync(tsgo) ? aggregateTypecheck(tsgo) : null;
-    if (!tsgoAgg) tsgoNote = "tsgo binary not found";
+    if (existsSync(tsNativeShim(ROOT))) {
+      assertTs7(execSync(`${tsgo} --version`, { encoding: "utf8" }));
+      tsgoAgg = aggregateTypecheck(tsgo);
+    } else tsgoNote = "native tsc (typescript@7) not found";
   } catch (e) {
     tsgoNote = `tsgo failed on the lib program: ${errText(e).slice(-400)}`;
   }

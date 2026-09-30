@@ -7,9 +7,10 @@
 // whole repo (O(repo)) or just the opened app's dependency closure (O(closure))?
 //
 // Two servers, head-to-head, on the generated workspace at each scale:
-//   - tsserver  — `node typescript/lib/tsserver.js`, the classic server VS Code ships today
+//   - tsserver  — `node typescript6/lib/tsserver.js` (the TypeScript 6 alias; typescript@7
+//                 ships no tsserver), the classic server VS Code ships today
 //                 (its own Content-Length-framed command protocol).
-//   - tsgo LSP  — `tsgo --lsp --stdio`, the native-preview language server (LSP JSON-RPC).
+//   - tsgo LSP  — typescript@7's native binary with `--lsp --stdio` (LSP JSON-RPC).
 //
 // Cross-package resolution is to SOURCE. The generated libs publish their types from `dist`
 // (built by `tsc`), which an editor session does not build, so out of the box every `@demo/*`
@@ -95,6 +96,7 @@ import { resolve, join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 import { ensureCleanState } from "./clean-state.mjs";
+import { tsNativeExeSync, ts6Tsc, ts6Tsserver, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fail = (m) => {
@@ -147,8 +149,18 @@ const IS_SMOKE =
   RAW_CLOSURE_SCALES !== DEFAULT_CLOSURE_SCALES ||
   GEN_ENV.some((k) => process.env[k] != null);
 
-const TSSERVER = resolve(REPO, "node_modules/typescript/lib/tsserver.js");
-const TSGO = resolve(REPO, "node_modules/.bin/tsgo");
+// tsserver comes from the typescript6 alias (TypeScript 6 is the last JS release and
+// typescript@7 ships no tsserver.js); the native side is typescript@7's raw native
+// binary, resolved through its official getExePath resolver (never .bin/PATH — the
+// repo installs both majors, so `.bin/tsc` is ambiguous).
+const TSSERVER = ts6Tsserver(REPO);
+const TSGO = (() => {
+  try {
+    return tsNativeExeSync(REPO);
+  } catch {
+    return null;
+  }
+})();
 const BASE_TSCONFIG = resolve(REPO, "tsconfig.base.json");
 const BASE_BAK = BASE_TSCONFIG + ".bench.bak";
 
@@ -785,7 +797,11 @@ const loadGuard = (whenLabel) => {
 
 async function main() {
   if (!existsSync(TSSERVER)) fail(`tsserver not found at ${TSSERVER} (pnpm install root deps)`);
-  if (!existsSync(TSGO)) fail(`tsgo not found at ${TSGO} (pnpm install root deps)`);
+  if (!TSGO || !existsSync(TSGO))
+    fail(`native tsc (typescript@7) not found (pnpm install root deps)`);
+  // once, untimed: the resolved binaries must be the expected majors
+  assertTs7(ver(TSGO, ["--version"]));
+  assertTs6(ver("node", [ts6Tsc(REPO), "--version"]));
 
   // Self-heal any tracked file a prior killed run left patched, and REFUSE if another bench is
   // already running in this worktree (benches share apps/.turbo/.gitignore and corrupt each other).
@@ -817,10 +833,8 @@ async function main() {
       node: process.version,
     },
     versions: {
-      typescript:
-        ver(resolve(REPO, "node_modules/.bin/tsc"), ["--version"]) ||
-        ver("node", [TSSERVER, "--version"]),
-      tsgo: ver(TSGO, ["--version"]),
+      typescript: ver("node", [ts6Tsc(REPO), "--version"]), // the TS6 alias behind tsserver
+      tsgo: ver(TSGO, ["--version"]), // typescript@7's native tsc (serves --lsp)
     },
     samplesPerOp: SAMPLES,
     modules: MODULES,

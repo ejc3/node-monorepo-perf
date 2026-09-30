@@ -36,6 +36,7 @@
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { bunWorkspaceNameKey } from "./_wyhash11.mjs";
+import { tsNativeShim } from "./_ts.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -105,9 +106,13 @@ const TAIL_PICKS = intOpt("tail-picks", pdef("tail-picks", "2"), 0);
 // radius of the whole repo (every app rebuilds). That whole-repo-blast case is what the
 // lib-revision bench measures. 0 = no universal lib (default).
 const UNIVERSAL = intOpt("universal", pdef("universal", "0"), 0); // validated against layer size below
-// Also emit a `typecheck:tsgo` script in every package (a tsgo-backed twin of the
-// `typecheck` task) so a bench can run the same gate under tsc vs tsgo. Off by
-// default so the generator's output (and other benches' input hashes) is unchanged.
+// Also emit a `typecheck:tsgo` script in every package (a native-checker twin of
+// the `typecheck` task) so a bench can run the same gate under tsc vs the native
+// compiler. The task NAME stays `typecheck:tsgo` (turbo.json, benches, and docs
+// reference it); since typescript@7 it runs the native tsc via its node shim at
+// an absolute path — never `.bin`/PATH, where `tsc` is a ts7/ts6 collision. Off
+// by default so the generator's output (and other benches' input hashes) is
+// unchanged.
 const TSGO_TASK = flag("tsgo-task");
 // Also emit a `test` script (node --test over a per-package smoke test) in every package,
 // so a bench can measure the TEST axis through Turbo's `test` task (defined in the root
@@ -135,6 +140,10 @@ const CLEAN = flag("clean");
 const ROOT = process.cwd();
 const APPS_DIR = join(ROOT, "apps");
 const LIBS_DIR = join(ROOT, "packages");
+// The `typecheck:tsgo` command body: the native TypeScript 7 tsc, spawned as
+// `node <shim>` by absolute path (the generated manifests are gitignored, so an
+// absolute path is fine and keeps resolution off `.bin`/PATH).
+const TSGO_CMD = `node ${tsNativeShim(ROOT)} --noEmit`;
 
 const appW = String(APPS).length;
 const libW = String(LIBS).length;
@@ -476,7 +485,7 @@ function libPackageJson(i) {
       scripts: {
         build: "tsc -p tsconfig.json",
         typecheck: "tsc --noEmit -p tsconfig.json",
-        ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit -p tsconfig.json" } : {}),
+        ...(TSGO_TASK ? { "typecheck:tsgo": `${TSGO_CMD} -p tsconfig.json` } : {}),
         ...(TEST_TASK ? { test: "node --test" } : {}),
       },
       dependencies,
@@ -528,7 +537,7 @@ function appPackageJson(i) {
             dev: "vite",
             preview: "vite preview",
             typecheck: "tsc --noEmit",
-            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TSGO_TASK ? { "typecheck:tsgo": TSGO_CMD } : {}),
             ...(TEST_TASK ? { test: "node --test" } : {}),
           }
         : {
@@ -536,7 +545,7 @@ function appPackageJson(i) {
             dev: "next dev",
             start: "next start",
             typecheck: "tsc --noEmit",
-            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TSGO_TASK ? { "typecheck:tsgo": TSGO_CMD } : {}),
             ...(TEST_TASK ? { test: "node --test" } : {}),
           },
       dependencies: vite

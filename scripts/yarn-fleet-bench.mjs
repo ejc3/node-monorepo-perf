@@ -9,7 +9,8 @@
 // patched tsgo — same scenario, same assertions as the fleet gate
 // (bench/fleet-gate-bench.json): a breaking foundation rev must turn every
 // app red. The tree and devDependency set match the fleet gate's exactly
-// (--tsgo-task; turbo + typescript + native-preview + oxlint), so the install
+// (--tsgo-task; turbo + typescript + oxlint — typescript@7 IS the native
+// checker), so the install
 // rows are comparable with that record's bun install against the same
 // workload; the STATE differs per row and is labeled (trulyCold here = fresh
 // global cache + no lockfile + network; the gate's bun number is warm-store).
@@ -27,8 +28,8 @@
 //   gate          under PnP, patched tsgo: untimed warmup, timed clean run
 //                 (wall + peak RSS via GNU time), breaking foundation rev
 //                 (appsWithErrors === APPS + TS2554, not merely a red exit)
-//   stockControl  the repo's pinned stock tsgo through `yarn tsgo` on the same
-//                 PnP tree — must FAIL with unresolved-module errors (the
+//   stockControl  the repo's pinned stock native tsc through `yarn tsc` on the
+//                 same PnP tree — must FAIL with unresolved-module errors (the
 //                 measured pnp-compat boundary); a signal/ENOBUFS death is a
 //                 harness fault, never the expected failure
 //
@@ -228,13 +229,12 @@ writeFileSync(
       packageManager: `yarn@${YARN_VERSION}`,
       workspaces: ["apps/*", "packages/*"],
       // the fleet gate's exact devDependency set, so the install workload is
-      // comparable with bench/fleet-gate-bench.json's bun install; stock tsgo
-      // riding the workspace is also what `yarn tsgo` resolves THROUGH PnP for
-      // the control row
+      // comparable with bench/fleet-gate-bench.json's bun install; the stock
+      // native checker riding the workspace (typescript@7, whose only bin is
+      // `tsc`) is also what `yarn tsc` resolves THROUGH PnP for the control row
       devDependencies: {
         turbo: toolchain.turbo,
         typescript: toolchain.typescript,
-        "@typescript/native-preview": toolchain["@typescript/native-preview"],
         oxlint: toolchain.oxlint ?? "latest",
       },
     },
@@ -429,10 +429,12 @@ writeFileSync(
   ) + "\n",
 );
 
-// stock control first: the pinned stock tsgo THROUGH PnP must fail unresolved
-console.log("\n## stock control: pinned stock tsgo through PnP (must fail unresolved)");
+// stock control first: the pinned stock native tsc THROUGH PnP must fail
+// unresolved (typescript@7's bin is `tsc`; the scaffold root pins no other
+// typescript, so `yarn tsc` resolves it unambiguously)
+console.log("\n## stock control: pinned stock native tsc through PnP (must fail unresolved)");
 const stockRun = runChecker(
-  ["node", YARN, "tsgo", "--noEmit", "-p", "tsconfig.whole.json"],
+  ["node", YARN, "tsc", "--noEmit", "-p", "tsconfig.whole.json"],
   "stock control",
 );
 const stock = {

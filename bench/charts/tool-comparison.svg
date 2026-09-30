@@ -250,19 +250,19 @@
 <rect x="28" y="1030" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1063" font-size="14" fill="#1f2328">3,000-module program</text>
 <rect x="318" y="1030" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="399" y="1054" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.26s</text>
+<text x="399" y="1054" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">0.27s</text>
 <text x="399" y="1074" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="480" y="1030" width="162" height="56" fill="rgb(196,93,29)" stroke="#ffffff"/>
+<rect x="480" y="1030" width="162" height="56" fill="rgb(196,94,29)" stroke="#ffffff"/>
 <text x="561" y="1054" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×12 slower</text>
-<text x="561" y="1074" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.1s</text>
+<text x="561" y="1074" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">3.2s</text>
 <rect x="28" y="1086" width="290" height="56" fill="#ffffff" stroke="#d0d7de"/>
 <text x="40" y="1119" font-size="14" fill="#1f2328">type-heavy 4,000:400 (3,200 lib modules)</text>
 <rect x="318" y="1086" width="162" height="56" fill="rgb(26,127,55)" stroke="#ffffff"/>
 <text x="399" y="1110" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
 <text x="399" y="1130" font-size="13" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
 <rect x="480" y="1086" width="162" height="56" fill="rgb(199,104,28)" stroke="#ffffff"/>
-<text x="561" y="1110" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.8 slower</text>
-<text x="561" y="1130" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.2s</text>
+<text x="561" y="1110" font-size="16" font-weight="700" fill="#0a0d12" text-anchor="middle">×8.7 slower</text>
+<text x="561" y="1130" font-size="13" font-weight="600" fill="#0a0d12" text-anchor="middle">17.8s</text>
 <text x="28" y="1158" font-size="11" fill="#57606a">Source: </text>
 <a href="../../bench/typecheck-bench.json"><text x="74" y="1158" font-size="11" fill="#57606a" text-decoration="underline">bench/typecheck-bench.json,</text></a>
 <a href="../../bench/typecheck-parity-bench.json"><text x="231.2" y="1158" font-size="11" fill="#57606a" text-decoration="underline">bench/typecheck-parity-bench.json</text></a>

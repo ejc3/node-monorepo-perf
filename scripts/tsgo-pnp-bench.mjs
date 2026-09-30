@@ -11,8 +11,8 @@
 //
 // TSGO_PNP_BIN is the patched tsgo built from the PR branch; without it only the
 // stock column + the Next matrix run, and the result goes to the gitignored
-// partial (never the canonical file). The stock tsgo is the version this repo
-// pins (@typescript/native-preview). Two install modes per scaffold: Yarn PnP at
+// partial (never the canonical file). The stock tsgo is the native tsc of the
+// typescript@7 version this repo pins. Two install modes per scaffold: Yarn PnP at
 // its defaults (the manifest inlined in .pnp.cjs, no sidecar) and Yarn's
 // node-modules linker (the CONTROL — a real node_modules tree). The finding:
 // stock tsgo fails under PnP and
@@ -38,6 +38,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { YARN_VERSION } from "./_pins.mjs";
 import { fetchYarnCli, loadGuard } from "./_pm-bench-lib.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WORK = process.env.TSGO_PNP_WORK || "/mnt/fcvm-btrfs/tsgo-pnp-bench";
@@ -52,10 +53,14 @@ const fail = (m) => {
 
 // --- tsgo binaries -----------------------------------------------------------
 const repoDevDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies;
-const STOCK_TSGO_VERSION = repoDevDeps["@typescript/native-preview"];
-if (!STOCK_TSGO_VERSION) fail("root package.json no longer pins @typescript/native-preview");
-const STOCK_TSGO = join(REPO, "node_modules", ".bin", "tsgo");
-if (!existsSync(STOCK_TSGO)) fail(`stock tsgo not found at ${STOCK_TSGO} — run \`pnpm install\``);
+const STOCK_TSGO_VERSION = repoDevDeps.typescript;
+if (!STOCK_TSGO_VERSION) fail("root package.json no longer pins typescript (the native checker)");
+// the stock native checker: typescript@7's node shim, by direct path (never .bin/PATH —
+// `.bin/tsc` is a ts7/ts6 collision at the repo root); executable, spawns the native binary
+const STOCK_TSGO = tsNativeShim(REPO);
+if (!existsSync(STOCK_TSGO))
+  fail(`stock native tsc not found at ${STOCK_TSGO} — run \`pnpm install\``);
+assertTs7(spawnSync(STOCK_TSGO, ["--version"], { encoding: "utf8" }).stdout);
 
 const PATCHED_TSGO = process.env.TSGO_PNP_BIN ? resolve(process.env.TSGO_PNP_BIN) : null;
 if (PATCHED_TSGO && !existsSync(PATCHED_TSGO)) fail(`TSGO_PNP_BIN not found: ${PATCHED_TSGO}`);

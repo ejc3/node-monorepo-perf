@@ -66,6 +66,7 @@ import { VITE_PLUS_VERSION } from "./_pins.mjs";
 import { median, loadGuard, load1Now, scrubEnv, benchOutput } from "./_pm-bench-lib.mjs";
 import { enterSourceVisible } from "./_source-visible.mjs";
 import { ensureCleanState } from "./clean-state.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCALES = (process.env.VITE_TASK_SCALES || "300:100 1000:200").trim().split(/\s+/);
@@ -301,7 +302,9 @@ function generate(apps, libs) {
       );
       const pj = join(dir, "package.json");
       const pkg = JSON.parse(readFileSync(pj, "utf8"));
-      pkg.scripts["typecheck:tsgo"] = "tsgo --noEmit -p tsconfig.tsgo.json";
+      // absolute node-shim path (the generate.mjs --tsgo-task form): typescript@7's
+      // native tsc; never `.bin`/PATH, where `tsc` could be ambiguous
+      pkg.scripts["typecheck:tsgo"] = `node ${tsNativeShim(REPO)} --noEmit -p tsconfig.tsgo.json`;
       writeFileSync(pj, JSON.stringify(pkg, null, 2) + "\n");
     }
   }
@@ -313,6 +316,8 @@ function generate(apps, libs) {
   writeFileSync(PKG, JSON.stringify(pkg, null, 2) + "\n");
   const i = run("pnpm", ["install"], { timeout: 1_800_000 });
   if (i.code !== 0) fail(`pnpm install failed:\n${i.out.slice(-400)}`);
+  // once, untimed: the task's checker must be the native TypeScript 7 compiler
+  assertTs7(spawnSync("node", [tsNativeShim(REPO), "--version"], { encoding: "utf8" }).stdout);
 }
 
 const midApp = () => {
@@ -335,7 +340,7 @@ const out = {
   versions: {
     vitePlus: VITE_PLUS_VERSION,
     turbo: JSON.parse(readFileSync(PKG_BAK, "utf8")).devDependencies.turbo,
-    tsgo: JSON.parse(readFileSync(PKG_BAK, "utf8")).devDependencies["@typescript/native-preview"],
+    tsgo: JSON.parse(readFileSync(PKG_BAK, "utf8")).devDependencies.typescript,
     node: process.version,
   },
   ...envInfo,

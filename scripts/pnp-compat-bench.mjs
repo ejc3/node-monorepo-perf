@@ -18,8 +18,9 @@
 //   turbo (focused)   — `turbo run typecheck --filter=<app>...` (builds the app's lib
 //                       closure with tsc, then typechecks the app — the repo's real
 //                       O(closure) pipeline)
-//   tsgo              — `tsgo --noEmit -p <app>` after the closure is built (native
-//                       binary with its own module resolver)
+//   tsgo              — typescript@7's native tsc, `yarn exec tsc --noEmit -p <app>`
+//                       after the closure is built (a native binary with its own
+//                       module resolver, which yarn's typescript patch never loads)
 //   next build        — one app's production build after the closure is built
 //
 // Self-contained: scaffolds under the OS temp dir, removed on exit; needs no worktree;
@@ -47,9 +48,9 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoDevDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies;
 const TURBO_VERSION = repoDevDeps.turbo;
 const OXLINT_VERSION = "1.71.0";
-const TSGO_VERSION = repoDevDeps["@typescript/native-preview"];
+const TSGO_VERSION = repoDevDeps.typescript; // typescript@7 IS the native checker (formerly tsgo)
 if (!TURBO_VERSION || !TSGO_VERSION)
-  throw new Error("root package.json no longer pins turbo / @typescript/native-preview");
+  throw new Error("root package.json no longer pins turbo / typescript");
 const APPS = 20;
 const LIBS = 10;
 // pass/fail probes, but wall times are recorded — refuse a loaded box
@@ -73,7 +74,9 @@ function buildTree(linker) {
   pkg.devDependencies = {
     turbo: TURBO_VERSION,
     oxlint: OXLINT_VERSION,
-    "@typescript/native-preview": TSGO_VERSION,
+    // the native checker: typescript@7's only bin is `tsc` (the tsgo name is retired);
+    // the scaffold root pins no other typescript, so `yarn exec tsc` is unambiguous here
+    typescript: TSGO_VERSION,
   };
   // turbo detects the workspace manager from packageManager, and the generated
   // package tsconfigs extend the repo's tsconfig.base.json
@@ -202,7 +205,7 @@ for (const [linker, dir] of Object.entries(trees)) {
   // tsgo and next probe the app AFTER its lib closure is built by the turbo probe; if
   // that build failed, their failures would be missing-dist cascades, not PnP findings
   if (turbo.ok) {
-    rec("tsgo-app", probe(dir, dir, ["exec", "tsgo", "--noEmit", "-p", join("apps", app)]));
+    rec("tsgo-app", probe(dir, dir, ["exec", "tsc", "--noEmit", "-p", join("apps", app)]));
     const nb = rec("next-build-app", probe(dir, join(dir, "apps", app), ["exec", "next", "build"]));
     // evidence about the turbopack.root pin, recorded per tree: Next warns on an
     // unrecognized config key, so a clean control run proves the key is valid config;

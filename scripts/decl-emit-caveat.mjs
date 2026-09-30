@@ -8,11 +8,12 @@
 //
 // The error used is the canonical "inferred type cannot be named ... not portable", which arises
 // when an exported value's inferred type comes from a transitive dependency nested under another
-// package's node_modules (the pnpm geometry). tsc reports it as TS2742, tsgo as TS2883 — same issue,
-// different code. The precise boundary is `declaration` off-vs-on, not `--noEmit` vs emit: a
+// package's node_modules (the pnpm geometry). Both checkers report it as TS2883 (TypeScript 6
+// adopted the native compiler's code; the JS tsc through 5.9 reported it as TS2742).
+// The precise boundary is `declaration` off-vs-on, not `--noEmit` vs emit: a
 // `--noEmit` check with `declaration:true` already catches it, no build required. The load-bearing
 // fix is promoting the transitive type to a directly-resolvable dependency; the explicit annotation
-// TS2742 suggests is insufficient on its own here (it cannot even resolve the nested type).
+// TS2883 suggests is insufficient on its own here (it cannot even resolve the nested type).
 //
 // This is the empirical backing for OPTIMAL-STACK.md's caveat that the fast gate (declaration:false,
 // `@demo/*`→src) complements the build (`tsc` via turbo `^build`), it doesn't replace it. It mirrors
@@ -23,8 +24,9 @@
 //   node scripts/decl-emit-caveat.mjs
 //
 // Self-contained and non-destructive: scaffolds a throwaway workspace under the OS temp dir (never
-// the repo tree, so no worktree needed) and removes it on exit. Runs THIS repo's pinned tsgo + tsc
-// (node_modules/.bin). HARD-FAILS if the divergence does not reproduce (gate clean / declaration
+// the repo tree, so no worktree needed) and removes it on exit. Runs THIS repo's pinned toolchain
+// via scripts/_ts.mjs (typescript@7's native tsc as "tsgo", the typescript6 alias as the JS tsc
+// oracle; direct paths, version-asserted). HARD-FAILS if the divergence does not reproduce (gate clean / declaration
 // check + build flag exactly the portability code / promoting the dep clears it / the annotation
 // alone cannot resolve), so a future toolchain change that closes or breaks the gap turns the bench
 // red instead of letting a stale claim stand → bench/decl-emit-caveat.json.
@@ -34,16 +36,19 @@ import { writeFileSync, mkdirSync, rmSync, mkdtempSync, existsSync } from "node:
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { tsNativeShim, ts6Tsc, assertTs7, assertTs6 } from "./_ts.mjs";
 
 // Repo root derived from this file's location (scripts/<this>.mjs), so the bench reproduces from any
 // checkout rather than one hardcoded path.
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
-const bin = (name) => join(REPO, "node_modules", ".bin", name);
-const TSGO = bin("tsgo");
-const TSC = bin("tsc");
+// Direct paths only (.bin/tsc is a ts7/ts6 collision): the native TypeScript 7
+// compiler (formerly tsgo) via its node shim, and the TypeScript 6 JS tsc (the
+// oracle) via the typescript6 alias. Both spawn as `node <script>`.
+const TSGO = `node ${tsNativeShim(REPO)}`;
+const TSC = `node ${ts6Tsc(REPO)}`;
 for (const [label, p] of [
-  ["tsgo", TSGO],
-  ["tsc", TSC],
+  ["native tsc (typescript@7)", tsNativeShim(REPO)],
+  ["tsc (typescript6 alias)", ts6Tsc(REPO)],
 ]) {
   if (!existsSync(p)) {
     console.error(
@@ -52,6 +57,8 @@ for (const [label, p] of [
     process.exit(1);
   }
 }
+assertTs7(execSync(`${TSGO} --version`, { encoding: "utf8" }));
+assertTs6(execSync(`${TSC} --version`, { encoding: "utf8" }));
 
 // A kill (OOM/panic/segfault) exits 128+signo through the shell; treat any such exit as a crash so a
 // killed checker never reads as a clean pass/fail. A checker exiting non-zero on type/emit errors is
@@ -121,7 +128,7 @@ w(
   "packages/foundation/src/index.ts",
   'import { thing } from "dep";\n// inferred type Sub, only nameable via dep/node_modules/subdep\nexport const x = thing;\n',
 );
-// The annotation TS2742 suggests, on its own (no promotion of the nested type) — used to show it is
+// The annotation TS2883 suggests, on its own (no promotion of the nested type) — used to show it is
 // insufficient here: the import cannot even resolve `subdep`.
 w(
   "packages/foundation/src/index.annotated.ts",
@@ -176,7 +183,14 @@ w(
   "packages/foundation/tsconfig.build.json",
   JSON.stringify(
     {
-      compilerOptions: { ...COMMON, declaration: true, emitDeclarationOnly: true, outDir: "dist" },
+      // TS6+ requires an explicit rootDir on emitting configs (TS5011)
+      compilerOptions: {
+        ...COMMON,
+        declaration: true,
+        emitDeclarationOnly: true,
+        outDir: "dist",
+        rootDir: "src",
+      },
       include: ["src/index.ts"],
     },
     null,
@@ -195,6 +209,7 @@ w(
         declaration: true,
         emitDeclarationOnly: true,
         outDir: "distfix",
+        rootDir: "src",
         paths: { subdep: ["./node_modules/dep/node_modules/subdep/index.d.ts"] },
       },
       include: ["src/index.ts"],
@@ -203,7 +218,7 @@ w(
     2,
   ),
 );
-// The annotation TS2742 suggests, WITHOUT promoting the dep: the annotated source can't even resolve
+// The annotation TS2883 suggests, WITHOUT promoting the dep: the annotated source can't even resolve
 // the nested type (TS2307), so the annotation alone is insufficient in this geometry.
 w(
   "packages/foundation/tsconfig.annotation-only.json",
@@ -214,6 +229,7 @@ w(
         declaration: true,
         emitDeclarationOnly: true,
         outDir: "distann",
+        rootDir: "src",
       },
       include: ["src/index.annotated.ts"],
     },
@@ -225,7 +241,8 @@ w(
 // --- run the rungs -------------------------------------------------------------------------------
 const foundation = join(WORK, "packages/foundation");
 const errs = (out) => (out.match(/error TS\d+/g) || []).length;
-// The portability diagnostic — tsc emits TS2742, tsgo emits TS2883 for the same "cannot be named".
+// The portability diagnostic — TS2883 since TypeScript 6 (the JS tsc through 5.9 used TS2742;
+// keep matching both so a re-divergence surfaces in the recorded diagnostic).
 const portability = (out) => (out.match(/error TS(2742|2883):.*/) || [])[0] || null;
 const ts2307 = (out) => (out.match(/error TS2307:.*/) || [])[0] || null;
 
@@ -239,21 +256,22 @@ console.log(
 console.log("== declaration check (declaration:true, --noEmit — NO emit) ==");
 const declTsgo = run(`${TSGO} --noEmit -p tsconfig.declcheck.json`, WORK);
 const declTsc = run(`${TSC} --noEmit -p tsconfig.declcheck.json`, WORK);
+const portCode = (out) => (out.match(/error (TS(?:2742|2883)):/) || [])[1] || null;
 console.log(
-  `  tsgo exit ${declTsgo.code} ${portability(declTsgo.out) ? "(TS2883)" : ""}; tsc exit ${declTsc.code} ${portability(declTsc.out) ? "(TS2742)" : ""}`,
+  `  tsgo exit ${declTsgo.code} ${portCode(declTsgo.out) ? `(${portCode(declTsgo.out)})` : ""}; tsc exit ${declTsc.code} ${portCode(declTsc.out) ? `(${portCode(declTsc.out)})` : ""}`,
 );
 
 console.log("== build (declaration:true, emit foundation dist .d.ts via tsc) ==");
 const build = run(`${TSC} -p tsconfig.build.json`, foundation);
 console.log(
-  `  tsc exit ${build.code}, ${errs(build.out)} errors${portability(build.out) ? " (TS2742)" : ""}`,
+  `  tsc exit ${build.code}, ${errs(build.out)} errors${portCode(build.out) ? ` (${portCode(build.out)})` : ""}`,
 );
 
 console.log("== fix: promote the transitive type to a resolvable dep (same source) ==");
 const fix = run(`${TSC} -p tsconfig.fix-nameable.json`, foundation);
 console.log(`  tsc exit ${fix.code}, ${errs(fix.out)} errors`);
 
-console.log("== annotation only (TS2742's suggested annotation, dep NOT promoted) ==");
+console.log("== annotation only (TS2883's suggested annotation, dep NOT promoted) ==");
 const annOnly = run(`${TSC} -p tsconfig.annotation-only.json`, foundation);
 console.log(
   `  tsc exit ${annOnly.code}, ${errs(annOnly.out)} errors${ts2307(annOnly.out) ? " (TS2307 — can't resolve)" : ""}`,
@@ -269,7 +287,7 @@ const mustBeClean = (label, r) => {
     fail(`${label} should be clean (0 errors); got exit ${r.code}\n${r.out.slice(-600)}`);
 };
 // Exactly the named portability code, the ONLY error, for `x` via the nested subdep — so a future
-// toolchain change (tsgo switching to TS2742, an extra error) turns the bench red rather than green.
+// toolchain change (a renamed code, an extra error) turns the bench red rather than green.
 const mustCatch = (label, r, code) => {
   if (
     r.code === 0 ||
@@ -285,8 +303,8 @@ const mustCatch = (label, r, code) => {
 mustBeClean("tsgo gate (declaration:false)", gateTsgo);
 mustBeClean("tsc gate (declaration:false)", gateTsc);
 mustCatch("tsgo declaration check", declTsgo, "TS2883");
-mustCatch("tsc declaration check", declTsc, "TS2742");
-mustCatch("tsc build", build, "TS2742");
+mustCatch("tsc declaration check", declTsc, "TS2883");
+mustCatch("tsc build", build, "TS2883");
 mustBeClean("tsc build after promoting the dep", fix);
 // The annotation alone cannot even resolve the nested type (TS2307) — proves nameability, not the
 // annotation, is the load-bearing fix in this geometry.
@@ -300,10 +318,11 @@ const result = {
     "The optimal gate runs declaration:false, so it validates the code but not the published .d.ts. " +
     "A declaration-portability error (an exported value whose inferred type comes from a transitive " +
     "dep nested under another package's node_modules) is MISSED by the gate, yet caught both by a " +
-    "declaration:true check (no emit needed) and by the dist-emitting build. tsc reports TS2742, tsgo " +
-    "TS2883 — same issue, different code; the boundary is declaration off-vs-on, not noEmit-vs-emit. " +
+    "declaration:true check (no emit needed) and by the dist-emitting build. Both checkers report " +
+    "TS2883 (TypeScript 6 adopted the native compiler's code; the JS tsc through 5.9 reported " +
+    "TS2742); the boundary is declaration off-vs-on, not noEmit-vs-emit. " +
     "The load-bearing fix is promoting the transitive type to a directly-resolvable dependency; the " +
-    "explicit annotation TS2742 suggests is insufficient alone here (it cannot resolve the nested type).",
+    "explicit annotation TS2883 suggests is insufficient alone here (it cannot resolve the nested type).",
   versions: { tsgo: ver(TSGO), tsc: ver(TSC), node: process.version },
   gate: {
     config: "declaration:false, --noEmit (@demo/*->src whole program — the optimal gate)",
@@ -334,7 +353,7 @@ const result = {
     exit: fix.code,
   },
   annotationOnly: {
-    config: "TS2742's suggested explicit annotation, dep NOT promoted — insufficient alone",
+    config: "TS2883's suggested explicit annotation, dep NOT promoted — insufficient alone",
     tool: "tsc --declaration",
     exit: annOnly.code,
     diagnostic: ts2307(annOnly.out),

@@ -86,7 +86,7 @@ The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.32s, same 4,000/
 `workspace:`-linked consumer compiles. A registry-pinned cohort consumes the published tarball, so the wave gate must
 also resolve that published version and run the declaration build. Two caveats apply. The fast gate runs
 `declaration:false` and misses a `.d.ts` portability error a `declaration:true` check catches
-(`bench/decl-emit-caveat.json`: tsc `TS2742` / tsgo `TS2883`), so add a `tsc --declaration` build (tsgo can't emit
+(`bench/decl-emit-caveat.json`: `TS2883` under both checkers), so add a `tsc --declaration` build (tsgo can't emit
 declarations). And it's typecheck-only, so signature/arity breaks surface (`TS2554` fanout) but behavior doesn't —
 pair a post-deploy canary. The orchestrated turbo path (80.1s / 4,800 tasks cold) is the build-and-emit form, ~60× the
 fast gate — the per-wave CI cost.

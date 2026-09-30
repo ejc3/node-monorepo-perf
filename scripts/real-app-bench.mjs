@@ -6,7 +6,7 @@
 // loop stay cheap on real, larger apps?" and records the FINAGLE friction of wiring a real app
 // into this toolchain.
 //
-// The friction is the point: tsgo (TS7 preview) refuses to start on a real tsconfig — it errors
+// The friction is the point: the native TS7 checker refuses to start on a real tsconfig — it errors
 // on options it has removed (baseUrl, moduleResolution:node/node10, target:es5, downlevelIteration)
 // before type-checking anything. So the bench modernizes the config (those four edits) and adds an
 // ambient declaration for CSS/asset side-effect imports (normally supplied by `next build` codegen),
@@ -17,7 +17,8 @@
 //
 // Self-contained and non-destructive to this repo: it clones to a btrfs work dir (REAL_APP_WORK,
 // default /mnt/fcvm-btrfs/real-app-bench) and removes each clone on exit unless REAL_APP_KEEP=1.
-// It runs THIS repo's pinned tool binaries (node_modules/.bin/{tsgo,turbo}) plus oxlint added to
+// It runs THIS repo's pinned tool binaries (typescript@7's native tsc via scripts/_ts.mjs,
+// node_modules/.bin/turbo) plus oxlint added to
 // the app, so the toolchain version is fixed regardless of what the app pins. Core-bound timings
 // (tsgo is parallel), so it refuses to run on a loaded box unless REAL_APP_ALLOW_BUSY=1.
 
@@ -25,6 +26,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { availableParallelism, loadavg } from "node:os";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const REPO = "/home/ubuntu/pnpm-demo";
 const WORK = process.env.REAL_APP_WORK || "/mnt/fcvm-btrfs/real-app-bench";
@@ -71,10 +73,14 @@ const bin = (name) => join(REPO, "node_modules", ".bin", name);
 const BUN = existsSync(join(process.env.HOME || "", ".bun/bin/bun"))
   ? join(process.env.HOME, ".bun/bin/bun")
   : "bun";
-const TSGO = bin("tsgo");
+// The native TypeScript 7 compiler via its node shim — direct path, never .bin/PATH
+// (`.bin/tsc` is a ts7/ts6 collision at the repo root). Spawned as `node <shim>`; the
+// command string is also what gets written into the clone's rb:typecheck script.
+const TSGO_SHIM = tsNativeShim(REPO);
+const TSGO = `node ${TSGO_SHIM}`;
 const TURBO = bin("turbo");
 for (const [label, p] of [
-  ["tsgo", TSGO],
+  ["native tsc (typescript@7)", TSGO_SHIM],
   ["turbo", TURBO],
 ]) {
   if (!existsSync(p)) {
@@ -321,6 +327,7 @@ process.on("SIGINT", () => process.exit(130));
 process.on("SIGTERM", () => process.exit(143));
 
 const ver = (p) => execSync(`${p} --version`, { encoding: "utf8" }).trim();
+assertTs7(ver(TSGO)); // once, untimed — the resolved binary must be the native TS7
 const result = {
   cores: CORES,
   preRunLoadAvg1: +load1.toFixed(2),

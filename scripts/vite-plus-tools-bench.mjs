@@ -46,6 +46,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { VITE_PLUS_VERSION } from "./_pins.mjs";
 import { median, loadGuard, scaffoldWorkspace, scrubEnv } from "./_pm-bench-lib.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SAMPLES = Number(process.env.TOOLS_SAMPLES || 3);
@@ -144,7 +145,7 @@ const out = {
     vitePlus: VITE_PLUS_VERSION,
     oxlint: OXLINT_VERSION,
     oxlintTsgolint: TSGOLINT_VERSION,
-    tsgo: repoDevDeps["@typescript/native-preview"],
+    tsgo: repoDevDeps.typescript, // typescript@7 IS the native checker (formerly tsgo)
     node: process.version,
   },
   ...envInfo,
@@ -162,10 +163,13 @@ console.log(
     "@voidzero-dev/vite-plus-core": VITE_PLUS_VERSION,
     oxlint: OXLINT_VERSION,
     "oxlint-tsgolint": TSGOLINT_VERSION,
-    "@typescript/native-preview": repoDevDeps["@typescript/native-preview"],
+    // typescript@7 IS the native checker (formerly @typescript/native-preview/tsgo)
     typescript: repoDevDeps.typescript,
     turbo: repoDevDeps.turbo,
   });
+  // the whole-program rows run typescript@7's native tsc by direct node-shim path
+  // (never `.bin`/PATH); assert once, untimed, that it resolved to the expected major
+  assertTs7(spawnSync("node", [tsNativeShim(dir), "--version"], { encoding: "utf8" }).stdout);
   // the corpus is SOURCE-ONLY: @demo/* resolves to lib source via tsconfig paths, so no
   // dist exists and no build runs. This is load-bearing, not a convenience — vp check's
   // type-aware pass lints every file in the type program, so with dist built it sweeps
@@ -289,7 +293,7 @@ export default defineConfig({ lint: { options: { typeAware: true, typeCheck: tru
       ],
       [
         "tsgo whole-program",
-        run("pnpm", ["exec", "tsgo", "--noEmit", "-p", "tsconfig.whole.json"], { cwd: dir }),
+        run("node", [tsNativeShim(dir), "--noEmit", "-p", "tsconfig.whole.json"], { cwd: dir }),
       ],
     ];
     for (const [name, r] of controls) {
@@ -331,9 +335,11 @@ export default defineConfig({ lint: { options: { typeAware: true, typeCheck: tru
   // missing source is not)
   {
     const lf = run(
-      "pnpm",
-      ["exec", "tsgo", "--noEmit", "-p", "tsconfig.whole.json", "--listFiles"],
-      { cwd: dir },
+      "node",
+      [tsNativeShim(dir), "--noEmit", "-p", "tsconfig.whole.json", "--listFiles"],
+      {
+        cwd: dir,
+      },
     );
     if (lf.code !== 0) fail(`tsgo --listFiles exited ${lf.code}`);
     const listed = new Set(lf.out.split("\n").map((l) => l.trim()));
@@ -345,7 +351,7 @@ export default defineConfig({ lint: { options: { typeAware: true, typeCheck: tru
   }
   const tsgoWhole = sampled(
     "tsgo --noEmit -p tsconfig.whole.json (one program)",
-    () => run("pnpm", ["exec", "tsgo", "--noEmit", "-p", "tsconfig.whole.json"], { cwd: dir }),
+    () => run("node", [tsNativeShim(dir), "--noEmit", "-p", "tsconfig.whole.json"], { cwd: dir }),
     (r) => {
       if (r.code !== 0) fail(`tsgo whole-program exited ${r.code}:\n${r.out.slice(-600)}`);
     },

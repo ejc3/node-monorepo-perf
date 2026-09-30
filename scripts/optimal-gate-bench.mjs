@@ -2,7 +2,7 @@
 // The ultra-optimal single-workspace stack, measured end to end — no slow baseline,
 // just the latest native-compiled tools:
 //   install     bun         (workspaces; catalogs dropped to concrete versions so bun installs them)
-//   typecheck   tsgo        (the TypeScript native port — the type-error gate)
+//   typecheck   tsgo        (typescript@7's native tsc, formerly tsgo — the type-error gate)
 //   lint        oxlint      (oxc — native Rust linter)
 //   orchestrate turbo       (caching + `--filter`/`--affected` scoping)
 //
@@ -39,6 +39,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node
 import { join, dirname } from "node:path";
 import { homedir, availableParallelism, arch } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
 const m = spec.match(/^(\d+):(\d+)$/);
@@ -100,6 +101,10 @@ const ver = (name) =>
         .toString()
         .trim()
     : null;
+// The native TypeScript 7 compiler (formerly tsgo), spawned as `node <shim>` by direct
+// path — never `.bin`/PATH, where `tsc` could collide with a JS TypeScript install.
+const TSGO_SHIM = tsNativeShim(ROOT);
+const tsgoVer = () => assertTs7(execSync(`node ${TSGO_SHIM} --version`).toString());
 
 const timed = (fn) => {
   const t0 = process.hrtime.bigint();
@@ -189,7 +194,7 @@ function wholeProgram() {
   let ok = true;
   let out = "";
   try {
-    out = sh(`/usr/bin/time -v ${bin("tsgo")} --noEmit -p tsconfig.whole.json 2>&1`, {
+    out = sh(`/usr/bin/time -v node ${TSGO_SHIM} --noEmit -p tsconfig.whole.json 2>&1`, {
       encoding: "utf8",
     });
   } catch (e) {
@@ -298,8 +303,8 @@ writeFileSync(
       workspaces: ["apps/*", "packages/*"],
       devDependencies: {
         turbo: toolchain.turbo,
+        // typescript@7 IS the native checker (formerly @typescript/native-preview/tsgo)
         typescript: toolchain.typescript,
-        "@typescript/native-preview": toolchain["@typescript/native-preview"],
         oxlint: toolchain.oxlint ?? "latest", // pin when the root manifest pins
       },
     },
@@ -336,7 +341,7 @@ const result = {
   machine: { cores: availableParallelism(), arch: arch() },
   versions: {
     bun: bunVer,
-    tsgo: ver("tsgo"),
+    tsgo: tsgoVer(), // typescript@7's native tsc, version-asserted
     turbo: ver("turbo"),
     oxlint: ver("oxlint"),
     node: process.version,

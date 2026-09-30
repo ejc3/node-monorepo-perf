@@ -1,29 +1,33 @@
 {
   "modules": 3000,
   "samples": 5,
-  "tscMs": 3101,
-  "tsgoMs": 255,
+  "versions": {
+    "tsc": "Version 6.0.3",
+    "tsgo": "Version 7.0.2"
+  },
+  "tscMs": 3188,
+  "tsgoMs": 265,
   "tsc": {
-    "medianMs": 3101,
-    "minMs": 3094,
+    "medianMs": 3188,
+    "minMs": 3179,
     "samples": [
-      3147,
-      3098,
-      3101,
-      3126,
-      3094
+      3188,
+      3233,
+      3179,
+      3188,
+      3256
     ]
   },
   "tsgo": {
-    "medianMs": 255,
-    "minMs": 253,
+    "medianMs": 265,
+    "minMs": 263,
     "samples": [
-      255,
-      260,
-      253,
-      255,
-      253
+      265,
+      263,
+      275,
+      264,
+      275
     ]
   },
-  "speedup": 12.16
+  "speedup": 12.03
 }
