@@ -4,6 +4,12 @@ Benchmark rig for a pnpm + Turborepo workspace of N Next.js apps and M shared li
 
 Whole-workspace operations (install, typecheck, warm `turbo run`, `turbo prune`'s graph load) scale with package count. A focused build (`turbo run --filter=<app>...`) executes one app's dependency closure and grows with that closure (×1.8 here), not app count. Avoid unscoped whole-repo execution. Numbers in [Results](#results-scaling-behavior).
 
+![O(repo) vs O(closure): an unscoped command fans out to a task per package, a filtered command runs one app's closure](bench/charts/fig-orepo-oclosure.svg)
+
+[High-resolution PNG](bench/charts/fig-orepo-oclosure.png)
+
+**Figure 1.** An unscoped command selects every package in the workspace, so its cost tracks repo size; a filtered command selects one app's dependency closure, so its cost tracks that closure.
+
 Three layers of focus: install-time (`pnpm deploy` / `turbo prune @demo/app-2000 --docker`), task-time (`turbo run build --filter=@demo/app-2000...`), artifact-time (`turbo prune ... --docker` → `out/`). Measured by `scripts/measure.mjs` → [`bench/results.json`](bench/results.json).
 
 ## The Workspace Under Test

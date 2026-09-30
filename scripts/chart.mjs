@@ -243,6 +243,9 @@ const external = new Set([
   "checker-scale.svg",
   "cache-network.svg",
   "fleet-gate.svg",
+  "fig-sliced-gate.svg",
+  "fig-blast-radius.svg",
+  "fig-orepo-oclosure.svg",
 ]);
 // Under CHART_STRICT=1 (CI), a doc-linked chart this script owns but did not regenerate
 // is a hard failure: keeping the old file would sail through the byte-gate while the

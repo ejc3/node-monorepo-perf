@@ -9,7 +9,7 @@ MODULES ?= 16
 APP ?= @demo/app-00100
 SCALES ?= 300:100 1500:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -64,6 +64,9 @@ typecheck-whole: ## One-command whole-workspace type gate (single tsgo program f
 
 fleet-chart: ## Render the fleet-scale infographic SVG + high-res PNG from the fleet bench JSONs
 	node scripts/fleet-chart.mjs
+
+figures: ## Render the mechanism figures (sliced gate, blast radius, O(repo) vs O(closure)) SVG + PNG
+	node scripts/figures.mjs
 
 fleet-verify: ## Recompute the generated tree's graph metrics vs the fleet targets -> bench/fleet-shape.json
 	node scripts/fleet-shape-verify.mjs --expect fleet

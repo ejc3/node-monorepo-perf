@@ -27,6 +27,7 @@ on:
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
       - "scripts/fleet-chart.mjs"
+      - "scripts/figures.mjs"
       - ".github/workflows/charts.yml"
   pull_request:
     paths:
@@ -40,6 +41,7 @@ on:
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
       - "scripts/fleet-chart.mjs"
+      - "scripts/figures.mjs"
       - ".github/workflows/charts.yml"
 
 permissions:
@@ -60,11 +62,12 @@ jobs:
 
       - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
           node scripts/net-cache-chart.mjs
           node scripts/fleet-chart.mjs
+          node scripts/figures.mjs
           # CHART_STRICT: in CI a doc-linked chart chart.mjs skips (confounded/short data)
           # must FAIL, not keep-and-warn — a kept stale SVG would pass the byte-gate below.
           CHART_STRICT=1 node scripts/chart.mjs
@@ -86,7 +89,7 @@ jobs:
 
       - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png; do
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png; do
             test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
             dims=$(identify -format '%wx%h %m' "$png")
             echo "PNG: $png $dims"
@@ -99,10 +102,10 @@ jobs:
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png)" ]; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
             # the build (the PNGs were still validated above; refresh locally with the chart make targets).
@@ -119,4 +122,7 @@ jobs:
             bench/charts/checker-scale.png
             bench/charts/cache-network.png
             bench/charts/fleet-gate.png
+            bench/charts/fig-sliced-gate.png
+            bench/charts/fig-blast-radius.png
+            bench/charts/fig-orepo-oclosure.png
           if-no-files-found: error
