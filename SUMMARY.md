@@ -65,12 +65,15 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 
 Two operations are genuinely O(repo) and cannot be scoped away:
 
-- **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm 10's
-  no-lockfile cold-resolve is 233s at 1,000:200 (`bench/install-modes-bench.json`); on a full
-  re-resolve bun is ~62–357× faster than pnpm 10 across the 200–2,000-app scales
-  (pnpm 12's Rust rewrite removes most of that JS resolve cost on its own head-to-head:
-  301× at 1,000:200, `bench/pnpm12-bench.json`; pnpm-12-vs-bun is unmeasured)
-  (`bench/install-bench.json`). yarn 4 is fastest cold and warm at 2,000 apps, but PnP can't run
+- **Install** of the whole workspace (~21s warm store), paid on clean clone or CI. pnpm 12.8.1's
+  no-lockfile cold-resolve is 3.0s at 1,000:200 — within 0.5% of a frozen warm-store install
+  (`bench/install-modes-bench.json`; the JS CLI paid 303.7s on that resolve,
+  `bench/pnpm12-bench.json`). The pnpm-12-vs-bun head-to-head is measured
+  (`bench/install-bench.json`): bun cold is ~6× faster at 200 apps and ~1.9× truly-cold
+  (1.3s vs 2.4s); **pnpm-hoisted is 1.5–2.5× faster than bun cold at the measured 1,000- and
+  2,000-app points** and the
+  fastest warm there (0.9s/1.4s), with bun's cold the slowest configuration at 2,000. yarn-PnP is
+  fastest cold at 2,000 (3.3s, pnpm-hoisted within 4%), but PnP can't run
   stock tsgo or Next's default Turbopack
   (`bench/pnp-compat-bench.json`; green paths exist via native-PnP tsgo and `next build` with
   webpack/rspack). bun-vs-yarn reconciliation in
@@ -111,9 +114,11 @@ dependency drift). Turbo won't cache taxonomy's red typecheck until it goes gree
   proof.
 - **bun ignores pnpm `catalog:`** — catalogs resolve to concrete versions before a bun install
   (`workspace:*` left intact).
-- **bun is adoptable but not a strict safety superset of pnpm** (`bench/bun-safety-bench.json`):
-  two gaps (runs some registry `postinstall` pnpm 10 blocks; no fail-closed strict-peer knob), one
-  pnpm edge (phantom isolation in single-package projects), rest parity. See
+- **bun is adoptable but not a strict safety superset of pnpm** (`bench/bun-safety-bench.json`,
+  vs pnpm 12.8.1): two gaps (runs some registry `postinstall` scripts pnpm 12 blocks, failing the
+  install; no fail-closed strict-peer knob — pnpm 12 exits 1 via its native config surface,
+  ignoring the npm-style env surface pnpm 10 honored), one pnpm edge (phantom isolation in
+  single-package projects), rest parity. See
   [ROLLOUT.md](ROLLOUT.md#adoption-safety).
 - Focused-gate **warm** numbers carry turbo's per-invocation graph-load over the 4,400-package
   workspace and are noisy (medians of three); the keystroke loop runs tsgo/oxlint directly, not

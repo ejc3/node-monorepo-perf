@@ -7,7 +7,10 @@ APPS ?= 200
 LIBS ?= 100
 MODULES ?= 16
 APP ?= @demo/app-00100
-SCALES ?= 300:100 1500:300
+# lockfile-bench's scale matrix; default = the canonical scales the committed
+# bench/lockfile-bench.json records (and the only consumer of this variable), so a bare
+# `make lockfile-bench` can no longer write a record at non-canonical scale points
+SCALES ?= 200:100 1000:200 2000:300
 
 .PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
 

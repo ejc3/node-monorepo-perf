@@ -1,8 +1,8 @@
 {
   "apps": 200,
   "libs": 50,
-  "pnpm": "10.29.1",
-  "baselineLockfileLines": 8869,
+  "pnpm": "12.8.1",
+  "baselineLockfileLines": 9027,
   "churnOneDep": {
     "dep": "nanoid",
     "appsChanged": 1,
@@ -41,8 +41,21 @@
     "pnpmResolvedLockfile": true
   },
   "gitBranchLockfile": {
-    "setting": ".npmrc git-branch-lockfile=true",
-    "perBranchLockfile": "pnpm-lock.feature-x.yaml",
-    "created": true
+    "pnpm": "12.8.1",
+    "npmStyleSurface": {
+      "setting": ".npmrc git-branch-lockfile=true (npm-style surface)",
+      "honored": false,
+      "file": null,
+      "fileVerifiedOnDisk": false,
+      "mainLockfileLinesChanged": 510
+    },
+    "pnpmNativeSurface": {
+      "setting": "pnpm-workspace.yaml gitBranchLockfile: true (pnpm-native surface)",
+      "honored": true,
+      "file": "pnpm-lock.feature-x.yaml",
+      "fileVerifiedOnDisk": true,
+      "mainLockfileLinesChanged": 0
+    },
+    "note": "pnpm 12.8.1: the npm-style .npmrc surface is ignored (no pnpm-lock.<branch>.yaml; the re-resolve changed the main lockfile by 510 lines); the pnpm-native pnpm-workspace.yaml surface is honored (wrote pnpm-lock.feature-x.yaml, main lockfile changed by 0 lines)"
   }
 }

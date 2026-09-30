@@ -175,7 +175,9 @@ const nativeMethod = (fs) => (fs === "btrfs" ? "reflink" : "hardlink");
 const methodKind = (m) =>
   m.startsWith("reflink") ? "reflink" : m.startsWith("hardlink") ? "hardlink" : "copy";
 
-const out = { apps: APPS, libs: LIBS, targets: [] };
+// tool provenance: probed once from the first scaffold (below) so the recorded pnpm is
+// the one the timed relinks ran (resolved through the per-scaffold packageManager pin)
+const out = { apps: APPS, libs: LIBS, pnpm: null, targets: [] };
 for (const { label, root } of TARGETS) {
   if (!existsSync(root)) {
     console.error(`! skipping ${label}: root ${root} does not exist`);
@@ -199,6 +201,11 @@ for (const { label, root } of TARGETS) {
       );
 
     setup(ws);
+    if (!out.pnpm) {
+      out.pnpm = sh("pnpm", ["--version"], { cwd: ws }).trim();
+      if (out.pnpm !== PNPM_VERSION)
+        throw new Error(`pnpm ${out.pnpm} != pinned ${PNPM_VERSION} (scripts/_pins.mjs)`);
+    }
     // Warm the store (fetch + first materialize). Discarded — network is FS-independent.
     sh("pnpm", ["install", "--config.node-linker=isolated", ...STORE], { cwd: ws });
     verifyComplete(ws);

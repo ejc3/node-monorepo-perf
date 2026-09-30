@@ -9,7 +9,11 @@
 //   3. Merge auto-resolve — two branches bump the same catalog dep to different
 //                           versions; does git conflict pnpm-lock.yaml, and does
 //                           `pnpm install` then resolve it? (pnpm.io/git claim)
-//   4. Branch lockfiles   — does gitBranchLockfile produce a per-branch lockfile?
+//   4. Branch lockfiles   — which config surface enables gitBranchLockfile? Both are
+//                           measured two-sided: pnpm 12 ignores the npm-style .npmrc
+//                           key (pnpm 10 honored it) and honors its native
+//                           pnpm-workspace.yaml `gitBranchLockfile: true`, writing
+//                           pnpm-lock.<branch>.yaml with the main lockfile untouched.
 //
 //   node scripts/lockfile-merge-bench.mjs            # default 200:50
 //   node scripts/lockfile-merge-bench.mjs 500:80
@@ -33,7 +37,16 @@ if (!Number.isInteger(APPS) || !Number.isInteger(LIBS) || APPS < 4 || LIBS < 1) 
 const DIR = "/tmp/lockfile-merge-bench";
 const LF = "pnpm-lock.yaml";
 const WS = "pnpm-workspace.yaml";
-const env = { ...process.env, NEXT_TELEMETRY_DISABLED: "1", TURBO_TELEMETRY_DISABLED: "1" };
+// Ambient tool-config env is scrubbed (PNPM_CONFIG_* / npm_config_* / NPM_CONFIG_*,
+// case-insensitively): the branch-lockfile demo measures one config surface at a time,
+// and an inherited PNPM_CONFIG_GIT_BRANCH_LOCKFILE would silently flip a leg.
+const env = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !/^(PNPM_CONFIG_|NPM_CONFIG_)/i.test(k)),
+  ),
+  NEXT_TELEMETRY_DISABLED: "1",
+  TURBO_TELEMETRY_DISABLED: "1",
+};
 
 function sh(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 1 << 27, env, cwd: DIR, ...opts });
@@ -100,6 +113,12 @@ function setup() {
   // that materializes catalog:->concrete for the bun/deploy path and would defeat
   // the catalog test.) Copy the repo's pnpm-workspace.yaml so catalog: resolves.
   copyFileSync(join(REPO, "pnpm-workspace.yaml"), join(DIR, WS));
+  // the branch-lockfile demo appends gitBranchLockfile to this file for its native-
+  // surface leg; a baseline key would make the npm-style leg measure the wrong surface
+  if (/gitBranchLockfile/.test(readFileSync(join(DIR, WS), "utf8")))
+    throw new Error(
+      "repo pnpm-workspace.yaml already sets gitBranchLockfile — the demo's surface isolation would be broken",
+    );
   writeFileSync(
     join(DIR, "package.json"),
     // packageManager: the _pins.mjs pin, not an ambient probe — corepack / pnpm's own
@@ -211,30 +230,68 @@ const out = {
   git(["branch", "-D", "lf-b"]);
 }
 
-// --- 4. git branch lockfiles ---
-{
+// --- 4. git branch lockfiles (both config surfaces, two-sided recorded outcomes) ---
+// pnpm 12 (the Rust CLI) still supports git-branch lockfiles, but only on its NATIVE
+// config surfaces (pnpm-workspace.yaml `gitBranchLockfile: true`, `--config.` flag,
+// `PNPM_CONFIG_` env); the npm-style `.npmrc git-branch-lockfile=true` key pnpm 10
+// honored is ignored. BOTH surfaces are measured and recorded two-sided, so a
+// config-surface change can never read as a removed feature. Per surface the record is
+// honored (branch file written, main lockfile untouched) or not (no branch file, the
+// re-resolve churns the MAIN lockfile — the not-a-no-op marker); the consistency gate
+// rejects only a self-contradictory record (file-presence evidence disagreeing with
+// `honored`, a hybrid where a branch file exists yet the main lockfile also churned,
+// or an un-honored leg with no main churn, which would be a vacuous negative).
+function branchLockfileCase(label, enable) {
   git(["checkout", "-q", "-b", "feature-x", "base"]);
-  writeFileSync(join(DIR, ".npmrc"), "git-branch-lockfile=true\n");
-  setCatalog("typescript", "5.8.3"); // a real change so pnpm writes a (branch) lockfile
+  enable();
+  setCatalog("typescript", "5.8.3"); // a real change so the install must re-resolve
   lockfileOnly();
   const branchLf = sh("bash", ["-c", `ls pnpm-lock.*.yaml 2>/dev/null || true`]).trim();
-  out.gitBranchLockfile = {
-    setting: ".npmrc git-branch-lockfile=true",
-    perBranchLockfile: branchLf || null,
-    created: !!branchLf,
+  // independent evidence: the glob result must also stat as a real file
+  const fileOnDisk = branchLf ? existsSync(join(DIR, branchLf)) : false;
+  const mainLock = diffLines(LF);
+  const honored = !!branchLf && fileOnDisk;
+  const rec = {
+    setting: label,
+    honored,
+    file: branchLf || null,
+    fileVerifiedOnDisk: fileOnDisk,
+    mainLockfileLinesChanged: mainLock.added + mainLock.removed,
   };
   resetHard();
   rmSync(join(DIR, ".npmrc"), { force: true });
+  sh("bash", ["-c", "rm -f pnpm-lock.*.yaml"]);
   git(["branch", "-D", "feature-x"]);
+  return rec;
+}
+{
+  const npmrcLeg = branchLockfileCase(".npmrc git-branch-lockfile=true (npm-style surface)", () =>
+    writeFileSync(join(DIR, ".npmrc"), "git-branch-lockfile=true\n"),
+  );
+  const yamlLeg = branchLockfileCase(
+    "pnpm-workspace.yaml gitBranchLockfile: true (pnpm-native surface)",
+    () => {
+      const p = join(DIR, WS);
+      writeFileSync(p, readFileSync(p, "utf8") + "gitBranchLockfile: true\n");
+    },
+  );
+  out.gitBranchLockfile = {
+    pnpm: out.pnpm,
+    npmStyleSurface: npmrcLeg,
+    pnpmNativeSurface: yamlLeg,
+    note:
+      `pnpm ${out.pnpm}: the npm-style .npmrc surface is ${npmrcLeg.honored ? "honored" : `ignored (no pnpm-lock.<branch>.yaml; the re-resolve changed the main lockfile by ${npmrcLeg.mainLockfileLinesChanged} lines)`}; ` +
+      `the pnpm-native pnpm-workspace.yaml surface is ${yamlLeg.honored ? `honored (wrote ${yamlLeg.file}, main lockfile changed by ${yamlLeg.mainLockfileLinesChanged} lines)` : "ignored"}`,
+  };
 }
 
-mkdirSync(join(REPO, "bench"), { recursive: true });
-writeFileSync(join(REPO, "bench/lockfile-merge-bench.json"), JSON.stringify(out, null, 2));
-rmSync(DIR, { recursive: true, force: true });
-console.log(JSON.stringify(out, null, 2));
-
-// This is a verification artifact backing the docs — fail loud if any demo did not
-// behave as claimed (don't just record a regressed result).
+// This is a verification artifact backing the docs — every check runs BEFORE the JSON
+// is written and before the repro directory is removed, so a failed demonstration
+// never leaves a regressed canonical artifact and keeps its evidence tree for the
+// post-mortem.
+const branchLegConsistent = (leg) =>
+  leg.honored === (!!leg.file && leg.fileVerifiedOnDisk) &&
+  (leg.honored ? leg.mainLockfileLinesChanged === 0 : leg.mainLockfileLinesChanged > 0);
 const checks = [
   ["catalog shields manifests (0 changed)", out.catalogBump.manifestsChanged === 0],
   ["catalog bump propagates to the lockfile", out.catalogBump.lockfile.added > 0],
@@ -250,9 +307,23 @@ const checks = [
     "pnpm install resolves the lockfile conflict",
     out.mergeAutoResolve.pnpmResolvedLockfile === true,
   ],
-  ["git branch lockfile created", out.gitBranchLockfile.created === true],
+  [
+    "git-branch-lockfile npm-style-surface record is internally consistent",
+    branchLegConsistent(out.gitBranchLockfile.npmStyleSurface),
+  ],
+  [
+    "git-branch-lockfile pnpm-native-surface record is internally consistent",
+    branchLegConsistent(out.gitBranchLockfile.pnpmNativeSurface),
+  ],
 ];
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
-  throw new Error(`lockfile-merge-bench: demonstrations regressed:\n- ${failed.join("\n- ")}`);
+  throw new Error(
+    `lockfile-merge-bench: demonstrations regressed (repro kept at ${DIR}):\n- ${failed.join("\n- ")}`,
+  );
 }
+
+mkdirSync(join(REPO, "bench"), { recursive: true });
+writeFileSync(join(REPO, "bench/lockfile-merge-bench.json"), JSON.stringify(out, null, 2));
+rmSync(DIR, { recursive: true, force: true });
+console.log(JSON.stringify(out, null, 2));

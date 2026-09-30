@@ -32,13 +32,20 @@ const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const DIR = "/tmp/lockfile-bench";
 const BUN = join(homedir(), ".bun/bin/bun");
 const LOGFILE = "/tmp/lockfile-bench.log";
-const SCALES = (process.argv[2] || "200:100 1000:200 2000:300")
-  .trim()
-  .split(/\s+/)
-  .map((s) => {
-    const [a, l] = s.split(":");
-    return { apps: +a, libs: +l };
-  });
+// The canonical scale matrix is the one the committed record and the doc figures cite.
+// Any other scales write only the gitignored partial — the in-script gate, so neither a
+// SCALES override nor a direct script run can overwrite the data of record (the
+// install-bench/container-install convention).
+const CANONICAL_SCALES = "200:100 1000:200 2000:300";
+const SCALES_ARG = (process.argv[2] || CANONICAL_SCALES).trim();
+const OUT_JSON =
+  SCALES_ARG === CANONICAL_SCALES
+    ? "bench/lockfile-bench.json"
+    : "bench/lockfile-bench.partial.json";
+const SCALES = SCALES_ARG.split(/\s+/).map((s) => {
+  const [a, l] = s.split(":");
+  return { apps: +a, libs: +l };
+});
 
 function node(args) {
   const r = spawnSync("node", args, { cwd: DIR, encoding: "utf8", maxBuffer: 1 << 26 });
@@ -184,6 +191,20 @@ const PI = "--config.confirm-modules-purge=false";
 // pre-warm pnpm + bun store/metadata so resolve and full both run against a warm
 // cache — otherwise resolve (run first) warms it for full and skews resolveSharePct.
 setup(SCALES[0].apps, SCALES[0].libs);
+// tool provenance, probed in the scaffold cwd (pnpm resolves through the per-scaffold
+// packageManager pin) and attached to every record so the docs' version attribution
+// traces to the artifact itself
+const probeVersion = (cmd) => {
+  const r = spawnSync(cmd, ["--version"], { cwd: DIR, encoding: "utf8" });
+  const v = (r.stdout || "").trim();
+  if (r.error || r.status !== 0 || !v)
+    throw new Error(`${cmd} --version failed in the scaffold: ${(r.stderr || "").slice(-300)}`);
+  return v;
+};
+const VERSIONS = { pnpm: probeVersion("pnpm"), bun: probeVersion(BUN) };
+if (VERSIONS.pnpm !== PNPM_VERSION)
+  throw new Error(`pnpm ${VERSIONS.pnpm} != pinned ${PNPM_VERSION} (scripts/_pins.mjs)`);
+console.log(`pnpm ${VERSIONS.pnpm} (per-scaffold pin), bun ${VERSIONS.bun}`);
 rmAll();
 timed("pnpm", ["install", PI]);
 rmAll();
@@ -214,6 +235,7 @@ for (const { apps, libs } of SCALES) {
   const rec = {
     apps,
     libs,
+    versions: VERSIONS,
     pnpm: {
       resolveMs: pResolve,
       verifyMs: pVerify,
@@ -232,7 +254,7 @@ for (const { apps, libs } of SCALES) {
   };
   out.push(rec);
   mkdirSync(join(REPO, "bench"), { recursive: true });
-  writeFileSync(join(REPO, "bench/lockfile-bench.json"), JSON.stringify(out, null, 2));
+  writeFileSync(join(REPO, OUT_JSON), JSON.stringify(out, null, 2));
   console.log(`${apps}/${libs}:`);
   console.log(
     `  pnpm  resolve ${pResolve}ms verify ${pVerify}ms full ${pFull}ms (resolve ${rec.pnpm.resolveSharePct}% of full) lock ${pLock.lines} lines`,
@@ -241,4 +263,4 @@ for (const { apps, libs } of SCALES) {
     `  bun   resolve ${bResolve}ms             full ${bFull}ms (resolve ${rec.bun.resolveSharePct}% of full) lock ${bLock.lines} lines`,
   );
 }
-console.log("--- bench/lockfile-bench.json written ---");
+console.log(`--- ${OUT_JSON} written ---`);

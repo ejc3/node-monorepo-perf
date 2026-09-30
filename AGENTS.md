@@ -25,7 +25,9 @@ inputs, not source. Tracked files are `scripts/`, the docs, `bench/*.json`,
 ## Workflows
 
 Scale knobs are Makefile vars: `APPS`, `LIBS`, `MODULES`, `APP` (focus target),
-`SCALES` (e.g. `"300:100 1500:300"`). Override on the CLI: `make bench APPS=2000 LIBS=300`.
+`SCALES` (lockfile-bench's matrix; its default IS the canonical
+`"200:100 1000:200 2000:300"` the committed record uses). Override on the CLI:
+`make bench APPS=2000 LIBS=300`.
 
 ### Scaffold
 - `make gen`: generate the workspace (`generate.mjs --apps --libs --modules --clean`).
@@ -89,7 +91,11 @@ One command each for the O(repo)-vs-O(closure) thesis:
   worktree (regenerates the tree) → `bench/test-axis-bench.json`, folded into LIMITS.md + the
   README "Findings by Area".
 - `make lockfile-bench`: split install into resolve (`--lockfile-only`) vs verify
-  vs full, per `SCALES` → `bench/lockfile-bench.json`.
+  vs full, per `SCALES` (Makefile default = the canonical
+  `200:100 1000:200 2000:300` the committed record uses; the gate is in-script —
+  non-canonical scales write only gitignored `lockfile-bench.partial.json`; pnpm/bun
+  versions probed in-scaffold and recorded per entry, pnpm pin-asserted) →
+  `bench/lockfile-bench.json`.
 - `node scripts/install-modes-bench.mjs <apps>:<libs>` (default `1000:200`):
   install by situation, cold-resolve (no lockfile) vs +1 dependency vs catalog bump
   vs frozen (warm/cold store) → `bench/install-modes-bench.json`.
@@ -98,13 +104,22 @@ One command each for the O(repo)-vs-O(closure) thesis:
   completeness + pruned-lockfile size → `bench/focus-install-bench.json`.
 - `node scripts/lockfile-merge-bench.mjs <apps>:<libs>` (default `200:50`): lockfile
   churn, catalog bump vs per-app pin (`package.json` files changed + lockfile lines)
-  and a two-branch merge conflict auto-resolved by `pnpm install` →
-  `bench/lockfile-merge-bench.json`.
+  and a two-branch merge conflict auto-resolved by `pnpm install`; the
+  git-branch-lockfile demo measures BOTH config surfaces two-sided — pnpm 12 ignores
+  the npm-style `.npmrc git-branch-lockfile=true` key pnpm 10 honored (the re-resolve
+  churns the main lockfile, the not-a-no-op marker) and honors its native
+  `pnpm-workspace.yaml gitBranchLockfile: true` (writes `pnpm-lock.<branch>.yaml`,
+  main lockfile untouched) — hard-failing only on an internally inconsistent record;
+  every check runs BEFORE the JSON is written (a failed demo keeps its repro tree and
+  never overwrites the canonical artifact) → `bench/lockfile-merge-bench.json`.
 
 ### Tool Comparisons
 - `make install-bench`: pnpm (isolated + hoisted) vs bun vs yarn 4 (node-modules + PnP, pinned
   standalone CLI, `YARN_*` env scrubbed, PnP completeness verified through `.pnp.cjs`),
-  cold/warm/truly-cold (each tool's store+metadata redirected to fresh dirs, asserted populated)
+  cold/warm/truly-cold (each tool's store+metadata redirected to fresh dirs, asserted populated),
+  tool provenance recorded AND pin-asserted (`pnpmVersion`/`bunVersion` probed from inside the
+  scaffold — the pnpm field is the per-scaffold `packageManager` pin the timed installs ran — and
+  rejected if they drift from `_pins.mjs`; `yarnVersion` is the pinned CLI),
   at the canonical scales `200:100 1000:200 2000:300` → `bench/install-bench.json`; any other
   scales (and any run's in-progress state) go to gitignored `install-bench.partial.json`, promoted
   on completion only.
@@ -459,12 +474,14 @@ One command each for the O(repo)-vs-O(closure) thesis:
   ("[Lint: ESLint vs oxlint](TOOLING.md#lint-eslint-vs-oxlint)"); folded into
   the README tool-comparison chart.
 - `node scripts/perf-matrix.mjs --apps <n> --libs <n>`: how `workspace:` spec form
-  and node-linker choice move install time / footprint → `bench/perf-matrix.json`.
+  and node-linker choice move install time / footprint (pnpm version recorded per
+  variant, pin-asserted) → `bench/perf-matrix.json`.
 - `node scripts/turbopack-bench.mjs`: `next build` vs `next build --turbopack` on
   Next 16 (identical output size + same bundler) → `bench/turbopack-bench.json`.
 - `node scripts/fs-bench.mjs <apps>:<libs>` (default `300:100`):
   `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
-  relink time + exclusive disk → `bench/fs-bench.json`.
+  relink time + exclusive disk (pnpm version recorded, pin-asserted) →
+  `bench/fs-bench.json`.
 - `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default working
   tree vs `/mnt/fcvm-btrfs`): the device layer under fs-bench: 4K random read/write
   IOPS + p99 at `O_DIRECT` (no page cache) and a small-file burst (buffered create-only
@@ -596,11 +613,18 @@ One command each for the O(repo)-vs-O(closure) thesis:
   and non-destructive**: scaffolds under the OS temp dir (never the repo tree), removes it on exit,
   needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
 - `node scripts/wave-rollout-bench.mjs`: the **rollout-mechanics vet**, the load-bearing facts for
-  advancing an internal core lib through a hermetic, wave-based rollout, measured as a **bun-vs-pnpm
-  head-to-head** (writeup in ROLLOUT.md, which recommends bun: it does all of it natively and cold-installs
-  62–357× faster than pnpm, `bench/install-bench.json`). Five rungs on self-contained temp scaffolds, each
-  HARD-ASSERTING a stable fact; the bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
-  (and the script asserts it is running 1.3.14). (1) **Determinism**: the lockfile, not the range, is the
+  advancing an internal core lib through a hermetic, wave-based rollout, measured as a **bun-vs-pnpm-12
+  head-to-head** (writeup in ROLLOUT.md, which recommends bun for the native mechanics and the
+  200-app/truly-cold install cases; against pnpm 12 the full re-resolve is scale-dependent — the
+  recorded `speedContext` carries both directions from `bench/install-bench.json`). Five rungs on
+  self-contained temp scaffolds recording measured facts (hard-asserting where the fact is stable); the
+  bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
+  (and the script asserts it is running 1.3.14). Every root-manifest rewrite preserves the scaffold's
+  `packageManager` pin — pnpm 12's launcher writes the pin into `pnpm-lock.yaml` as a two-document
+  stream (`packageManagerDependencies` preamble document) that pnpm rejects with
+  ERR_PNPM_BROKEN_LOCKFILE if the field is later removed, MEASURED by the 1c negative control
+  (seed-with-pin → preamble asserted present; pin dropped → frozen-install rejection observed; recorded
+  as `determinism.pnpm.lockfilePortability`). (1) **Determinism**: the lockfile, not the range, is the
   boundary. bun with a committed `bunfig.toml [install] frozenLockfile=true` FAILS CLOSED on drift (bare
   `bun install` exit 1, lock unchanged); bun does not auto-enable frozen in CI (pnpm does, and yarn 4
   does per `yarn-rollout-bench.mjs`), so that
@@ -608,8 +632,10 @@ One command each for the O(repo)-vs-O(closure) thesis:
   closed (`ERR_PNPM_OUTDATED_LOCKFILE`). (2) **Named-catalog lanes**: `catalog:stable`/`catalog:next`
   route two cohorts to two versions in one lockfile and a repoint edits 0 consumer manifests, natively on
   both (bun in `package.json` `workspaces.catalogs`, pnpm in `pnpm-workspace.yaml`). (3) **workspace: as a
-  catalog value**: bun ACCEPTS it and links the local package; pnpm REJECTS every form
-  (`ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`). (4) **Publish bakes a CONCRETE range**:
+  catalog value**: bun ACCEPTS it and links the local package; pnpm is a TWO-SIDED per-form record with
+  derived claim text — pnpm 12 accepts and links every form (sentinel-proved), where pnpm 10 rejected them
+  all (`ERR_PNPM_CATALOG_ENTRY_INVALID_WORKSPACE_SPEC`); only an unclassifiable outcome hard-fails.
+  (4) **Publish bakes a CONCRETE range**:
   `bun pm pack` / `pnpm pack` rewrite a lib's internal `workspace:^`→`^2.5.0`, so a lib every other lib
   re-exports advances by republishing its dependents, not a one-line flip. (5) **Cross-tool gotcha**: bun
   does not read catalogs from `pnpm-workspace.yaml`, so author them in `package.json`. **Self-contained and
@@ -618,21 +644,28 @@ One command each for the O(repo)-vs-O(closure) thesis:
   ROLLOUT.md.
 - `node scripts/bun-safety-bench.mjs` (`BUN_SAFETY_NO_CA=1` to skip the CodeArtifact rung): the
   **bun-adoption-safety vet**: de-risks ROLLOUT.md's bun recommendation by measuring whether a bun install
-  is as SAFE as pnpm's (not as fast; speed stays in `install-bench.json`), as a **bun-1.3.14-vs-pnpm-10
+  is as SAFE as pnpm's (not as fast; speed stays in `install-bench.json`), as a **bun-1.3.14-vs-pnpm-12
   head-to-head** built to surface where bun is WORSE. Behaviors are MEASURED and recorded (booleans / exit
-  codes / signal strings); only measurement-validity invariants are asserted (the tool ran without a crash,
-  the install resolved), so an unplanned bun problem becomes data, not a red bench. Four rungs on
+  codes / signal strings); measurement-validity invariants are asserted (the tool ran without a crash, the
+  install resolved), and the lifecycle rung additionally hard-asserts each tool's measured contract (bun
+  blocked + exit 0; pnpm fail-closed ERR_PNPM_IGNORED_BUILDS), so an unplanned behavior flip elsewhere
+  becomes data, not a red bench. Four rungs on
   self-contained temp scaffolds (no worktree): (A) **lifecycle scripts**: a local `file:` dep's postinstall
   is BLOCKED by default on both (mainProbe: the generated file is absent), each printing a remediation hint;
   the asymmetry is bun's built-in trusted ALLOWLIST, which runs esbuild's postinstall (each tool's own
   self-report, pnpm "Ignored build scripts" / bun `bun pm untrusted`, since esbuild ships its binary via a
-  platform optionalDependency, so a binary-presence proof can't tell run from blocked) where pnpm 10 blocks
-  it. (C) **peer resolution**: both warn on a version mismatch (bun on stderr; `run()` merges `2>&1` so the
+  platform optionalDependency, so a binary-presence proof can't tell run from blocked) where pnpm 12 blocks
+  it and fails the install (ERR_PNPM_IGNORED_BUILDS). (C) **peer resolution**: both warn on a version
+  mismatch (bun on stderr; `run()` merges `2>&1` so the
   stderr-only warning is captured) and both auto-install a missing peer at their defaults (pnpm
   `auto-install-peers` defaults to true), probed via whether the PLUGIN resolves its peer, not root
-  visibility (which is the hoist-vs-isolation layout, = rung D); parity. The one gap is the fail-closed
-  knob: pnpm `strict-peer-dependencies=true` exits 1, none of bun's three knobs (env / `.npmrc` /
-  `bunfig.toml`) flips its exit. (D) **phantom dependency**: an undeclared transitive import, probed from a
+  visibility (which is the hoist-vs-isolation layout, = rung D); parity. The fail-closed strict-peer knob
+  is measured on BOTH of pnpm's config surfaces and the record's claim/note/downsides strings DERIVE from
+  one shared condition table: pnpm 12 fails closed via its NATIVE surface
+  (`--config.strict-peer-dependencies=true` → exit 1, ERR_PNPM_PEER_DEP_ISSUES) while IGNORING the
+  npm-style `npm_config_` env surface pnpm 10 honored (recorded as `pnpmStrict.npmStyleSurface`); none of
+  bun's three knobs (env / `.npmrc` / `bunfig.toml`) flips its exit — still a bun gap.
+  (D) **phantom dependency**: an undeclared transitive import, probed from a
   single-package project (resolves under bun's hoist, fails under pnpm's isolation; pnpm's edge)
   AND from a workspace member (bun 1.3 workspaces default to the isolated linker: fails on both,
   parity, so the edge is single-package only), each behind a declared-dep positive control
@@ -902,12 +935,19 @@ inner loops plus the workspace-author core-package gate and the real-app results
 traced to a `bench/*.json`), [ROLLOUT.md](ROLLOUT.md) (advancing an internal core lib through a hermetic,
 wave-based rollout, driven with bun: the lockfile-not-the-range determinism boundary with frozen vs
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
-`workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm as a
-head-to-head with bun cold-installing 62–357× faster, the direct-clean vs universal-republish-fanout
+`workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm 12 as a
+head-to-head whose install-speed story is scale-dependent (bun ~6× faster cold at 200 apps, ~1.9×
+truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; CI frozen container a
+near-tie), the direct-clean vs
+universal-republish-fanout
 distinction, expand/migrate/contract for breaking changes, gating the artifact as well as the source,
+the pnpm-12 lockfile-portability caveat measured as a negative control (packageManagerDependencies
+preamble document; pin removed → frozen install ERR_PNPM_BROKEN_LOCKFILE),
 the "[Adoption Safety](ROLLOUT.md#adoption-safety)" subsection (bun is adoptable but not a strict
-safety superset; two real gaps: the built-in lifecycle-script allowlist, no fail-closed strict-peer
-knob; plus pnpm's phantom-isolation edge in single-package projects, workspaces being parity; the
+safety superset; two real gaps: the built-in lifecycle-script allowlist runs scripts pnpm 12 blocks and
+fails the install on, and no fail-closed strict-peer knob — pnpm 12 fails closed via its native config
+surface while ignoring the npm-style env surface pnpm 10 honored; plus pnpm's phantom-isolation edge in
+single-package projects, workspaces being parity; the
 rest parity), the
 "[yarn as a Driver](ROLLOUT.md#yarn-as-a-driver)" subsection (every mechanic native incl. the CI auto-immutable default,
 `bench/yarn-rollout-bench.json`), and pnpm as the fallback; backed by

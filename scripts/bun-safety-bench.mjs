@@ -20,8 +20,11 @@
 //   B  CodeArtifact private-registry auth — publish + install round-trip on bun vs pnpm against the
 //      real @ejc3 registry, host-verified; skips (partial.json) without AWS creds.
 //   C  peer resolution — version mismatch and a missing peer. Both warn on a mismatch and both
-//      auto-install a missing peer at their defaults (parity); the one gap is the fail-closed knob —
-//      pnpm strict-peer-dependencies=true exits 1, none of bun's three plausible knobs flips its exit.
+//      auto-install a missing peer at their defaults (parity); each tool's fail-closed knob is
+//      MEASURED (pnpm on BOTH config surfaces: the native --config.strict-peer-dependencies=true,
+//      which pnpm 12 honors and fails closed on, and the npm-style npm_config_ env surface, which
+//      pnpm 12 ignores though pnpm 10 honored it; bun's three plausible knobs) and the note/claim
+//      text derives from those booleans.
 //   D  phantom dependency — an undeclared transitive import, probed from BOTH a single-package
 //      project (bun's hoisted layout: resolves, vs pnpm isolation: fails — pnpm's safety edge)
 //      and a workspace member (bun 1.3 workspaces default to the isolated linker, so whether the
@@ -55,6 +58,15 @@ const fail = (m) => {
 const isSignalExit = (code) => code > 128 && code <= 192;
 const CRASH =
   /Command terminated by signal|panic:|Segmentation fault|out of memory|\(core dumped\)/i;
+// Ambient tool-config env is scrubbed from EVERY child (PNPM_CONFIG_* / npm_config_* /
+// NPM_CONFIG_*, case-insensitively): the config-surface rungs measure exactly one
+// surface at a time, and an inherited PNPM_CONFIG_STRICT_PEER_DEPENDENCIES (or any
+// npm-style var) would silently flip a leg's measured default. A rung that WANTS a
+// surface active re-adds it through the explicit `env` overrides.
+const scrubbedBaseEnv = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !/^(PNPM_CONFIG_|NPM_CONFIG_)/i.test(k)),
+  );
 function run(cmd, cwd, env) {
   let out = "";
   let code = 0;
@@ -69,7 +81,7 @@ function run(cmd, cwd, env) {
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 300000,
       maxBuffer: 32 * 1024 * 1024,
-      env: env ? { ...process.env, ...env } : process.env,
+      env: env ? { ...scrubbedBaseEnv(), ...env } : scrubbedBaseEnv(),
     });
   } catch (e) {
     if (e.signal) throw new Error(`\`${cmd}\` killed by ${e.signal} (timeout?)`);
@@ -408,14 +420,22 @@ function pluginPeerProbe(dir) {
   const ok = r.out.startsWith("OK ");
   return { ok, version: ok ? r.out.slice(3).trim() : null };
 }
-function peerCase(tool, deps, npmrc, strict) {
+// strictMode: false | "native" | "npm-style". pnpm 12 honors its NATIVE config surfaces
+// for strict-peer (`--config.strict-peer-dependencies=true`, `PNPM_CONFIG_` env,
+// pnpm-workspace.yaml `strictPeerDependencies`) and IGNORES the npm-style surfaces
+// (`npm_config_` env, the `.npmrc` key) that pnpm 10 honored — BOTH surfaces are
+// measured and recorded, so a config-surface change can never read as a removed knob.
+function peerCase(tool, deps, npmrc, strictMode) {
   const dir = scaffold(
-    `C-${tool}-${Object.keys(deps).join("_")}${strict ? "-strict" : ""}`,
+    `C-${tool}-${Object.keys(deps).join("_")}${strictMode ? `-strict-${strictMode}` : ""}`,
     { "package.json": mf(`c-${tool}`, deps) },
     npmrc,
   );
-  const env = strict ? { npm_config_strict_peer_dependencies: "true" } : {};
-  const r = install[tool](dir, env);
+  const env = strictMode === "npm-style" ? { npm_config_strict_peer_dependencies: "true" } : {};
+  const r =
+    tool === "pnpm" && strictMode === "native"
+      ? run("pnpm install --no-frozen-lockfile --config.strict-peer-dependencies=true", dir, env)
+      : install[tool](dir, env);
   const plugin = pluginPeerProbe(dir); // does the plugin resolve its peer, at which version
   const root = runtimeProbe(dir, ISODD); // does the ROOT see is-odd (layout: hoisted vs isolated)
   return {
@@ -430,7 +450,25 @@ function peerCase(tool, deps, npmrc, strict) {
 const mismatchDeps = { [ISODD]: "3.0.0", oddplugin: `file:${oddTgz}` };
 const mmBun = peerCase("bun", mismatchDeps, BUN_NPMRC, false);
 const mmPnpm = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, false);
-const mmPnpmStrict = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, true);
+const mmPnpmStrict = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, "native");
+const mmPnpmStrictNpmStyle = peerCase("pnpm", mismatchDeps, PNPM_NPMRC, "npm-style");
+// Three-state validity for each pnpm strict leg: fails-closed (non-zero WITH the peer
+// error), ignored (exit 0 AND the install completed — the plugin resolves its peer), or
+// INVALID (any other outcome — a registry/network failure must never read as "the knob
+// was ignored" or as knob semantics).
+for (const [label, leg] of [
+  ["native --config surface", mmPnpmStrict],
+  ["npm-style env surface", mmPnpmStrictNpmStyle],
+]) {
+  if (leg.exit !== 0 && !/ERR_PNPM_PEER_DEP_ISSUES/.test(leg.out))
+    fail(
+      `C (${label}): pnpm strict leg failed for a non-peer reason (exit ${leg.exit}):\n${leg.out.slice(-400)}`,
+    );
+  if (leg.exit === 0 && !leg.pluginWorks)
+    fail(
+      `C (${label}): pnpm strict leg exited 0 but the install did not complete (plugin cannot resolve its peer) — an invalid measurement, not an ignored knob`,
+    );
+}
 // bun strict-peer: try all three plausible fail-closed knobs; "has knob" iff ANY fails closed for a
 // PEER reason. failedClosed must be ATTRIBUTABLE to the peer mismatch — a non-zero exit from a
 // resolve/parse/network error is not bun "failing closed on peers" — so require a peer marker in the
@@ -468,6 +506,29 @@ const mpBun = peerCase("bun", { oddplugin: `file:${oddTgz}` }, BUN_NPMRC, false)
 const mpPnpm = peerCase("pnpm", { oddplugin: `file:${oddTgz}` }, PNPM_NPMRC, false);
 
 const warned = (o) => /peer/i.test(o);
+// The strict-peer knob is MEASURED for both tools and every derived sentence (note,
+// claim, downsides) is built from these booleans — the text can never assert a knob the
+// same file's data says does not exist (the house rule: claims derive clause-by-clause
+// from measured facts).
+const pnpmStrictError = (mmPnpmStrict.out.match(/ERR_PNPM_PEER_DEP_ISSUES/) || [null])[0];
+const pnpmHasStrictPeerKnob = mmPnpmStrict.exit !== 0 && !!pnpmStrictError;
+const pnpmStrictNpmStyleError = (mmPnpmStrictNpmStyle.out.match(/ERR_PNPM_PEER_DEP_ISSUES/) || [
+  null,
+])[0];
+const pnpmNpmStyleSurfaceHonored = mmPnpmStrictNpmStyle.exit !== 0 && !!pnpmStrictNpmStyleError;
+const npmStyleSurfaceClause = pnpmNpmStyleSurfaceHonored
+  ? "the npm-style npm_config_ env surface also flips it"
+  : `pnpm ${PNPM_VER} ignores the npm-style npm_config_ env surface for this setting (exit ${mmPnpmStrictNpmStyle.exit} there — the surface pnpm 10 honored)`;
+const warnClause =
+  warned(mmBun.out) && warned(mmPnpm.out)
+    ? "both warn on a peer-version mismatch (bun on stderr, pnpm on stdout)"
+    : `peer-mismatch warning: bun=${warned(mmBun.out)}, pnpm=${warned(mmPnpm.out)}`;
+const strictKnobClause =
+  pnpmHasStrictPeerKnob && !bunHasStrictPeerKnob
+    ? `the asymmetry is the fail-closed knob: pnpm --config.strict-peer-dependencies=true -> exit ${mmPnpmStrict.exit} (${pnpmStrictError}; ${npmStyleSurfaceClause}), while none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit`
+    : !pnpmHasStrictPeerKnob && !bunHasStrictPeerKnob
+      ? `NEITHER tool fails closed on a peer mismatch: pnpm ${PNPM_VER}'s strict-peer-dependencies=true does not flip the exit on its native config surface (exit ${mmPnpmStrict.exit}; ${npmStyleSurfaceClause}), and none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit either`
+      : `strict-peer fail-closed measured: pnpm=${pnpmHasStrictPeerKnob} (exit ${mmPnpmStrict.exit}, ${pnpmStrictError}; ${npmStyleSurfaceClause}), bun=${bunHasStrictPeerKnob}`;
 result.peerDependencies = {
   mismatch: {
     bun: { exit: mmBun.exit, warned: warned(mmBun.out), pluginResolvesIsOdd: mmBun.pluginIsOdd },
@@ -478,11 +539,21 @@ result.peerDependencies = {
     },
     bothWarn: warned(mmBun.out) && warned(mmPnpm.out),
     pnpmStrict: {
+      mechanism:
+        "--config.strict-peer-dependencies=true (pnpm-native config surface; equivalent: PNPM_CONFIG_ env, pnpm-workspace.yaml strictPeerDependencies)",
       exit: mmPnpmStrict.exit,
-      error: (mmPnpmStrict.out.match(/ERR_PNPM_PEER_DEP_ISSUES/) || [null])[0],
+      error: pnpmStrictError,
+      failsClosed: pnpmHasStrictPeerKnob,
+      npmStyleSurface: {
+        mechanism:
+          "npm_config_strict_peer_dependencies env (the npm-style surface pnpm 10 honored)",
+        exit: mmPnpmStrictNpmStyle.exit,
+        error: pnpmStrictNpmStyleError,
+        honored: pnpmNpmStyleSurfaceHonored,
+      },
     },
     bunStrict: { hasKnob: bunHasStrictPeerKnob, mechanismsTried: bunStrictMechs },
-    note: "both warn on a peer-version mismatch (bun on stderr, pnpm on stdout); the asymmetry is the fail-closed knob: pnpm strict-peer-dependencies=true -> exit 1 (ERR_PNPM_PEER_DEP_ISSUES), while none of bun's three plausible knobs (env / .npmrc / bunfig.toml) flips its exit",
+    note: `${warnClause}; ${strictKnobClause}`,
   },
   missingPeer: {
     bun: {
@@ -783,35 +854,45 @@ if (process.env.BUN_SAFETY_NO_CA === "1") {
 // =================================================================================================
 // derive symmetric downsides + write
 // =================================================================================================
-const bunDownsides = [];
-const pnpmDownsides = [];
+// ONE measured-condition table drives BOTH the downsides list and the claim's gap
+// clauses, so the two can never disagree (a gap that enters downsidesFound.bun always
+// moves the claim, including a CodeArtifact mismatch). Every condition is a boolean
+// recorded elsewhere in this same file.
+const bunGaps = [];
 if (
   result.lifecycleScripts.registryTrusted.parityOnRegistryTrustedDep === false &&
   !result.lifecycleScripts.registryTrusted.bun.blocked
 )
-  bunDownsides.push(
-    "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 12 blocks all build scripts until approved and fails the install on a blocked build (ERR_PNPM_IGNORED_BUILDS)",
-  );
-if (
-  result.peerDependencies.mismatch.bunStrict.hasKnob === false &&
-  result.peerDependencies.mismatch.pnpmStrict.error
-)
-  bunDownsides.push(
-    "no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm strict-peer-dependencies=true -> ERR_PNPM_PEER_DEP_ISSUES, exit 1)",
-  );
-if (result.phantomDependency.pnpmSafetyEdge === true)
-  pnpmDownsides.push(
-    result.phantomDependency.workspace.bun.phantomResolves === false
-      ? "(pnpm advantage, single-package projects only) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves; in a WORKSPACE bun 1.3's isolated default blocks the phantom too — parity there"
-      : "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's layout resolves in both single-package projects and workspaces",
-  );
+  bunGaps.push({
+    downside:
+      "runs postinstall scripts of built-in-trusted registry deps (e.g. esbuild) by default; pnpm 12 blocks all build scripts until approved and fails the install on a blocked build (ERR_PNPM_IGNORED_BUILDS)",
+    clause:
+      "bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 12 blocks, failing the install (ERR_PNPM_IGNORED_BUILDS)",
+  });
+if (bunHasStrictPeerKnob === false && pnpmHasStrictPeerKnob === true)
+  bunGaps.push({
+    downside: `no fail-closed strict-peer knob (none of env / .npmrc / bunfig.toml flips the exit; pnpm --config.strict-peer-dependencies=true -> ${pnpmStrictError}, exit ${mmPnpmStrict.exit}; ${npmStyleSurfaceClause})`,
+    clause: `bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits ${mmPnpmStrict.exit} with ${pnpmStrictError} on its native config surface; ${npmStyleSurfaceClause})`,
+  });
 if (
   result.codeArtifactAuth &&
   !result.codeArtifactAuth.skipped &&
   result.codeArtifactAuth.sameAuthPathAsPnpm === false
 )
-  bunDownsides.push(
-    "CodeArtifact publish/install did not use the identical scoped .npmrc path pnpm uses (see codeArtifactAuth)",
+  bunGaps.push({
+    downside:
+      "CodeArtifact publish/install did not use the identical scoped .npmrc path pnpm uses (see codeArtifactAuth)",
+    clause:
+      "bun's CodeArtifact publish/install did not match pnpm's scoped .npmrc path (see codeArtifactAuth)",
+  });
+const bunDownsides = bunGaps.map((g) => g.downside);
+const gapClauses = bunGaps.map((g) => g.clause);
+const pnpmDownsides = [];
+if (result.phantomDependency.pnpmSafetyEdge === true)
+  pnpmDownsides.push(
+    result.phantomDependency.workspace.bun.phantomResolves === false
+      ? "(pnpm advantage, single-package projects only) strict isolation blocks phantom (undeclared transitive) imports that bun's hoisted layout resolves; in a WORKSPACE bun 1.3's isolated default blocks the phantom too — parity there"
+      : "(pnpm advantage) strict isolation blocks phantom (undeclared transitive) imports that bun's layout resolves in both single-package projects and workspaces",
   );
 
 result.downsidesFound = { bun: bunDownsides, pnpm: pnpmDownsides };
@@ -828,10 +909,63 @@ const phantomClause =
       ? "while in SINGLE-PACKAGE projects bun's hoisted layout resolves phantom (undeclared) imports that pnpm's isolation surfaces (in workspaces bun 1.3's isolated default blocks the phantom too — parity there)"
       : `while bun's layout resolves phantom (undeclared) imports that pnpm's isolation surfaces in single-package projects (workspace measurement: bun resolves=${wsBun}, pnpm resolves=${wsPnpm} — see phantomDependency.workspace)`
     : "and the phantom-import probe did not reproduce a pnpm isolation edge this run (see phantomDependency)";
+const gapIntro =
+  gapClauses.length === 1
+    ? `one genuine gap remains — ${gapClauses[0]}`
+    : gapClauses.length === 2
+      ? `two genuine gaps remain — ${gapClauses.join(", and ")}`
+      : `${gapClauses.length} genuine gaps remain — ${gapClauses.join(", and ")}`;
+// Every parity predicate carries an explicit divergence/unmeasured clause: a false
+// predicate must surface in the claim (not silently drop out of a "rest is parity"
+// sentence), except where the same condition already produced a gap clause above.
+const parityChecks = [
+  {
+    ok: a1NeitherRuns && a1BothBlockAndHint,
+    yes: `a local file: dep's postinstall is BLOCKED by default on both, each printing a remediation hint — with different failure semantics (bun ${a1.bun.failsInstall ? "fails the install" : "exits 0"}; pnpm ${a1.pnpm.failsInstall ? "fails the install" : "exits 0"})`,
+    no: "the local file: dep lifecycle rung diverged (see lifecycleScripts.localFileDep)",
+  },
+  {
+    ok: result.peerDependencies.missingPeer.bothAutoInstall,
+    yes: "a missing peer is auto-installed by both at their defaults",
+    no: "missing-peer auto-install diverged (see peerDependencies.missingPeer)",
+  },
+  {
+    ok: result.peerDependencies.mismatch.bothWarn,
+    yes: "both warn on a peer-version mismatch",
+    no: "the peer-mismatch warning diverged (see peerDependencies.mismatch)",
+  },
+  {
+    ok: !pnpmHasStrictPeerKnob && !bunHasStrictPeerKnob,
+    yes: `NEITHER tool fails closed on a peer mismatch (pnpm ${PNPM_VER}'s strict-peer-dependencies=true does not flip the exit on its native surface; none of bun's three knobs does)`,
+    // the pnpm-fails-closed/bun-doesn't case is the gap clause above, not a divergence
+    no:
+      bunHasStrictPeerKnob && !pnpmHasStrictPeerKnob
+        ? "the strict-peer knobs diverged (bun fails closed, pnpm does not — see peerDependencies.mismatch)"
+        : null,
+  },
+  {
+    ok:
+      !!result.codeArtifactAuth &&
+      !result.codeArtifactAuth.skipped &&
+      result.codeArtifactAuth.sameAuthPathAsPnpm === true,
+    yes: "bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm",
+    // a measured mismatch is the CA gap clause above; only a skip is an unmeasured clause
+    no:
+      result.codeArtifactAuth && result.codeArtifactAuth.skipped
+        ? "the CodeArtifact rung was skipped this run (see codeArtifactAuth)"
+        : null,
+  },
+];
+const parityClauses = parityChecks.filter((c) => c.ok).map((c) => c.yes);
+const divergenceClauses = parityChecks.filter((c) => !c.ok && c.no).map((c) => c.no);
 result.claim =
-  "bun is adoptable but not a strict safety superset of pnpm: two genuine gaps remain — bun's built-in trusted ALLOWLIST runs some registry postinstall scripts (esbuild) that pnpm 12 blocks, failing the install (ERR_PNPM_IGNORED_BUILDS), and bun has no fail-closed strict-peer knob (pnpm's strict-peer-dependencies=true exits 1), " +
+  (gapClauses.length
+    ? `bun is adoptable but not a strict safety superset of pnpm: ${gapIntro}, `
+    : "bun measured with no genuine bun-side gap this run, ") +
   phantomClause +
-  ". The rest is parity on the block itself: a local file: dep's postinstall is BLOCKED by default on both, each printing a remediation hint (bun exits 0; pnpm 12 fails the install), a missing peer is auto-installed by both at their defaults and both warn on a peer-version mismatch, and bun authenticates to CodeArtifact via the same scoped .npmrc as pnpm.";
+  (parityClauses.length ? `. The rest is parity: ${parityClauses.join(", ")}` : "") +
+  (divergenceClauses.length ? `. Not parity or unmeasured: ${divergenceClauses.join(", ")}` : "") +
+  ".";
 
 mkdirSync(join(process.cwd(), "bench"), { recursive: true });
 // honor the partial-guard convention: a skipped rung never overwrites the canonical dataset
