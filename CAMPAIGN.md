@@ -72,6 +72,10 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
       btrfs volume)
 - [ ] lsp-scale-bench (1M; hours)
 - [ ] tsgo-scale-bench (1M; hours; needs root drop_caches; runs solo)
+- [ ] FINAL step, after every record above has re-measured: refresh the canonical
+      `bench/env.json` (`node scripts/env.mjs`) and regenerate the chart/summary
+      outputs — env.json is the machine/toolchain provenance for ALL committed
+      records, so it may only change once the records match it.
 
 Out of scope (substrate unchanged): test-axis (zero checker involvement — its tasks
 are `node:test`), build-bench + the turbopack/rspack pair (generated Next apps set
