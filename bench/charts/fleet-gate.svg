@@ -1,52 +1,76 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="792" viewBox="0 0 900 792" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
-<rect width="900" height="792" fill="#ffffff"/>
-<text x="28" y="44" font-size="20" font-weight="600" fill="#0a0d12">A 30,000-app workspace: what a change actually costs</text>
-<text x="28" y="66" font-size="12" fill="#57606a">30,000 Next.js apps + 460 shared libs in one workspace — about 1.03 million generated files. Every number below was measured on this tree.</text>
-<text x="28" y="106" font-size="15" font-weight="600" fill="#0a0d12">1. How far does a change reach?</text>
-<text x="28" y="126" font-size="12" fill="#57606a">5 of the libs are imported by every app. Change one and the pipeline re-runs a task for every package (plus the lib builds); change an ordinary lib</text>
-<text x="28" y="142" font-size="12" fill="#57606a">and almost nothing runs.</text>
-<rect x="28" y="156" width="414" height="56" rx="6" fill="rgb(176,42,42)"/>
-<text x="42" y="182" font-size="18" font-weight="700" fill="#ffffff">30,708 tasks re-run</text>
-<text x="42" y="200" font-size="11.5" fill="#ffffff" opacity="0.92">edit a lib that EVERY app imports (the worst case)</text>
-<rect x="458" y="156" width="414" height="56" rx="6" fill="rgb(26,127,55)"/>
-<text x="472" y="182" font-size="18" font-weight="700" fill="#ffffff">100 tasks re-run</text>
-<text x="472" y="200" font-size="11.5" fill="#ffffff" opacity="0.92">edit an ordinary leaf lib — 307× smaller blast radius</text>
-<text x="28" y="252" font-size="15" font-weight="600" fill="#0a0d12">2. The worst case, run two ways (64-core box)</text>
-<text x="28" y="272" font-size="12" fill="#57606a">Same question — “did my change break any app?” — two mechanisms. Not like-for-like: the pipeline also builds each lib's dist output; the one command</text>
-<text x="28" y="288" font-size="12" fill="#57606a">only type-checks.</text>
-<rect x="28" y="302" width="414" height="74" rx="6" fill="rgb(26,127,55)"/>
-<text x="42" y="328" font-size="18" font-weight="700" fill="#ffffff">60.7s — one command</text>
-<text x="42" y="346" font-size="11.5" fill="#ffffff" opacity="0.92">a single checker reads the whole workspace's source once</text>
-<text x="42" y="361" font-size="11.5" fill="#ffffff" opacity="0.92">(peak memory: 51,321MB recorded — a ~50GB-class box)</text>
-<rect x="458" y="302" width="414" height="74" rx="6" fill="rgb(198,98,28)"/>
-<text x="472" y="328" font-size="18" font-weight="700" fill="#0a0d12">10.2 min — ×10.1 slower</text>
-<text x="472" y="346" font-size="11.5" fill="#0a0d12" opacity="0.92">standard pipeline: 30,708 tasks — a checker process</text>
-<text x="472" y="361" font-size="11.5" fill="#0a0d12" opacity="0.92">per affected package plus 460 lib builds</text>
-<rect x="28" y="388" width="844" height="56" rx="6" fill="rgb(246,248,250)" stroke="#d0d7de"/>
-<text x="42" y="414" font-size="18" font-weight="700" fill="#0a0d12">A breaking change is caught in 59.5s</text>
-<text x="42" y="432" font-size="11.5" fill="#57606a">all 30,000 affected apps flagged with exact file and line — the fix-list a codemod can consume</text>
-<text x="28" y="484" font-size="15" font-weight="600" fill="#0a0d12">3. Does a bigger machine help?</text>
-<text x="28" y="504" font-size="12" fill="#57606a">The same two mechanisms on two different machines (64 vs 192 cores, recorded per run). One comparison each — a cross-machine observation, not a</text>
-<text x="28" y="520" font-size="12" fill="#57606a">controlled core-scaling experiment.</text>
-<rect x="28" y="534" width="414" height="74" rx="6" fill="rgb(26,127,55)"/>
-<text x="42" y="560" font-size="18" font-weight="700" fill="#ffffff">one command, 64 cores: 60.7s</text>
-<text x="42" y="578" font-size="11.5" fill="#ffffff" opacity="0.92">one process; the smaller box was faster</text>
-<rect x="458" y="534" width="414" height="74" rx="6" fill="rgb(48,132,52)"/>
-<text x="472" y="560" font-size="18" font-weight="700" fill="#ffffff">one command, 192 cores: 65.8s</text>
-<text x="472" y="578" font-size="11.5" fill="#ffffff" opacity="0.92">×1.1 slower — this check did not gain from the bigger box</text>
-<rect x="28" y="620" width="414" height="74" rx="6" fill="rgb(151,154,37)"/>
-<text x="42" y="646" font-size="18" font-weight="700" fill="#0a0d12">pipeline, 64 cores: 10.2 min</text>
-<text x="42" y="664" font-size="11.5" fill="#0a0d12" opacity="0.92">×1.6 slower than the big box</text>
-<rect x="458" y="620" width="414" height="74" rx="6" fill="rgb(26,127,55)"/>
-<text x="472" y="646" font-size="18" font-weight="700" fill="#ffffff">pipeline, 192 cores: 6.5 min</text>
-<text x="472" y="664" font-size="11.5" fill="#ffffff" opacity="0.92">ran 1.6× faster on this box (3.0× the cores)</text>
-<line x1="28" y1="712" x2="872" y2="712" stroke="#d0d7de"/>
-<text x="28" y="728" font-size="11.5" fill="#57606a">also measured: installing the 30,460-package workspace (plus its external deps) takes 181s (bun, warm store) · linting the whole tree takes 2.9s (oxlint)</text>
-<text x="28" y="746" font-size="11.5" fill="#57606a">toolchain: bun 1.3.14 · turbo 2.9.18 · tsgo 7.0.0-dev.20260707.2</text>
-<text x="28" y="766" font-size="11" fill="#57606a">data: </text>
-<a href="../fleet-gate-bench.json"><text x="65" y="766" font-size="11" fill="#0969da">fleet-gate-bench.json</text></a>
-<text x="193" y="766" font-size="11" fill="#57606a">  ·  </text>
-<a href="../fleet-gate-bench.pbox.json"><text x="224" y="766" font-size="11" fill="#0969da">fleet-gate-bench.pbox.json</text></a>
-<text x="383" y="766" font-size="11" fill="#57606a">  ·  </text>
-<a href="../fleet-shape.json"><text x="414" y="766" font-size="11" fill="#0969da">fleet-shape.json</text></a>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="858" viewBox="0 0 900 858" role="img" aria-label="What a change costs in a 30,000-app workspace: a universal-lib edit re-runs 30,708 tasks against 100 for a leaf edit; the worst case runs as one 60.7s whole-program check or a 10.2 min pipeline; and the bigger machine helps only the pipeline." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="900" height="858" fill="#ffffff"/>
+<text x="28" y="44" font-size="20" fill="#1c2330" font-weight="600">A 30,000-app workspace: what a change actually costs</text>
+<text x="28" y="66" font-size="12" fill="#6b7885">30,000 Next.js apps + 460 shared libs in one workspace — about 1.03 million generated files. Every number below was measured on this tree.</text>
+<text x="28" y="106" font-size="15" fill="#1c2330" font-weight="600">1. How far does a change reach?</text>
+<text x="28" y="126" font-size="12" fill="#6b7885">5 of the libs are imported by every app. Change one and the pipeline re-runs a task for every package (plus the lib builds); change an ordinary lib</text>
+<text x="28" y="142" font-size="12" fill="#6b7885">and almost nothing runs.</text>
+<rect x="28" y="156" width="268" height="56" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="42" y="182" font-size="17" fill="#1c2330" font-weight="700">edit a lib EVERY app imports</text>
+<text x="42" y="200" font-size="11.5" fill="#6b7885">the universal foundation — the worst case</text>
+<line x1="302" y1="184" x2="329" y2="184" stroke="#6b7885" stroke-width="1.5"/><path d="M336 184L329 187L329 181z" fill="#6b7885"/>
+<rect x="342" y="156" width="530" height="56" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="356" y="182" font-size="17" fill="#1c2330" font-weight="700">30,708 tasks re-run</text>
+<text x="356" y="200" font-size="11.5" fill="#6b7885">a task per package, plus the lib builds</text>
+<rect x="28" y="222" width="268" height="56" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="42" y="248" font-size="17" fill="#1c2330" font-weight="700">edit an ordinary leaf lib</text>
+<text x="42" y="266" font-size="11.5" fill="#6b7885">imported by almost nothing</text>
+<line x1="302" y1="250" x2="329" y2="250" stroke="#6b7885" stroke-width="1.5"/><path d="M336 250L329 253L329 247z" fill="#6b7885"/>
+<rect x="342" y="222" width="530" height="56" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="356" y="248" font-size="17" fill="#1c2330" font-weight="700">100 tasks re-run</text>
+<text x="356" y="266" font-size="11.5" fill="#6b7885">307× smaller blast radius</text>
+<text x="28" y="318" font-size="15" fill="#1c2330" font-weight="600">2. The worst case, run two ways (64-core box)</text>
+<text x="28" y="338" font-size="12" fill="#6b7885">Same question — “did my change break any app?” — two mechanisms. Not like-for-like: the pipeline also builds each lib's dist output; the one command</text>
+<text x="28" y="354" font-size="12" fill="#6b7885">only type-checks.</text>
+<rect x="28" y="368" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="42" y="394" font-size="17" fill="#1c2330" font-weight="700">60.7s — one command</text>
+<text x="42" y="412" font-size="11.5" fill="#6b7885">a single checker reads the whole workspace's source once</text>
+<text x="42" y="427" font-size="11.5" fill="#6b7885">(peak memory: 51,321MB recorded — a ~50GB-class box)</text>
+<rect x="458" y="368" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="472" y="394" font-size="17" fill="#1c2330" font-weight="700">10.2 min — ×10 slower</text>
+<text x="472" y="412" font-size="11.5" fill="#6b7885">standard pipeline: 30,708 tasks — a checker process</text>
+<text x="472" y="427" font-size="11.5" fill="#6b7885">per affected package plus 460 lib builds</text>
+<rect x="28" y="454" width="844" height="56" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="42" y="480" font-size="17" fill="#1c2330" font-weight="700">A breaking change is caught in 59.5s</text>
+<text x="42" y="498" font-size="11.5" fill="#6b7885">all 30,000 affected apps flagged with exact file and line — the fix-list a codemod can consume</text>
+<text x="28" y="550" font-size="15" fill="#1c2330" font-weight="600">3. Does a bigger machine help?</text>
+<text x="28" y="570" font-size="12" fill="#6b7885">The same two mechanisms on two different machines (64 vs 192 cores, recorded per run). One comparison each — a cross-machine observation, not a</text>
+<text x="28" y="586" font-size="12" fill="#6b7885">controlled core-scaling experiment.</text>
+<rect x="28" y="600" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="42" y="626" font-size="17" fill="#1c2330" font-weight="700">one command, 64 cores: 60.7s</text>
+<text x="42" y="644" font-size="11.5" fill="#6b7885">one process; the smaller box was faster</text>
+<rect x="458" y="600" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="472" y="626" font-size="17" fill="#1c2330" font-weight="700">one command, 192 cores: 65.8s</text>
+<text x="472" y="644" font-size="11.5" fill="#6b7885">×1.1 slower — this check did not gain from the bigger box</text>
+<rect x="28" y="686" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="42" y="712" font-size="17" fill="#1c2330" font-weight="700">pipeline, 64 cores: 10.2 min</text>
+<text x="42" y="730" font-size="11.5" fill="#6b7885">×1.6 slower than the big box</text>
+<rect x="458" y="686" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="472" y="712" font-size="17" fill="#1c2330" font-weight="700">pipeline, 192 cores: 6.5 min</text>
+<text x="472" y="730" font-size="11.5" fill="#6b7885">ran 1.6× faster on this box (3.0× the cores)</text>
+<line x1="28" y1="778" x2="872" y2="778" stroke="#e4e8ec"/>
+<text x="28" y="794" font-size="11.5" fill="#6b7885">also measured: installing the 30,460-package workspace (plus its external deps) takes 181s (bun, warm store) · linting the whole tree takes 2.9s (oxlint)</text>
+<text x="28" y="812" font-size="11.5" fill="#6b7885">toolchain: bun 1.3.14 · turbo 2.9.18 · tsgo 7.0.0-dev.20260707.2</text>
+<text x="28" y="832" font-size="11" fill="#6b7885">data: </text>
+<a href="../fleet-gate-bench.json"><text x="65" y="832" font-size="11" fill="#1a73e8">fleet-gate-bench.json</text></a>
+<text x="193" y="832" font-size="11" fill="#6b7885">  ·  </text>
+<a href="../fleet-gate-bench.pbox.json"><text x="224" y="832" font-size="11" fill="#1a73e8">fleet-gate-bench.pbox.json</text></a>
+<text x="383" y="832" font-size="11" fill="#6b7885">  ·  </text>
+<a href="../fleet-shape.json"><text x="414" y="832" font-size="11" fill="#1a73e8">fleet-shape.json</text></a>
 </svg>

@@ -3,14 +3,16 @@
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
 text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
 line[stroke="#e4e8ec"]{stroke:#2b333c}
 rect[stroke="#e4e8ec"]{stroke:#39424c}
 rect[fill="#e4e8ec"]{fill:#2b333c}
-line[stroke="#6b7885"],path[stroke="#6b7885"]{stroke:#8b98a4}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
 path[fill="#6b7885"]{fill:#8b98a4}
 rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
 rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
 rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
 rect[fill="#e4b9a6"]{fill:#7a4630}
 }</style>
 <rect width="660" height="262" fill="#ffffff"/>

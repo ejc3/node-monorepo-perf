@@ -4,6 +4,13 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { MUTED, ACCENT, GRID, RAMP, rgbCss, txt, svgDoc } from "./_chartstyle.mjs";
+
+// series colors from the shared system: verdict hues off the heat ramp's anchors
+// (green = the fast/cached side, red = the cold side, amber = the whole-repo side)
+const C_GREEN = rgbCss(RAMP[0][1]);
+const C_AMBER = rgbCss(RAMP[1][1]);
+const C_RED = rgbCss(RAMP[3][1]);
 
 const ROOT = process.cwd();
 const resultsPath = join(ROOT, "bench", "results.json");
@@ -30,13 +37,13 @@ const fmtBytes = (b) => {
 };
 const fmtNum = (n) => (n == null ? "—" : n.toLocaleString("en-US"));
 
-// ---- generic vertical bar chart ----
+// ---- generic vertical bar chart (drawn with the shared visual system) ----
 function barChart({ file, title, subtitle, bars, valueFmt = fmtMs, logScale = false }) {
   const W = 760,
     H = 420,
     padL = 70,
     padR = 24,
-    padT = 70,
+    padT = 86,
     padB = 90;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -51,24 +58,36 @@ function barChart({ file, title, subtitle, bars, valueFmt = fmtMs, logScale = fa
   const n = bars.length;
   const gap = 18;
   const bw = Math.min(120, (plotW - gap * (n + 1)) / n);
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="ui-sans-serif,system-ui,sans-serif">
-<rect width="${W}" height="${H}" fill="#0b0f17"/>
-<text x="${padL}" y="34" fill="#e6edf3" font-size="20" font-weight="700">${title}</text>
-${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}</text>` : ""}
-<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#30363d"/>`;
+  const T = [];
+  T.push(txt(padL, 34, title, { size: 18, weight: "700" }));
+  if (subtitle) T.push(txt(padL, 54, subtitle, { size: 12.5, fill: MUTED }));
+  T.push(
+    `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="${GRID}"/>`,
+  );
   bars.forEach((b, i) => {
     const h = Math.max(2, scale(b.value ?? 0));
     const x = padL + gap + i * (bw + gap);
     const y = padT + plotH - h;
-    svg += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="4" fill="${b.color || "#3b82f6"}"/>`;
-    svg += `<text x="${x + bw / 2}" y="${y - 8}" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">${valueFmt(b.value)}</text>`;
-    const lines = String(b.label).split("\n");
-    lines.forEach((ln, k) => {
-      svg += `<text x="${x + bw / 2}" y="${padT + plotH + 22 + k * 16}" fill="#9da7b3" font-size="12" text-anchor="middle">${ln}</text>`;
-    });
+    T.push(`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="4" fill="${b.color}"/>`);
+    T.push(
+      txt(x + bw / 2, y - 8, valueFmt(b.value), { size: 13, weight: "600", anchor: "middle" }),
+    );
+    String(b.label)
+      .split("\n")
+      .forEach((ln, k) => {
+        T.push(
+          txt(x + bw / 2, padT + plotH + 22 + k * 16, ln, {
+            size: 12,
+            fill: MUTED,
+            anchor: "middle",
+          }),
+        );
+      });
   });
-  svg += `</svg>`;
-  writeFileSync(join(chartsDir, file), svg);
+  writeFileSync(
+    join(chartsDir, file),
+    svgDoc(W, H, `${title}${subtitle ? ` — ${subtitle}` : ""}`, T),
+  );
   return file;
 }
 
@@ -78,7 +97,7 @@ function lineChart({ file, title, subtitle, series, xs, yFmt = fmtMs }) {
     H = 420,
     padL = 78,
     padR = 24,
-    padT = 70,
+    padT = 86,
     padB = 70;
   const plotW = W - padL - padR,
     plotH = H - padT - padB;
@@ -87,14 +106,15 @@ function lineChart({ file, title, subtitle, series, xs, yFmt = fmtMs }) {
   const maxX = Math.max(...xs);
   const sx = (x) => padL + (x / maxX) * plotW;
   const sy = (y) => padT + plotH - (y / maxY) * plotH;
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" font-family="ui-sans-serif,system-ui,sans-serif">
-<rect width="${W}" height="${H}" fill="#0b0f17"/>
-<text x="${padL}" y="34" fill="#e6edf3" font-size="20" font-weight="700">${title}</text>
-${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}</text>` : ""}
-<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#30363d"/>
-<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="#30363d"/>`;
+  const T = [];
+  T.push(txt(padL, 34, title, { size: 18, weight: "700" }));
+  if (subtitle) T.push(txt(padL, 54, subtitle, { size: 12.5, fill: MUTED }));
+  T.push(
+    `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="${GRID}"/>`,
+  );
+  T.push(`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="${GRID}"/>`);
   xs.forEach((x) => {
-    svg += `<text x="${sx(x)}" y="${padT + plotH + 22}" fill="#9da7b3" font-size="12" text-anchor="middle">${fmtNum(x)}</text>`;
+    T.push(txt(sx(x), padT + plotH + 22, fmtNum(x), { size: 12, fill: MUTED, anchor: "middle" }));
   });
   series.forEach((s) => {
     // break the line at missing points instead of joining straight across the gap
@@ -102,7 +122,9 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
     let seg = [];
     const flush = () => {
       if (seg.length)
-        svg += `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+        T.push(
+          `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`,
+        );
       seg = [];
     };
     for (const c of coords) {
@@ -112,18 +134,22 @@ ${subtitle ? `<text x="${padL}" y="54" fill="#7d8590" font-size="13">${subtitle}
     flush();
     s.points.forEach((y, i) => {
       if (y == null) return;
-      svg += `<circle cx="${sx(xs[i])}" cy="${sy(y)}" r="4" fill="${s.color}"/>`;
-      svg += `<text x="${sx(xs[i])}" y="${sy(y) - 10}" fill="#e6edf3" font-size="11" text-anchor="middle">${yFmt(y)}</text>`;
+      T.push(`<circle cx="${sx(xs[i])}" cy="${sy(y)}" r="4" fill="${s.color}"/>`);
+      const lx = Math.min(sx(xs[i]), W - padR - 26);
+      T.push(txt(lx, sy(y) - 10, yFmt(y), { size: 11, anchor: "middle" }));
     });
   });
   // legend
   series.forEach((s, i) => {
     const lx = W - padR - 160,
       ly = padT + 6 + i * 20;
-    svg += `<rect x="${lx}" y="${ly - 10}" width="12" height="12" fill="${s.color}"/><text x="${lx + 18}" y="${ly}" fill="#c9d1d9" font-size="12">${s.name}</text>`;
+    T.push(`<rect x="${lx}" y="${ly - 10}" width="12" height="12" rx="3" fill="${s.color}"/>`);
+    T.push(txt(lx + 18, ly, s.name, { size: 12, fill: MUTED }));
   });
-  svg += `</svg>`;
-  writeFileSync(join(chartsDir, file), svg);
+  writeFileSync(
+    join(chartsDir, file),
+    svgDoc(W, H, `${title}${subtitle ? ` — ${subtitle}` : ""}`, T),
+  );
   return file;
 }
 
@@ -167,8 +193,8 @@ if (
       subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache${tsgoNote}`,
       logScale: true,
       bars: [
-        { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: "#ef4444" },
-        { label: "warm\n(FULL TURBO)", value: big.phases.typecheck.warmMs, color: "#22c55e" },
+        { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: C_RED },
+        { label: "warm\n(FULL TURBO)", value: big.phases.typecheck.warmMs, color: C_GREEN },
       ],
     }),
   );
@@ -187,12 +213,12 @@ if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g
         {
           label: `focused closure\n(${g.sampleApp})`,
           value: g.focusPackages,
-          color: "#22c55e",
+          color: C_GREEN,
         },
         {
           label: "whole workspace",
           value: g.totalBuildTasks,
-          color: "#f59e0b",
+          color: C_AMBER,
         },
       ],
     }),
@@ -215,7 +241,7 @@ if (lk.length >= 2) {
       series: [
         {
           name: "lockfile lines",
-          color: "#06b6d4",
+          color: ACCENT,
           points: lk.map((r) => r.phases.install.lockfileLines),
         },
       ],
