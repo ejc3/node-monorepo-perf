@@ -8,9 +8,18 @@
 //
 //   node scripts/figures.mjs        (make figures)
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import {
+  MUTED,
+  GRID,
+  TINT,
+  box,
+  txt,
+  arrow,
+  footer as footerLine,
+  svgDoc as svgDocW,
+  emitChart,
+} from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
 const SLICED = read("bench/sliced-gate-bench.json");
@@ -33,86 +42,13 @@ const need = (o, path) => {
 const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
 const gb = (mb) => `${(mb / 1000).toFixed(1)}GB`;
 const int = (n) => n.toLocaleString("en-US");
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-// --- the shared visual language (diagram-style-spec.md, from the cmux page) ---
-const INK = "#1c2330";
-const MUTED = "#6b7885";
-const TINT = {
-  blue: ["#eef3fb", "#b9cdec"], // component / neutral
-  green: ["#f0faf5", "#a9d8bd"], // fast path / green verdict
-  rust: ["#fdf3ef", "#e4b9a6"], // slow path / red verdict / blast radius
-};
-// dark-mode attribute-selector recolors, copied from the spec's table — GitHub
-// serves SVGs through camo as <img>, where internal CSS + prefers-color-scheme work
-const STYLE = `<style>@media (prefers-color-scheme: dark){
-rect[fill="#ffffff"]{fill:#0d1117}
-text[fill="${INK}"]{fill:#e2e7ec}
-text[fill="${MUTED}"]{fill:#9aa6b1}
-line[stroke="#e4e8ec"]{stroke:#2b333c}
-rect[stroke="#e4e8ec"]{stroke:#39424c}
-rect[fill="#e4e8ec"]{fill:#2b333c}
-line[stroke="${MUTED}"],path[stroke="${MUTED}"]{stroke:#8b98a4}
-path[fill="${MUTED}"]{fill:#8b98a4}
-rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
-rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
-rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
-rect[fill="#e4b9a6"]{fill:#7a4630}
-}</style>`;
-
+// the shared visual language lives in scripts/_chartstyle.mjs (palette, dark-mode
+// block, box/txt/arrow grammar, emit); these figures keep the spec's 660 canvas
 const W = 660;
-const svgDoc = (h, aria, body) =>
-  [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${h}" viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(aria)}" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">`,
-    STYLE,
-    `<rect width="${W}" height="${h}" fill="#ffffff"/>`,
-    ...body,
-    `</svg>`,
-  ].join("\n");
-
-const box = (x, y, w, h, tint, rx = 7) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${TINT[tint][0]}" stroke="${TINT[tint][1]}" stroke-width="1.2"/>`;
-const txt = (x, y, s, { size = 11, fill = INK, weight = "", anchor = "" } = {}) =>
-  `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}"${weight ? ` font-weight="${weight}"` : ""}${anchor ? ` text-anchor="${anchor}"` : ""}>${esc(s)}</text>`;
-// arrow-ended edge. The head is an explicit triangle, not a <marker>: ImageMagick's
-// SVG fallback renderer (what `convert` uses in CI when inkscape is absent) drops
-// <marker> elements, so a marker-end head would vanish from every committed PNG.
-const arrow = (x1, y1, x2, y2, dashed = false) => {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy);
-  const ux = dx / len;
-  const uy = dy / len;
-  const hl = 7; // head length
-  const hw = 3; // head half-width
-  const bx = x2 - ux * hl;
-  const by = y2 - uy * hl;
-  const f = (n) => +n.toFixed(1);
-  return (
-    `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(bx)}" y2="${f(by)}" stroke="${MUTED}" stroke-width="1.5"${dashed ? ` stroke-dasharray="6 5"` : ""}/>` +
-    `<path d="M${f(x2)} ${f(y2)}L${f(bx - uy * hw)} ${f(by + ux * hw)}L${f(bx + uy * hw)} ${f(by - ux * hw)}z" fill="${MUTED}"/>`
-  );
-};
-const footer = (y, sources) => [
-  `<line x1="16" y1="${y - 14}" x2="${W - 16}" y2="${y - 14}" stroke="#e4e8ec"/>`,
-  txt(16, y, `data: ${sources}`, { size: 10, fill: MUTED }),
-];
-
-const emit = (name, svg) => {
-  mkdirSync("bench/charts", { recursive: true });
-  const svgPath = join("bench", "charts", `${name}.svg`);
-  const pngPath = join("bench", "charts", `${name}.png`);
-  writeFileSync(svgPath, svg + "\n");
-  console.log(`wrote ${svgPath}`);
-  // 300 DPI raster in the same step (repo chart convention; charts.yml re-renders
-  // and fails the job if convert fails, so a stale PNG can't survive)
-  const conv = spawnSync("convert", ["-density", "300", svgPath, pngPath], { encoding: "utf8" });
-  if (conv.status !== 0 || !existsSync(pngPath) || statSync(pngPath).size === 0) {
-    console.error(`convert failed for ${name}: ${(conv.stderr || "").slice(-300)}`);
-    process.exit(1);
-  }
-  console.log(`wrote ${pngPath}`);
-};
+const svgDoc = (h, aria, body) => svgDocW(W, h, aria, body);
+const footer = (y, sources) => footerLine(W, y, sources);
+const emit = (name, svg) => emitChart(name, svg, { strict: true });
 
 // ============================================================================
 // Figure: fig-sliced-gate — the sliced-gate fan-out (FLEET.md "The Sliced Gate")
@@ -292,7 +228,7 @@ function figBlastRadius() {
         // hot cells sit in the bottom-left corner, next to the edited lib
         const isHot = hot === "all" || (r === ROWS - 1 && c < hot);
         out.push(
-          `<rect x="${(x0 + c * (cell + cgap)).toFixed(1)}" y="${(y0 + r * (cell + cgap)).toFixed(1)}" width="${cell}" height="${cell}" rx="1.5" fill="${isHot ? "#e4b9a6" : "#e4e8ec"}"/>`,
+          `<rect x="${(x0 + c * (cell + cgap)).toFixed(1)}" y="${(y0 + r * (cell + cgap)).toFixed(1)}" width="${cell}" height="${cell}" rx="1.5" fill="${isHot ? TINT.rust[1] : GRID}"/>`,
         );
       }
     return out;

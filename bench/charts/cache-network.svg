@@ -1,51 +1,71 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1214" height="348" viewBox="0 0 1214 348" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">
-<rect width="1214" height="348" fill="#ffffff"/>
-<text x="28" y="42" font-size="20" font-weight="700" fill="#1f2328">Remote cache restore: the network cost the localhost floor hides</text>
-<text x="28" y="70" font-size="13" fill="#57606a">A shared Turborepo cache beats cold compute on every link tested; only the 247 MB build cache carries a network cost, and it stays a few seconds — largest cross-region.</text>
-<text x="28" y="98" font-size="11" fill="#57606a">Cell: restore time · ×N vs the row's fastest. Cold compute carries no cache — the red baseline every restore beats.</text>
-<rect x="28" y="128" width="250" height="52" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="42" y="159" font-size="12" font-weight="600" fill="#57606a">task (fresh CI runner)</text>
-<rect x="278" y="128" width="150" height="52" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="353" y="150" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">cold compute</text>
-<text x="353" y="167" font-size="10" fill="#57606a" text-anchor="middle">no shared cache</text>
-<rect x="428" y="128" width="150" height="52" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="503" y="150" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">localhost</text>
-<text x="503" y="167" font-size="10" fill="#57606a" text-anchor="middle">floor · no network</text>
-<rect x="578" y="128" width="150" height="52" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="653" y="150" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">same-region</text>
-<text x="653" y="167" font-size="10" fill="#57606a" text-anchor="middle">1 Gbps · 2 ms</text>
-<rect x="728" y="128" width="150" height="52" fill="#f6f8fa" stroke="#d0d7de"/>
-<text x="803" y="150" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">cross-region</text>
-<text x="803" y="167" font-size="10" fill="#57606a" text-anchor="middle">500 Mbps · 30 ms</text>
-<rect x="28" y="180" width="250" height="60" fill="#ffffff" stroke="#d0d7de"/>
-<text x="42" y="207" font-size="15" font-weight="600" fill="#1f2328">typecheck</text>
-<text x="42" y="226" font-size="11" fill="#57606a">0.2 MB cache · 500 tasks</text>
-<rect x="278" y="180" width="150" height="60" fill="rgb(197,94,29)" stroke="#ffffff"/>
-<text x="353" y="208" font-size="17" font-weight="700" fill="#0a0d12" text-anchor="middle">23s</text>
-<text x="353" y="226" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">×12</text>
-<rect x="428" y="180" width="150" height="60" fill="rgb(31,128,54)" stroke="#ffffff"/>
-<text x="503" y="208" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
-<text x="503" y="226" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">×1.0</text>
-<rect x="578" y="180" width="150" height="60" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="653" y="208" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
-<text x="653" y="226" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="728" y="180" width="150" height="60" fill="rgb(29,128,55)" stroke="#ffffff"/>
-<text x="803" y="208" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">2.0s</text>
-<text x="803" y="226" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">×1.0</text>
-<rect x="28" y="240" width="250" height="60" fill="#ffffff" stroke="#d0d7de"/>
-<text x="42" y="267" font-size="15" font-weight="600" fill="#1f2328">build</text>
-<text x="42" y="286" font-size="11" fill="#57606a">247 MB cache · 400 tasks</text>
-<rect x="278" y="240" width="150" height="60" fill="rgb(193,85,31)" stroke="#ffffff"/>
-<text x="353" y="268" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">60s</text>
-<text x="353" y="286" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">×17</text>
-<rect x="428" y="240" width="150" height="60" fill="rgb(26,127,55)" stroke="#ffffff"/>
-<text x="503" y="268" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">3.5s</text>
-<text x="503" y="286" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">fastest</text>
-<rect x="578" y="240" width="150" height="60" fill="rgb(53,133,51)" stroke="#ffffff"/>
-<text x="653" y="268" font-size="17" font-weight="700" fill="#ffffff" text-anchor="middle">3.9s</text>
-<text x="653" y="286" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">×1.1</text>
-<rect x="728" y="240" width="150" height="60" fill="rgb(164,157,35)" stroke="#ffffff"/>
-<text x="803" y="268" font-size="17" font-weight="700" fill="#0a0d12" text-anchor="middle">5.8s</text>
-<text x="803" y="286" font-size="12" font-weight="600" fill="#0a0d12" text-anchor="middle">×1.7</text>
-<text x="28" y="326" font-size="11" fill="#57606a">Source: bench/ci-cache-network-bench.json — turbo 2.9.18, 300:100, restore = median of 3, 64 cores. RTT = 2×netem delay; restores asserted all-cached-from-remote.</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1161" height="352" viewBox="0 0 1161 352" role="img" aria-label="Remote cache restore versus cold compute across network profiles: rows are tasks with their cache size, columns are cold compute plus each shaped restore profile; per row the fastest cell is green and the rest show their multiple of it. A shared Turborepo cache beats cold compute on every link tested; only the 247 MB build cache carries a network cost, and it stays a few seconds — largest cross-region." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="1161" height="352" fill="#ffffff"/>
+<text x="24" y="40" font-size="20" fill="#1c2330" font-weight="700">Remote cache restore: the network cost the localhost floor hides</text>
+<text x="24" y="62" font-size="12.5" fill="#6b7885">A shared Turborepo cache beats cold compute on every link tested; only the 247 MB build cache carries a network cost, and it stays a few seconds — largest cross-region.</text>
+<rect x="24" y="74" width="14" height="14" rx="4" fill="rgb(31,138,77)"/>
+<text x="43" y="85" font-size="11" fill="#6b7885">fastest</text>
+<rect x="99.81" y="74" width="14" height="14" rx="4" fill="rgb(209,163,43)"/>
+<text x="118.81" y="85" font-size="11" fill="#6b7885">×2 slower</text>
+<rect x="187.28" y="74" width="14" height="14" rx="4" fill="rgb(194,99,37)"/>
+<text x="206.28" y="85" font-size="11" fill="#6b7885">×10</text>
+<rect x="239.77" y="74" width="14" height="14" rx="4" fill="rgb(176,58,54)"/>
+<text x="258.77" y="85" font-size="11" fill="#6b7885">×100+</text>
+<text x="311.91999999999996" y="85" font-size="11" fill="#6b7885">cell: restore time (big) · ×N vs the row's fastest (small). Cold compute carries no cache — the baseline every restore beats.</text>
+<rect x="24" y="108" width="1113" height="232" rx="10" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="40" y="146" font-size="11.5" fill="#6b7885" font-weight="600">task (fresh CI runner)</text>
+<text x="365" y="135.5" font-size="12.5" fill="#1c2330" font-weight="700" text-anchor="middle">cold compute</text>
+<text x="365" y="147.5" font-size="9" fill="#6b7885" text-anchor="middle">no shared cache</text>
+<text x="515" y="135.5" font-size="12.5" fill="#1c2330" font-weight="700" text-anchor="middle">localhost</text>
+<text x="515" y="147.5" font-size="9" fill="#6b7885" text-anchor="middle">floor · no network</text>
+<text x="665" y="135.5" font-size="12.5" fill="#1c2330" font-weight="700" text-anchor="middle">same-region</text>
+<text x="665" y="147.5" font-size="9" fill="#6b7885" text-anchor="middle">1 Gbps · 2 ms</text>
+<text x="815" y="135.5" font-size="12.5" fill="#1c2330" font-weight="700" text-anchor="middle">cross-region</text>
+<text x="815" y="147.5" font-size="9" fill="#6b7885" text-anchor="middle">500 Mbps · 30 ms</text>
+<text x="40" y="195" font-size="13.5" fill="#1c2330" font-weight="600">typecheck</text>
+<text x="40" y="212" font-size="10.5" fill="#6b7885">0.2 MB cache · 500 tasks</text>
+<rect x="291.5" y="169.5" width="147" height="55" rx="5" fill="rgb(193,96,38)"/>
+<text x="365" y="194" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">23s</text>
+<text x="365" y="212" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">×12</text>
+<rect x="441.5" y="169.5" width="147" height="55" rx="5" fill="rgb(35,139,76)"/>
+<text x="515" y="194" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">2.0s</text>
+<text x="515" y="212" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">+2% vs fastest</text>
+<rect x="591.5" y="169.5" width="147" height="55" rx="5" fill="rgb(31,138,77)"/>
+<text x="665" y="194" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">2.0s</text>
+<text x="665" y="212" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
+<rect x="741.5" y="169.5" width="147" height="55" rx="5" fill="rgb(34,138,76)"/>
+<text x="815" y="194" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">2.0s</text>
+<text x="815" y="212" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">+1% vs fastest</text>
+<text x="40" y="253" font-size="13.5" fill="#1c2330" font-weight="600">build</text>
+<text x="40" y="270" font-size="10.5" fill="#6b7885">247 MB cache · 400 tasks</text>
+<rect x="291.5" y="227.5" width="147" height="55" rx="5" fill="rgb(190,89,41)"/>
+<text x="365" y="252" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">60s</text>
+<text x="365" y="270" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">×17</text>
+<rect x="441.5" y="227.5" width="147" height="55" rx="5" fill="rgb(31,138,77)"/>
+<text x="515" y="252" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">3.5s</text>
+<text x="515" y="270" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
+<rect x="591.5" y="227.5" width="147" height="55" rx="5" fill="rgb(57,142,72)"/>
+<text x="665" y="252" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">3.9s</text>
+<text x="665" y="270" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">×1.1</text>
+<rect x="741.5" y="227.5" width="147" height="55" rx="5" fill="rgb(162,156,52)"/>
+<text x="815" y="252" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">5.8s</text>
+<text x="815" y="270" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">×1.7</text>
+<text x="40" y="300" font-size="10.5" fill="#6b7885">Source:</text>
+<a href="../../bench/ci-cache-network-bench.json"><text x="84" y="300" font-size="10.5" fill="#1a73e8" text-decoration="underline">bench/ci-cache-network-bench.json</text></a>
+<text x="40" y="314" font-size="10.5" fill="#6b7885">turbo 2.9.18, 300:100, restore = median of 3, 64 cores. RTT = 2×netem delay; restores asserted all-cached-from-remote.</text>
 </svg>

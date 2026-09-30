@@ -1,17 +1,37 @@
 #!/usr/bin/env node
 // Render the million-module checker story as a stacked heat chart, in the same visual
-// system as tool-comparison.svg: per row the FASTEST cell is green and the rest show how
-// many times slower (× N); near-ties show their +%. Cell states beyond numbers: "—"
-// with its reason (anchor cutoff), a TIMEOUT cell — a request that outran its budget
-// renders at that REAL ceiling as a floor ("timed out ≥2m") — and a CRASH cell, which
-// shows status only (a wedge is not a measurement). Deterministic from the cited bench/*.json (no hand
-// numbers) -> bench/charts/checker-scale.svg (+ a 300 DPI PNG in the same step).
+// system as tool-comparison.svg (scripts/_chartstyle.mjs): per row the FASTEST cell is
+// green and the rest show how many times slower (× N); near-ties show their +%. Cell
+// states beyond numbers: "—" with its reason (anchor cutoff), a TIMEOUT cell — a
+// request that outran its budget renders at that REAL ceiling as a floor ("timed out
+// ≥2m") — and a CRASH cell, which shows status only (a wedge is not a measurement).
+// Deterministic from the cited bench/*.json (no hand numbers) ->
+// bench/charts/checker-scale.svg (+ a 300 DPI PNG in the same step).
 //
 //   node scripts/scale-chart.mjs
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import {
+  MUTED,
+  ACCENT,
+  txt,
+  svgDoc,
+  sectionFrame,
+  RAMP,
+  rampRGB,
+  rgbCss,
+  inkFor,
+  fmtMult,
+  nearTiePct,
+  rampLegendItems,
+  legendRow,
+  heatCell,
+  naCell,
+  colHeader,
+  wrapText,
+  esc,
+  emitChart,
+} from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
 const TS = read("bench/tsgo-scale-bench.json");
@@ -69,9 +89,9 @@ const SECTIONS = [
     title: "Whole-program check — tsgo vs tsc vs Flow",
     compareAxis: "row",
     cols: [
-      { k: "tsgo", label: "tsgo" },
-      { k: "tsc", label: "tsc" },
-      { k: "flow", label: "Flow" },
+      { k: "tsgo", label: "tsgo", chip: "tsgo" },
+      { k: "tsc", label: "tsc", chip: "tsc" },
+      { k: "flow", label: "Flow", chip: "flow" },
     ],
     rows: SCALES.map(([n, lbl]) => [
       lbl,
@@ -88,9 +108,9 @@ const SECTIONS = [
     title: "A failing check vs a passing one — the red-gate premium, per checker",
     delta: true,
     cols: [
-      { k: "tsgo", label: "tsgo\n(1M modules)" },
-      { k: "tsc", label: "tsc\n(100k modules)" },
-      { k: "flow", label: "Flow\n(1M modules)" },
+      { k: "tsgo", label: "tsgo\n(1M modules)", chip: "tsgo" },
+      { k: "tsc", label: "tsc\n(100k modules)", chip: "tsc" },
+      { k: "flow", label: "Flow\n(1M modules)", chip: "flow" },
     ],
     rows: [
       [
@@ -118,12 +138,12 @@ const SECTIONS = [
     title: "One edit → verdict (the save loop, by mechanic)",
     compareAxis: "row",
     cols: [
-      { k: "lsp", label: "tsgo --lsp\nsquiggle" },
-      { k: "tss", label: "tsserver\nsquiggle" },
-      { k: "flow", label: "flow server\nedit" },
-      { k: "watch", label: "tsgo --watch" },
-      { k: "cli", label: "tsgo CLI\nincremental" },
-      { k: "tsccli", label: "tsc CLI\nincremental" },
+      { k: "lsp", label: "tsgo --lsp\nsquiggle", chip: "tsgo" },
+      { k: "tss", label: "tsserver\nsquiggle", chip: "tsc" },
+      { k: "flow", label: "flow server\nedit", chip: "flow" },
+      { k: "watch", label: "tsgo --watch", chip: "tsgo" },
+      { k: "cli", label: "tsgo CLI\nincremental", chip: "tsgo" },
+      { k: "tsccli", label: "tsc CLI\nincremental", chip: "tsc" },
     ],
     rows: LSP_SCALES.map(([n, lbl]) => [
       lbl,
@@ -143,8 +163,8 @@ const SECTIONS = [
     title: "Completion — different result sets, reported with counts",
     compareAxis: "row",
     cols: [
-      { k: "tsgo", label: "tsgo --lsp" },
-      { k: "tss", label: "tsserver" },
+      { k: "tsgo", label: "tsgo --lsp", chip: "tsgo" },
+      { k: "tss", label: "tsserver", chip: "tsc" },
     ],
     rows: LSP_SCALES.map(([n, lbl]) => [
       lbl,
@@ -166,8 +186,9 @@ const SECTIONS = [
       {
         k: "main",
         label: `flow main\n@ ${(RT.binaries.main.source.match(/@ ([0-9a-f]+)/) || [, "?"])[1]}`,
+        chip: "flow",
       },
-      { k: "rel", label: `released\n${RT.binaries.released.version}` },
+      { k: "rel", label: `released\n${RT.binaries.released.version}`, chip: "flow" },
     ],
     rows: [
       [
@@ -216,164 +237,116 @@ const fmtS = (ms) => {
   const s = ms / 1000;
   return s < 10 ? s.toFixed(2) + "s" : s < 100 ? s.toFixed(1) + "s" : Math.round(s) + "s";
 };
-const fmtMult = (m) => "×" + (m < 10 ? m.toFixed(1) : Math.round(m).toLocaleString("en-US"));
-
-const RAMP = [
-  [1, [26, 127, 55]],
-  [2, [214, 168, 28]],
-  [10, [198, 98, 28]],
-  [100, [176, 42, 42]],
-];
-const lerp = (a, b, t) => Math.round(a + (b - a) * t);
-const rampRGB = (mult) => {
-  if (mult <= 1.0001) return RAMP[0][1];
-  const m = Math.min(mult, RAMP[RAMP.length - 1][0]);
-  const lm = Math.log10(m);
-  for (let i = 0; i < RAMP.length - 1; i++) {
-    const [m0, c0] = RAMP[i];
-    const [m1, c1] = RAMP[i + 1];
-    if (m <= m1) {
-      const f = (lm - Math.log10(m0)) / (Math.log10(m1) - Math.log10(m0));
-      return [lerp(c0[0], c1[0], f), lerp(c0[1], c1[1], f), lerp(c0[2], c1[2], f)];
-    }
-  }
-  return RAMP[RAMP.length - 1][1];
-};
-const rgbCss = ([r, g, b]) => `rgb(${r},${g},${b})`;
-const relLum = ([r, g, b]) => {
-  const lin = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-};
-const contrast = (l1, l2) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-const DARK_INK_L = relLum([10, 13, 18]);
-const inkFor = (rgb) => {
-  const Lm = relLum(rgb);
-  return contrast(Lm, DARK_INK_L) >= contrast(Lm, 1) ? "#0a0d12" : "#ffffff";
-};
 
 // --- layout --------------------------------------------------------------------------------------
+const PAD = 24;
+const FR = 16;
 const LABEL_W = 250;
 const COL_W = 150;
-const ROW_H = 56;
-const HEAD_H = 50;
-const PAD = 28;
+const ROW_H = 54;
+const HEAD_H = 52;
 const MAXCOLS = Math.max(...SECTIONS.map((s) => s.cols.length));
-const W = PAD * 2 + LABEL_W + COL_W * MAXCOLS;
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const W = PAD * 2 + FR * 2 + LABEL_W + COL_W * MAXCOLS;
+const FRAME_W = W - PAD * 2;
+const INNER_W = FRAME_W - FR * 2;
+const NOTE_CHARS = Math.floor(INNER_W / (10.5 * 0.53));
 const T = [];
-let y = 140; // below the title block + legend band
-// legend band: the ramp anchors as swatches + the special states — the chart's
-// color language, readable without the docs
-const LEGEND_Y = 102;
-const legendItems = [
-  { c: rgbCss(rampRGB(1)), t: "fastest" },
-  { c: rgbCss(rampRGB(2)), t: "×2 slower" },
-  { c: rgbCss(rampRGB(10)), t: "×10" },
-  { c: rgbCss(rampRGB(100)), t: "×100+" },
-  { c: "#f6f8fa", t: "— not measured", stroke: "#d0d7de" },
-  { c: rgbCss(RAMP[RAMP.length - 1][1]), t: "timed out ≥ceiling / crash = status only" },
-];
+
+// ---- title block + legend band ----
+T.push(
+  txt(PAD, 40, "Type checkers at scale — 10k to 1,000,000 modules", { size: 20, weight: "700" }),
+);
+T.push(
+  txt(
+    PAD,
+    62,
+    "Fastest cell in each row green; near-ties show their +%; others show how many times slower. A request that outran its budget shows that real ceiling as a floor (≥); a crash shows status, never a number.",
+    { size: 12.5, fill: MUTED },
+  ),
+);
+T.push(
+  txt(
+    PAD,
+    80,
+    `tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`,
+    { size: 12.5, fill: MUTED },
+  ),
+);
 {
-  let lx = PAD;
-  for (const it of legendItems) {
-    T.push(
-      `<rect x="${lx}" y="${LEGEND_Y - 10}" width="14" height="14" rx="3" fill="${it.c}"${it.stroke ? ` stroke="${it.stroke}"` : ""}/>`,
-    );
-    lx += 19;
-    T.push(`<text x="${lx}" y="${LEGEND_Y + 1}" font-size="11" fill="#57606a">${esc(it.t)}</text>`);
-    lx += it.t.length * 5.6 + 16;
-  }
-  T.push(
-    `<text x="${lx + 8}" y="${LEGEND_Y + 1}" font-size="11" fill="#57606a">cell: ×N slower (big) · its time (small)</text>`,
-  );
+  const items = rampLegendItems();
+  items.push({
+    c: rgbCss(RAMP[RAMP.length - 1][1]),
+    t: "timed out ≥ceiling / crash = status only",
+  });
+  const { parts, endX } = legendRow(PAD, 102, items);
+  T.push(...parts);
+  T.push(txt(endX + 8, 103, "cell: ×N slower (big) · its time (small)", { size: 11, fill: MUTED }));
 }
 
-const gridX = PAD + LABEL_W;
+let y = 126;
 for (const sec of SECTIONS) {
-  T.push(
-    `<text x="${PAD}" y="${y}" font-size="16" font-weight="700" fill="#1f2328">${esc(sec.title)}</text>`,
-  );
-  y += 18;
-  T.push(
-    `<rect x="${PAD}" y="${y}" width="${LABEL_W}" height="${HEAD_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
-  );
-  T.push(
-    `<text x="${PAD + 12}" y="${y + HEAD_H / 2 + 5}" font-size="12" font-weight="600" fill="#57606a">scenario</text>`,
-  );
+  const x0 = PAD + FR;
+  const gridX = x0 + LABEL_W;
+  const noteLines = sec.note ? wrapText(sec.note, NOTE_CHARS) : [];
+  const frameH =
+    FR + 22 + 8 + HEAD_H + sec.rows.length * ROW_H + 20 + noteLines.length * 14 + FR - 2;
+  T.push(sectionFrame(PAD, y, FRAME_W, frameH));
+
+  let sy = y + FR + 8;
+  T.push(txt(x0, sy, sec.title, { size: 15, weight: "700" }));
+  sy += 14;
+  T.push(txt(x0, sy + HEAD_H / 2 + 4, "scenario", { size: 11.5, fill: MUTED, weight: "600" }));
   sec.cols.forEach((col, ci) => {
-    const x = gridX + ci * COL_W;
-    T.push(
-      `<rect x="${x}" y="${y}" width="${COL_W}" height="${HEAD_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
-    );
-    const lines = col.label.split("\n");
-    const ly = y + HEAD_H / 2 - (lines.length - 1) * 8 + 5;
-    lines.forEach((ln, k) =>
-      T.push(
-        `<text x="${x + COL_W / 2}" y="${ly + k * 16}" font-size="14" font-weight="700" fill="#1f2328" text-anchor="middle">${esc(ln)}</text>`,
-      ),
-    );
+    T.push(...colHeader(gridX + ci * COL_W, sy, COL_W, HEAD_H, col.label, col));
   });
-  y += HEAD_H;
+  sy += HEAD_H;
   sec.rows.forEach((row, ri) => {
-    T.push(
-      `<rect x="${PAD}" y="${y}" width="${LABEL_W}" height="${ROW_H}" fill="#ffffff" stroke="#d0d7de"/>`,
-    );
-    T.push(
-      `<text x="${PAD + 12}" y="${y + ROW_H / 2 + 5}" font-size="14" fill="#1f2328">${esc(row[0])}</text>`,
-    );
+    T.push(txt(x0, sy + ROW_H / 2 + 4, row[0], { size: 12.5 }));
     sec.cols.forEach((col, ci) => {
       const x = gridX + ci * COL_W;
       const v = row[1][col.k];
-      const cell = (bg, ink, main, sub, stroke = "#ffffff") => {
-        T.push(
-          `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="${bg}" stroke="${stroke}"/>`,
-        );
-        T.push(
-          `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 - 4}" font-size="16" font-weight="700" fill="${ink}" text-anchor="middle">${esc(main)}</text>`,
-        );
-        if (sub)
-          T.push(
-            `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="12" font-weight="600" fill="${ink}" text-anchor="middle">${esc(sub)}</text>`,
-          );
-      };
       if (v == null || v.na) {
-        T.push(
-          `<rect x="${x}" y="${y}" width="${COL_W}" height="${ROW_H}" fill="#f6f8fa" stroke="#d0d7de"/>`,
-        );
-        T.push(
-          `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + (v && v.why ? -2 : 5)}" font-size="15" fill="#8c959f" text-anchor="middle">—</text>`,
-        );
-        if (v && v.why)
-          T.push(
-            `<text x="${x + COL_W / 2}" y="${y + ROW_H / 2 + 16}" font-size="10" fill="#8c959f" text-anchor="middle">${esc(v.why)}</text>`,
-          );
+        T.push(...naCell(x, sy, COL_W, ROW_H, v && v.why ? v.why : null));
       } else if (v.crash) {
         // a crash is a status, not a measurement: no time, no multiplier
         const rgb = RAMP[RAMP.length - 1][1];
-        cell(rgbCss(rgb), inkFor(rgb), v.label, v.sub || "");
+        T.push(...heatCell(x, sy, COL_W, ROW_H, rgbCss(rgb), inkFor(rgb), v.label, v.sub || ""));
       } else if (v.green !== undefined && v.red !== undefined) {
         // delta cell: the red-gate premium as a percentage, times as the sub-line
         const pct = ((v.red - v.green) / v.green) * 100;
         const rgb = Math.abs(pct) < 5 ? RAMP[0][1] : rampRGB(1 + Math.abs(pct) / 100);
-        cell(
-          rgbCss(rgb),
-          inkFor(rgb),
-          `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
-          `${fmtS(v.red)} red vs ${fmtS(v.green)} green`,
+        T.push(
+          ...heatCell(
+            x,
+            sy,
+            COL_W,
+            ROW_H,
+            rgbCss(rgb),
+            inkFor(rgb),
+            `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
+            `${fmtS(v.red)} red vs ${fmtS(v.green)} green`,
+          ),
         );
       } else if (v.ok) {
-        cell(rgbCss(RAMP[0][1]), "#ffffff", v.label, "no panic");
+        const rgb = RAMP[0][1];
+        T.push(...heatCell(x, sy, COL_W, ROW_H, rgbCss(rgb), inkFor(rgb), v.label, "no panic"));
       } else if (v.timeout) {
         // the headline the timeout deserves: the ≥× computed from the run's REAL
         // ceiling against the row's measured best — never green. With no measured
         // competitor in the row, the floor itself is the headline.
         const mult = cellMult(sec, ri, ci);
         const rgb = RAMP[RAMP.length - 1][1];
-        cell(
-          rgbCss(rgb),
-          inkFor(rgb),
-          mult == null ? `${v.label} ≥${fmtS(v.floorMs)}` : `≥${fmtMult(mult)} slower`,
-          mult == null ? "hit its ceiling" : `${v.label} ≥${fmtS(v.floorMs)}`,
+        T.push(
+          ...heatCell(
+            x,
+            sy,
+            COL_W,
+            ROW_H,
+            rgbCss(rgb),
+            inkFor(rgb),
+            mult == null ? `${v.label} ≥${fmtS(v.floorMs)}` : `≥${fmtMult(mult)} slower`,
+            mult == null ? "hit its ceiling" : `${v.label} ≥${fmtS(v.floorMs)}`,
+          ),
         );
       } else {
         // the × multiplier IS the headline for every non-fastest cell; the absolute
@@ -383,84 +356,55 @@ for (const sec of SECTIONS) {
         const rgb = rampRGB(mult);
         const fastest = mult <= 1.0001;
         const nearTie = !fastest && mult < 1.05;
-        cell(
-          rgbCss(rgb),
-          inkFor(rgb),
-          fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower",
-          fastest ? "fastest" : nearTie ? `+${((mult - 1) * 100).toFixed(0)}% vs fastest` : fmtS(v),
+        T.push(
+          ...heatCell(
+            x,
+            sy,
+            COL_W,
+            ROW_H,
+            rgbCss(rgb),
+            inkFor(rgb),
+            fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower",
+            fastest ? "fastest" : nearTie ? nearTiePct(mult) : fmtS(v),
+          ),
         );
       }
     });
-    y += ROW_H;
+    sy += ROW_H;
   });
-  y += 16;
+  sy += 16;
   {
     // clickable source links (relative hrefs — resolve from bench/charts/ wherever the
     // SVG is served; GitHub's README <img> strips interactivity, the Raw view keeps it)
     const parts = sec.source.split(", ");
-    let sx = PAD;
-    T.push(`<text x="${sx}" y="${y}" font-size="11" fill="#57606a">Source: </text>`);
-    sx += 46;
+    let sx = x0;
+    T.push(txt(sx, sy, "Source:", { size: 10.5, fill: MUTED }));
+    sx += 44;
     parts.forEach((p, i) => {
       const label = p + (i < parts.length - 1 ? "," : "");
       T.push(
-        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${y}" font-size="11" fill="#57606a" text-decoration="underline">${esc(label)}</text></a>`,
+        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${sy}" font-size="10.5" fill="${ACCENT}" text-decoration="underline">${esc(label)}</text></a>`,
       );
-      sx += label.length * 5.6 + 6;
+      sx += label.length * 5.5 + 8;
     });
   }
-  if (sec.note) {
-    const noteChars = Math.floor((W - PAD * 2) / 5.6);
-    const lines = [];
-    let line = "";
-    for (const word of sec.note.split(" ")) {
-      if (line && line.length + 1 + word.length > noteChars) {
-        lines.push(line);
-        line = word;
-      } else line = line ? `${line} ${word}` : word;
-    }
-    if (line) lines.push(line);
-    for (const ln of lines) {
-      y += 15;
-      T.push(`<text x="${PAD}" y="${y}" font-size="11" fill="#57606a">${esc(ln)}</text>`);
-    }
+  for (const ln of noteLines) {
+    sy += 14;
+    T.push(txt(x0, sy, ln, { size: 10.5, fill: MUTED }));
   }
-  y += 30;
+  y += frameH + 16;
 }
 
 const H = y + 8;
-const out = [
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif">`,
-  `<rect width="${W}" height="${H}" fill="#ffffff"/>`,
-  `<text x="${PAD}" y="40" font-size="22" font-weight="700" fill="#1f2328">Type checkers at scale — 10k to 1,000,000 modules</text>`,
-  `<text x="${PAD}" y="62" font-size="13" fill="#57606a">Fastest cell in each row green; near-ties show their +%; others show how many times slower. A request that outran its budget shows that real ceiling as a floor (≥); a crash shows status, never a number.</text>`,
-  `<text x="${PAD}" y="80" font-size="13" fill="#57606a">${esc(`tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`)}</text>`,
-  ...T,
-  `</svg>`,
-];
-
-mkdirSync("bench/charts", { recursive: true });
-const p = join("bench/charts", "checker-scale.svg");
-writeFileSync(p, out.join("\n") + "\n");
+emitChart(
+  "checker-scale",
+  svgDoc(
+    W,
+    H,
+    "Type checkers at scale, 10k to one million modules: whole-program check (tsgo vs tsc vs Flow), the red-gate premium, the one-edit save loop by mechanic, completion, and Flow's wedge under edit pressure; per row the fastest cell is green and the rest show how many times slower.",
+    T,
+  ),
+);
 console.log(
-  `wrote ${p} — ${SECTIONS.length} sections, ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)} scenario rows`,
+  `sections: ${SECTIONS.length}, scenario rows: ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)}`,
 );
-
-// Rasterize the PNG in the same step (same contract as comparison-chart.mjs): regenerating
-// the chart regenerates both, so the committed raster can never drift from the gated SVG.
-const png = join("bench/charts", "checker-scale.png");
-const conv = spawnSync(
-  "convert",
-  ["-density", "300", "-background", "white", p, "-flatten", "-depth", "8", png],
-  { encoding: "utf8" },
-);
-if (conv.error || conv.status !== 0)
-  console.warn(
-    `! PNG NOT rasterized: ImageMagick \`convert\` ${conv.error ? "not found" : `exited ${conv.status}`}. ` +
-      `The SVG is updated but ${png} may now be STALE — install ImageMagick and re-run before committing.`,
-  );
-else if (!existsSync(png) || statSync(png).size === 0)
-  console.warn(
-    `! \`convert\` exited 0 but ${png} is missing/empty — it may be STALE; re-run to refresh.`,
-  );
-else console.log(`wrote ${png} — 300 DPI raster of the SVG`);

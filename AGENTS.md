@@ -771,6 +771,14 @@ Shared helpers the bench scripts import rather than run directly:
   `ci-cache-bench.mjs`, `ci-cache-network-bench.mjs` (`sweep.mjs` shells out to
   `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
+- `scripts/_chartstyle.mjs`: the shared chart/figure visual system (diagram-style-spec.md)
+  — palette + box tints, `TOOL_COLORS` (the stable per-tool hues, see the chart
+  conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
+  aria label, system-ui), `box`/`txt`/`arrow`/`footer`/`sectionFrame`, the ×1/×2/×10/×100
+  heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
+  painters, and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
+  generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
+  `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/_ts.mjs`: the single TypeScript-toolchain resolver. typescript@7 is the
   native compiler (formerly tsgo; its only bin is `tsc`) and the `typescript6` alias
   is the last JS release (the tsc oracle + tsserver), so `node_modules/.bin/tsc` is a
@@ -826,7 +834,8 @@ deleting it (`CHART_STRICT=1`, set in CI, turns that into a hard failure so a ke
 stale chart can't pass the byte-gate; it exempts charts owned by another generator
 from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, CI-runner frozen
-install from `bench/container-install-bench.json`, typecheck, build, pnpm
+install from `bench/container-install-bench.json`, the pnpm 12 Rust-CLI vs pnpm 10 JS
+section from `bench/pnpm12-bench.json`, typecheck, build, pnpm
 install-situations, lint) from the comparison benches, embedded in the README, and in the same step
 rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
 linked below the SVG) so a chart regeneration regenerates both; `make comparison-chart` regenerates both.
@@ -879,6 +888,21 @@ TOOLING.md carry their writeups.
   other cell's headline is its multiple of that best ("×N slower"); the number IS the cell,
   not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
   log-multiple space, so ×12 is the same color in every chart.
+- **One shared skin: `scripts/_chartstyle.mjs`.** Every generator imports the shared kit
+  (see Shared Internals) — palette, box tints, system-ui type, the in-SVG dark-mode
+  `<style>` block with an explicit light background it retargets (a transparent SVG with
+  dark text is unreadable on GitHub dark), the heat ramp + cell painters, and the
+  SVG+PNG emit step. No generator redefines a palette constant or ramp anchor locally.
+- **Stable tool colors.** A tool keeps ONE hue in every chart (header chip, series,
+  legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
+  yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)
+  `#b2538f` · Flow `#b28a2f` · Vite `#5865c0` · Next `#a86b32` · oxlint `#2e9e57` ·
+  ESLint `#9a6ade`. Validated per co-occurring group for CVD separation and contrast on
+  the light and dark surfaces.
+- **Version-scoped labels.** Where a dataset is version-specific the label says so
+  ("pnpm 10" vs "pnpm 12", "yarn 4"), backed by the JSON's recorded versions and
+  asserted where the dataset records them, so a re-run under a different major must
+  change the label, not silently keep it.
 - **Timeouts render at the ceiling.** A request that outran its budget renders AT that
   real ceiling with a ≥ ("timed out ≥2m") and, when the row has a measured best, the ≥×
   computed from the floor.

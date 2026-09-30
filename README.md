@@ -121,7 +121,7 @@ Each companion doc measures one cost, with the bench JSON behind it.
 
 Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8–12× faster than tsc. Regenerate with `node scripts/comparison-chart.mjs`.
 
-![tooling head-to-head: install (bun vs pnpm vs yarn), CI-runner frozen install (bun vs pnpm vs yarn vs npm, containers), typecheck (tsc vs tsgo), build (Next vs Vite), pnpm install situations, and lint (ESLint vs oxlint)](bench/charts/tool-comparison.svg)
+![tooling head-to-head: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install (bun vs pnpm vs yarn vs npm, containers), pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsc vs tsgo), build (Next vs Vite), pnpm install situations, and lint (ESLint vs oxlint)](bench/charts/tool-comparison.svg)
 
 > High-resolution PNG of the chart above: [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
 

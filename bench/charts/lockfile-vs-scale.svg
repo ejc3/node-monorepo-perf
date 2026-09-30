@@ -1,6 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" font-family="ui-sans-serif,system-ui,sans-serif">
-<rect width="760" height="420" fill="#0b0f17"/>
-<text x="78" y="34" fill="#e6edf3" font-size="20" font-weight="700">Lockfile size vs workspace size</text>
-<text x="78" y="54" fill="#7d8590" font-size="13">pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)</text>
-<line x1="78" y1="350" x2="736" y2="350" stroke="#30363d"/>
-<line x1="78" y1="70" x2="78" y2="350" stroke="#30363d"/><text x="123.90697674418604" y="372" fill="#9da7b3" font-size="12" text-anchor="middle">300</text><text x="261.62790697674416" y="372" fill="#9da7b3" font-size="12" text-anchor="middle">1,200</text><text x="429.953488372093" y="372" fill="#9da7b3" font-size="12" text-anchor="middle">2,300</text><text x="736" y="372" fill="#9da7b3" font-size="12" text-anchor="middle">4,300</text><polyline points="123.90697674418604,332.0015977449713 261.62790697674416,275.02575227159065 429.953488372093,204.5742918937175 736,70" fill="none" stroke="#06b6d4" stroke-width="2.5"/><circle cx="123.90697674418604" cy="332.0015977449713" r="4" fill="#06b6d4"/><text x="123.90697674418604" y="322.0015977449713" fill="#e6edf3" font-size="11" text-anchor="middle">9,897</text><circle cx="261.62790697674416" cy="275.02575227159065" r="4" fill="#06b6d4"/><text x="261.62790697674416" y="265.02575227159065" fill="#e6edf3" font-size="11" text-anchor="middle">41,227</text><circle cx="429.953488372093" cy="204.5742918937175" r="4" fill="#06b6d4"/><text x="429.953488372093" y="194.5742918937175" fill="#e6edf3" font-size="11" text-anchor="middle">79,967</text><circle cx="736" cy="70" r="4" fill="#06b6d4"/><text x="736" y="60" fill="#e6edf3" font-size="11" text-anchor="middle">153,967</text><rect x="576" y="66" width="12" height="12" fill="#06b6d4"/><text x="594" y="76" fill="#c9d1d9" font-size="12">lockfile lines</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Lockfile size vs workspace size — pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="760" height="420" fill="#ffffff"/>
+<text x="78" y="34" font-size="18" fill="#1c2330" font-weight="700">Lockfile size vs workspace size</text>
+<text x="78" y="54" font-size="12.5" fill="#6b7885">pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)</text>
+<line x1="78" y1="350" x2="736" y2="350" stroke="#e4e8ec"/>
+<line x1="78" y1="86" x2="78" y2="350" stroke="#e4e8ec"/>
+<text x="123.90697674418604" y="372" font-size="12" fill="#6b7885" text-anchor="middle">300</text>
+<text x="261.62790697674416" y="372" font-size="12" fill="#6b7885" text-anchor="middle">1,200</text>
+<text x="429.953488372093" y="372" font-size="12" fill="#6b7885" text-anchor="middle">2,300</text>
+<text x="736" y="372" font-size="12" fill="#6b7885" text-anchor="middle">4,300</text>
+<polyline points="123.90697674418604,333.0300778738301 261.62790697674416,279.30999499892835 429.953488372093,212.88433235693364 736,86" fill="none" stroke="#1a73e8" stroke-width="2.5"/>
+<circle cx="123.90697674418604" cy="333.0300778738301" r="4" fill="#1a73e8"/>
+<text x="123.90697674418604" y="323.0300778738301" font-size="11" fill="#1c2330" text-anchor="middle">9,897</text>
+<circle cx="261.62790697674416" cy="279.30999499892835" r="4" fill="#1a73e8"/>
+<text x="261.62790697674416" y="269.30999499892835" font-size="11" fill="#1c2330" text-anchor="middle">41,227</text>
+<circle cx="429.953488372093" cy="212.88433235693364" r="4" fill="#1a73e8"/>
+<text x="429.953488372093" y="202.88433235693364" font-size="11" fill="#1c2330" text-anchor="middle">79,967</text>
+<circle cx="736" cy="86" r="4" fill="#1a73e8"/>
+<text x="710" y="76" font-size="11" fill="#1c2330" text-anchor="middle">153,967</text>
+<rect x="576" y="82" width="12" height="12" rx="3" fill="#1a73e8"/>
+<text x="594" y="92" font-size="12" fill="#6b7885">lockfile lines</text>
+</svg>
