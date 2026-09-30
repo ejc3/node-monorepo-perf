@@ -2,8 +2,9 @@
 // truth: install-bench.mjs and container-install-bench.mjs both import these, so the
 // two datasets cannot silently describe different stacks.
 export const PNPM_VERSION = "12.8.1"; // the Rust CLI (pnpm 12), pinned since 2026-09-30
-// The last JS-implementation pnpm, kept as pnpm12-bench's baseline leg — the
-// rewrite comparison needs a stable JS anchor after the main pin moved to 12.
+// The JS implementation this repo previously pinned (pnpm 11 remains the maintained
+// TS line upstream), kept as pnpm12-bench's baseline leg — the rewrite comparison
+// needs a stable JS anchor after the main pin moved to 12.
 export const PNPM10_VERSION = "10.29.1";
 export const BUN_VERSION = "1.3.14";
 export const YARN_VERSION = "4.17.0";

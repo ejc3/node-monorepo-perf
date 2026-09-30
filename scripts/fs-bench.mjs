@@ -18,6 +18,7 @@
 import { spawnSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..");
 const [a, l] = (process.argv[2] || "300:100").split(":");
@@ -128,10 +129,19 @@ function setup(ws) {
       { cwd: ws },
     );
   }
-  writeFileSync(join(ws, "pnpm-workspace.yaml"), 'packages:\n  - "apps/*"\n  - "packages/*"\n');
+  writeFileSync(
+    join(ws, "pnpm-workspace.yaml"),
+    // ignoreScripts + minimumReleaseAge: pnpm 12's fail-closed defaults relaxed
+    // identically for every scaffold (pnpm 10 accepts both keys) — see the root
+    // pnpm-workspace.yaml comment.
+    'packages:\n  - "apps/*"\n  - "packages/*"\nignoreScripts: true\nminimumReleaseAge: 0\n',
+  );
   writeFileSync(
     join(ws, "package.json"),
-    JSON.stringify({ name: "fs-bench", private: true }) + "\n",
+    // packageManager: corepack / pnpm's own launcher resolve pnpm per-tree from this
+    // field — ambient state must not decide which pnpm this bench's installs measure.
+    JSON.stringify({ name: "fs-bench", private: true, packageManager: `pnpm@${PNPM_VERSION}` }) +
+      "\n",
   );
 }
 

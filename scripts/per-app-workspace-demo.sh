@@ -78,7 +78,10 @@ AUTH=$(printf '@ejc3:registry=%s\n//%s:_authToken=%s\n//%s:always-auth=true\n' "
 # ─────────────────────────────────────────────────────────────────────────────
 PUB="$DIR/publish-src"
 mkdir -p "$PUB/libs/util" "$PUB/libs/ui"
-printf 'packages:\n  - "libs/*"\n' > "$PUB/pnpm-workspace.yaml"
+# minimumReleaseAge 0 in every workspace this demo installs in: it installs @ejc3/util +
+# @ejc3/ui minutes after publishing them — pnpm 12's default minimum-release-age
+# supply-chain gate would reject the fresh publish.
+printf 'packages:\n  - "libs/*"\nminimumReleaseAge: 0\n' > "$PUB/pnpm-workspace.yaml"
 printf '%s\n' "$AUTH" > "$PUB/.npmrc"
 printf '{ "name": "publish-src", "private": true, "packageManager": "pnpm@%s" }\n' "$PNPM_VER" > "$PUB/package.json"
 printf '{ "name": "@ejc3/util", "version": "%s", "main": "index.js" }\n' "$VER" > "$PUB/libs/util/package.json"
@@ -120,11 +123,11 @@ printf '{ "name": "per-app-libs", "private": true, "packageManager": "pnpm@%s" }
 printf '{ "name": "@ejc3/util", "version": "%s", "main": "index.js" }\n' "$VER" > "$DIR/libs/util/package.json"
 printf 'module.exports = { SOURCE: "workspace-local" };\n' > "$DIR/libs/util/index.js"
 
-printf 'packages:\n  - "."\n  - "../../libs/util"\n' > "$DIR/apps/web/pnpm-workspace.yaml"
+printf 'packages:\n  - "."\n  - "../../libs/util"\nminimumReleaseAge: 0\n' > "$DIR/apps/web/pnpm-workspace.yaml"
 printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/apps/web/.npmrc"
 printf '{ "name": "web", "private": true, "packageManager": "pnpm@%s", "dependencies": { "@ejc3/ui": "%s" }, "pnpm": { "overrides": { "@ejc3/util": "workspace:*" } } }\n' "$PNPM_VER" "$VER" > "$DIR/apps/web/package.json"
 
-printf 'packages:\n  - "."\n' > "$DIR/apps/admin/pnpm-workspace.yaml"
+printf 'packages:\n  - "."\nminimumReleaseAge: 0\n' > "$DIR/apps/admin/pnpm-workspace.yaml"
 printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/apps/admin/.npmrc"
 printf '{ "name": "admin", "private": true, "packageManager": "pnpm@%s", "dependencies": { "@ejc3/ui": "%s" } }\n' "$PNPM_VER" "$VER" > "$DIR/apps/admin/package.json"
 

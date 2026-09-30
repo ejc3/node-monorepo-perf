@@ -449,9 +449,10 @@ function runSample(tool, workVolume) {
   return res;
 }
 
-// --- 5. the fail-closed contract, measured: mutate a manifest, expect the frozen
-// command to reject it (recorded per tool — a fail-open frozen flag would make that
-// tool's cells resolve-included while the others are link-only) ------------------------------------
+// --- 5. the fail-closed contract, measured AND asserted: mutate a manifest, the frozen
+// command must reject it with the lockfile untouched (a fail-open frozen flag would make
+// that tool's cells resolve-included while the others are link-only — that is a broken
+// premise, not a recordable outcome) ---------------------------------------------------------------
 console.log("fail-closed drift rung (untimed)...");
 const failClosed = {};
 for (const t of TOOLS) {
@@ -490,6 +491,14 @@ console.log("DRIFT " + JSON.stringify({ setup: true, exit: r.status, lockUnchang
   console.log(
     `  ${t.key}: drifted manifest -> exit ${d.exit} (${d.exit !== 0 ? "fail-closed" : "FAIL-OPEN"}), lock unchanged=${d.lockUnchanged}`,
   );
+  // fail closed, asserted: every tool's frozen command must reject the drift AND leave
+  // the lockfile bytes untouched — otherwise this tool's timed cells measure a different
+  // operation (an implicit re-resolve) than the others' link-only install
+  if (!failClosed[t.key].rejected || !failClosed[t.key].lockUnchanged)
+    throw new Error(
+      `${t.key} frozen install did NOT fail closed on a drifted manifest ` +
+        `(exit ${d.exit}, lockUnchanged ${d.lockUnchanged}):\n${d.tail}`,
+    );
 }
 
 // --- 6. samples -------------------------------------------------------------------------------------
@@ -504,7 +513,7 @@ const out = {
   rotation:
     "round-robin across the tool list; the exact per-sample order is recorded in sampleOrder",
   notes: [
-    "lifecycle scripts run at each tool's default: npm ci RUNS dependency scripts; pnpm 10 and yarn 4 block them; bun runs only its built-in allowlist — npm's cells include any script work (--no-audit/--no-fund strip only npm's advisory network add-ons, which are not part of installing)",
+    "lifecycle scripts: npm ci RUNS dependency scripts; pnpm blocks them via the scaffold's explicitly configured ignoreScripts: true (under pnpm 12's defaults a blocked build FAILS the install, ERR_PNPM_IGNORED_BUILDS — the scaffold setting is what keeps the frozen install green without running scripts); yarn 4 blocks them by its own enableScripts default (pinned in the rc); bun runs only its built-in allowlist — npm's cells include any script work (--no-audit/--no-fund strip only npm's advisory network add-ons, which are not part of installing)",
     "npm has no workspace: protocol; its tree rewrites internal workspace:* specifiers to * and the authored package-lock.json is asserted to link them to the local workspace (npmTreeRewrites)",
     "freshRunner is network-live through rootless podman's user-mode network stack (host.networkBackend); samples after the first fetch of a tarball ride a warmed CDN edge, so the recorded spread understates a genuinely different network path — not directly comparable to install-bench's host-network truly-cold pass",
     "cacheRestored keeps the tool's cache/ subdir across samples in a persistent per-tool volume (pre-warmed once, asserted non-empty, entry count recorded); the lockfile is present in both variants",

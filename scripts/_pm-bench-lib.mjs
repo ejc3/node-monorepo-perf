@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { rmSync, mkdtempSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir, cpus, loadavg } from "node:os";
+import { PNPM_VERSION } from "./_pins.mjs";
 
 // Ambient tool config env silently changes what a tool's run measures: YARN_* overrides even
 // an explicit .yarnrc.yml (verified on 4.17: YARN_NODE_LINKER beats the rc), a stray
@@ -36,7 +37,8 @@ export const pnpmEnv = (overrides) => scrubEnv(["PNPM_", "npm_config_"], overrid
 // — an implicit --check-resolutions --refresh-lockfile with per-package registry traffic
 // — on public-repo GitHub PR jobs); enableGlobalCache (its default: zips live in the
 // shared global cache, yarn's analogue of the pnpm store); enableScripts false (yarn 4's
-// own default, the same block-dependency-build-scripts posture as pnpm 10); telemetry off.
+// own default, the same never-run-dependency-build-scripts state the scaffolds pin for
+// pnpm via ignoreScripts: true); telemetry off.
 export const yarnRcLines = (linker, { pinImmutable = true, extraLines = [] } = {}) => [
   `nodeLinker: ${linker}`,
   'npmRegistryServer: "https://registry.npmjs.org"',
@@ -92,7 +94,16 @@ export function scaffoldWorkspace(
   );
   writeFileSync(
     join(dir, "package.json"),
-    JSON.stringify({ name, private: true, workspaces: ["apps/*", "packages/*"] }) + "\n",
+    // packageManager: corepack and pnpm's own launcher both resolve the pnpm version
+    // per-tree from this field, so without the explicit pin, ambient state (e.g. a
+    // pnpm-10 launcher on PATH) would decide which pnpm a bare `pnpm install` in the
+    // scaffold measures (bun/yarn ignore the field).
+    JSON.stringify({
+      name,
+      private: true,
+      packageManager: `pnpm@${PNPM_VERSION}`,
+      workspaces: ["apps/*", "packages/*"],
+    }) + "\n",
   );
 }
 

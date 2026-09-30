@@ -63,7 +63,9 @@ del_all_versions reslib   # clear every leftover so we publish THIS run's bytes 
 echo "   published."
 
 echo "== workspace with a LOCAL @ejc3/reslib (same name+version, SOURCE=workspace-local) + app 'web' =="
-printf 'packages:\n  - "apps/*"\n  - "packages/*"\n' > "$DIR/ws/pnpm-workspace.yaml"
+# minimumReleaseAge 0: the demo installs @ejc3/reslib seconds after publishing it —
+# pnpm 12's default minimum-release-age supply-chain gate would reject the fresh publish.
+printf 'packages:\n  - "apps/*"\n  - "packages/*"\nminimumReleaseAge: 0\n' > "$DIR/ws/pnpm-workspace.yaml"
 printf '{ "name": "@ejc3/reslib", "version": "%s", "main": "index.js" }\n' "$VER" > "$DIR/ws/packages/reslib/package.json"
 printf 'module.exports = { SOURCE: "workspace-local" };\n' > "$DIR/ws/packages/reslib/index.js"
 # scoped @ejc3 → CodeArtifact, and link-workspace-packages=false so a plain semver
