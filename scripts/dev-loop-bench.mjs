@@ -30,6 +30,7 @@ import { join } from "node:path";
 import { homedir, availableParallelism, loadavg } from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
 import { appPkgFromDisk } from "./_app-name.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const spec = (process.argv[2] || "4000:400").trim();
 const m = spec.match(/^(\d+):(\d+)$/);
@@ -64,6 +65,10 @@ const env = {
 const sh = (cmd, opts = {}) =>
   execSync(cmd, { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28, ...opts });
 const bin = (name) => join(ROOT, "node_modules", ".bin", name);
+// The native TypeScript 7 compiler (formerly tsgo), spawned as `node <shim>` by direct
+// path — never `.bin`/PATH, where `tsc` could collide with a JS TypeScript install.
+const TSGO_SHIM = tsNativeShim(ROOT);
+const tsgoVer = () => assertTs7(execSync(`node ${TSGO_SHIM} --version`).toString());
 const ver = (name) =>
   existsSync(bin(name))
     ? execSync(`${bin(name)} --version`)
@@ -175,8 +180,8 @@ writeFileSync(
       workspaces: ["apps/*", "packages/*"],
       devDependencies: {
         turbo: toolchain.turbo,
+        // typescript@7 IS the native checker (formerly @typescript/native-preview/tsgo)
         typescript: toolchain.typescript,
-        "@typescript/native-preview": toolchain["@typescript/native-preview"],
         oxlint: "latest",
       },
     },
@@ -210,8 +215,7 @@ const result = {
   samples: SAMPLES,
   versions: {
     bun: bunVer,
-    tsgo: ver("tsgo"),
-    tsc: ver("tsc"),
+    tsgo: tsgoVer(), // typescript@7's native tsc, version-asserted
     oxlint: ver("oxlint"),
     turbo: ver("turbo"),
     node: process.version,
@@ -354,7 +358,7 @@ function devLoop({ name, pkg, dir, includeGlobs, gateFilter }) {
   );
   console.log(`\n## ${name} (${pkg}) — typecheck-on-save / lint-on-save / focused gate`);
   const tsgo = freshVsSubsequent(
-    `/usr/bin/time -v ${bin("tsgo")} --noEmit -p tsconfig.${name}.json 2>&1`,
+    `/usr/bin/time -v node ${TSGO_SHIM} --noEmit -p tsconfig.${name}.json 2>&1`,
     `${name} tsgo`,
     { mustExitZero: true, captureRss: true },
   );

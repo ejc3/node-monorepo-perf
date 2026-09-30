@@ -18,8 +18,11 @@
 //   turbo (focused)   — `turbo run typecheck --filter=<app>...` (builds the app's lib
 //                       closure with tsc, then typechecks the app — the repo's real
 //                       O(closure) pipeline)
-//   tsgo              — `tsgo --noEmit -p <app>` after the closure is built (native
-//                       binary with its own module resolver)
+//   tsgo              — typescript@7's native tsc, `yarn node <ts7 shim> --noEmit -p
+//                       <app>` after the closure is built (a native binary with its
+//                       own module resolver, which yarn's typescript patch never
+//                       loads); explicit path because each tree holds TWO tsc majors
+//                       (root typescript@7 + the per-package catalog typescript)
 //   next build        — one app's production build after the closure is built
 //
 // Self-contained: scaffolds under the OS temp dir, removed on exit; needs no worktree;
@@ -47,9 +50,17 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoDevDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies;
 const TURBO_VERSION = repoDevDeps.turbo;
 const OXLINT_VERSION = "1.71.0";
-const TSGO_VERSION = repoDevDeps["@typescript/native-preview"];
+const TSGO_VERSION = repoDevDeps.typescript; // typescript@7 IS the native checker (formerly tsgo)
 if (!TURBO_VERSION || !TSGO_VERSION)
-  throw new Error("root package.json no longer pins turbo / @typescript/native-preview");
+  throw new Error("root package.json no longer pins turbo / typescript");
+// The per-package tsc: scaffoldWorkspace rewrites each generated package's
+// `typescript: catalog:` to the workspace catalog's concrete version, so the
+// tsc-lib-build and turbo-typecheck rows run THIS major, not the root's ts7.
+const PKG_TSC_VERSION = (/^\s*typescript:\s*(\S+)/m.exec(
+  readFileSync(join(REPO, "pnpm-workspace.yaml"), "utf8"),
+) || [])[1];
+if (!PKG_TSC_VERSION)
+  throw new Error("pnpm-workspace.yaml no longer carries a typescript catalog entry");
 const APPS = 20;
 const LIBS = 10;
 // pass/fail probes, but wall times are recorded — refuse a loaded box
@@ -73,7 +84,11 @@ function buildTree(linker) {
   pkg.devDependencies = {
     turbo: TURBO_VERSION,
     oxlint: OXLINT_VERSION,
-    "@typescript/native-preview": TSGO_VERSION,
+    // the native checker: typescript@7's only bin is `tsc` (the tsgo name is
+    // retired). This is the tree's SECOND tsc major — every generated package
+    // pins the catalog typescript for its own build — so the native probe never
+    // runs a bare `tsc`; it resolves this package's shim by explicit path.
+    typescript: TSGO_VERSION,
   };
   // turbo detects the workspace manager from packageManager, and the generated
   // package tsconfigs extend the repo's tsconfig.base.json
@@ -154,11 +169,19 @@ function probe(dir, cwd, args, extraEnv) {
 
 const out = {
   yarn: YARN_VERSION,
-  versions: { turbo: TURBO_VERSION, oxlint: OXLINT_VERSION, tsgo: TSGO_VERSION },
+  // two tsc majors per tree: `tsgo` is the root typescript@7 behind the tsgo-app
+  // row; `packageTsc` is the per-package catalog typescript behind the
+  // tsc-lib-build and turbo-focused-typecheck rows
+  versions: {
+    turbo: TURBO_VERSION,
+    oxlint: OXLINT_VERSION,
+    tsgo: TSGO_VERSION,
+    packageTsc: PKG_TSC_VERSION,
+  },
   scale: { apps: APPS, libs: LIBS },
   ...envInfo,
   method:
-    "one generated workspace installed twice by the same pinned yarn — PnP and node-modules (the control); each tool runs through yarn in both trees; a tool failing BOTH trees invalidates the run (scaffold problem), a tool passing the control and failing PnP is the finding; ms fields are single samples through `yarn exec` (yarn boot + PnP runtime init included) — diagnostic only, the ok booleans are the finding",
+    "one generated workspace installed twice by the same pinned yarn — PnP and node-modules (the control); each tool runs through yarn in both trees; a tool failing BOTH trees invalidates the run (scaffold problem), a tool passing the control and failing PnP is the finding; ms fields are single samples through yarn (`yarn exec` / `yarn node`, yarn boot + PnP runtime init included) — diagnostic only, the ok booleans are the finding",
   tools: {},
 };
 
@@ -202,7 +225,20 @@ for (const [linker, dir] of Object.entries(trees)) {
   // tsgo and next probe the app AFTER its lib closure is built by the turbo probe; if
   // that build failed, their failures would be missing-dist cascades, not PnP findings
   if (turbo.ok) {
-    rec("tsgo-app", probe(dir, dir, ["exec", "tsgo", "--noEmit", "-p", join("apps", app)]));
+    // Resolve the ROOT typescript@7 shim by explicit path through this tree's own
+    // resolver (PnP-aware) — never `yarn exec tsc`: the tree holds two tsc majors
+    // (root ts7 + the per-package catalog tsc) and a bare bin name is ambiguous.
+    const shimR = spawnSync(
+      "node",
+      [YARNJS, "node", "-p", "require.resolve('typescript/bin/tsc')"],
+      { cwd: dir, encoding: "utf8", env: yarnEnv() },
+    );
+    const ts7Shim = (shimR.stdout || "").trim().split("\n").pop();
+    if (shimR.status !== 0 || !ts7Shim)
+      fail(
+        `${linker}: cannot resolve the root typescript@7 shim:\n${((shimR.stdout || "") + (shimR.stderr || "")).slice(-400)}`,
+      );
+    rec("tsgo-app", probe(dir, dir, ["node", ts7Shim, "--noEmit", "-p", join("apps", app)]));
     const nb = rec("next-build-app", probe(dir, join(dir, "apps", app), ["exec", "next", "build"]));
     // evidence about the turbopack.root pin, recorded per tree: Next warns on an
     // unrecognized config key, so a clean control run proves the key is valid config;

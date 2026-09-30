@@ -5,12 +5,21 @@ One native-compiled tool per job, no slower baseline in the loop. The sources of
 `bench/dev-loop-bench.json` (4000:400), `bench/real-app-bench.json`,
 `bench/decl-emit-caveat.json`, `bench/env.json`.
 
-| job                 | tool                                    | version              |
-| ------------------- | --------------------------------------- | -------------------- |
-| install             | **bun**                                 | 1.3.14               |
-| typecheck / gate    | **tsgo** (`@typescript/native-preview`) | 7.0.0-dev.20260614.1 |
-| lint                | **oxlint** (oxc)                        | 1.71.0               |
-| orchestrate + scope | **turbo**                               | 2.9.18               |
+| job                 | tool                                     | version |
+| ------------------- | ---------------------------------------- | ------- |
+| install             | **bun**                                  | 1.3.14  |
+| typecheck / gate    | **tsgo** (`typescript@7`'s native `tsc`) | 7.0.2   |
+| lint                | **oxlint** (oxc)                         | 1.71.0  |
+| orchestrate + scope | **turbo**                                | 2.9.18  |
+
+TypeScript 7 is GA: the native compiler ships as `typescript` with a `tsc` binary (the tsgo
+name is retired; this repo keeps `tsgo` as the task and record label). Pin the exact version,
+the same discipline as the old nightly pin. TypeScript 6, the last JS release, stays
+installed as the `typescript6` alias — the oracle checker and the tsserver. The gate records
+below that predate GA (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`,
+`bench/real-app-bench.json`) were measured on the `7.0.0-dev.20260614.1` nightly of the same
+compiler; `bench/typecheck-parity-bench.json` and `bench/decl-emit-caveat.json` are measured
+on 7.0.2.
 
 ## The Scenario
 
@@ -69,11 +78,12 @@ A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program 
 own throwaway scaffold at 4,000:400:8 — libs carrying genuinely heavy types (recursive
 conditional + mapped types, 48-member unions, cross-lib intersections), not the standard
 workspace's 16-line re-export modules, so the parity claim rests on real type complexity. One
-tsgo program checks it in **1.96s**, peak RSS **1281MB**.
-On the valid tree both tsc and tsgo report **0**. Injecting 25 error sites, tsgo flags the
+tsgo program checks it in **2.04s**, peak RSS **1280MB**.
+On the valid tree both tsc (the TypeScript 6 oracle) and tsgo report **0**. Injecting 25
+error sites, tsgo flags the
 same **25 locations**, missing **0** and adding **0**; codes match on 20 of 25 (at the
-arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **17.2s** to
-tsgo's 1.96s (**8.8×**).
+arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **17.8s** to
+tsgo's 2.04s (**8.7×**).
 
 ## The Orchestrated turbo Path
 
@@ -117,5 +127,6 @@ O(repo) (1.4s as one tsgo program); a developer's edit reaches only their closur
 - **Declaration-emit caveat.** The gate's `declaration:false` validates the code but not the
   published `.d.ts`: on a self-contained scaffold, a declaration-portability error passes the
   gate yet is flagged under
-  `declaration:true` (tsc `TS2742` / tsgo `TS2883`) with no emit needed, so `.d.ts` validation
+  `declaration:true` (`TS2883` under both checkers since TypeScript 6; tsc 5.9 reported
+  `TS2742`) with no emit needed, so `.d.ts` validation
   stays with the per-package build (`bench/decl-emit-caveat.json`).

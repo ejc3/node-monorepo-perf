@@ -12,9 +12,12 @@
 //   node scripts/typecheck-parity-bench.mjs <apps>:<libs>:<modules>   (default 300:80:8)
 //
 // Self-contained and non-destructive: it scaffolds a throwaway workspace under the OS temp
-// dir (never the repo tree, so no worktree is needed), bun-installs typescript + tsgo, runs
-// both checkers over one tsconfig that resolves `@demo/*` to lib source, and removes the
-// workspace on exit. Writes bench/typecheck-parity-bench.json.
+// dir (never the repo tree, so no worktree is needed), bun-installs the repo's pinned
+// toolchain (typescript@7, the native compiler formerly tsgo, plus the typescript6 alias —
+// the last JS release, the oracle), runs both checkers over one tsconfig that resolves
+// `@demo/*` to lib source, and removes the workspace on exit. Both checkers resolve by
+// direct path (`.bin/tsc` would be a ts7/ts6 collision) and are version-asserted before
+// timing. Writes bench/typecheck-parity-bench.json.
 //
 // Honesty guards (per the repo's measurement rules): each checker is timed as the median of
 // PARITY_SAMPLES runs after a warmup (binary load / first-touch fs excluded), and the bench
@@ -29,6 +32,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir, tmpdir, loadavg, availableParallelism } from "node:os";
+import { tsNativeShim, ts6Tsc, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const spec = (process.argv[2] || "300:80:8").trim();
 const m = spec.match(/^(\d+):(\d+):(\d+)$/);
@@ -49,12 +53,18 @@ const REPO = process.cwd();
 // the dir is always one we own and created fresh (so the on-exit rm only removes our own).
 const ROOT = mkdtempSync(join(tmpdir(), `tc-parity-${APPS}x${LIBS}x${MODS}-`));
 const BUN = existsSync(join(homedir(), ".bun/bin/bun")) ? join(homedir(), ".bun/bin/bun") : "bun";
-// Track the repo's real toolchain: read the tsc/tsgo versions from the root package.json
+// Track the repo's real toolchain: read the pinned versions from the root package.json
 // rather than hardcoding literals, so the vet measures the same checker the optimal gate
-// installs (a hardcoded version silently drifts when the repo bumps tsgo).
+// installs (a hardcoded version silently drifts when the repo bumps typescript).
 const rootDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies || {};
-const TS_VER = rootDeps.typescript || "^5.9.0";
-const TSGO_VER = rootDeps["@typescript/native-preview"] || "7.0.0-dev.20260614.1";
+const TS7_VER = rootDeps.typescript; // the native compiler (formerly tsgo)
+const TS6_VER = rootDeps.typescript6; // the JS oracle
+if (!TS7_VER || !TS6_VER) {
+  console.error(
+    `root package.json no longer pins typescript / typescript6 (got typescript=${TS7_VER}, typescript6=${TS6_VER})`,
+  );
+  process.exit(1);
+}
 const sh = (c, o = {}) =>
   execSync(c, { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28, ...o });
 
@@ -156,8 +166,8 @@ writeFileSync(
       private: true,
       workspaces: ["apps/*", "packages/*"],
       devDependencies: {
-        typescript: TS_VER,
-        "@typescript/native-preview": TSGO_VER,
+        typescript: TS7_VER,
+        typescript6: TS6_VER,
       },
     },
     null,
@@ -190,9 +200,16 @@ writeFileSync(
 
 console.log(`# typecheck parity vet: ${APPS} apps / ${LIBS} libs / ${MODS} modules each`);
 sh(`${BUN} install`, { encoding: "utf8" });
-const tsgo = join(ROOT, "node_modules", ".bin", "tsgo");
-const tsc = join(ROOT, "node_modules", ".bin", "tsc");
+// Direct paths only, spawned as `node <script>` (never .bin/PATH — the scaffold installs
+// both typescript@7 and the typescript6 alias, so `.bin/tsc` is ambiguous): tsgo is
+// typescript@7's node shim to the native binary (the same node-shim geometry the old
+// `.bin/tsgo` records were measured through); tsc is the TypeScript 6 JS oracle.
+const tsgo = `node ${tsNativeShim(ROOT)}`;
+const tsc = `node ${ts6Tsc(ROOT)}`;
 const verOf = (bin) => execSync(`${bin} --version`).toString().trim();
+// Assert once, untimed, that each resolved checker is the expected major.
+assertTs7(verOf(tsgo));
+assertTs6(verOf(tsc));
 
 // Run a checker over tsconfig.whole.json; capture wall ms, peak RSS, and the sorted set of
 // `file(line,col): error TSxxxx` diagnostics. Timed after one warmup run (discarded).

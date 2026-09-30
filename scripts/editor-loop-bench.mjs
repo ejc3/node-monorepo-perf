@@ -7,9 +7,10 @@
 // whole repo (O(repo)) or just the opened app's dependency closure (O(closure))?
 //
 // Two servers, head-to-head, on the generated workspace at each scale:
-//   - tsserver  — `node typescript/lib/tsserver.js`, the classic server VS Code ships today
+//   - tsserver  — `node typescript6/lib/tsserver.js` (the TypeScript 6 alias; typescript@7
+//                 ships no tsserver), the classic server VS Code ships today
 //                 (its own Content-Length-framed command protocol).
-//   - tsgo LSP  — `tsgo --lsp --stdio`, the native-preview language server (LSP JSON-RPC).
+//   - tsgo LSP  — typescript@7's native binary with `--lsp --stdio` (LSP JSON-RPC).
 //
 // Cross-package resolution is to SOURCE. The generated libs publish their types from `dist`
 // (built by `tsc`), which an editor session does not build, so out of the box every `@demo/*`
@@ -95,6 +96,7 @@ import { resolve, join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import os from "node:os";
 import { ensureCleanState } from "./clean-state.mjs";
+import { tsNativeShim, ts6Tsc, ts6Tsserver, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fail = (m) => {
@@ -147,8 +149,16 @@ const IS_SMOKE =
   RAW_CLOSURE_SCALES !== DEFAULT_CLOSURE_SCALES ||
   GEN_ENV.some((k) => process.env[k] != null);
 
-const TSSERVER = resolve(REPO, "node_modules/typescript/lib/tsserver.js");
-const TSGO = resolve(REPO, "node_modules/.bin/tsgo");
+// tsserver comes from the typescript6 alias (TypeScript 6 is the last JS release and
+// typescript@7 ships no tsserver.js); the native side is typescript@7's node shim,
+// spawned as `node <shim> --lsp` (never .bin/PATH — the repo installs both majors, so
+// `.bin/tsc` is ambiguous). The shim, not the raw exe: the committed records were
+// measured through the old `.bin/tsgo` node shim, so coldOpenMs includes node startup
+// on BOTH sides (matching tsserver's `node tsserver.js` anchor); on node >=22.15 the
+// shim execve-replaces node with the native binary, so the server process still
+// BECOMES the native LSP (same pid — the RSS sampler tracks the checker itself).
+const TSSERVER = ts6Tsserver(REPO);
+const TSGO = tsNativeShim(REPO);
 const BASE_TSCONFIG = resolve(REPO, "tsconfig.base.json");
 const BASE_BAK = BASE_TSCONFIG + ".bench.bak";
 
@@ -460,7 +470,10 @@ async function runTsserver(target) {
 
 // ---- tsgo LSP driver (one fresh process = one cold sample) --------------------------------
 async function runTsgo(target) {
-  const proc = spawn(TSGO, ["--lsp", "--stdio"], { cwd: REPO, stdio: ["pipe", "pipe", "pipe"] });
+  const proc = spawn("node", [TSGO, "--lsp", "--stdio"], {
+    cwd: REPO,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
   const rss = startRssSampler(proc.pid);
   let id = 0;
   const waiters = new Map(); // id -> {resolve, reject}
@@ -785,7 +798,11 @@ const loadGuard = (whenLabel) => {
 
 async function main() {
   if (!existsSync(TSSERVER)) fail(`tsserver not found at ${TSSERVER} (pnpm install root deps)`);
-  if (!existsSync(TSGO)) fail(`tsgo not found at ${TSGO} (pnpm install root deps)`);
+  if (!existsSync(TSGO))
+    fail(`native tsc (typescript@7) shim not found at ${TSGO} (pnpm install root deps)`);
+  // once, untimed: the resolved binaries must be the expected majors
+  const tsgoVersion = assertTs7(ver("node", [TSGO, "--version"]));
+  const tscVersion = assertTs6(ver("node", [ts6Tsc(REPO), "--version"]));
 
   // Self-heal any tracked file a prior killed run left patched, and REFUSE if another bench is
   // already running in this worktree (benches share apps/.turbo/.gitignore and corrupt each other).
@@ -817,10 +834,8 @@ async function main() {
       node: process.version,
     },
     versions: {
-      typescript:
-        ver(resolve(REPO, "node_modules/.bin/tsc"), ["--version"]) ||
-        ver("node", [TSSERVER, "--version"]),
-      tsgo: ver(TSGO, ["--version"]),
+      typescript: tscVersion, // the TS6 alias behind tsserver
+      tsgo: tsgoVersion, // typescript@7's native tsc (serves --lsp via the node shim)
     },
     samplesPerOp: SAMPLES,
     modules: MODULES,

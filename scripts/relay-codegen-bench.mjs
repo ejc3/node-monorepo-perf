@@ -29,6 +29,7 @@ import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { median, loadGuard } from "./_pm-bench-lib.mjs";
+import { tsNativeExeSync, assertTs7 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const N = Number(process.env.RELAY_COMPONENTS || 10000);
@@ -192,24 +193,17 @@ writeFileSync(join(toolDir, "package.json"), JSON.stringify({ private: true }) +
 const RELAY = join(toolDir, "node_modules", ".bin", "relay-compiler");
 const FLOW_RELEASED = join(toolDir, "node_modules", ".bin", "flow");
 let FLOW = FLOW_BIN || FLOW_RELEASED; // may fall back: see the artifact-dialect probe
-// tsgo: the repo's pinned native binary, directly resolved (the tsgo-scale-bench
-// pattern — resolve the WRAPPER package from the repo root, then the platform package
-// from the wrapper's own dir, since a bare resolve from this script can't see it)
-const nativeProbe = spawnSync(
-  "node",
-  [
-    "-e",
-    `const { realpathSync } = require("node:fs");
-const { dirname, join } = require("node:path");
-const wrapper = dirname(realpathSync(require.resolve("@typescript/native-preview/package.json")));
-const platformPkg = require.resolve("@typescript/native-preview-linux-arm64/package.json", { paths: [wrapper] });
-process.stdout.write(join(dirname(platformPkg), "lib", "tsgo"));`,
-  ],
-  { cwd: REPO, encoding: "utf8" },
-);
-if (nativeProbe.status !== 0 || !existsSync(nativeProbe.stdout.trim()))
-  fail(`tsgo native binary not resolvable:\n${(nativeProbe.stderr || "").slice(-300)}`);
-const TSGO = nativeProbe.stdout.trim();
+// the native TypeScript 7 checker: typescript@7's raw native binary, directly
+// resolved via the official getExePath resolution (mirrored sync in scripts/_ts.mjs),
+// so the timed process IS the checker; version-asserted once, untimed
+const TSGO = (() => {
+  try {
+    return tsNativeExeSync(REPO);
+  } catch (e) {
+    fail(`native tsc (typescript@7) not resolvable: ${e.message}`);
+  }
+})();
+const TSGO_VERSION = assertTs7(spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout);
 // each tree needs relay-runtime resolvable for the artifact/type imports
 for (const dir of Object.values(trees)) {
   mkdirSync(join(dir, "node_modules"), { recursive: true });
@@ -283,9 +277,7 @@ const out = {
   samples: SAMPLES,
   versions: {
     relayCompiler: relayVersion,
-    tsgo: JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies[
-      "@typescript/native-preview"
-    ],
+    tsgo: TSGO_VERSION,
     flow: flowVersion,
     node: process.version,
   },

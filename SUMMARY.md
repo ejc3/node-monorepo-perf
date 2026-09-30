@@ -24,7 +24,7 @@ core-lib rev) are infrequent and still fast.
 | job                 | tool       | why                                                    |
 | ------------------- | ---------- | ------------------------------------------------------ |
 | install             | **bun**    | links the 4,400-package workspace in ~21s (warm store) |
-| typecheck / gate    | **tsgo**   | native TypeScript port; 8.8× tsc, same error locations |
+| typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.7× tsc 6, same error locations |
 | lint                | **oxlint** | native Rust; whole tree in 180ms                       |
 | orchestrate + scope | **turbo**  | `--filter`/`--affected` + per-package caching          |
 

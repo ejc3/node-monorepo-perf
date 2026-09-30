@@ -66,6 +66,14 @@ import {
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { median, loadGuard, load1Now, benchOutput } from "./_pm-bench-lib.mjs";
+import {
+  tsNativeShim,
+  tsNativeExeSync,
+  ts6Tsc,
+  ts6Tsserver,
+  assertTs7,
+  assertTs6,
+} from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const POINTS = (process.env.LSP_SCALE_POINTS || "10000 100000 250000 500000 1000000")
@@ -165,30 +173,26 @@ process.on("exit", () => {
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(130));
 
 // ---- toolchain (same resolution as tsgo-scale-bench: the timed process IS the checker) ----
-const tsgoShim = join(REPO, "node_modules", ".bin", "tsgo");
-const TSC = join(REPO, "node_modules", ".bin", "tsc");
-const TSSERVER = join(REPO, "node_modules", "typescript", "lib", "tsserver.js");
+// Direct paths from scripts/_ts.mjs, never .bin/PATH (the repo installs typescript@7 AND
+// the typescript6 alias, so `.bin/tsc` is ambiguous): the native side is typescript@7's
+// raw native binary via the official getExePath resolver (typescript@7 ships no
+// tsserver.js — its LSP is the native exe's --lsp); tsc/tsserver are the TypeScript 6
+// alias, the last JS release.
+const tsgoShim = tsNativeShim(REPO);
+const TSC = ts6Tsc(REPO);
+const TSSERVER = ts6Tsserver(REPO);
 if (!existsSync(tsgoShim) || !existsSync(TSC) || !existsSync(TSSERVER))
-  fail("tsgo/tsc/tsserver not found — run `pnpm install` at the repo root first");
-const nativeProbe = spawnSync(
-  "node",
-  [
-    "-e",
-    `const { realpathSync } = require("node:fs");
-const { dirname, join } = require("node:path");
-const wrapper = dirname(realpathSync(require.resolve("@typescript/native-preview/package.json")));
-const platformPkg = require.resolve("@typescript/native-preview-linux-arm64/package.json", { paths: [wrapper] });
-process.stdout.write(join(dirname(platformPkg), "lib", "tsgo"));`,
-  ],
-  { cwd: REPO, encoding: "utf8" },
-);
-const TSGO =
-  nativeProbe.status === 0 && existsSync(nativeProbe.stdout.trim())
-    ? nativeProbe.stdout.trim()
-    : tsgoShim;
-const tsgoInvocation = TSGO === tsgoShim ? ".bin shim" : "native binary (direct)";
+  fail("native tsc / ts6 tsc / tsserver not found — run `pnpm install` at the repo root first");
+const TSGO = (() => {
+  try {
+    return tsNativeExeSync(REPO);
+  } catch {
+    return tsgoShim;
+  }
+})();
+const tsgoInvocation = TSGO === tsgoShim ? "node shim" : "native binary (direct)";
 if (spawnSync(TSGO, ["--version"], { encoding: "utf8" }).status !== 0)
-  fail(`resolved tsgo does not run: ${TSGO}`);
+  fail(`resolved native tsc does not run: ${TSGO}`);
 
 // node-based tools (tsserver, tsc --watch) get the same recorded 64GB ceiling the
 // batch bench gives tsc, so node's default heap never masquerades as a limit
@@ -1212,8 +1216,8 @@ const listFilesCount = (bin, isNode) => {
 };
 
 // ---- versions + sweep -------------------------------------------------------------------------
-const tsgoVersion = spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout.trim();
-const tscVersion = spawnSync(TSC, ["--version"], { encoding: "utf8" }).stdout.trim();
+const tsgoVersion = assertTs7(spawnSync(TSGO, ["--version"], { encoding: "utf8" }).stdout);
+const tscVersion = assertTs6(spawnSync(TSC, ["--version"], { encoding: "utf8" }).stdout);
 
 const results = [];
 const isCanonical =

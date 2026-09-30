@@ -33,6 +33,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node
 import { join, dirname } from "node:path";
 import { homedir, availableParallelism, arch, loadavg } from "node:os";
 import { benchOutput } from "./_pm-bench-lib.mjs";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const spec = (process.argv[2] || "fleet").trim();
 const fleetM = spec.match(/^fleet(?::(\d+))?$/);
@@ -178,8 +179,8 @@ writeFileSync(
       packageManager: `bun@${bunVer}`,
       workspaces: ["apps/*", "packages/*"],
       devDependencies: {
+        // typescript@7 IS the native checker (formerly @typescript/native-preview/tsgo)
         typescript: toolchain.typescript,
-        "@typescript/native-preview": toolchain["@typescript/native-preview"],
       },
     },
     null,
@@ -188,8 +189,11 @@ writeFileSync(
 );
 console.log("## bun install (warm store)");
 sh(`${BUN} install`, { encoding: "utf8" });
-const TSGO = join(ROOT, "node_modules", ".bin", "tsgo");
-if (!existsSync(TSGO)) fail("tsgo not installed");
+// The native TypeScript 7 compiler via its node shim — direct path, never .bin/PATH
+// (`.bin/tsc` could collide with a JS TypeScript install). Spawned as `node <shim>`.
+const TSGO = tsNativeShim(ROOT);
+if (!existsSync(TSGO)) fail("the native tsc (typescript@7) is not installed");
+const TSGO_VERSION = assertTs7(execSync(`node ${TSGO} --version`, { encoding: "utf8" }));
 
 // ---- tsconfig builders ------------------------------------------------------
 const baseCompilerOptions = {
@@ -245,7 +249,7 @@ const appFiles = new Map();
 // one tsgo under GNU time; parses wall from OUR clock, CPU/RSS from time -v
 function runProgram(cfg) {
   const t0 = process.hrtime.bigint();
-  const r = spawnSync("/usr/bin/time", ["-v", TSGO, "--noEmit", "-p", cfg], {
+  const r = spawnSync("/usr/bin/time", ["-v", "node", TSGO, "--noEmit", "-p", cfg], {
     cwd: ROOT,
     env,
     encoding: "utf8",
@@ -275,7 +279,7 @@ function runSlices(cfgs) {
     const results = [];
     let doneCount = 0;
     cfgs.forEach((cfg, i) => {
-      const child = spawn("/usr/bin/time", ["-v", TSGO, "--noEmit", "-p", cfg], {
+      const child = spawn("/usr/bin/time", ["-v", "node", TSGO, "--noEmit", "-p", cfg], {
         cwd: ROOT,
         env,
         detached: true,
@@ -327,7 +331,7 @@ const result = {
   machine: { cores: CORES, arch: arch() },
   preRunLoadAvg1: +LOAD1.toFixed(2),
   versions: {
-    tsgo: toolchain["@typescript/native-preview"],
+    tsgo: TSGO_VERSION, // typescript@7's native tsc, version-asserted
     bun: bunVer,
     node: process.version,
   },

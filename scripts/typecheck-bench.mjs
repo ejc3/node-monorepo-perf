@@ -1,6 +1,8 @@
 #!/usr/bin/env node
-// Controlled tsc vs tsgo (TypeScript native port) benchmark on a single large
-// program (the case tsgo targets). Generates N cross-referencing modules and
+// Controlled tsc vs native-tsc benchmark on a single large program (the case
+// the native compiler targets). The tsc column is the TypeScript 6 JS oracle
+// (the last JS release); the tsgo column is typescript@7's native compiler
+// (formerly tsgo). Generates N cross-referencing modules and
 // times `--noEmit` for each checker. Each checker gets one discarded warmup run
 // (to neutralize cold page-cache/JIT bias), then TC_SAMPLES timed runs whose
 // median is reported.
@@ -11,6 +13,7 @@
 import { execSync } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { tsNativeShim, ts6Tsc, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const N = parseInt(process.argv[2] || "3000", 10);
 const SAMPLES = (() => {
@@ -64,15 +67,23 @@ writeFileSync(
   ),
 );
 
-const tsc = join(ROOT, "node_modules", ".bin", "tsc");
-const tsgo = join(ROOT, "node_modules", ".bin", "tsgo");
+// Direct paths only (never .bin/PATH — .bin/tsc is a ts7/ts6 collision): the
+// tsc column is the TypeScript 6 JS oracle, the tsgo column is the native
+// TypeScript 7 compiler via its node shim. Versions asserted once, untimed.
+const tsc = ts6Tsc(ROOT);
+const tsgo = tsNativeShim(ROOT);
 if (!existsSync(tsc)) {
   throw new Error(`tsc not found at ${tsc} — run \`pnpm install\` at the repo root first`);
 }
+// once, untimed: assert each resolved checker's major and keep the version string
+const tscVersion = assertTs6(execSync(`node ${tsc} --version`, { encoding: "utf8" }));
+const tsgoVersion = existsSync(tsgo)
+  ? assertTs7(execSync(`node ${tsgo} --version`, { encoding: "utf8" }))
+  : null;
 const cfg = join(DIR, "tsconfig.json");
 const run = (bin) => {
   const t = process.hrtime.bigint();
-  execSync(`${bin} --noEmit -p ${cfg}`, { stdio: "pipe" });
+  execSync(`node ${bin} --noEmit -p ${cfg}`, { stdio: "pipe" });
   return Math.round(Number(process.hrtime.bigint() - t) / 1e6);
 };
 
@@ -102,6 +113,10 @@ const tsgoResult = existsSync(tsgo) ? bench(tsgo) : null;
 const out = {
   modules: N,
   samples: SAMPLES,
+  versions: {
+    tsc: tscVersion,
+    tsgo: tsgoVersion,
+  },
   tscMs: tscResult.medianMs,
   tsgoMs: tsgoResult ? tsgoResult.medianMs : null,
   tsc: tscResult,

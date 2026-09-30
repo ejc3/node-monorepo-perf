@@ -34,8 +34,9 @@
 //     for the target-vs-generated metric table (bench/fleet-shape.json).
 
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { bunWorkspaceNameKey } from "./_wyhash11.mjs";
+import { tsNativeShim } from "./_ts.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -105,9 +106,15 @@ const TAIL_PICKS = intOpt("tail-picks", pdef("tail-picks", "2"), 0);
 // radius of the whole repo (every app rebuilds). That whole-repo-blast case is what the
 // lib-revision bench measures. 0 = no universal lib (default).
 const UNIVERSAL = intOpt("universal", pdef("universal", "0"), 0); // validated against layer size below
-// Also emit a `typecheck:tsgo` script in every package (a tsgo-backed twin of the
-// `typecheck` task) so a bench can run the same gate under tsc vs tsgo. Off by
-// default so the generator's output (and other benches' input hashes) is unchanged.
+// Also emit a `typecheck:tsgo` script in every package (a native-checker twin of
+// the `typecheck` task) so a bench can run the same gate under tsc vs the native
+// compiler. The task NAME stays `typecheck:tsgo` (turbo.json, benches, and docs
+// reference it); since typescript@7 it runs the native tsc via its node shim at
+// a RELATIVE path (every generated package sits at exactly depth 2: apps/<name>,
+// packages/<name>) — never `.bin`/PATH, where `tsc` is a ts7/ts6 collision, and
+// never an absolute path, which would bake this checkout into every manifest and
+// break turbo-cache portability across checkouts. Off by default so the
+// generator's output (and other benches' input hashes) is unchanged.
 const TSGO_TASK = flag("tsgo-task");
 // Also emit a `test` script (node --test over a per-package smoke test) in every package,
 // so a bench can measure the TEST axis through Turbo's `test` task (defined in the root
@@ -135,6 +142,20 @@ const CLEAN = flag("clean");
 const ROOT = process.cwd();
 const APPS_DIR = join(ROOT, "apps");
 const LIBS_DIR = join(ROOT, "packages");
+// The `typecheck:tsgo` command body: the native TypeScript 7 tsc, spawned as
+// `node <relative shim>`. Relative, not absolute: turbo hashes the command into
+// the task's cache key, so an absolute path would invalidate the cache across
+// checkouts. Every generated package sits at exactly depth 2 (apps/<name>,
+// packages/<name>), so one `../../` form resolves from all of them — asserted
+// below and again from a generated package dir in main().
+const TSGO_SHIM_REL = "../../node_modules/typescript/bin/tsc";
+const TSGO_CMD = `node ${TSGO_SHIM_REL} --noEmit`;
+if (TSGO_TASK && !existsSync(tsNativeShim(ROOT))) {
+  console.error(
+    `--tsgo-task: native tsc shim missing at ${tsNativeShim(ROOT)} — install root deps first`,
+  );
+  process.exit(1);
+}
 
 const appW = String(APPS).length;
 const libW = String(LIBS).length;
@@ -476,7 +497,7 @@ function libPackageJson(i) {
       scripts: {
         build: "tsc -p tsconfig.json",
         typecheck: "tsc --noEmit -p tsconfig.json",
-        ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit -p tsconfig.json" } : {}),
+        ...(TSGO_TASK ? { "typecheck:tsgo": `${TSGO_CMD} -p tsconfig.json` } : {}),
         ...(TEST_TASK ? { test: "node --test" } : {}),
       },
       dependencies,
@@ -528,7 +549,7 @@ function appPackageJson(i) {
             dev: "vite",
             preview: "vite preview",
             typecheck: "tsc --noEmit",
-            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TSGO_TASK ? { "typecheck:tsgo": TSGO_CMD } : {}),
             ...(TEST_TASK ? { test: "node --test" } : {}),
           }
         : {
@@ -536,7 +557,7 @@ function appPackageJson(i) {
             dev: "next dev",
             start: "next start",
             typecheck: "tsc --noEmit",
-            ...(TSGO_TASK ? { "typecheck:tsgo": "tsgo --noEmit" } : {}),
+            ...(TSGO_TASK ? { "typecheck:tsgo": TSGO_CMD } : {}),
             ...(TEST_TASK ? { test: "node --test" } : {}),
           },
       dependencies: vite
@@ -782,6 +803,20 @@ function main() {
     if (i % 50 === 0) process.stdout.write(`  libs ${i}/${LIBS}\r`);
   }
   process.stdout.write(`  libs ${LIBS}/${LIBS}\n`);
+
+  // The emitted relative shim path must resolve from a real generated package dir
+  // (all packages sit at depth 2, so one probe covers them all) — fail loud here,
+  // never emit a command that resolves nowhere.
+  if (TSGO_TASK) {
+    const probeDir = join(LIBS_DIR, libDir(1));
+    const resolved = resolve(probeDir, TSGO_SHIM_REL);
+    if (!existsSync(resolved)) {
+      console.error(
+        `--tsgo-task: ${TSGO_SHIM_REL} does not resolve from ${probeDir} (expected ${tsNativeShim(ROOT)}, got ${resolved})`,
+      );
+      process.exit(1);
+    }
+  }
 
   for (let i = 1; i <= APPS; i++) {
     writeApp(i);

@@ -32,6 +32,7 @@ import { execSync } from "node:child_process";
 import { writeFileSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { availableParallelism, loadavg } from "node:os";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const DEFAULT_SCALES = "200:100 1000:200 2000:300 4000:300";
 const DEFAULT_MODULES = 16;
@@ -76,6 +77,10 @@ const sh = (cmd, opts = {}) =>
 
 const bin = (name) => join(ROOT, "node_modules", ".bin", name);
 const ver = (name) => (existsSync(bin(name)) ? sh(`${bin(name)} --version`).trim() : null);
+// The native TypeScript 7 compiler via its node shim — direct path, never .bin/PATH
+// (`.bin/tsc` is a ts7/ts6 collision at the repo root). Spawned as `node <shim>`.
+const TSGO_SHIM = tsNativeShim(ROOT);
+const tsgoVer = () => (existsSync(TSGO_SHIM) ? assertTs7(sh(`node ${TSGO_SHIM} --version`)) : null);
 const WHOLE_TSCONFIG = join(ROOT, "tsconfig.whole.json");
 const median = (xs) => {
   if (!xs.length) throw new Error("median of empty sample set");
@@ -102,7 +107,7 @@ function assertProgramComplete(apps, libs) {
   const expected = workspaceSourceOnDisk();
   let listing = "";
   try {
-    listing = sh(`${bin("tsgo")} --noEmit -p tsconfig.whole.json --listFiles 2>&1`);
+    listing = sh(`node ${TSGO_SHIM} --noEmit -p tsconfig.whole.json --listFiles 2>&1`);
   } catch (e) {
     listing = (e.stdout || "") + (e.stderr || "");
     // A signal-killed --listFiles prints a partial list; that must not certify the program.
@@ -185,7 +190,7 @@ function wholeProgram() {
   let ok = true;
   let out = "";
   try {
-    out = sh(`/usr/bin/time -v ${bin("tsgo")} --noEmit -p tsconfig.whole.json 2>&1`);
+    out = sh(`/usr/bin/time -v node ${TSGO_SHIM} --noEmit -p tsconfig.whole.json 2>&1`);
   } catch (e) {
     out = (e.stdout || "") + (e.stderr || "");
     // A signal-killed tsgo is a harness fault, not a type-error verdict. /usr/bin/time
@@ -266,7 +271,7 @@ const out = {
     "whole-program tsgo cold typecheck (one `tsgo --noEmit` over @demo/*->src), swept over the README scaling-table scales; no incremental cache so cold is steady state",
   tsc_column_note:
     "the README table's tsc `typecheck` column is turbo-orchestrated tsc (build + tsc --noEmit), cold then warm-cache; this tsgo column is one whole-program process, cold only",
-  versions: { tsgo: ver("tsgo"), node: process.version, pnpm: sh(`pnpm --version`).trim() },
+  versions: { tsgo: tsgoVer(), node: process.version, pnpm: sh(`pnpm --version`).trim() },
   cores: CORES,
   preRunLoadAvg1,
   scales: results,

@@ -58,7 +58,7 @@ This is §3's blast radius from the cache's side: scope an edit and the cache ab
 
 ## Editor and Language Server
 
-Before answering a keystroke, the language server loads a project. Racing `tsserver` (VS Code's) vs `tsgo --lsp` (TypeScript's native-preview LSP), opening one app's `page.tsx`; cross-package nav resolves to source build-free (tsconfig `paths` → `packages/*/src`), pulling the app's real closure (65 libs / 1,123 files at 4,000:300) into the server (`bench/editor-loop-bench.json`; tsgo `7.0.0-dev.20260614.1`, TypeScript 5.9.3; 64-core box):
+Before answering a keystroke, the language server loads a project. Racing `tsserver` (VS Code's) vs `tsgo --lsp` (the native compiler's LSP; since GA it ships as `typescript@7`'s native `tsc --lsp`), opening one app's `page.tsx`; cross-package nav resolves to source build-free (tsconfig `paths` → `packages/*/src`), pulling the app's real closure (65 libs / 1,123 files at 4,000:300) into the server (`bench/editor-loop-bench.json`; tsgo `7.0.0-dev.20260614.1`, TypeScript 5.9.3; 64-core box):
 
 | metric                        | tsserver | tsgo LSP | ratio |
 | ----------------------------- | -------- | -------- | ----- |

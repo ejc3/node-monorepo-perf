@@ -74,6 +74,7 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { constants as osConstants } from "node:os";
 import { median, loadGuard, load1Now } from "./_pm-bench-lib.mjs";
+import { tsNativeShim, tsNativeExeSync, ts6Tsc, assertTs7, assertTs6 } from "./_ts.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const POINTS = (process.env.TSGO_SCALE_POINTS || "10000 100000 250000 500000 1000000")
@@ -178,39 +179,30 @@ process.on("exit", () => {
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(130));
 
 // ---- toolchain ----------------------------------------------------------------------------------
-// the .bin/tsgo shim execs node -> tsgo.js -> native binary; invoke the native binary
-// directly so the timed process IS the checker (and RSS attribution is exact)
-const tsgoShim = join(REPO, "node_modules", ".bin", "tsgo");
-const TSC = join(REPO, "node_modules", ".bin", "tsc");
+// Direct paths from scripts/_ts.mjs, never .bin/PATH (the repo installs typescript@7 AND
+// the typescript6 alias, so `.bin/tsc` is ambiguous). The tsgo column invokes typescript@7's
+// raw native binary directly (via the official getExePath resolution, mirrored sync) so the
+// timed process IS the checker (and RSS attribution is exact); the tsc column is the
+// TypeScript 6 JS oracle, the last JS release.
+const tsgoShim = tsNativeShim(REPO);
+const TSC = ts6Tsc(REPO);
 if (!existsSync(tsgoShim) || !existsSync(TSC))
-  fail("tsgo/tsc not found — run `pnpm install` at the repo root first");
-// pnpm isolation hides the platform package from the repo root — resolve the wrapper
-// package first, realpath into .pnpm, and resolve the platform binary from THERE
-const nativeProbe = spawnSync(
-  "node",
-  [
-    "-e",
-    // the platform package's exports map exposes only ./package.json — resolve THAT
-    // (from the wrapper's realpath, where pnpm isolation makes it visible) and join to
-    // the binary; getExePath.js is ESM and unusable from require()
-    `const { realpathSync } = require("node:fs");
-const { dirname, join } = require("node:path");
-const wrapper = dirname(realpathSync(require.resolve("@typescript/native-preview/package.json")));
-const platformPkg = require.resolve("@typescript/native-preview-linux-arm64/package.json", { paths: [wrapper] });
-process.stdout.write(join(dirname(platformPkg), "lib", "tsgo"));`,
-  ],
-  { cwd: REPO, encoding: "utf8" },
-);
-const TSGO =
-  nativeProbe.status === 0 && existsSync(nativeProbe.stdout.trim())
-    ? nativeProbe.stdout.trim()
-    : tsgoShim;
+  fail("native tsc / ts6 tsc not found — run `pnpm install` at the repo root first");
+const TSGO = (() => {
+  try {
+    return tsNativeExeSync(REPO);
+  } catch {
+    return tsgoShim;
+  }
+})();
 const tsgoInvocation =
   TSGO === tsgoShim
-    ? ".bin shim (native platform package not resolvable; node>=22.15 execve makes the shim become the native process)"
+    ? "node shim (native platform package not resolvable; on node >=22.15 the shim execve-replaces the node process with the native binary, so the timed process still becomes the checker and GNU-time attribution stays direct)"
     : "native binary (direct)";
-if (spawnSync(TSGO, ["--version"], { encoding: "utf8" }).status !== 0)
-  fail(`resolved tsgo does not run: ${TSGO}`);
+const tsgoVerRun = spawnSync(TSGO, ["--version"], { encoding: "utf8" });
+if (tsgoVerRun.status !== 0) fail(`resolved native tsc does not run: ${TSGO}`);
+const TSGO_VERSION = assertTs7(tsgoVerRun.stdout);
+assertTs6(spawnSync(TSC, ["--version"], { encoding: "utf8" }).stdout);
 
 // FLOW_BIN: benchmark a specific flow binary (e.g. a build of flow main with the
 // wedge fixes) instead of the released flow-bin; FLOW_SOURCE labels its provenance
@@ -1105,11 +1097,11 @@ function benchFlow(n, skipServer = false) {
 // ---- sweep -----------------------------------------------------------------------------------------
 const out = {
   versions: {
-    tsgo: JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies[
-      "@typescript/native-preview"
-    ],
+    // typescript@7's native tsc (formerly tsgo), asserted once from the resolved binary
+    tsgo: TSGO_VERSION,
+    // the JS oracle: the typescript6 alias (TypeScript 6, the last JS release)
     typescript: JSON.parse(
-      readFileSync(join(REPO, "node_modules", "typescript", "package.json"), "utf8"),
+      readFileSync(join(REPO, "node_modules", "typescript6", "package.json"), "utf8"),
     ).version,
     flow: FLOW_BIN
       ? `${(() => {

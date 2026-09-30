@@ -227,13 +227,13 @@ One command each for the O(repo)-vs-O(closure) thesis:
   Writeup in TYPECHECKERS.md ("Flow on the Fleet Shape").
 - `node scripts/yarn-fleet-bench.mjs fleet[:<apps>]` (`TSGO_PNP_BIN`=native-PnP tsgo build,
   provenance recorded; `YARN_FLEET_ALLOW_BUSY=1`): **yarn 4 at fleet scale** — the fleet tree
-  with the fleet gate's exact devDependency set (`--tsgo-task`; turbo/typescript/
-  native-preview/oxlint), decatalogged, installed by the pinned standalone yarn CLI under BOTH
+  with the fleet gate's exact devDependency set (`--tsgo-task`; turbo/typescript/oxlint —
+  typescript@7 IS the native checker), decatalogged, installed by the pinned standalone yarn CLI under BOTH
   linkers (trulyCold = no lockfile + fresh asserted-populated `YARN_GLOBAL_FOLDER` + network,
   then warm; `.pnp.cjs` bytes vs full node_modules descendant count), then the whole-program
   gate THROUGH PnP with the patched tsgo (untimed warmup, timed clean + GNU-time RSS, breaking
-  foundation rev asserted `appsWithErrors === APPS` + TS2554) behind a stock-tsgo-through-
-  `yarn tsgo` control that must fail unresolved (a signal/ENOBUFS death is a harness fault,
+  foundation rev asserted `appsWithErrors === APPS` + TS2554) behind a stock-native-tsc-through-
+  `yarn tsc` control that must fail unresolved (a signal/ENOBUFS death is a harness fault,
   never the expected red). Full generator-summary knob assert (an ambient env override can't
   fake a fleet record); fail-closed cleanup; restore-on-exit incl. the revved foundation.
   Destructive → linked git worktree only. Canonical only at 30000 with `TSGO_PNP_BIN` →
@@ -495,7 +495,9 @@ One command each for the O(repo)-vs-O(closure) thesis:
   16-line re-exports the optimal-gate tree uses): the libs carry recursive conditional +
   mapped types, 48-member unions, recursive path-flattening, and cross-lib intersections.
   **Self-contained and non-destructive**: it scaffolds a throwaway workspace under the OS
-  temp dir (never the repo tree, so no worktree needed), bun-installs typescript + tsgo,
+  temp dir (never the repo tree, so no worktree needed), bun-installs the pinned typescript@7
+  (the native checker) + the typescript6 alias (the JS oracle), resolves both by direct path
+  via `scripts/_ts.mjs` with version asserts,
   runs both checkers over one `tsconfig.whole.json` (`@demo/*`→lib source), and removes the
   workspace on exit. Measures (1) **cost**: the one tsgo program over the type-heavy tree
   (time + peak RSS), each checker run as the median of `PARITY_SAMPLES` (default 3) timed
@@ -560,12 +562,13 @@ One command each for the O(repo)-vs-O(closure) thesis:
   transitive dep nested under another package's `node_modules`, the pnpm geometry that trips the
   "inferred type cannot be named" portability error) and runs it through: the gate (`declaration:false`,
   `--noEmit`) stays clean under both tsgo and tsc; a `declaration:true` `--noEmit` check (NO emit)
-  flags it (tsc `TS2742` / tsgo `TS2883`); the dist-emitting build (`tsc --declaration`) flags it;
+  flags it (`TS2883` under both checkers — TypeScript 6 adopted the native compiler's code; tsc 5.9
+  reported `TS2742`); the dist-emitting build (`tsc --declaration`) flags it;
   promoting the transitive type to a directly-resolvable dependency clears it; and the explicit
-  annotation `TS2742` suggests is shown insufficient alone (without promoting the dep it can't even
+  annotation `TS2883` suggests is shown insufficient alone (without promoting the dep it can't even
   resolve the nested type, `TS2307`). The boundary is `declaration` off-vs-on, not check-vs-emit.
   **Hard-fails** if the divergence doesn't reproduce: it asserts the exact per-tool code, so a
-  toolchain change that closes the gap (or moves tsgo to TS2742) turns the bench red. **Self-contained
+  toolchain change that closes the gap (or renames the code again) turns the bench red. **Self-contained
   and non-destructive**: scaffolds under the OS temp dir (never the repo tree), removes it on exit,
   needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
 - `node scripts/wave-rollout-bench.mjs`: the **rollout-mechanics vet**, the load-bearing facts for
@@ -667,8 +670,9 @@ One command each for the O(repo)-vs-O(closure) thesis:
   start", the network-cost subsection).
 - `node scripts/editor-loop-bench.mjs` (`EDITOR_APPS_SCALES`/`EDITOR_CLOSURE_SCALES`/`EDITOR_TARGET_INDEX`/
   `EDITOR_COLD_SAMPLES`/`EDITOR_SAMPLES`, `EDITOR_ALLOW_BUSY=1`): the **editor inner-loop vet**: the
-  language-server cost the build benches miss. Races `tsserver` (`node typescript/lib/tsserver.js`,
-  Content-Length command protocol) vs `tsgo --lsp --stdio` (native-preview LSP, JSON-RPC), opening ONE app's
+  language-server cost the build benches miss. Races `tsserver` (`node typescript6/lib/tsserver.js` —
+  the TypeScript 6 alias; typescript@7 ships no tsserver — Content-Length command protocol) vs the native
+  binary's `--lsp --stdio` (LSP JSON-RPC), opening ONE app's
   `page.tsx` on the generated workspace. Cross-package nav resolves to SOURCE build-free: it patches
   `tsconfig.base.json` `paths` `@demo/*`→`packages/*/src` (relative, no `baseUrl`, which tsgo removed), so
   opening the app pulls its real dependency closure (65 libs / 1,123 files at 4,000:300) into the server, not
@@ -710,6 +714,17 @@ Shared helpers the bench scripts import rather than run directly:
   `ci-cache-bench.mjs`, `ci-cache-network-bench.mjs` (`sweep.mjs` shells out to
   `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
+- `scripts/_ts.mjs`: the single TypeScript-toolchain resolver. typescript@7 is the
+  native compiler (formerly tsgo; its only bin is `tsc`) and the `typescript6` alias
+  is the last JS release (the tsc oracle + tsserver), so `node_modules/.bin/tsc` is a
+  bin-name collision — nothing resolves tsc via `.bin`/PATH. `tsNativeShim(root)` (the
+  node shim, spawned as `node <shim>` — the geometry the old `.bin/tsgo` records were
+  measured through), `tsNativeExe`/`tsNativeExeSync` (the raw native binary via
+  typescript@7's official `lib/getExePath.js` resolution, for the LSP/scale probes),
+  `ts6Tsc`/`ts6Tsserver`, and `assertTs7`/`assertTs6` (every bench asserts the resolved
+  binary's version once, untimed, before timing it). The generated `typecheck:tsgo`
+  task keeps its NAME (turbo.json, benches, and docs reference it) but runs the native
+  tsc via an absolute `node <shim>` command in the gitignored manifests.
 - `scripts/_wyhash11.mjs`: bit-exact port of bun's legacy Wyhash11;
   `bunWorkspaceNameKey(name)` is the u32-truncated key behind bun's workspace-name
   duplicate check (oven-sh/bun#36386). Imported by `generate.mjs` for its

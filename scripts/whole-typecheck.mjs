@@ -21,18 +21,22 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
 const ROOT = process.cwd();
-const TSGO = join(ROOT, "node_modules", ".bin", "tsgo");
+// The native TypeScript 7 compiler via its node shim — direct path, never
+// .bin/PATH (.bin/tsc is a ts7/ts6 collision). Spawned as `node <shim>`.
+const TSGO = tsNativeShim(ROOT);
 for (const [what, path] of [
   ["a generated workspace (run `make gen` / `make gen-fleet` first)", join(ROOT, "apps")],
-  ["an installed node_modules with tsgo (run an install first)", TSGO],
+  ["an installed node_modules with the native tsc (run an install first)", TSGO],
 ]) {
   if (!existsSync(path)) {
     console.error(`missing ${what}: ${path}`);
     process.exit(1);
   }
 }
+assertTs7(execFileSync("node", [TSGO, "--version"], { encoding: "utf8" }));
 
 // Derived on every run so it always matches the checked-in base config; the
 // same program shape the fleet gate measures (optimal-gate-bench.mjs).
@@ -62,7 +66,7 @@ const t0 = process.hrtime.bigint();
 let out = "";
 let code = 0;
 try {
-  out = execFileSync(TSGO, ["--noEmit", "-p", "tsconfig.whole.json"], {
+  out = execFileSync("node", [TSGO, "--noEmit", "-p", "tsconfig.whole.json"], {
     cwd: ROOT,
     encoding: "utf8",
     maxBuffer: 1 << 30, // a full fleet-scale breaking run prints ~30k error lines
