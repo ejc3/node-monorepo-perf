@@ -781,6 +781,17 @@ two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
 `charts.yml` byte-gate.
 `bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core) FLEET.md's
 "The Sliced Gate" section reads.
+`figures.mjs` renders the three mechanism figures (`make figures`; SVG + `.png`, same
+contract, same `charts.yml` byte-gate): `bench/charts/fig-sliced-gate.svg` (one-program
+gate vs the K-slice fan vs the union check, from the two sliced-gate records; asserts
+`unionCheck.matchesWholeProgram`) and `bench/charts/fig-blast-radius.svg` (foundation rev
+turns the 30,000-app grid rust vs a leaf edit, from `fleet-gate-bench.json` +
+`sliced-gate-bench.json` + `dev-sim.json`'s `blast` rung), both embedded in FLEET.md, and
+`bench/charts/fig-orepo-oclosure.svg` (the thesis: unscoped fan-out vs one app's closure,
+from `fleet-gate-bench.json` `turboGate` + `results.json`'s largest scale), embedded in
+the README. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
+edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell
+grammar does not apply; determinism, need()-asserted fields, and the no-marketing rule do.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
 batch + server rows, both boxes) and `bench/yarn-fleet-bench.json` (yarn 4 installs under both
 linkers + the native-PnP tsgo gate) extend the fleet record set; TYPECHECKERS.md and

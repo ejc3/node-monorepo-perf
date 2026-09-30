@@ -81,6 +81,14 @@ pipeline ran 1.6× faster on that box. The blast-radius contrast is structural: 
 universal rev re-runs 30,708 tasks (a typecheck for each of the 30,248 packages in the
 foundation's closure + the 460 lib builds), a leaf rev 100 — 307× fewer.
 
+![Fleet blast radius: a breaking foundation rev turns every app red, a leaf edit touches a corner of the grid](bench/charts/fig-blast-radius.svg)
+
+[High-resolution PNG](bench/charts/fig-blast-radius.png)
+
+**Figure 1.** A foundation lib sits under every app's import graph, so revving it
+invalidates the whole fleet at once, while a leaf lib's edit reaches only the packages
+that import it.
+
 ![Fleet-scale results: blast radius, the worst case two ways, and whether a bigger machine helps](bench/charts/fleet-gate.svg)
 
 [High-resolution PNG](bench/charts/fleet-gate.png) · rendered by `scripts/fleet-chart.mjs`
@@ -125,6 +133,14 @@ sounds: total CPU stays within +34% of the one-program run on the 64-core box (~
 518s at K=16, 598s at K=32) and lands *below* it at every K on the 192-core box (~1,104s
 → 849–1,033s), while per-slice memory falls to laptop-class (3.9GB at K=16 vs the 52GB
 monolith).
+
+![The sliced gate: one mostly-idle whole-program checker versus K concurrent slices whose error-location union matches the whole-program set exactly](bench/charts/fig-sliced-gate.svg)
+
+[High-resolution PNG](bench/charts/fig-sliced-gate.png)
+
+**Figure 2.** Partitioning the apps across K concurrent checker programs trades one
+memory-bound, mostly-idle process for K core-bound ones, and the union check proves the
+partition changes nothing about the verdict.
 
 ## The Pre-Push Command
 

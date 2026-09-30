@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="284" viewBox="0 0 660 284" role="img" aria-label="The sliced gate: one tsgo program over the whole workspace (52.0GB RSS, 755% CPU on 64 cores) versus 16 concurrent slices at 3.9GB each, with a union check proving the sliced verdict identical to the whole-program one." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="660" height="284" fill="#ffffff"/>
+<text x="16" y="24" font-size="13" fill="#1c2330" font-weight="600">one tsgo program</text>
+<text x="16" y="45" font-size="16" fill="#1c2330" font-weight="700">59.0s · 64c</text>
+<text x="118" y="45" font-size="16" fill="#1c2330" font-weight="700">67.8s · 192c</text>
+<text x="258" y="24" font-size="13" fill="#1c2330" font-weight="600">K concurrent slices</text>
+<text x="258" y="45" font-size="16" fill="#1c2330" font-weight="700">9.9s · 64c</text>
+<text x="352" y="45" font-size="16" fill="#1c2330" font-weight="700">6.3s · 192c</text>
+<text x="492" y="24" font-size="13" fill="#1c2330" font-weight="600">union check</text>
+<text x="492" y="45" font-size="16" fill="#1c2330" font-weight="700">verdict identical</text>
+<rect x="16" y="64" width="196" height="128" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="30" y="86" font-size="11.5" fill="#1c2330" font-weight="600">whole workspace, one process</text>
+<text x="30" y="105" font-size="11" fill="#1c2330">30,000 apps + all lib source</text>
+<text x="30" y="124" font-size="11.5" fill="#1c2330" font-weight="600">52.0GB peak RSS</text>
+<text x="30" y="143" font-size="11" fill="#1c2330">755% CPU of 6,400% (64c)</text>
+<text x="30" y="160" font-size="11" fill="#1c2330">1,629% of 19,200% (192c)</text>
+<text x="30" y="178" font-size="10.5" fill="#6b7885">— most of either box idle</text>
+<rect x="258" y="64" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="268" y="78" font-size="10.5" fill="#1c2330">all lib source + 1/K of the apps</text>
+<rect x="258" y="91" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="268" y="105" font-size="10.5" fill="#1c2330">slice 2</text>
+<rect x="258" y="118" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="268" y="132" font-size="10.5" fill="#1c2330">slice 3</text>
+<rect x="258" y="145" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="268" y="159" font-size="10.5" fill="#1c2330">slice 4</text>
+<text x="347" y="182" font-size="10.5" fill="#6b7885" text-anchor="middle">· · · K slices, run concurrently</text>
+<rect x="258" y="190" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="268" y="204" font-size="10.5" fill="#1c2330">slice K</text>
+<text x="258" y="230" font-size="11" fill="#1c2330" font-weight="600">per-slice RSS 3.9GB (K=16, 64c)</text>
+<text x="258" y="246" font-size="11" fill="#1c2330">1.6GB (K=48, 192c)</text>
+<rect x="492" y="88" width="152" height="96" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="504" y="110" font-size="11.5" fill="#1c2330" font-weight="600">breaking-rev union</text>
+<text x="504" y="132" font-size="14" fill="#1c2330" font-weight="700">30,171 = 30,171</text>
+<text x="504" y="150" font-size="10.5" fill="#1c2330">error locations,</text>
+<text x="504" y="164" font-size="10.5" fill="#1c2330">slices vs whole program</text>
+<line x1="216" y1="120" x2="245" y2="120" stroke="#6b7885" stroke-width="1.5"/><path d="M252 120L245 123L245 117z" fill="#6b7885"/>
+<text x="234" y="112" font-size="9.5" fill="#6b7885" text-anchor="middle">split</text>
+<text x="234" y="136" font-size="9.5" fill="#6b7885" text-anchor="middle">K ways</text>
+<line x1="440" y1="118" x2="479" y2="118" stroke="#6b7885" stroke-width="1.5"/><path d="M486 118L479 121L479 115z" fill="#6b7885"/>
+<text x="462" y="110" font-size="9.5" fill="#6b7885" text-anchor="middle">union</text>
+<line x1="16" y1="258" x2="644" y2="258" stroke="#e4e8ec"/>
+<text x="16" y="272" font-size="10" fill="#6b7885">data: bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json</text>
+</svg>
