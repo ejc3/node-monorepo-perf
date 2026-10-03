@@ -62,7 +62,8 @@ export function scaffoldWorkspace(
   { apps, libs, modules = 12, name = "bench", extraArgs = [] },
 ) {
   const node = (args) => {
-    const r = spawnSync("node", args, { cwd: dir, encoding: "utf8", maxBuffer: 1 << 26 });
+    // the node running the bench, not whichever `node` is first on PATH
+    const r = spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", maxBuffer: 1 << 26 });
     if (r.status !== 0)
       throw new Error(`node ${args.join(" ")} failed:\n${(r.stderr || "").slice(-1000)}`);
   };
@@ -134,7 +135,7 @@ export function fetchYarnCli(parentDir, version) {
   if (tar.status !== 0)
     throw new Error(`extracting ${tgz} failed:\n${(tar.stderr || "").slice(-1000)}`);
   const js = join(dir, "package", "bin", "yarn.js");
-  const v = spawnSync("node", [js, "--version"], { cwd: dir, encoding: "utf8" });
+  const v = spawnSync(process.execPath, [js, "--version"], { cwd: dir, encoding: "utf8" });
   const reported = (v.stdout || "").trim();
   if (v.error || v.status !== 0 || reported !== version)
     throw new Error(`yarn CLI verification failed: expected ${version}, got "${reported}"`);

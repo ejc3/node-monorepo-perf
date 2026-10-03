@@ -29,11 +29,20 @@
 // touches no turbo state (TURBO_CACHE_DIR pinned inside the scaffold).
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  readdirSync,
+  existsSync,
+} from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { YARN_VERSION } from "./_pins.mjs";
+import { YARN_VERSION, YARN_PRE_TS7_PATCH_VERSION } from "./_pins.mjs";
+import { isPnpConfigLoadCrash, envForNode, nodeBinDirFor } from "./_next-bundler-lib.mjs";
 import {
   yarnEnv,
   fetchYarnCli,
@@ -59,6 +68,10 @@ if (!TURBO_VERSION || !TSGO_VERSION)
 const PKG_TSC_VERSION = (/^\s*typescript:\s*(\S+)/m.exec(
   readFileSync(join(REPO, "pnpm-workspace.yaml"), "utf8"),
 ) || [])[1];
+// next comes from the same catalog (the generated apps' `next: catalog:`)
+const NEXT_CATALOG_VERSION = (/^\s*next:\s*(\S+)/m.exec(
+  readFileSync(join(REPO, "pnpm-workspace.yaml"), "utf8"),
+) || [])[1];
 if (!PKG_TSC_VERSION)
   throw new Error("pnpm-workspace.yaml no longer carries a typescript catalog entry");
 const APPS = 20;
@@ -74,6 +87,17 @@ const fail = (m) => {
   process.exit(1);
 };
 const YARNJS = fetchYarnCli(ROOT, YARN_VERSION);
+// Every yarn child runs under the node running this bench — the node `versions.node`
+// records — with that binary's dir leading PATH so tools yarn spawns by name follow
+// it. A bare `node` from PATH could be a different release than the one recorded.
+// The dir is asserted to hold that same release (nodeBinDirFor), not assumed to.
+let NODE_BIN_DIR;
+try {
+  NODE_BIN_DIR = nodeBinDirFor(process.execPath, process.version);
+} catch (e) {
+  fail(e.message);
+}
+const benchEnv = (overrides) => envForNode(yarnEnv(overrides), NODE_BIN_DIR);
 
 function buildTree(linker) {
   const dir = join(ROOT, linker);
@@ -112,12 +136,12 @@ const nextConfig = {
 export default nextConfig;
 `,
   );
-  const r = spawnSync("node", [YARNJS, "install"], {
+  const r = spawnSync(process.execPath, [YARNJS, "install"], {
     cwd: dir,
     encoding: "utf8",
     maxBuffer: 1 << 26,
     timeout: 600000,
-    env: yarnEnv(),
+    env: benchEnv(),
   });
   if (r.status !== 0)
     fail(`${linker} install failed:\n${((r.stdout || "") + (r.stderr || "")).slice(-600)}`);
@@ -130,12 +154,12 @@ export default nextConfig;
 // recorded, never asserted — except that a probe must at least SPAWN
 function probe(dir, cwd, args, extraEnv) {
   const t0 = process.hrtime.bigint();
-  const r = spawnSync("node", [YARNJS, ...args], {
+  const r = spawnSync(process.execPath, [YARNJS, ...args], {
     cwd,
     encoding: "utf8",
     maxBuffer: 1 << 26,
     timeout: 900000,
-    env: yarnEnv({ TURBO_TELEMETRY_DISABLED: "1", NEXT_TELEMETRY_DISABLED: "1", ...extraEnv }),
+    env: benchEnv({ TURBO_TELEMETRY_DISABLED: "1", NEXT_TELEMETRY_DISABLED: "1", ...extraEnv }),
   });
   if (r.error) fail(`probe spawn failed (${args.join(" ")}): ${r.error.code || r.error.message}`);
   // a signal-killed tool (segfault/OOM, status null) is a harness fault, not a compat
@@ -177,6 +201,10 @@ const out = {
     oxlint: OXLINT_VERSION,
     tsgo: TSGO_VERSION,
     packageTsc: PKG_TSC_VERSION,
+    next: NEXT_CATALOG_VERSION,
+    // the next-build row's PnP outcome is node-version-scoped (rspack-pnp-bench
+    // measures the split against a control node)
+    node: process.version,
   },
   scale: { apps: APPS, libs: LIBS },
   ...envInfo,
@@ -184,6 +212,108 @@ const out = {
     "one generated workspace installed twice by the same pinned yarn — PnP and node-modules (the control); each tool runs through yarn in both trees; a tool failing BOTH trees invalidates the run (scaffold problem), a tool passing the control and failing PnP is the finding; ms fields are single samples through yarn (`yarn exec` / `yarn node`, yarn boot + PnP runtime init included) — diagnostic only, the ok booleans are the finding",
   tools: {},
 };
+
+// yarn's builtin TypeScript PnP patch vs the native compiler, measured first so a
+// failure costs seconds: a minimal PnP project depending only on the pinned
+// typescript, installed by the pinned yarn and by YARN_PRE_TS7_PATCH_VERSION.
+//   pinned yarn: must exit 0, write .pnp.cjs, and resolve typescript at the pin.
+//   old yarn:    must fail in its builtin compat/typescript patch with ENOENT on
+//                typescript/lib/_tsc.js — a file the native typescript@7 does not
+//                ship. The signature requires the builtin-patch locator, ENOENT,
+//                AND that path, so another fetch/patch-stage failure (network,
+//                cache) cannot be recorded as this finding.
+// Either side flipping fails the bench: this record is why the yarn pin sits
+// where it does.
+function measureYarnTypescriptPatch() {
+  let oldYarnJs;
+  try {
+    oldYarnJs = fetchYarnCli(ROOT, YARN_PRE_TS7_PATCH_VERSION);
+  } catch (e) {
+    fail(`ts7-patch: cannot fetch yarn ${YARN_PRE_TS7_PATCH_VERSION}: ${e.message}`);
+  }
+  const tryInstall = (label, yarnJs) => {
+    const dir = join(ROOT, `ts7-patch-${label}`);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "package.json"),
+      JSON.stringify({
+        name: `ts7-patch-${label}`,
+        private: true,
+        devDependencies: { typescript: TSGO_VERSION },
+      }) + "\n",
+    );
+    writeFileSync(
+      join(dir, ".yarnrc.yml"),
+      "nodeLinker: pnp\nenableGlobalCache: false\nenableImmutableInstalls: false\n",
+    );
+    const r = spawnSync(process.execPath, [yarnJs, "install"], {
+      cwd: dir,
+      encoding: "utf8",
+      maxBuffer: 1 << 26,
+      timeout: 600000,
+      env: benchEnv(),
+    });
+    if (r.error || r.signal || typeof r.status !== "number")
+      fail(`ts7-patch ${label}: yarn install did not run to an exit code — not a measurement`);
+    const log = (r.stdout || "") + (r.stderr || "");
+    const errorLine = log.split("\n").find((l) => /YN0001/.test(l)) ?? null;
+    return {
+      dir,
+      yarnJs,
+      rec: {
+        exit: r.status,
+        ok: r.status === 0,
+        pnpManifest: existsSync(join(dir, ".pnp.cjs")),
+        builtinPatchEnoent:
+          /builtin<compat\/typescript>/.test(log) &&
+          /ENOENT/.test(log) &&
+          /typescript\/lib\/_tsc\.js/.test(log),
+        errorLine: errorLine ? errorLine.slice(0, 300) : null,
+      },
+    };
+  };
+  const pinned = tryInstall("pinned", YARNJS);
+  const old = tryInstall("old", oldYarnJs);
+  // the pinned side must be a REAL PnP install of the pinned typescript
+  const resolved = pinned.rec.ok
+    ? spawnSync(
+        process.execPath,
+        [pinned.yarnJs, "node", "-p", "require('typescript/package.json').version"],
+        { cwd: pinned.dir, encoding: "utf8", env: benchEnv() },
+      )
+    : null;
+  pinned.rec.resolvedTypescript = resolved
+    ? (resolved.stdout || "").trim().split("\n").pop()
+    : null;
+  // the resolve probe must itself have run to completion: printed text from a
+  // process that then died or exited non-zero is not a resolution
+  if (resolved && (resolved.error || resolved.signal || resolved.status !== 0))
+    fail(
+      `ts7-patch: the typescript resolve probe did not exit 0 (status ${resolved.status}, ` +
+        `signal ${resolved.signal}) — harness fault`,
+    );
+  if (!pinned.rec.ok || !pinned.rec.pnpManifest || pinned.rec.resolvedTypescript !== TSGO_VERSION)
+    fail(
+      `ts7-patch: yarn ${YARN_VERSION} did not produce a PnP install resolving typescript@${TSGO_VERSION} ` +
+        `(exit=${pinned.rec.exit}, .pnp.cjs=${pinned.rec.pnpManifest}, resolved=${pinned.rec.resolvedTypescript})`,
+    );
+  if (old.rec.ok || !old.rec.builtinPatchEnoent)
+    fail(
+      `ts7-patch: expected yarn ${YARN_PRE_TS7_PATCH_VERSION} to fail in its builtin typescript patch ` +
+        `(ENOENT lib/_tsc.js) on typescript@${TSGO_VERSION} — got exit=${old.rec.exit}, ` +
+        `builtinPatchEnoent=${old.rec.builtinPatchEnoent}: ${old.rec.errorLine}`,
+    );
+  console.log(
+    `ts7-patch: yarn ${YARN_VERSION} installs typescript@${TSGO_VERSION} under PnP; ` +
+      `yarn ${YARN_PRE_TS7_PATCH_VERSION} fails in its builtin typescript patch`,
+  );
+  return {
+    typescript: TSGO_VERSION,
+    pinnedYarn: { version: YARN_VERSION, ...pinned.rec },
+    oldYarn: { version: YARN_PRE_TS7_PATCH_VERSION, ...old.rec },
+  };
+}
+out.yarnTypescriptPatch = measureYarnTypescriptPatch();
 
 const trees = { pnp: buildTree("pnp"), nm: buildTree("nm") };
 // pick the lowest lib (no internal deps — the pure tsc probe) and one app
@@ -210,7 +340,19 @@ for (const [linker, dir] of Object.entries(trees)) {
   // completeness evidence an exit-0 pass needs
   const ox = rec(
     "oxlint",
-    probe(dir, dir, ["exec", "oxlint", "--format=json", "apps", "packages"]),
+    // node_modules excluded explicitly: with root typescript@7 and the packages'
+    // catalog typescript 6, the node-modules linker nests a typescript copy under
+    // every workspace (apps/*/node_modules), which oxlint would otherwise traverse —
+    // 3,780 files instead of the 210 workspace sources PnP (no node_modules) exposes
+    probe(dir, dir, [
+      "exec",
+      "oxlint",
+      "--format=json",
+      "--ignore-pattern",
+      "**/node_modules/**",
+      "apps",
+      "packages",
+    ]),
   );
   out.tools.oxlint[linker].filesLinted = Number(
     (/"number_of_files":\s*(\d+)/.exec(ox.out || "") || [])[1] ?? NaN,
@@ -228,10 +370,18 @@ for (const [linker, dir] of Object.entries(trees)) {
     // Resolve the ROOT typescript@7 shim by explicit path through this tree's own
     // resolver (PnP-aware) — never `yarn exec tsc`: the tree holds two tsc majors
     // (root ts7 + the per-package catalog tsc) and a bare bin name is ambiguous.
+    // Resolved via package.json + join, not require.resolve('typescript/bin/tsc'):
+    // typescript@7's `exports` map exposes no ./bin/* subpath, so that resolve
+    // throws ERR_PACKAGE_PATH_NOT_EXPORTED under BOTH linkers.
     const shimR = spawnSync(
-      "node",
-      [YARNJS, "node", "-p", "require.resolve('typescript/bin/tsc')"],
-      { cwd: dir, encoding: "utf8", env: yarnEnv() },
+      process.execPath,
+      [
+        YARNJS,
+        "node",
+        "-p",
+        "require('node:path').join(require('node:path').dirname(require.resolve('typescript/package.json')),'bin','tsc')",
+      ],
+      { cwd: dir, encoding: "utf8", env: benchEnv() },
     );
     const ts7Shim = (shimR.stdout || "").trim().split("\n").pop();
     if (shimR.status !== 0 || !ts7Shim)
@@ -247,6 +397,10 @@ for (const [linker, dir] of Object.entries(trees)) {
       /invalid next\.config|unrecognized key/i.test(nb.out || "");
     out.tools["next-build-app"][linker].rootInferenceMessagePresent =
       /inferred your workspace root/i.test(nb.out || "");
+    // which failure a failing build is: the config-load crash that precedes
+    // bundler selection (shared signature; rspack-pnp-bench measures its
+    // node-version split against a control node)
+    out.tools["next-build-app"][linker].configLoadCrash = isPnpConfigLoadCrash(nb.out || "");
   } else {
     const skip = {
       skipped: true,
@@ -262,9 +416,15 @@ for (const [linker, dir] of Object.entries(trees)) {
 // the compat finding itself and is judged by the control gate, not by parity.
 {
   const { pnp, nm } = out.tools.oxlint;
-  if (pnp.ok && nm.ok && (!Number.isFinite(pnp.filesLinted) || pnp.filesLinted !== nm.filesLinted))
+  if (
+    pnp.ok &&
+    nm.ok &&
+    (!Number.isFinite(pnp.filesLinted) ||
+      pnp.filesLinted <= 0 ||
+      pnp.filesLinted !== nm.filesLinted)
+  )
     fail(
-      `oxlint file-count parity failed (pnp=${pnp.filesLinted}, nm=${nm.filesLinted}) — an exit-0 run that traversed a different tree is not a compat data point`,
+      `oxlint file-count check failed (pnp=${pnp.filesLinted}, nm=${nm.filesLinted}; both must be equal and positive) — an exit-0 run that linted nothing, or a different tree, is not a compat data point`,
     );
 }
 

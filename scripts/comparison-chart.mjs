@@ -23,6 +23,8 @@ import {
   inkFor,
   fmtMult,
   nearTiePct,
+  isFastest,
+  isNearTie,
   rampLegendItems,
   legendRow,
   heatCell,
@@ -81,6 +83,19 @@ if (!String(IB.pnpmVersion).startsWith("12."))
   );
 if (!String(CI.versions.pnpm).startsWith("12."))
   throw new Error(`container-install pnpm ${CI.versions.pnpm} no longer backs the "pnpm 12" label`);
+if (!String(CI.versions.yarn).startsWith("4."))
+  throw new Error(`container-install yarn ${CI.versions.yarn} no longer backs the "yarn 4" label`);
+// the note's sample count is the dataset's, and every cell carries exactly that many
+if (!Number.isInteger(CI.samplesPerCell) || CI.samplesPerCell < 1)
+  throw new Error("container-install samplesPerCell is not a positive integer");
+for (const t of ["pnpm", "bun", "yarnNm", "yarnPnp", "npm"])
+  for (const v of ["freshRunner", "cacheRestored"]) {
+    const s = CI.tools[t][v].samplesMs;
+    if (!Array.isArray(s) || s.length !== CI.samplesPerCell)
+      throw new Error(
+        `container-install tools.${t}.${v}.samplesMs is not ${CI.samplesPerCell} samples`,
+      );
+  }
 if (!String(need(PN, "versions.pnpm10", "pnpm12-bench")).startsWith("10."))
   throw new Error(`pnpm12-bench versions.pnpm10 no longer backs the "pnpm 10" label`);
 if (!String(need(PN, "versions.pnpm12", "pnpm12-bench")).startsWith("12."))
@@ -178,7 +193,7 @@ const SECTIONS = [
         `Cold store + no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
         {
           bun: IB.trulyCold.bunMs,
-          iso: null,
+          iso: { ms: null, why: "not measured" },
           hoist: IB.trulyCold.pnpmHoistedMs,
           ynm: IB.trulyCold.yarnNmMs,
           ypnp: IB.trulyCold.yarnPnpMs,
@@ -186,7 +201,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/install-bench.json",
-    note: `Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass; pnpm-isolated was not). Versions per the JSON: pnpm ${IB.pnpmVersion} (the Rust CLI) · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}; the pnpm 12-vs-10 rewrite head-to-head is its own section below.`,
+    note: `Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — not directly comparable to the warm-store rows. Every cell in this section is a single sample. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass; pnpm-isolated was not). Versions per the JSON: pnpm ${IB.pnpmVersion} (the Rust CLI) · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}; the pnpm 12-vs-10 rewrite head-to-head is its own section below.`,
   },
   {
     title: `CI-runner install — frozen from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps, fresh podman container per sample)`,
@@ -221,7 +236,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/container-install-bench.json",
-    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker. Versions per the JSON: pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn}.`,
+    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of ${CI.samplesPerCell} rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker. Versions per the JSON: pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn}.`,
   },
   {
     title: `pnpm 12 (the Rust CLI) vs pnpm 10 (JS) — ${pnNum("scale.apps").toLocaleString("en-US")} apps / ${pnNum("scale.libs")} libs`,
@@ -438,7 +453,10 @@ for (const sec of SECTIONS) {
       const v = raw && typeof raw === "object" ? raw.ms : raw;
       const detail = raw && typeof raw === "object" ? raw.detail : null;
       if (v == null) {
-        T.push(...naCell(x, sy, COL_W, ROW_H));
+        // an unmeasured cell must say why (the "—" convention): {ms: null, why}
+        const why = raw && typeof raw === "object" ? raw.why : null;
+        if (!why) throw new Error(`section "${sec.title}": a "—" cell (${col.k}) has no reason`);
+        T.push(...naCell(x, sy, COL_W, ROW_H, why));
         return;
       }
       const mult = cellMult(sec, ri, ci);
@@ -447,8 +465,8 @@ for (const sec of SECTIONS) {
       // the × multiplier IS the headline for every non-fastest cell; the absolute
       // time is the sub-line. Near-ties are not "×1.0 slower" — within 5% of the
       // fastest the time stays the headline with the honest +N% as the sub-line.
-      const fastest = mult <= 1.0001;
-      const nearTie = !fastest && mult < 1.05;
+      const fastest = isFastest(mult);
+      const nearTie = isNearTie(mult);
       const main = fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower";
       const sub = fastest ? "fastest" : nearTie ? nearTiePct(mult) : fmtS(v);
       T.push(...heatCell(x, sy, COL_W, ROW_H, rgbCss(rgb), ink, main, sub, detail));

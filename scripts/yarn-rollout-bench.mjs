@@ -8,7 +8,7 @@
 //
 //   node scripts/yarn-rollout-bench.mjs
 //
-// The five rungs, yarn 4.17.0 (pinned standalone CLI):
+// The five rungs, on the pinned standalone yarn CLI (YARN_VERSION, _pins.mjs):
 //   1  Determinism — the lockfile, not the range, is the boundary: a committed lockfile
 //      resolves byte-identically across fresh installs; `--immutable` FAILS CLOSED on a
 //      drifted manifest (exit 1, lockfile untouched); and — unlike bun, which needs a

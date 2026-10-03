@@ -21,6 +21,8 @@ import {
   rgbCss,
   inkFor,
   nearTiePct,
+  isFastest,
+  isNearTie,
   rampLegendItems,
   legendRow,
   heatCell,
@@ -170,12 +172,11 @@ let y = 108;
       const mult = ms / best;
       const rgb = rampRGB(mult);
       // near-tie rule: within 5% of the fastest the sub is the honest +%, never "×1.0"
-      const sub =
-        mult <= 1.0001
-          ? "fastest"
-          : mult < 1.05
-            ? nearTiePct(mult)
-            : `×${mult.toFixed(mult < 10 ? 1 : 0)}`;
+      const sub = isFastest(mult)
+        ? "fastest"
+        : isNearTie(mult)
+          ? nearTiePct(mult)
+          : `×${mult.toFixed(mult < 10 ? 1 : 0)}`;
       T.push(...heatCell(x, sy, COL_W, ROW_H, rgbCss(rgb), inkFor(rgb), secs(ms), sub));
     });
     sy += ROW_H;

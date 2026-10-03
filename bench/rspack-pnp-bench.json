@@ -1,16 +1,17 @@
 {
-  "generatedAt": "2026-07-08T23:36:40.209Z",
+  "generatedAt": "2026-10-03T16:43:27.119Z",
   "canonical": true,
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 0.17
+    "preRunLoadAvg1": 6.89
   },
   "versions": {
-    "yarn": "4.17.0",
+    "yarn": "4.18.1",
     "next": "16.0.1",
     "nextRspack": "16.0.1",
     "rspackCore": "1.0.0",
-    "node": "v22.22.0"
+    "node": "v22.23.3",
+    "controlNode": "v22.22.0"
   },
   "matrix": {
     "pnp": {
@@ -19,39 +20,102 @@
         "builder": "turbopack",
         "exit": 1,
         "ok": false,
-        "ms": 2196,
+        "ms": 982,
+        "dotNextPresent": false,
+        "outputPresent": false,
+        "outputBytes": 0,
+        "turbopackBanner": false,
+        "rspackBanner": false,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": true,
+        "treeUnchanged": true
+      },
+      "webpack": {
+        "linker": "pnp",
+        "builder": "webpack",
+        "exit": 1,
+        "ok": false,
+        "ms": 976,
+        "dotNextPresent": false,
+        "outputPresent": false,
+        "outputBytes": 0,
+        "turbopackBanner": false,
+        "rspackBanner": false,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": true,
+        "treeUnchanged": true
+      },
+      "rspack": {
+        "linker": "pnp",
+        "builder": "rspack",
+        "exit": 1,
+        "ok": false,
+        "ms": 972,
+        "dotNextPresent": false,
+        "outputPresent": false,
+        "outputBytes": 0,
+        "turbopackBanner": false,
+        "rspackBanner": false,
+        "webpackCompilationSpan": false,
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": true,
+        "treeUnchanged": true
+      }
+    },
+    "pnpControlNode": {
+      "node": "v22.22.0",
+      "turbopack": {
+        "linker": "pnp",
+        "builder": "turbopack",
+        "exit": 1,
+        "ok": false,
+        "ms": 2406,
+        "dotNextPresent": true,
         "outputPresent": false,
         "outputBytes": 7168,
         "turbopackBanner": true,
         "rspackBanner": false,
         "webpackCompilationSpan": false,
-        "pnpResolveFailure": true
+        "pnpResolveFailure": true,
+        "pnpResolveFailureLine": "We couldn't find the Next.js package (next/package.json) from the project directory: /mnt/fcvm-btrfs/rspack-pnp-bench/matrix/pnp-turbopack/app",
+        "configLoadCrash": false
       },
       "webpack": {
         "linker": "pnp",
         "builder": "webpack",
         "exit": 0,
         "ok": true,
-        "ms": 19712,
+        "ms": 22635,
+        "dotNextPresent": true,
         "outputPresent": true,
-        "outputBytes": 49935360,
+        "outputBytes": 49931264,
         "turbopackBanner": false,
         "rspackBanner": false,
         "webpackCompilationSpan": true,
-        "pnpResolveFailure": false
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": false
       },
       "rspack": {
         "linker": "pnp",
         "builder": "rspack",
         "exit": 0,
         "ok": true,
-        "ms": 18005,
+        "ms": 19977,
+        "dotNextPresent": true,
         "outputPresent": true,
         "outputBytes": 1885184,
         "turbopackBanner": false,
         "rspackBanner": true,
         "webpackCompilationSpan": false,
-        "pnpResolveFailure": false
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": false
       }
     },
     "nm": {
@@ -60,41 +124,50 @@
         "builder": "turbopack",
         "exit": 0,
         "ok": true,
-        "ms": 6189,
+        "ms": 8443,
+        "dotNextPresent": true,
         "outputPresent": true,
         "outputBytes": 3044352,
         "turbopackBanner": true,
         "rspackBanner": false,
         "webpackCompilationSpan": false,
-        "pnpResolveFailure": false
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": false
       },
       "webpack": {
         "linker": "nm",
         "builder": "webpack",
         "exit": 0,
         "ok": true,
-        "ms": 13786,
+        "ms": 14762,
+        "dotNextPresent": true,
         "outputPresent": true,
-        "outputBytes": 44170240,
+        "outputBytes": 44166144,
         "turbopackBanner": false,
         "rspackBanner": false,
         "webpackCompilationSpan": true,
-        "pnpResolveFailure": false
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": false
       },
       "rspack": {
         "linker": "nm",
         "builder": "rspack",
         "exit": 0,
         "ok": true,
-        "ms": 11935,
+        "ms": 12830,
+        "dotNextPresent": true,
         "outputPresent": true,
         "outputBytes": 1741824,
         "turbopackBanner": false,
         "rspackBanner": true,
         "webpackCompilationSpan": false,
-        "pnpResolveFailure": false
+        "pnpResolveFailure": false,
+        "pnpResolveFailureLine": null,
+        "configLoadCrash": false
       }
     }
   },
-  "finding": "Turbopack has no Yarn PnP resolver (vercel/next.js#42651, declined + locked), so a Next build under the PnP linker aborts on next/package.json resolution. Rspack added PnP resolution (web-infra-dev/rspack#13047), and Next's next-rspack integration carries it through: under PnP, rspack and webpack build the same app Turbopack cannot. Under the node-modules linker all three build. For a PnP shop wanting a fast (Rust, webpack-compatible) Next bundler, rspack is the answer; Turbopack still requires node-modules (or pnpm)."
+  "finding": "On node v22.23.3, next build under the Yarn PnP linker fails on every builder (Turbopack, webpack, rspack): the build crashes while loading next.config, in next's config transpile hook, before a bundler is selected. The same installed PnP trees on node v22.22.0 separate the bundlers: Turbopack has no PnP resolver (vercel/next.js#42651, declined + locked) and aborts on next/package.json resolution, while rspack (PnP resolution added in web-infra-dev/rspack#13047, carried through next-rspack) and webpack build. Under the node-modules linker all three build on node v22.23.3."
 }

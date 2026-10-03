@@ -5,51 +5,67 @@
 // project (TS2307). This bench measures the gap and the fix — a native PnP
 // resolver added to tsgo (upstream microsoft/typescript-go#460) — on a small but
 // real workspace (an app importing React, react-dom — which Yarn virtualizes — and
-// a local lib that imports lodash), and the whole Next.js build matrix on top.
+// a local lib that imports lodash).
 //
 //   TSGO_PNP_BIN=~/src/typescript-go/tsgo node scripts/tsgo-pnp-bench.mjs
 //
 // TSGO_PNP_BIN is the patched tsgo built from the PR branch; without it only the
-// stock column + the Next matrix run, and the result goes to the gitignored
-// partial (never the canonical file). The stock tsgo is the native tsc of the
-// typescript@7 version this repo pins. Two install modes per scaffold: Yarn PnP at
-// its defaults (the manifest inlined in .pnp.cjs, no sidecar) and Yarn's
-// node-modules linker (the CONTROL — a real node_modules tree). The finding:
-// stock tsgo fails under PnP and
-// works under node-modules; patched tsgo works under both; and Next builds under
-// PnP on the webpack builder but not Turbopack (which has no PnP resolver), while
-// the node-modules linker lets Turbopack build.
+// stock column runs, and the result goes to the gitignored partial (never the
+// canonical file). The stock tsgo is the native tsc of the typescript@7 version
+// this repo pins. Two install modes per scaffold: Yarn PnP at its defaults (the
+// manifest inlined in .pnp.cjs, no sidecar) and Yarn's node-modules linker (the
+// CONTROL — a real node_modules tree). The finding: stock tsgo fails under PnP
+// and works under node-modules; patched tsgo works under both.
+//
+// `next build` under PnP is measured by rspack-pnp-bench.mjs (all three builders,
+// with its node-version control) — one bench owns that matrix.
 //
 // Self-contained and non-destructive: scaffolds under a btrfs work dir
 // (TSGO_PNP_WORK, default /mnt/fcvm-btrfs/tsgo-pnp-bench), removed on exit unless
 // TSGO_PNP_KEEP=1; needs no worktree.
 
 import { spawnSync } from "node:child_process";
-import {
-  mkdtempSync,
-  mkdirSync,
-  writeFileSync,
-  readFileSync,
-  rmSync,
-  existsSync,
-  cpSync,
-} from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { YARN_VERSION } from "./_pins.mjs";
 import { fetchYarnCli, loadGuard } from "./_pm-bench-lib.mjs";
 import { tsNativeShim, assertTs7 } from "./_ts.mjs";
+import { envForNode, nodeBinDirFor } from "./_next-bundler-lib.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WORK = process.env.TSGO_PNP_WORK || "/mnt/fcvm-btrfs/tsgo-pnp-bench";
 const KEEP = process.env.TSGO_PNP_KEEP === "1";
-const NEXT_VERSION = "16.0.1";
 const REACT_VERSION = "^18.3.1";
+// packages/app/src/index.ts imports exactly three module specifiers (react,
+// react-dom/client, @t/util); a checker with no PnP resolver reports each as one
+// TS2307, and nothing else.
+const APP_IMPORTS = 3;
 
 const fail = (m) => {
   console.error(`\nFAIL: ${m}`);
   process.exit(1);
 };
+
+// Every Node-based measured child (yarn, the stock checker's node shim) runs under
+// the node running this bench — the node `versions.node`
+// records — with its bin dir leading PATH (asserted to hold that same release), so
+// a `#!/usr/bin/env node` shim or a tool yarn spawns by name cannot pick another.
+let NODE_BIN_DIR;
+try {
+  NODE_BIN_DIR = nodeBinDirFor(process.execPath, process.version);
+} catch (e) {
+  fail(e.message);
+}
+const benchEnv = envForNode({ ...process.env, YARN_IGNORE_PATH: "1", CI: "false" }, NODE_BIN_DIR);
+// An untimed probe must run to completion and exit 0 before its output is read: a
+// process that printed the expected text and then died is not a passed check.
+function probe(cmd, args, what) {
+  const r = spawnSync(cmd, args, { encoding: "utf8", env: benchEnv, timeout: 120_000 });
+  if (r.error || r.signal || r.status !== 0)
+    fail(`${what} did not exit 0 (status ${r.status}, signal ${r.signal}) — harness fault`);
+  return (r.stdout || "").trim();
+}
 
 // --- tsgo binaries -----------------------------------------------------------
 const repoDevDeps = JSON.parse(readFileSync(join(REPO, "package.json"), "utf8")).devDependencies;
@@ -60,16 +76,20 @@ if (!STOCK_TSGO_VERSION) fail("root package.json no longer pins typescript (the 
 const STOCK_TSGO = tsNativeShim(REPO);
 if (!existsSync(STOCK_TSGO))
   fail(`stock native tsc not found at ${STOCK_TSGO} — run \`pnpm install\``);
-assertTs7(spawnSync(STOCK_TSGO, ["--version"], { encoding: "utf8" }).stdout);
+// A checker is {cmd, pre}: the stock one is typescript@7's NODE shim, run as
+// `<this node> <shim>` (never through its shebang); the patched one is a native binary.
+const STOCK = { cmd: process.execPath, pre: [STOCK_TSGO] };
+const tsgoVersion = (c) => probe(c.cmd, [...c.pre, "--version"], `${c.pre[0] ?? c.cmd} --version`);
+try {
+  assertTs7(tsgoVersion(STOCK));
+} catch (e) {
+  fail(e.message);
+}
 
 const PATCHED_TSGO = process.env.TSGO_PNP_BIN ? resolve(process.env.TSGO_PNP_BIN) : null;
 if (PATCHED_TSGO && !existsSync(PATCHED_TSGO)) fail(`TSGO_PNP_BIN not found: ${PATCHED_TSGO}`);
 const canonical = Boolean(PATCHED_TSGO);
-
-function tsgoVersion(bin) {
-  const r = spawnSync(bin, ["--version"], { encoding: "utf8" });
-  return (r.stdout || r.stderr || "").trim();
-}
+const PATCHED = PATCHED_TSGO ? { cmd: PATCHED_TSGO, pre: [] } : null;
 function patchedProvenance() {
   if (!PATCHED_TSGO) return null;
   const gitDir = resolve(dirname(PATCHED_TSGO));
@@ -77,13 +97,15 @@ function patchedProvenance() {
   const branch = spawnSync("git", ["-C", gitDir, "rev-parse", "--abbrev-ref", "HEAD"], {
     encoding: "utf8",
   });
-  return {
-    bin: PATCHED_TSGO,
-    version: tsgoVersion(PATCHED_TSGO),
-    gitSha: sha.status === 0 ? sha.stdout.trim() : null,
-    gitBranch: branch.status === 0 ? branch.stdout.trim() : null,
-  };
+  const gitSha = sha.status === 0 ? sha.stdout.trim() : null;
+  const gitBranch = branch.status === 0 ? branch.stdout.trim() : null;
+  // a canonical record names the build it measured: no sha, no canonical run
+  if (!gitSha || !gitBranch)
+    fail(`TSGO_PNP_BIN provenance unreadable: ${gitDir} is not a git checkout with a HEAD`);
+  return { bin: PATCHED_TSGO, version: tsgoVersion(PATCHED), gitSha, gitBranch };
 }
+// resolved up front: an unreadable checkout must fail before any install or timing
+const PATCHED_PROVENANCE = patchedProvenance();
 
 const envInfo = loadGuard("TSGO_PNP_ALLOW_BUSY");
 
@@ -95,22 +117,15 @@ process.on("exit", () => {
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => process.exit(130));
 
 const YARNJS = fetchYarnCli(WORK, YARN_VERSION);
-const yarnEnvClean = { ...process.env, YARN_IGNORE_PATH: "1", CI: "false" };
-
-function run(cmd, args, cwd, extraEnv = {}) {
-  const r = spawnSync(cmd, args, {
-    cwd,
-    encoding: "utf8",
-    maxBuffer: 1 << 27,
-    env: { ...yarnEnvClean, ...extraEnv },
-  });
+function run(cmd, args, cwd) {
+  const r = spawnSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 1 << 27, env: benchEnv });
   return {
     status: r.status,
     signal: r.signal,
     out: ((r.stdout || "") + (r.stderr || "")).trim(),
   };
 }
-const yarn = (args, cwd) => run("node", [YARNJS, ...args], cwd);
+const yarn = (args, cwd) => run(process.execPath, [YARNJS, ...args], cwd);
 
 // --- scaffolds ---------------------------------------------------------------
 function writeWorkspaceScaffold(dir) {
@@ -219,15 +234,65 @@ function countCodes(out) {
   return { total, codes };
 }
 
-function measureTsgo(bin, dir) {
+// --listFiles prints one path per program file on the same stream as the
+// diagnostics (`rel/path.ts(l,c): error TSxxxx: ...`). Only path-only lines are
+// program files; a diagnostic line is skipped, and a line that is neither fails
+// the bench — an unparsed line must not be silently counted or dropped. A path is
+// absolute on disk, or `bundled:///libs/…` for the default libs the native
+// compiler embeds in its binary (lib.es5.d.ts and friends have no on-disk path).
+// The line is NOT trimmed: an indented line (a diagnostic continuation) is never a
+// program file. Extensions cover every file kind a program can hold.
+const LISTED_FILE = /^(?:\/|[A-Za-z]:[\\/]|bundled:\/\/\/).*\.(?:d\.[cm]?ts|[cm]?[jt]sx?|json)$/;
+const DIAGNOSTIC = /error TS\d+:/;
+function countListedFiles(out, what) {
+  const files = new Set();
+  // a diagnostic's message chain continues on indented lines directly under it;
+  // an indented line anywhere else, or an unknown unindented line, is fatal
+  let inDiagnostic = false;
+  for (const raw of out.split("\n")) {
+    const line = raw.replace(/\r$/, "");
+    if (!line.trim()) continue;
+    if (DIAGNOSTIC.test(line) && !/^\s/.test(line)) {
+      inDiagnostic = true;
+      continue;
+    }
+    if (inDiagnostic && /^\s/.test(line)) continue;
+    inDiagnostic = false;
+    if (!LISTED_FILE.test(line))
+      fail(`${what}: unclassifiable --listFiles line: ${line.slice(0, 200)}`);
+    files.add(line);
+  }
+  return files.size;
+}
+
+const sameCodes = (a, b) =>
+  JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+// a Go runtime crash prints one of these; it is never a diagnostic outcome
+const RUNTIME_CRASH = /^(?:panic:|fatal error:|goroutine \d+ \[)/m;
+
+function measureTsgo(checker, dir) {
+  // --pretty false: one line per diagnostic, no colors or summary, on any stream
+  const base = [...checker.pre, "--noEmit", "--pretty", "false", "-p", "packages/app"];
   const t0 = process.hrtime.bigint();
-  const r = run(bin, ["--noEmit", "-p", "packages/app"], dir);
+  const r = run(checker.cmd, base, dir);
   const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  if (r.signal) fail(`tsgo killed by ${r.signal} (harness fault, not a measurement)`);
+  if (r.signal || typeof r.status !== "number")
+    fail(
+      `tsgo did not run to an exit code (signal ${r.signal}) — harness fault, not a measurement`,
+    );
+  if (RUNTIME_CRASH.test(r.out))
+    fail(`tsgo crashed (exit ${r.status}) — harness fault:\n${r.out.slice(-600)}`);
   const { total, codes } = countCodes(r.out);
-  // program size via an untimed --listFiles pass
-  const lf = run(bin, ["--noEmit", "-p", "packages/app", "--listFiles"], dir);
-  const fileCount = (lf.out.match(/\.d\.ts|\.ts|\.tsx/g) || []).length;
+  // program size via an untimed --listFiles pass over the same program: it must
+  // run to the same exit code and report the same diagnostics as the timed pass
+  const lf = run(checker.cmd, [...base, "--listFiles"], dir);
+  if (lf.signal || lf.status !== r.status || !sameCodes(countCodes(lf.out).codes, codes))
+    fail(
+      `--listFiles pass diverged from the timed pass (exit ${lf.status} vs ${r.status}, ` +
+        `signal ${lf.signal}) — not the same program`,
+    );
+  const fileCount = countListedFiles(lf.out, "tsgo --listFiles");
+  if (fileCount === 0) fail("tsgo --listFiles reported no program files");
   return { exit: r.status, errorCount: total, codes, ms: Math.round(ms), fileCount };
 }
 
@@ -261,8 +326,8 @@ for (const linker of ["pnp", "nm"]) {
       nodeModules: nmPresent,
     },
   };
-  cell.stock = measureTsgo(STOCK_TSGO, dir);
-  if (PATCHED_TSGO) cell.patched = measureTsgo(PATCHED_TSGO, dir);
+  cell.stock = measureTsgo(STOCK, dir);
+  if (PATCHED) cell.patched = measureTsgo(PATCHED, dir);
   tsgoMatrix[linker] = cell;
   console.log(
     `  ${linker}: stock exit=${cell.stock.exit} errors=${cell.stock.errorCount}` +
@@ -274,142 +339,42 @@ for (const linker of ["pnp", "nm"]) {
 
 // positive control: patched tsgo under PnP must go RED on a seeded type error
 let redControl = null;
-if (PATCHED_TSGO) {
+if (PATCHED) {
   const dir = join(wsBase, "pnp");
   const src = join(dir, "packages/app/src/index.ts");
   const original = readFileSync(src, "utf8");
   try {
     writeFileSync(src, original + '\nconst bad: number = slug("x"); // string -> number\n');
-    const red = measureTsgo(PATCHED_TSGO, dir);
+    const red = measureTsgo(PATCHED, dir);
     redControl = { exit: red.exit, errorCount: red.errorCount, codes: red.codes };
-    if (!(red.errorCount > 0 && red.codes.TS2322))
-      fail("patched tsgo did not go red on a seeded TS2322");
+    if (!(red.exit === 1 && sameCodes(red.codes, { TS2322: 1 })))
+      fail(
+        `patched tsgo did not go red with exactly the seeded TS2322 (exit ${red.exit}, ` +
+          `codes ${JSON.stringify(red.codes)})`,
+      );
   } finally {
     writeFileSync(src, original);
   }
 }
 
 // --- assertions on the tsgo matrix ------------------------------------------
-if (!(tsgoMatrix.pnp.stock.errorCount > 0 && tsgoMatrix.pnp.stock.codes.TS2307))
-  fail("expected stock tsgo to fail under PnP with TS2307");
-if (tsgoMatrix.nm.stock.errorCount !== 0) fail("expected stock tsgo to pass under node-modules");
-if (PATCHED_TSGO) {
-  if (tsgoMatrix.pnp.patched.errorCount !== 0) fail("expected patched tsgo to pass under PnP");
-  if (tsgoMatrix.nm.patched.errorCount !== 0)
-    fail("expected patched tsgo to pass under node-modules");
+// green = exit 0 AND zero diagnostics (a panic or config error exits non-zero with
+// no `error TSxxxx` line and must not read as a pass); red = the diagnostics exit
+// (1) AND exactly the expected code histogram — another exit status or any extra
+// code is a different failure. Signals, missing exit codes and runtime crashes
+// already failed in measureTsgo.
+const green = (c) => c.exit === 0 && c.errorCount === 0;
+const sp = tsgoMatrix.pnp.stock;
+if (!(sp.exit === 1 && sameCodes(sp.codes, { TS2307: APP_IMPORTS })))
+  fail(
+    `expected stock tsgo to fail under PnP with exactly ${APP_IMPORTS}× TS2307 ` +
+      `(exit ${sp.exit}, codes ${JSON.stringify(sp.codes)})`,
+  );
+if (!green(tsgoMatrix.nm.stock)) fail("expected stock tsgo to pass under node-modules");
+if (PATCHED) {
+  if (!green(tsgoMatrix.pnp.patched)) fail("expected patched tsgo to pass under PnP");
+  if (!green(tsgoMatrix.nm.patched)) fail("expected patched tsgo to pass under node-modules");
 }
-
-// ============================================================================
-// Next.js build matrix
-function writeNextScaffold(dir) {
-  mkdirSync(join(dir, "app"), { recursive: true });
-  writeFileSync(
-    join(dir, "package.json"),
-    JSON.stringify(
-      {
-        name: "next-pnp-app",
-        private: true,
-        packageManager: `yarn@${YARN_VERSION}`,
-        dependencies: { next: NEXT_VERSION, react: REACT_VERSION, "react-dom": REACT_VERSION },
-        devDependencies: { "@types/react": "^18.3.12", "@types/node": "^20", typescript: "^5.6.0" },
-      },
-      null,
-      2,
-    ),
-  );
-  writeFileSync(
-    join(dir, "next.config.js"),
-    "module.exports = { turbopack: { root: __dirname } };\n",
-  );
-  writeFileSync(
-    join(dir, "app/layout.tsx"),
-    `import type { ReactNode } from "react";\nexport default function RootLayout({ children }: { children: ReactNode }) {\n  return (<html><body>{children}</body></html>);\n}\n`,
-  );
-  writeFileSync(
-    join(dir, "app/page.tsx"),
-    `export default function Page() {\n  return <main>hello pnp</main>;\n}\n`,
-  );
-  writeFileSync(
-    join(dir, "tsconfig.json"),
-    JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          lib: ["dom", "dom.iterable", "esnext"],
-          allowJs: true,
-          skipLibCheck: true,
-          strict: true,
-          noEmit: true,
-          esModuleInterop: true,
-          module: "esnext",
-          moduleResolution: "bundler",
-          resolveJsonModule: true,
-          isolatedModules: true,
-          jsx: "react-jsx",
-        },
-        include: ["**/*.ts", "**/*.tsx"],
-        exclude: ["node_modules"],
-      },
-      null,
-      2,
-    ),
-  );
-}
-
-function nextBuild(dir, builderArgs) {
-  rmSync(join(dir, ".next"), { recursive: true, force: true });
-  const t0 = process.hrtime.bigint();
-  const r = yarn(["next", "build", ...builderArgs], dir);
-  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-  return { exit: r.status, ms: Math.round(ms), out: r.out };
-}
-
-console.log("Next.js build matrix...");
-const nextBase = join(WORK, "next");
-mkdirSync(nextBase, { recursive: true });
-const nextMatrix = {};
-
-// PnP tree: webpack (expect ok) + turbopack (expect fail)
-{
-  const dir = join(nextBase, "pnp");
-  mkdirSync(dir, { recursive: true });
-  writeNextScaffold(dir);
-  writeYarnrc(dir, "pnp");
-  cpSync(YARNJS, join(dir, "yarn.js"));
-  const inst = yarn(["install"], dir);
-  if (inst.status !== 0) fail(`next PnP install failed:\n${inst.out.slice(-800)}`);
-  const wp = nextBuild(dir, ["--webpack"]);
-  const tp = nextBuild(dir, []);
-  const tpSignature = /next\/package\.json|couldn't find the Next\.js package/i.test(tp.out);
-  nextMatrix.pnp = {
-    webpack: { exit: wp.exit, ms: wp.ms, ok: wp.exit === 0 },
-    turbopack: { exit: tp.exit, ms: tp.ms, ok: tp.exit === 0, pnpResolveFailure: tpSignature },
-  };
-  console.log(
-    `  pnp: webpack exit=${wp.exit} | turbopack exit=${tp.exit} (pnp-fail=${tpSignature})`,
-  );
-}
-
-// node-modules tree: turbopack (expect ok)
-{
-  const dir = join(nextBase, "nm");
-  mkdirSync(dir, { recursive: true });
-  writeNextScaffold(dir);
-  writeYarnrc(dir, "nm");
-  cpSync(YARNJS, join(dir, "yarn.js"));
-  const inst = yarn(["install"], dir);
-  if (inst.status !== 0) fail(`next node-modules install failed:\n${inst.out.slice(-800)}`);
-  const tp = nextBuild(dir, []);
-  nextMatrix.nm = { turbopack: { exit: tp.exit, ms: tp.ms, ok: tp.exit === 0 } };
-  console.log(`  nm: turbopack exit=${tp.exit}`);
-}
-
-// assertions on the Next matrix
-if (!nextMatrix.pnp.webpack.ok) fail("expected `next build --webpack` to succeed under PnP");
-if (nextMatrix.pnp.turbopack.ok || !nextMatrix.pnp.turbopack.pnpResolveFailure)
-  fail("expected Turbopack to fail under PnP with the next/package.json resolution error");
-if (!nextMatrix.nm.turbopack.ok)
-  fail("expected Turbopack to succeed under the node-modules linker");
 
 // ============================================================================
 const output = {
@@ -418,19 +383,16 @@ const output = {
   env: envInfo,
   versions: {
     yarn: YARN_VERSION,
-    next: NEXT_VERSION,
+    node: process.version,
     stockTsgo: STOCK_TSGO_VERSION,
-    stockTsgoReported: tsgoVersion(STOCK_TSGO),
+    stockTsgoReported: tsgoVersion(STOCK),
   },
-  patchedTsgo: patchedProvenance(),
+  patchedTsgo: PATCHED_PROVENANCE,
   redControl,
   tsgoMatrix,
-  nextMatrix,
   finding:
     "Stock tsgo cannot resolve dependencies under Yarn PnP (TS2307); the native PnP " +
-    "resolver (microsoft/typescript-go#460) fixes it, matching the node-modules control. " +
-    "Next.js builds under PnP on the webpack builder; Turbopack has no PnP resolver, so " +
-    "Turbopack projects need Yarn's node-modules (or pnpm) linker.",
+    "resolver (microsoft/typescript-go#460) fixes it, matching the node-modules control.",
 };
 
 const outRel = canonical ? "bench/tsgo-pnp-bench.json" : "bench/tsgo-pnp-bench.partial.json";

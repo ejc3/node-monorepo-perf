@@ -150,7 +150,14 @@ const LIBS_DIR = join(ROOT, "packages");
 // below and again from a generated package dir in main().
 const TSGO_SHIM_REL = "../../node_modules/typescript/bin/tsc";
 const TSGO_CMD = `node ${TSGO_SHIM_REL} --noEmit`;
-if (TSGO_TASK && !existsSync(tsNativeShim(ROOT))) {
+// `--defer-install`: the caller generates FIRST and installs the root's deps
+// after (a temp scaffold such as vite-plus-tools-bench's), so the shim cannot
+// exist yet; such a caller owns the post-install assert that the shim resolves to
+// typescript@7. Without the flag — repo-tree generation — a missing shim is a
+// hard error here and again from a generated package dir in main(): a
+// --tsgo-task tree is never emitted with a command that resolves nowhere.
+const DEFER_INSTALL = flag("defer-install");
+if (TSGO_TASK && !DEFER_INSTALL && !existsSync(tsNativeShim(ROOT))) {
   console.error(
     `--tsgo-task: native tsc shim missing at ${tsNativeShim(ROOT)} — install root deps first`,
   );
@@ -806,8 +813,9 @@ function main() {
 
   // The emitted relative shim path must resolve from a real generated package dir
   // (all packages sit at depth 2, so one probe covers them all) — fail loud here,
-  // never emit a command that resolves nowhere.
-  if (TSGO_TASK) {
+  // never emit a command that resolves nowhere (skipped only under --defer-install,
+  // where the caller asserts after installing).
+  if (TSGO_TASK && !DEFER_INSTALL) {
     const probeDir = join(LIBS_DIR, libDir(1));
     const resolved = resolve(probeDir, TSGO_SHIM_REL);
     if (!existsSync(resolved)) {

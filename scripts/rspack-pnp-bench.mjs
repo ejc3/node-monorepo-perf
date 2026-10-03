@@ -1,20 +1,22 @@
 #!/usr/bin/env node
-// Prices the fast-Next-bundler-under-Yarn-PnP question. Turbopack (Vercel's Rust
-// bundler, the Next 16 default) has no PnP resolver — its maintainers declined
-// PnP (vercel/next.js#42651, closed + locked) — so a Next build under Yarn's PnP
-// linker fails to resolve `next/package.json` and aborts. Rspack (the Rust
-// webpack-compatible bundler) DID add PnP resolution
-// (web-infra-dev/rspack#13047, #13382), and Next ships an experimental rspack
-// integration (`next-rspack`, `withRspack(config)`). This bench measures the
-// full builder matrix on one Next app under both Yarn linkers:
+// Prices Next builds under Yarn PnP, per builder and per node version. Two
+// separate things fail there. (a) Turbopack (Vercel's Rust bundler, the Next 16
+// default) has no PnP resolver — its maintainers declined PnP
+// (vercel/next.js#42651, closed + locked) — so it cannot resolve
+// `next/package.json`; rspack (the Rust webpack-compatible bundler) added PnP
+// resolution (web-infra-dev/rspack#13047, #13382) and Next's `next-rspack`
+// (`withRspack(config)`) carries it through. (b) On current node 22, `next build`
+// under PnP crashes while loading next.config, before a bundler is selected, so
+// (a) is not even reached. The bench measures both by building the SAME installed
+// PnP trees twice — on the node running the bench and on a pinned older control
+// node (CONTROL_NODE, _pins.mjs) — next to a node-modules control:
 //
-//   PnP linker:          turbopack (fail) · webpack (ok) · rspack (ok)
-//   node-modules linker: turbopack (ok)   · rspack (ok)   — controls
+//   PnP, bench node (22.23.3):     turbopack · webpack · rspack all fail at config load
+//   PnP, control node (22.22.0):   turbopack (fail: no PnP resolver) · webpack (ok) · rspack (ok)
+//   node-modules, bench node:      turbopack (ok) · webpack (ok) · rspack (ok)
 //
-// The finding: under PnP, rspack builds a Next app that Turbopack cannot, and
-// rspack is the fast (Rust, webpack-compatible) bundler that carries PnP support
-// through Next's integration — the answer for a PnP shop that wants Next builds
-// off webpack without moving to Turbopack.
+// Every cell's side is asserted; a cell changing sides (a node or next release
+// that fixes or moves the crash) fails the bench, forcing a deliberate update.
 //
 // Each builder is invoked the one way it works — turbopack/webpack with a plain
 // next.config, rspack with a `withRspack(...)` config and no builder flag (the
@@ -46,6 +48,15 @@ import {
   guardWorkDir,
   nextConfigFor,
   cellBanner,
+  isPnpConfigLoadCrash,
+  isTurbopackPnpResolveFailure,
+  turbopackPnpResolveFailureLine,
+  CONTROL_NODE_VERSION,
+  fetchControlNode,
+  envForNode,
+  nodeBinDirFor,
+  treeInventory,
+  inventoryDiff,
 } from "./_next-bundler-lib.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -97,7 +108,22 @@ function run(cmd, args, cwd, extraEnv = {}) {
     out: ((r.stdout || "") + (r.stderr || "")).trim(),
   };
 }
-const yarn = (args, cwd) => run("node", [YARNJS, ...args], cwd);
+// Every child runs under an explicit node binary with that binary's dir leading
+// PATH: the bench's own node (process.execPath — the node `versions.node` records)
+// or the control node. A bare `node` from PATH could be a different release than
+// the one recorded.
+// `nodeExe` is the executable itself (process.execPath, or the verified control
+// binary) — never `<dir>/node` by assumption; nodeBinDirFor asserts the dir that
+// leads PATH holds that same release.
+const BENCH_NODE = process.execPath;
+try {
+  nodeBinDirFor(BENCH_NODE, process.version);
+} catch (e) {
+  fail(e.message);
+}
+const runUnder = (nodeExe, args, cwd) =>
+  run(nodeExe, args, cwd, envForNode(yarnEnvClean, dirname(nodeExe)));
+const yarn = (args, cwd) => runUnder(BENCH_NODE, [YARNJS, ...args], cwd);
 
 // --- scaffold ----------------------------------------------------------------
 // A plain Next App Router app depending on next + react + react-dom. Under PnP
@@ -168,7 +194,8 @@ function writeYarnrc(dir, linker) {
   writeFileSync(join(dir, ".yarnrc.yml"), lines.join("\n") + "\n");
 }
 
-function buildCell(base, linker, builder, flag) {
+// Scaffold + install one (linker, builder) cell; returns its directory.
+function prepareCell(base, linker, builder) {
   const dir = join(base, `${linker}-${builder}`);
   mkdirSync(dir, { recursive: true });
   writeNextScaffold(dir, builder);
@@ -185,38 +212,75 @@ function buildCell(base, linker, builder, flag) {
     fail(`pnp install (${builder}) unexpectedly materialized node_modules`);
   if (linker === "nm" && !nodeModules)
     fail(`node-modules install (${builder}) produced no node_modules`);
+  return dir;
+}
 
+// Build one prepared cell under `nodeExe` (the bench's node, or the control node
+// re-running the SAME installed tree). For a PnP tree the bench-node cell runs
+// first, on the pristine install; group (1) asserts it left no `.next` behind and
+// the tree's file inventory unchanged BEFORE the control node builds it, so the
+// control-node build starts from the same tree state.
+function buildCell(dir, linker, builder, flag, nodeExe = BENCH_NODE) {
   rmSync(join(dir, ".next"), { recursive: true, force: true });
+  const args = [YARNJS, "next", "build", ...(flag ? [flag] : [])];
   const t0 = process.hrtime.bigint();
-  const r = yarn(["next", "build", ...(flag ? [flag] : [])], dir);
+  const r = runUnder(nodeExe, args, dir);
   const ms = Math.round(Number(process.hrtime.bigint() - t0) / 1e6);
-  if (r.signal) fail(`next build (${linker}/${builder}) killed by ${r.signal} (harness fault)`);
+  const label = `${linker}/${builder}${nodeExe === BENCH_NODE ? "" : ` @ node v${CONTROL_NODE_VERSION}`}`;
+  // a killed or unspawnable build has no exit code and is a harness fault — it
+  // must never be classified as one of the expected failures
+  if (r.signal || typeof r.status !== "number")
+    fail(`next build (${label}) did not run to an exit code (signal ${r.signal}) — harness fault`);
 
   const dotNext = join(dir, ".next");
+  // `.next` existing at all (a failing build can leave partial output) is recorded
+  // separately from a COMPLETE build
+  const dotNextPresent = existsSync(dotNext);
   const outputPresent = outputComplete(dotNext);
-  const outputBytes = existsSync(dotNext) ? duApparentBytes(dotNext) : 0;
+  let outputBytes = 0;
+  if (dotNextPresent) {
+    try {
+      outputBytes = duApparentBytes(dotNext);
+    } catch (e) {
+      fail(`${label}: ${e.message} — harness fault`);
+    }
+  }
   const sig = bundlerSignatures(r.out);
   const webpackCompilationSpan = ranJsWebpackCompiler(dir);
-  // Turbopack under PnP aborts because it can't resolve next/package.json.
-  const pnpResolveFailure = /next\/package\.json|couldn't find the Next\.js package/i.test(r.out);
   const cell = {
     linker,
     builder,
     exit: r.status,
     ok: r.status === 0 && outputPresent,
     ms,
+    dotNextPresent,
     outputPresent,
     outputBytes,
     turbopackBanner: sig.turbopackBanner,
     rspackBanner: sig.rspackBanner,
     webpackCompilationSpan,
-    pnpResolveFailure,
+    // Turbopack's own PnP failure: it cannot resolve next/package.json by fs walk
+    pnpResolveFailure: isTurbopackPnpResolveFailure(r.out),
+    pnpResolveFailureLine: turbopackPnpResolveFailureLine(r.out),
+    // the config-load crash that precedes bundler selection (see _next-bundler-lib)
+    configLoadCrash: isPnpConfigLoadCrash(r.out),
   };
   console.log(
-    `  ${linker}/${builder}: exit=${cell.exit} ok=${cell.ok} ${cell.ms}ms ` +
+    `  ${label}: exit=${cell.exit} ok=${cell.ok} ${cell.ms}ms ` +
       cellBanner(sig, webpackCompilationSpan) +
-      (cell.pnpResolveFailure ? " pnp-fail" : ""),
+      (cell.pnpResolveFailure ? " pnp-fail" : "") +
+      (cell.configLoadCrash ? " config-crash" : ""),
   );
+  // a failed build's output tail goes to the log, so an assert that rejects its
+  // classification below is diagnosable from this one run
+  if (cell.exit !== 0)
+    console.log(
+      r.out
+        .split("\n")
+        .slice(-15)
+        .map((l) => `    | ${l.slice(0, 240)}`)
+        .join("\n"),
+    );
   return cell;
 }
 
@@ -227,24 +291,75 @@ console.log(
 const base = join(WORK, "matrix");
 mkdirSync(base, { recursive: true });
 
+const BUILDERS = [
+  ["turbopack", null],
+  ["webpack", "--webpack"],
+  ["rspack", null],
+];
+let controlBin;
+try {
+  controlBin = fetchControlNode(WORK_RESOLVED);
+} catch (e) {
+  fail(e.message);
+}
+const dirs = { pnp: {}, nm: {} };
+for (const linker of ["pnp", "nm"])
+  for (const [builder] of BUILDERS) dirs[linker][builder] = prepareCell(base, linker, builder);
+const cells = (linker, nodeExe = BENCH_NODE) =>
+  Object.fromEntries(
+    BUILDERS.map(([builder, flag]) => [
+      builder,
+      buildCell(dirs[linker][builder], linker, builder, flag, nodeExe),
+    ]),
+  );
+// (1) PnP on this node, built AND asserted before the control node touches the
+// trees: every builder fails at config load, before a bundler is selected —
+// non-zero exit, the config-load-crash signature, NOT Turbopack's own resolution
+// failure, no evidence that any bundler started (no `.next` directory at all, no
+// bundler banner, no JS-webpack compilation span), and the installed tree's file
+// inventory (path, size, mtime) identical before and after the build.
+const pnpBefore = Object.fromEntries(
+  BUILDERS.map(([builder]) => [builder, treeInventory(dirs.pnp[builder])]),
+);
+const pnpCells = cells("pnp");
+for (const [builder] of BUILDERS) {
+  const c = pnpCells[builder];
+  const bundlerStarted =
+    c.dotNextPresent ||
+    c.outputPresent ||
+    c.turbopackBanner ||
+    c.rspackBanner ||
+    c.webpackCompilationSpan;
+  if (c.exit === 0 || c.ok || !c.configLoadCrash || c.pnpResolveFailure || bundlerStarted)
+    fail(
+      `expected pnp/${builder} on node ${process.version} to fail at config load before any ` +
+        `bundler ran — got exit=${c.exit}, configLoadCrash=${c.configLoadCrash}, ` +
+        `pnpResolveFailure=${c.pnpResolveFailure}, bundlerStarted=${Boolean(bundlerStarted)}`,
+    );
+  const changed = inventoryDiff(pnpBefore[builder], treeInventory(dirs.pnp[builder]));
+  c.treeUnchanged = changed.length === 0;
+  if (!c.treeUnchanged)
+    fail(
+      `pnp/${builder}: the crashed build changed ${changed.length} path(s) in the installed tree ` +
+        `(${changed.slice(0, 10).join(", ")}) — the control node would not build the same tree`,
+    );
+}
+
 const matrix = {
-  pnp: {
-    turbopack: buildCell(base, "pnp", "turbopack", null),
-    webpack: buildCell(base, "pnp", "webpack", "--webpack"),
-    rspack: buildCell(base, "pnp", "rspack", null),
-  },
-  nm: {
-    turbopack: buildCell(base, "nm", "turbopack", null),
-    webpack: buildCell(base, "nm", "webpack", "--webpack"),
-    rspack: buildCell(base, "nm", "rspack", null),
-  },
+  // the PnP trees on the node running this bench
+  pnp: pnpCells,
+  // the SAME installed PnP trees under the pinned older node
+  pnpControlNode: { node: `v${CONTROL_NODE_VERSION}`, ...cells("pnp", join(controlBin, "node")) },
+  // the node-modules control on the node running this bench
+  nm: cells("nm"),
 };
 
 // --- assertions --------------------------------------------------------------
 // Each successful cell must prove WHICH compiler ran: rspack = the next-rspack
 // banner AND no JS webpack-compilation span AND no Turbopack banner; webpack = a
 // JS webpack-compilation span AND neither other banner; turbopack = the Turbopack
-// banner AND no rspack banner. The compilation-span check is the load-bearing one:
+// banner AND no rspack banner AND no JS webpack-compilation span. The proofs are
+// mutually exclusive. The compilation-span check is the load-bearing one:
 // it defeats a silent webpack fallback that would still print the rspack banner.
 function assertRspack(cell, label) {
   if (!cell.ok) fail(`expected rspack to build (${label})`);
@@ -264,22 +379,33 @@ function assertTurbopack(cell, label) {
   if (!cell.ok) fail(`expected Turbopack to build (${label})`);
   if (!cell.turbopackBanner) fail(`expected the Turbopack banner (${label})`);
   if (cell.rspackBanner) fail(`unexpected rspack banner in a Turbopack cell (${label})`);
+  if (cell.webpackCompilationSpan) fail(`Turbopack cell ran the JS webpack compiler (${label})`);
 }
 
-// Under PnP: Turbopack FAILS (non-zero exit) with the next/package.json resolution
-// error, and it really was Turbopack that ran.
-const tp = matrix.pnp.turbopack;
-if (tp.exit === 0 || tp.ok) fail("expected Turbopack to fail (non-zero exit, no output) under PnP");
-if (!tp.pnpResolveFailure)
-  fail("expected Turbopack's PnP failure to be the next/package.json resolution error");
-if (!tp.turbopackBanner)
-  fail("expected the Turbopack banner in the PnP/turbopack cell (bundler-identity guard)");
+// Three two-sided groups; any cell changing sides turns the bench red, forcing a
+// deliberate record update. Group (1) is asserted above, before the control builds.
+//
+// (2) The same PnP trees on the control node: Turbopack fails with ITS failure
+// (the next/package.json resolution error, and it really was Turbopack that
+// ran), while webpack and rspack build — proving the crash in (1) is scoped to
+// the node version, and that rspack is the Rust bundler that resolves PnP.
+{
+  const c = matrix.pnpControlNode;
+  const ctl = `pnp @ node ${c.node}`;
+  if (c.turbopack.exit === 0 || c.turbopack.ok)
+    fail(`expected Turbopack to fail (non-zero exit, no output) under ${ctl}`);
+  if (!c.turbopack.pnpResolveFailure || c.turbopack.configLoadCrash)
+    fail(`expected Turbopack's failure under ${ctl} to be the next/package.json resolution error`);
+  if (!c.turbopack.turbopackBanner)
+    fail(`expected the Turbopack banner in the ${ctl} turbopack cell (bundler-identity guard)`);
+  if (c.turbopack.rspackBanner || c.turbopack.webpackCompilationSpan || c.turbopack.outputPresent)
+    fail(`the ${ctl} turbopack cell shows another compiler or a complete build`);
+  assertWebpack(c.webpack, `${ctl} webpack`);
+  assertRspack(c.rspack, `${ctl} rspack`);
+}
 
-// Under PnP: webpack and rspack both build; the headline is rspack.
-assertWebpack(matrix.pnp.webpack, "pnp/webpack");
-assertRspack(matrix.pnp.rspack, "pnp/rspack");
-
-// node-modules controls: all three build.
+// (3) node-modules controls on this node: all three build, so the failures in
+// (1) are PnP-specific.
 assertTurbopack(matrix.nm.turbopack, "nm/turbopack");
 assertWebpack(matrix.nm.webpack, "nm/webpack");
 assertRspack(matrix.nm.rspack, "nm/rspack");
@@ -312,15 +438,18 @@ const output = {
     nextRspack: RSPACK_VERSION,
     rspackCore: rspackCoreVersion,
     node: process.version,
+    controlNode: `v${CONTROL_NODE_VERSION}`,
   },
   matrix,
   finding:
-    "Turbopack has no Yarn PnP resolver (vercel/next.js#42651, declined + locked), so a " +
-    "Next build under the PnP linker aborts on next/package.json resolution. Rspack added PnP " +
-    "resolution (web-infra-dev/rspack#13047), and Next's next-rspack integration carries it " +
-    "through: under PnP, rspack and webpack build the same app Turbopack cannot. Under the " +
-    "node-modules linker all three build. For a PnP shop wanting a fast (Rust, webpack-" +
-    "compatible) Next bundler, rspack is the answer; Turbopack still requires node-modules (or pnpm).",
+    `On node ${process.version}, next build under the Yarn PnP linker fails on every builder ` +
+    "(Turbopack, webpack, rspack): the build crashes while loading next.config, in next's " +
+    "config transpile hook, before a bundler is selected. The same installed PnP trees on " +
+    `node v${CONTROL_NODE_VERSION} separate the bundlers: Turbopack has no PnP resolver ` +
+    "(vercel/next.js#42651, declined + locked) and aborts on next/package.json resolution, " +
+    "while rspack (PnP resolution added in web-infra-dev/rspack#13047, carried through " +
+    "next-rspack) and webpack build. Under the node-modules linker all three build on " +
+    `node ${process.version}.`,
 };
 
 writeFileSync(join(REPO, "bench/rspack-pnp-bench.json"), JSON.stringify(output, null, 2));

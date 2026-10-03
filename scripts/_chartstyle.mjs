@@ -167,8 +167,14 @@ export const inkFor = (rgb) => {
   return contrast(L, DARK_INK_L) >= contrast(L, 1) ? "#0a0d12" : "#ffffff";
 };
 export const fmtMult = (m) => "×" + (m < 10 ? m.toFixed(1) : Math.round(m).toLocaleString("en-US"));
-// near-tie sub-line (within 5% of the fastest): one decimal below 1% so a real
-// +0.4% never rounds to a meaningless "+0%"
+// The near-tie rule every heat chart shares: a cell within 5% of the row's fastest
+// (inclusive) keeps its time as the headline with the +N% as the sub-line. One
+// definition, so the boundary cannot drift between generators.
+export const NEAR_TIE_MAX = 1.05;
+export const isFastest = (mult) => mult <= 1.0001;
+export const isNearTie = (mult) => !isFastest(mult) && mult <= NEAR_TIE_MAX;
+// near-tie sub-line: one decimal below 1% so a real +0.4% never rounds to a
+// meaningless "+0%"
 export const nearTiePct = (mult) => {
   const p = (mult - 1) * 100;
   return `+${p.toFixed(p < 1 ? 1 : 0)}% vs fastest`;

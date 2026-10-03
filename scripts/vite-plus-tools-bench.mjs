@@ -158,7 +158,9 @@ console.log(
   `== check: one-pass vp check vs the same engines separate (${CHECK_SCALE.apps}:${CHECK_SCALE.libs}) ==`,
 );
 {
-  const dir = scaffold("check", CHECK_SCALE, ["--tsgo-task"], {
+  // --defer-install: this scaffold is generated before its deps are installed; the
+  // assertTs7 below is the post-install check that the emitted shim path is TS7
+  const dir = scaffold("check", CHECK_SCALE, ["--tsgo-task", "--defer-install"], {
     "vite-plus": VITE_PLUS_VERSION,
     "@voidzero-dev/vite-plus-core": VITE_PLUS_VERSION,
     oxlint: OXLINT_VERSION,

@@ -23,6 +23,8 @@ import {
   inkFor,
   fmtMult,
   nearTiePct,
+  isFastest,
+  isNearTie,
   rampLegendItems,
   legendRow,
   heatCell,
@@ -354,8 +356,8 @@ for (const sec of SECTIONS) {
         // fastest the time stays the headline with the honest +N% as the sub-line.
         const mult = cellMult(sec, ri, ci);
         const rgb = rampRGB(mult);
-        const fastest = mult <= 1.0001;
-        const nearTie = !fastest && mult < 1.05;
+        const fastest = isFastest(mult);
+        const nearTie = isNearTie(mult);
         T.push(
           ...heatCell(
             x,

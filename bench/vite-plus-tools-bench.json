@@ -3,35 +3,35 @@
     "vitePlus": "0.2.2",
     "oxlint": "1.72.0",
     "oxlintTsgolint": "0.24.0",
-    "tsgo": "7.0.0-dev.20260614.1",
-    "node": "v22.22.0"
+    "tsgo": "7.0.2",
+    "node": "v22.23.3"
   },
   "cores": 64,
-  "preRunLoadAvg1": 3.37,
+  "preRunLoadAvg1": 3.93,
   "samples": 3,
   "rungs": {
     "check": {
       "vpCheckOnePass": {
-        "medianMs": 2435,
+        "medianMs": 2555,
         "samplesMs": [
-          2435,
-          2435,
-          2455
+          2578,
+          2546,
+          2555
         ]
       },
       "oxlintTypeAware": {
-        "medianMs": 1882,
+        "medianMs": 1897,
         "samplesMs": [
-          1882,
-          1878,
-          1882
+          1911,
+          1897,
+          1897
         ]
       },
       "optimalGateShape": {
         "note": "different type-check model (one tsgo program over lib source vs tsgolint per-file typed lint) — context, not like-for-like",
-        "oxlintMs": 342,
-        "tsgoWholeMs": 426,
-        "sequentialMs": 768
+        "oxlintMs": 352,
+        "tsgoWholeMs": 452,
+        "sequentialMs": 804
       },
       "corpusFiles": {
         "lintable": 920,
@@ -43,19 +43,19 @@
       "workspaceVite": "8.0.16",
       "vpBundledVite": "8.0.16",
       "viteBuild": {
-        "medianMs": 546,
+        "medianMs": 560,
         "samplesMs": [
-          543,
-          548,
-          546
+          562,
+          555,
+          560
         ]
       },
       "vpBuild": {
-        "medianMs": 856,
+        "medianMs": 969,
         "samplesMs": [
-          856,
-          853,
-          868
+          954,
+          977,
+          969
         ]
       },
       "distIdentical": true,
@@ -65,8 +65,8 @@
       },
       "distDifferingSample": [],
       "vpTaskCachedBuild": {
-        "coldMs": 784,
-        "repeatMs": 764,
+        "coldMs": 1269,
+        "repeatMs": 854,
         "repeatHits": null,
         "repeatServedFromCache": false,
         "inputModificationRefusal": "vp run: @demo/app-01#build not cached because it modified its input. (Run `vp run --last-details` for full details)"

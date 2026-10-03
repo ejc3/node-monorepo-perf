@@ -50,152 +50,153 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <rect x="981" y="209" width="28" height="4" rx="2" fill="#6f56c4"/>
 <text x="40" y="247" font-size="12.5" fill="#1c2330">Cold · 200 apps · 2,649 dep edges</text>
 <rect x="321.5" y="217.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="395" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.14s</text>
+<text x="395" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.13s</text>
 <text x="395" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="395" y="263" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">15.4k nm entries</text>
-<rect x="471.5" y="217.5" width="147" height="51" rx="5" fill="rgb(199,119,39)"/>
-<text x="545" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×6.1 slower</text>
-<text x="545" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.83s</text>
+<rect x="471.5" y="217.5" width="147" height="51" rx="5" fill="rgb(200,124,39)"/>
+<text x="545" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×5.3 slower</text>
+<text x="545" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.67s</text>
 <text x="545" y="263" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">15.7k nm entries</text>
-<rect x="621.5" y="217.5" width="147" height="51" rx="5" fill="rgb(199,120,39)"/>
-<text x="695" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×5.9 slower</text>
-<text x="695" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.81s</text>
+<rect x="621.5" y="217.5" width="147" height="51" rx="5" fill="rgb(200,125,39)"/>
+<text x="695" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×5.2 slower</text>
+<text x="695" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.65s</text>
 <text x="695" y="263" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">12.6k nm entries</text>
-<rect x="771.5" y="217.5" width="147" height="51" rx="5" fill="rgb(187,83,44)"/>
-<text x="845" y="236" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×25 slower</text>
-<text x="845" y="251" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">3.4s</text>
+<rect x="771.5" y="217.5" width="147" height="51" rx="5" fill="rgb(187,82,44)"/>
+<text x="845" y="236" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×26 slower</text>
+<text x="845" y="251" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">3.3s</text>
 <text x="845" y="263" font-size="9.5" fill="#ffffff" opacity="0.85" text-anchor="middle">11.2k nm entries</text>
-<rect x="921.5" y="217.5" width="147" height="51" rx="5" fill="rgb(192,94,39)"/>
-<text x="995" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×13 slower</text>
+<rect x="921.5" y="217.5" width="147" height="51" rx="5" fill="rgb(191,93,39)"/>
+<text x="995" y="236" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×14 slower</text>
 <text x="995" y="251" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">1.8s</text>
 <text x="995" y="263" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 0.8MB table</text>
 <text x="40" y="301" font-size="12.5" fill="#1c2330">Cold · 1,000 apps · 11,898 dep edges</text>
-<rect x="321.5" y="271.5" width="147" height="51" rx="5" fill="rgb(138,153,57)"/>
-<text x="395" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.5 slower</text>
-<text x="395" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.1s</text>
+<rect x="321.5" y="271.5" width="147" height="51" rx="5" fill="rgb(207,155,42)"/>
+<text x="395" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.4 slower</text>
+<text x="395" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.9s</text>
 <text x="395" y="317" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">30.0k nm entries</text>
-<rect x="471.5" y="271.5" width="147" height="51" rx="5" fill="rgb(208,158,43)"/>
-<text x="545" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.3 slower</text>
+<rect x="471.5" y="271.5" width="147" height="51" rx="5" fill="rgb(207,152,42)"/>
+<text x="545" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.6 slower</text>
 <text x="545" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.1s</text>
 <text x="545" y="317" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">31.1k nm entries</text>
 <rect x="621.5" y="271.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="695" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.4s</text>
+<text x="695" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.2s</text>
 <text x="695" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="695" y="317" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">17.8k nm entries</text>
-<rect x="771.5" y="271.5" width="147" height="51" rx="5" fill="rgb(204,141,41)"/>
-<text x="845" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.5 slower</text>
-<text x="845" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.8s</text>
+<rect x="771.5" y="271.5" width="147" height="51" rx="5" fill="rgb(203,138,41)"/>
+<text x="845" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.7 slower</text>
+<text x="845" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.4s</text>
 <text x="845" y="317" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">12.1k nm entries</text>
-<rect x="921.5" y="271.5" width="147" height="51" rx="5" fill="rgb(187,160,47)"/>
-<text x="995" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.8 slower</text>
-<text x="995" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.5s</text>
+<rect x="921.5" y="271.5" width="147" height="51" rx="5" fill="rgb(209,163,43)"/>
+<text x="995" y="290" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.0 slower</text>
+<text x="995" y="305" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.4s</text>
 <text x="995" y="317" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 2.0MB table</text>
 <text x="40" y="355" font-size="12.5" fill="#1c2330">Cold · 2,000 apps · 23,350 dep edges</text>
-<rect x="321.5" y="325.5" width="147" height="51" rx="5" fill="rgb(206,152,42)"/>
-<text x="395" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.6 slower</text>
-<text x="395" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">8.7s</text>
+<rect x="321.5" y="325.5" width="147" height="51" rx="5" fill="rgb(203,137,41)"/>
+<text x="395" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.8 slower</text>
+<text x="395" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">9.6s</text>
 <text x="395" y="371" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">47.9k nm entries</text>
-<rect x="471.5" y="325.5" width="147" height="51" rx="5" fill="rgb(208,157,42)"/>
-<text x="545" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.3 slower</text>
-<text x="545" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">7.7s</text>
+<rect x="471.5" y="325.5" width="147" height="51" rx="5" fill="rgb(204,143,41)"/>
+<text x="545" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.3 slower</text>
+<text x="545" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">8.2s</text>
 <text x="545" y="371" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">50.2k nm entries</text>
-<rect x="621.5" y="325.5" width="147" height="51" rx="5" fill="rgb(39,139,75)"/>
-<text x="695" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">3.4s</text>
-<text x="695" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">+3% vs fastest</text>
+<rect x="621.5" y="325.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
+<text x="695" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">2.5s</text>
+<text x="695" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="695" y="371" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">24.2k nm entries</text>
-<rect x="771.5" y="325.5" width="147" height="51" rx="5" fill="rgb(206,163,44)"/>
-<text x="845" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.0 slower</text>
-<text x="845" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">6.6s</text>
+<rect x="771.5" y="325.5" width="147" height="51" rx="5" fill="rgb(208,157,42)"/>
+<text x="845" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.3 slower</text>
+<text x="845" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">5.7s</text>
 <text x="845" y="371" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">13.2k nm entries</text>
-<rect x="921.5" y="325.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="995" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">3.3s</text>
-<text x="995" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
+<rect x="921.5" y="325.5" width="147" height="51" rx="5" fill="rgb(98,147,64)"/>
+<text x="995" y="344" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.3 slower</text>
+<text x="995" y="359" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.2s</text>
 <text x="995" y="371" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 3.5MB table</text>
 <text x="40" y="409" font-size="12.5" fill="#1c2330">Warm · 200 apps · 2,649 dep edges</text>
 <rect x="321.5" y="379.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="395" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.13s</text>
+<text x="395" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.14s</text>
 <text x="395" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="395" y="425" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">15.4k nm entries</text>
-<rect x="471.5" y="379.5" width="147" height="51" rx="5" fill="rgb(201,129,40)"/>
-<text x="545" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.7 slower</text>
-<text x="545" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.59s</text>
+<rect x="471.5" y="379.5" width="147" height="51" rx="5" fill="rgb(204,143,41)"/>
+<text x="545" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.3 slower</text>
+<text x="545" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.46s</text>
 <text x="545" y="425" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">15.7k nm entries</text>
-<rect x="621.5" y="379.5" width="147" height="51" rx="5" fill="rgb(201,128,40)"/>
-<text x="695" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.8 slower</text>
-<text x="695" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.61s</text>
+<rect x="621.5" y="379.5" width="147" height="51" rx="5" fill="rgb(204,143,41)"/>
+<text x="695" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.3 slower</text>
+<text x="695" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.47s</text>
 <text x="695" y="425" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">12.6k nm entries</text>
-<rect x="771.5" y="379.5" width="147" height="51" rx="5" fill="rgb(187,83,44)"/>
-<text x="845" y="398" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×24 slower</text>
-<text x="845" y="413" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">3.1s</text>
+<rect x="771.5" y="379.5" width="147" height="51" rx="5" fill="rgb(188,86,42)"/>
+<text x="845" y="398" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×21 slower</text>
+<text x="845" y="413" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">2.9s</text>
 <text x="845" y="425" font-size="9.5" fill="#ffffff" opacity="0.85" text-anchor="middle">11.2k nm entries</text>
-<rect x="921.5" y="379.5" width="147" height="51" rx="5" fill="rgb(193,96,38)"/>
-<text x="995" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×12 slower</text>
+<rect x="921.5" y="379.5" width="147" height="51" rx="5" fill="rgb(194,98,37)"/>
+<text x="995" y="398" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×10 slower</text>
 <text x="995" y="413" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">1.5s</text>
 <text x="995" y="425" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 0.8MB table</text>
 <text x="40" y="463" font-size="12.5" fill="#1c2330">Warm · 1,000 apps · 11,898 dep edges</text>
 <rect x="321.5" y="433.5" width="147" height="51" rx="5" fill="rgb(203,138,41)"/>
 <text x="395" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.8 slower</text>
-<text x="395" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.5s</text>
+<text x="395" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.9s</text>
 <text x="395" y="479" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">30.0k nm entries</text>
-<rect x="471.5" y="433.5" width="147" height="51" rx="5" fill="rgb(204,140,41)"/>
-<text x="545" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.6 slower</text>
-<text x="545" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.3s</text>
+<rect x="471.5" y="433.5" width="147" height="51" rx="5" fill="rgb(204,141,41)"/>
+<text x="545" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.4 slower</text>
+<text x="545" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.7s</text>
 <text x="545" y="479" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">31.1k nm entries</text>
 <rect x="621.5" y="433.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="695" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.92s</text>
+<text x="695" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.78s</text>
 <text x="695" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="695" y="479" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">17.8k nm entries</text>
-<rect x="771.5" y="433.5" width="147" height="51" rx="5" fill="rgb(201,129,40)"/>
-<text x="845" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.7 slower</text>
-<text x="845" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.3s</text>
+<rect x="771.5" y="433.5" width="147" height="51" rx="5" fill="rgb(200,124,39)"/>
+<text x="845" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×5.3 slower</text>
+<text x="845" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.1s</text>
 <text x="845" y="479" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">12.1k nm entries</text>
-<rect x="921.5" y="433.5" width="147" height="51" rx="5" fill="rgb(207,155,42)"/>
-<text x="995" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.4 slower</text>
+<rect x="921.5" y="433.5" width="147" height="51" rx="5" fill="rgb(206,150,42)"/>
+<text x="995" y="452" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.8 slower</text>
 <text x="995" y="467" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.2s</text>
 <text x="995" y="479" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 2.0MB table</text>
 <text x="40" y="517" font-size="12.5" fill="#1c2330">Warm · 2,000 apps · 23,350 dep edges</text>
-<rect x="321.5" y="487.5" width="147" height="51" rx="5" fill="rgb(197,111,38)"/>
-<text x="395" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×7.4 slower</text>
+<rect x="321.5" y="487.5" width="147" height="51" rx="5" fill="rgb(201,128,40)"/>
+<text x="395" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.8 slower</text>
 <text x="395" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">10.1s</text>
 <text x="395" y="533" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">47.9k nm entries</text>
-<rect x="471.5" y="487.5" width="147" height="51" rx="5" fill="rgb(199,122,39)"/>
-<text x="545" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×5.7 slower</text>
-<text x="545" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">7.8s</text>
+<rect x="471.5" y="487.5" width="147" height="51" rx="5" fill="rgb(203,137,41)"/>
+<text x="545" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×3.9 slower</text>
+<text x="545" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">8.1s</text>
 <text x="545" y="533" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">50.2k nm entries</text>
 <rect x="621.5" y="487.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="695" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.4s</text>
+<text x="695" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">2.1s</text>
 <text x="695" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <text x="695" y="533" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">24.2k nm entries</text>
-<rect x="771.5" y="487.5" width="147" height="51" rx="5" fill="rgb(202,131,40)"/>
-<text x="845" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.4 slower</text>
-<text x="845" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">6.1s</text>
+<rect x="771.5" y="487.5" width="147" height="51" rx="5" fill="rgb(207,153,42)"/>
+<text x="845" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.6 slower</text>
+<text x="845" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">5.5s</text>
 <text x="845" y="533" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">13.2k nm entries</text>
-<rect x="921.5" y="487.5" width="147" height="51" rx="5" fill="rgb(208,158,43)"/>
-<text x="995" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×2.3 slower</text>
+<rect x="921.5" y="487.5" width="147" height="51" rx="5" fill="rgb(129,152,58)"/>
+<text x="995" y="506" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.5 slower</text>
 <text x="995" y="521" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">3.1s</text>
 <text x="995" y="533" font-size="9.5" fill="#0a0d12" opacity="0.85" text-anchor="middle">64 entries + 3.5MB table</text>
 <text x="40" y="571" font-size="12.5" fill="#1c2330">Cold store + no lockfile · 200 apps</text>
 <rect x="321.5" y="541.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
-<text x="395" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.3s</text>
+<text x="395" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.2s</text>
 <text x="395" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
 <rect x="471.5" y="541.5" width="147" height="51" rx="5" fill="#e4e8ec"/>
-<text x="545" y="572" font-size="15" fill="#6b7885" text-anchor="middle">—</text>
-<rect x="621.5" y="541.5" width="147" height="51" rx="5" fill="rgb(194,161,46)"/>
-<text x="695" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.9 slower</text>
-<text x="695" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.4s</text>
-<rect x="771.5" y="541.5" width="147" height="51" rx="5" fill="rgb(196,109,38)"/>
-<text x="845" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×7.8 slower</text>
+<text x="545" y="565" font-size="15" fill="#6b7885" text-anchor="middle">—</text>
+<text x="545" y="582" font-size="9.5" fill="#6b7885" text-anchor="middle">not measured</text>
+<rect x="621.5" y="541.5" width="147" height="51" rx="5" fill="rgb(164,157,52)"/>
+<text x="695" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.7 slower</text>
+<text x="695" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.1s</text>
+<rect x="771.5" y="541.5" width="147" height="51" rx="5" fill="rgb(196,108,38)"/>
+<text x="845" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×7.9 slower</text>
 <text x="845" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">9.7s</text>
-<rect x="921.5" y="541.5" width="147" height="51" rx="5" fill="rgb(198,117,39)"/>
-<text x="995" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×6.4 slower</text>
-<text x="995" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">8.0s</text>
+<rect x="921.5" y="541.5" width="147" height="51" rx="5" fill="rgb(198,115,39)"/>
+<text x="995" y="564" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×6.7 slower</text>
+<text x="995" y="582" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">8.2s</text>
 <text x="40" y="610" font-size="10.5" fill="#6b7885">Source:</text>
 <a href="../../bench/install-bench.json"><text x="84" y="610" font-size="10.5" fill="#1a73e8" text-decoration="underline">bench/install-bench.json</text></a>
 <text x="40" y="624" font-size="10.5" fill="#6b7885">Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew:</text>
 <text x="40" y="638" font-size="10.5" fill="#6b7885">node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present,</text>
 <text x="40" y="652" font-size="10.5" fill="#6b7885">relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir,</text>
-<text x="40" y="666" font-size="10.5" fill="#6b7885">real network — single samples, not directly comparable to the warm-store rows. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass; pnpm-isolated was not).</text>
-<text x="40" y="680" font-size="10.5" fill="#6b7885">Versions per the JSON: pnpm 12.8.1 (the Rust CLI) · bun 1.3.14 · yarn 4.17.0; the pnpm 12-vs-10 rewrite head-to-head is its own section below.</text>
+<text x="40" y="666" font-size="10.5" fill="#6b7885">real network — not directly comparable to the warm-store rows. Every cell in this section is a single sample. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass;</text>
+<text x="40" y="680" font-size="10.5" fill="#6b7885">pnpm-isolated was not). Versions per the JSON: pnpm 12.8.1 (the Rust CLI) · bun 1.3.14 · yarn 4.18.1; the pnpm 12-vs-10 rewrite head-to-head is its own section below.</text>
 <rect x="24" y="722" width="1062" height="282" rx="10" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
 <text x="40" y="746" font-size="15" fill="#1c2330" font-weight="700">CI-runner install — frozen from the committed lockfile (1,000 apps, fresh podman container per sample)</text>
 <text x="40" y="790" font-size="11.5" fill="#6b7885" font-weight="600">scenario</text>
@@ -216,18 +217,18 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <rect x="321.5" y="813.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
 <text x="395" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.0s</text>
 <text x="395" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">fastest</text>
-<rect x="471.5" y="813.5" width="147" height="51" rx="5" fill="rgb(41,139,75)"/>
-<text x="545" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">1.1s</text>
-<text x="545" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">+4% vs fastest</text>
-<rect x="621.5" y="813.5" width="147" height="51" rx="5" fill="rgb(198,115,38)"/>
-<text x="695" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×6.7 slower</text>
-<text x="695" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">7.0s</text>
+<rect x="471.5" y="813.5" width="147" height="51" rx="5" fill="rgb(46,140,74)"/>
+<text x="545" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.1 slower</text>
+<text x="545" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">1.1s</text>
+<rect x="621.5" y="813.5" width="147" height="51" rx="5" fill="rgb(198,116,39)"/>
+<text x="695" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×6.5 slower</text>
+<text x="695" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">6.7s</text>
 <rect x="771.5" y="813.5" width="147" height="51" rx="5" fill="rgb(201,129,40)"/>
-<text x="845" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.8 slower</text>
-<text x="845" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.9s</text>
+<text x="845" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.7 slower</text>
+<text x="845" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.8s</text>
 <rect x="921.5" y="813.5" width="147" height="51" rx="5" fill="rgb(194,99,37)"/>
 <text x="995" y="836" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×10 slower</text>
-<text x="995" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">10.6s</text>
+<text x="995" y="854" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">10.4s</text>
 <text x="40" y="897" font-size="12.5" fill="#1c2330">Cache restored</text>
 <rect x="321.5" y="867.5" width="147" height="51" rx="5" fill="rgb(31,138,77)"/>
 <text x="395" y="890" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">0.47s</text>
@@ -235,20 +236,20 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <rect x="471.5" y="867.5" width="147" height="51" rx="5" fill="rgb(67,143,70)"/>
 <text x="545" y="890" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×1.1 slower</text>
 <text x="545" y="908" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">0.54s</text>
-<rect x="621.5" y="867.5" width="147" height="51" rx="5" fill="rgb(194,101,37)"/>
-<text x="695" y="890" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×9.6 slower</text>
-<text x="695" y="908" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.5s</text>
+<rect x="621.5" y="867.5" width="147" height="51" rx="5" fill="rgb(195,103,37)"/>
+<text x="695" y="890" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×9.1 slower</text>
+<text x="695" y="908" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">4.3s</text>
 <rect x="771.5" y="867.5" width="147" height="51" rx="5" fill="rgb(201,127,40)"/>
 <text x="845" y="890" font-size="15.5" fill="#0a0d12" font-weight="700" text-anchor="middle">×4.9 slower</text>
 <text x="845" y="908" font-size="11.5" fill="#0a0d12" font-weight="600" text-anchor="middle">2.3s</text>
 <rect x="921.5" y="867.5" width="147" height="51" rx="5" fill="rgb(188,86,42)"/>
 <text x="995" y="890" font-size="15.5" fill="#ffffff" font-weight="700" text-anchor="middle">×21 slower</text>
-<text x="995" y="908" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">9.9s</text>
+<text x="995" y="908" font-size="11.5" fill="#ffffff" font-weight="600" text-anchor="middle">9.7s</text>
 <text x="40" y="936" font-size="10.5" fill="#6b7885">Source:</text>
 <a href="../../bench/container-install-bench.json"><text x="84" y="936" font-size="10.5" fill="#1a73e8" text-decoration="underline">bench/container-install-bench.json</text></a>
 <text x="40" y="950" font-size="10.5" fill="#6b7885">Same workspace shape as the 1,000-apps install rows above (11,898 dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm</text>
 <text x="40" y="964" font-size="10.5" fill="#6b7885">ci) — what a real CI runner actually pays; medians of 5 rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default</text>
-<text x="40" y="978" font-size="10.5" fill="#6b7885">isolated linker. Versions per the JSON: pnpm 12.8.1 · bun 1.3.14 · yarn 4.17.0.</text>
+<text x="40" y="978" font-size="10.5" fill="#6b7885">isolated linker. Versions per the JSON: pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1.</text>
 <rect x="24" y="1020" width="1062" height="390" rx="10" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
 <text x="40" y="1044" font-size="15" fill="#1c2330" font-weight="700">pnpm 12 (the Rust CLI) vs pnpm 10 (JS) — 1,000 apps / 200 libs</text>
 <text x="40" y="1088" font-size="11.5" fill="#6b7885" font-weight="600">scenario</text>

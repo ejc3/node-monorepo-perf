@@ -1,11 +1,14 @@
 // Shared helpers for the Next.js bundler benches (rspack-pnp-bench,
-// rspack-turbopack-speed-bench): the compiler-identity proof and the env/output
-// discipline both benches depend on. Kept in one place so the load-bearing trace
-// discriminator can't drift between the two scripts.
+// rspack-turbopack-speed-bench; pnp-compat-bench uses the crash signature): the
+// compiler-identity proof, the PnP failure signatures, the control-node fetch,
+// and the env/output discipline the benches depend on. Kept in one place so the
+// load-bearing discriminators cannot drift between scripts.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { CONTROL_NODE } from "./_pins.mjs";
 
 // The positive compiler proof. Next writes a span trace to .next/trace. The JS
 // webpack compiler instruments its own pipeline (webpack-compilation, seal, make,
@@ -80,11 +83,47 @@ export function scrubBundlerEnv(baseEnv) {
   return env;
 }
 
-// Apparent .next size in bytes (KiB-granular, diagnostic only). GNU du.
+// Apparent .next size in bytes (KiB-granular, diagnostic only). GNU du. Throws if
+// du did not exit 0 with a number: a failed probe must not read as "0 bytes".
 export function duApparentBytes(path) {
   const r = spawnSync("du", ["-sk", "--apparent-size", path], { encoding: "utf8" });
-  if (r.status !== 0) return 0;
-  return (parseInt(r.stdout.trim().split(/\s+/)[0], 10) || 0) * 1024;
+  const field = (r.stdout || "").trim().split(/\s+/)[0] ?? "";
+  if (r.error || r.signal || r.status !== 0 || !/^\d+$/.test(field))
+    throw new Error(
+      `du failed on ${path} (status ${r.status}, signal ${r.signal}, output "${field.slice(0, 40)}")`,
+    );
+  const bytes = Number(field) * 1024;
+  if (!Number.isSafeInteger(bytes)) throw new Error(`du reported an out-of-range size on ${path}`);
+  return bytes;
+}
+
+// Every entry under `dir` → a one-line state (file: size + mtime; symlink: its
+// target; directory: its presence), keyed by relative path. Two equal inventories
+// taken around a command mean it created, removed, rewrote and touched nothing.
+export function treeInventory(dir) {
+  const inv = new Map();
+  const stack = [""];
+  while (stack.length) {
+    const rel = stack.pop();
+    for (const e of readdirSync(join(dir, rel), { withFileTypes: true })) {
+      const p = rel ? `${rel}/${e.name}` : e.name;
+      const st = lstatSync(join(dir, p));
+      if (st.isSymbolicLink()) inv.set(p, `l:${readlinkSync(join(dir, p))}`);
+      else if (st.isDirectory()) {
+        inv.set(p, "d");
+        stack.push(p);
+      } else inv.set(p, `f:${st.size}:${st.mtimeMs}`);
+    }
+  }
+  return inv;
+}
+// The relative paths whose state differs between two inventories (added, removed,
+// or changed), sorted.
+export function inventoryDiff(before, after) {
+  const changed = [];
+  for (const [p, s] of before) if (after.get(p) !== s) changed.push(p);
+  for (const p of after.keys()) if (!before.has(p)) changed.push(p);
+  return changed.sort();
 }
 
 // Refuse a work dir that would delete the repo, $HOME, or a filesystem root when
@@ -116,3 +155,108 @@ export function cellBanner(sig, webpackCompilationSpan) {
     webpackCompilationSpan ? 1 : 0
   }`;
 }
+
+// ---- Next under Yarn PnP: the two failure signatures ---------------------------
+// (1) The config-load crash. On current node 22, `next build` under yarn PnP dies
+// while LOADING next.config, before a bundler is selected: next's config transpile
+// hook (next-config-ts/require-hook.js) reads `require.extensions['.js']` at module
+// scope, and the require() it is handed under the PnP loader has no extensions
+// table. Every builder fails identically. The signature requires BOTH the hook's
+// path in the stack AND the exact TypeError, so an unrelated failure that merely
+// mentions one of them is not recorded as this finding.
+export const isPnpConfigLoadCrash = (out) =>
+  /next-config-ts[\\/]require-hook\.js/.test(out) &&
+  /TypeError: Cannot read properties of undefined \(reading '\.js'\)/.test(out);
+
+// (2) Turbopack's own PnP failure: it has no PnP resolver and cannot find
+// next/package.json by filesystem walk (vercel/next.js#42651). The signature
+// requires BOTH the resolution-failure wording AND the unresolved target, so a
+// failure that merely prints the path `next/package.json` is not this finding.
+const TURBOPACK_RESOLVE_WORDING = /couldn't find the Next\.js package/i;
+export const isTurbopackPnpResolveFailure = (out) =>
+  TURBOPACK_RESOLVE_WORDING.test(out) && /next\/package\.json/.test(out);
+// The output line carrying that wording, bounded, persisted next to the boolean so
+// the record holds its own evidence (null when the signature did not match).
+export const turbopackPnpResolveFailureLine = (out) =>
+  isTurbopackPnpResolveFailure(out)
+    ? (out.split("\n").find((l) => TURBOPACK_RESOLVE_WORDING.test(l)) ?? "").trim().slice(0, 300)
+    : null;
+
+// The pinned older node the PnP trees are re-run under (CONTROL_NODE, _pins.mjs).
+// It is the measured evidence that the config-load crash is scoped to the node
+// version: the same installed PnP tree, the same yarn and next, behaves the old
+// way on it.
+export const CONTROL_NODE_VERSION = CONTROL_NODE.version;
+
+// Downloads the control node into `workDir` (removed with it), verifies the
+// tarball's SHA-256 against the pin BEFORE extracting or executing anything, and
+// returns its bin directory. Throws on an unsupported platform, a failed or
+// stalled download (bounded by curl's and the spawn's timeouts), a digest
+// mismatch, or a binary that does not report the pinned version.
+export function fetchControlNode(workDir) {
+  const arch = { arm64: "arm64", x64: "x64" }[process.arch];
+  const digest = arch && CONTROL_NODE.sha256[arch];
+  if (!digest || process.platform !== "linux")
+    throw new Error(`control node: unsupported platform ${process.platform}/${process.arch}`);
+  const name = `node-v${CONTROL_NODE_VERSION}-linux-${arch}`;
+  const tarball = join(workDir, `${name}.tar.xz`);
+  const dl = spawnSync(
+    "curl",
+    [
+      "-fsSL",
+      "--connect-timeout",
+      "30",
+      "--max-time",
+      "600",
+      "-o",
+      tarball,
+      `https://nodejs.org/dist/v${CONTROL_NODE_VERSION}/${name}.tar.xz`,
+    ],
+    { encoding: "utf8", timeout: 660_000 },
+  );
+  if (dl.error || dl.status !== 0)
+    throw new Error(
+      `control node download failed: ${dl.error?.message || (dl.stderr || "").slice(-400)}`,
+    );
+  const got = createHash("sha256").update(readFileSync(tarball)).digest("hex");
+  if (got !== digest)
+    throw new Error(`control node tarball sha256 ${got} does not match the pinned ${digest}`);
+  const tar = spawnSync("tar", ["-xJf", tarball, "-C", workDir], {
+    encoding: "utf8",
+    timeout: 300_000,
+  });
+  if (tar.error || tar.status !== 0)
+    throw new Error(`control node extract failed: ${tar.error?.message || tar.stderr}`);
+  // version-asserted through the same checked probe every cell's node goes through
+  return nodeBinDirFor(join(workDir, name, "bin", "node"), `v${CONTROL_NODE_VERSION}`);
+}
+
+// The bin dir that must lead PATH for a child running under `nodeExe`. Tools a
+// build spawns by name (shebang scripts, yarn's children) resolve `node` in that
+// dir, so the dir's `node` must BE the expected release: it is run (to completion,
+// exit 0) and its reported version compared. A renamed executable, a wrapper, or a
+// dir whose `node` is another release throws here instead of letting a record name
+// a node that did not run its cells.
+export function nodeBinDirFor(nodeExe, expectedVersion) {
+  const dir = dirname(nodeExe);
+  for (const exe of new Set([nodeExe, join(dir, "node")])) {
+    const v = spawnSync(exe, ["--version"], { encoding: "utf8", timeout: 60_000 });
+    const got = (v.stdout || "").trim();
+    if (v.error || v.signal || v.status !== 0 || got !== expectedVersion)
+      throw new Error(
+        `node identity: ${exe} did not exit 0 reporting ${expectedVersion} ` +
+          `(status ${v.status}, signal ${v.signal}, reported "${got}")`,
+      );
+  }
+  return dir;
+}
+
+// The env for a child that must run under a specific node: that node's bin dir
+// leads PATH, so every `node` the build spawns by name follows the binary the
+// cell was launched with. Used for BOTH sides — the bench's own node
+// (dirname(process.execPath)) and the control node — so the node a cell records
+// is the node that ran it.
+export const envForNode = (baseEnv, nodeBinDir) => ({
+  ...baseEnv,
+  PATH: `${nodeBinDir}:${baseEnv.PATH ?? ""}`,
+});
