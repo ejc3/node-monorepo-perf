@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="344" viewBox="0 0 660 344" role="img" aria-label="What each linker materializes for the same 2,000-app workspace: a hoisted linker writes one flat node_modules at the root (24,222 entries under pnpm, 13,220 under yarn), pnpm's isolated linker writes a per-package symlink tree over a virtual store linked from the content-addressable store (50,169 entries), and yarn Plug'n'Play writes no node_modules tree, only a .pnp.cjs resolver table over cache zips and unplugged native packages (64 entries, all inside the unplugged packages)." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="660" height="344" fill="#ffffff"/>
+<text x="16" y="22" font-size="12.5" fill="#1c2330" font-weight="600">hoisted: one flat tree</text>
+<text x="16" y="38" font-size="10" fill="#6b7885">pnpm hoisted · yarn node-modules</text>
+<rect x="16" y="52" width="196" height="28" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="26" y="70" font-size="10.5" fill="#1c2330">apps/&lt;app&gt; imports react</text>
+<line x1="114" y1="83" x2="114" y2="100" stroke="#6b7885" stroke-width="1.5"/><path d="M114 107L111 100L117 100z" fill="#6b7885"/>
+<text x="122" y="99" font-size="9.5" fill="#6b7885">walks up to the root</text>
+<rect x="16" y="110" width="196" height="96" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="26" y="128" font-size="10.5" fill="#1c2330" font-weight="600">node_modules/ (workspace root)</text>
+<rect x="26" y="138" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="53.5" y="151.5" font-size="9.5" fill="#1c2330" text-anchor="middle">next</text>
+<rect x="86.5" y="138" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="114" y="151.5" font-size="9.5" fill="#1c2330" text-anchor="middle">react</text>
+<rect x="147" y="138" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="174.5" y="151.5" font-size="9.5" fill="#1c2330" text-anchor="middle">react-dom</text>
+<rect x="26" y="164" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="53.5" y="177.5" font-size="9.5" fill="#1c2330" text-anchor="middle">typescript</text>
+<rect x="86.5" y="164" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="114" y="177.5" font-size="9.5" fill="#1c2330" text-anchor="middle">@demo libs</text>
+<rect x="147" y="164" width="55" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>
+<text x="174.5" y="177.5" font-size="9.5" fill="#1c2330" text-anchor="middle">· · ·</text>
+<text x="26" y="198" font-size="9.5" fill="#6b7885">packages side by side on one level</text>
+<text x="232" y="22" font-size="12.5" fill="#1c2330" font-weight="600">isolated: symlink tree</text>
+<text x="232" y="38" font-size="10" fill="#6b7885">pnpm default (bun: node_modules/.bun)</text>
+<rect x="232" y="52" width="196" height="36" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="242" y="67" font-size="10.5" fill="#1c2330" font-weight="600">apps/&lt;app&gt;/node_modules/</text>
+<text x="242" y="81" font-size="10" fill="#1c2330">react: a symlink</text>
+<path d="M330 91L330 97M330 104L330 110" stroke="#6b7885" stroke-width="1.5" fill="none"/><path d="M330 117L327 110L333 110z" fill="#6b7885"/>
+<text x="338" y="108" font-size="9.5" fill="#6b7885">symlink</text>
+<rect x="232" y="120" width="196" height="36" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="242" y="135" font-size="10.5" fill="#1c2330" font-weight="600">node_modules/.pnpm/</text>
+<text x="242" y="149" font-size="10" fill="#1c2330">react@&lt;version&gt;/node_modules/react</text>
+<line x1="330" y1="159" x2="330" y2="170" stroke="#6b7885" stroke-width="1.5"/><path d="M330 177L327 170L333 170z" fill="#6b7885"/>
+<text x="338" y="172" font-size="9.5" fill="#6b7885">files linked from</text>
+<rect x="232" y="180" width="196" height="26" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="242" y="197" font-size="10.5" fill="#1c2330" font-weight="600">content-addressable store</text>
+<text x="448" y="22" font-size="12.5" fill="#1c2330" font-weight="600">Plug'n'Play: one table</text>
+<text x="448" y="38" font-size="10" fill="#6b7885">yarn default · no node_modules tree</text>
+<rect x="448" y="52" width="196" height="28" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="458" y="70" font-size="10.5" fill="#1c2330">apps/&lt;app&gt; imports react</text>
+<line x1="546" y1="83" x2="546" y2="96" stroke="#6b7885" stroke-width="1.5"/><path d="M546 103L543 96L549 96z" fill="#6b7885"/>
+<text x="554" y="97" font-size="9.5" fill="#6b7885">PnP loader</text>
+<rect x="448" y="106" width="196" height="52" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="458" y="123" font-size="10.5" fill="#1c2330" font-weight="600">.pnp.cjs: one resolver table</text>
+<text x="458" y="137" font-size="10" fill="#1c2330">react → its cache zip</text>
+<text x="458" y="150" font-size="10" fill="#1c2330">native package → unplugged dir</text>
+<line x1="546" y1="161" x2="546" y2="170" stroke="#6b7885" stroke-width="1.5"/><path d="M546 177L543 170L549 170z" fill="#6b7885"/>
+<rect x="448" y="180" width="196" height="26" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="458" y="197" font-size="10.5" fill="#1c2330" font-weight="600">global cache: package zips</text>
+<text x="16" y="228" font-size="10.5" fill="#6b7885">node_modules entries at 2,000 apps / 300 libs — one linear scale (a bar under 1.5px is drawn at 1.5px)</text>
+<text x="16" y="250" font-size="11" fill="#1c2330" font-weight="600">pnpm 12 hoisted</text>
+<text x="212" y="250" font-size="11" fill="#1c2330" font-weight="700" text-anchor="end">24,222</text>
+<rect x="16" y="256" width="94.6" height="8" rx="3" fill="#cb711f"/>
+<text x="16" y="282" font-size="11" fill="#1c2330" font-weight="600">yarn 4 node-modules</text>
+<text x="212" y="282" font-size="11" fill="#1c2330" font-weight="700" text-anchor="end">13,220</text>
+<rect x="16" y="288" width="51.6" height="8" rx="3" fill="#6f56c4"/>
+<text x="232" y="250" font-size="11" fill="#1c2330" font-weight="600">pnpm 12 isolated</text>
+<text x="428" y="250" font-size="11" fill="#1c2330" font-weight="700" text-anchor="end">50,169</text>
+<rect x="232" y="256" width="196" height="8" rx="3" fill="#cb711f"/>
+<text x="232" y="282" font-size="11" fill="#1c2330" font-weight="600">bun</text>
+<text x="428" y="282" font-size="11" fill="#1c2330" font-weight="700" text-anchor="end">47,887</text>
+<rect x="232" y="288" width="187.1" height="8" rx="3" fill="#0e8f7e"/>
+<text x="448" y="250" font-size="11" fill="#1c2330" font-weight="600">yarn 4 PnP</text>
+<text x="644" y="250" font-size="11" fill="#1c2330" font-weight="700" text-anchor="end">64</text>
+<rect x="448" y="256" width="1.5" height="8" rx="0.75" fill="#6f56c4"/>
+<rect x="448" y="270" width="196" height="36" rx="6" fill="#fbf6e9" stroke="#eee3bb" stroke-width="1.2"/>
+<text x="458" y="284" font-size="9.5" fill="#1c2330">64 entries, all inside unplugged</text>
+<text x="458" y="297" font-size="9.5" fill="#1c2330">native packages · .pnp.cjs 3.5 MB</text>
+<line x1="16" y1="318" x2="644" y2="318" stroke="#e4e8ec"/>
+<text x="16" y="332" font-size="10" fill="#6b7885">data: bench/install-bench.json · pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1</text>
+</svg>

@@ -95,6 +95,32 @@ export const box = (x, y, w, h, tint, rx = 7) =>
 export const txt = (x, y, s, { size = 11, fill = INK, weight = "", anchor = "" } = {}) =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}"${weight ? ` font-weight="${weight}"` : ""}${anchor ? ` text-anchor="${anchor}"` : ""}>${esc(s)}</text>`;
 
+// dashed edge (the soft / conditional path), drawn as explicit segments rather than
+// stroke-dasharray: ImageMagick's internal SVG renderer paints a continuous hairline
+// under a dasharray stroke, so a dashed edge would read as solid in a PNG it rasters.
+export const dashes = (x1, y1, x2, y2, on = 6, off = 5) => {
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  if (!(len > 0)) return "";
+  const ux = (x2 - x1) / len;
+  const uy = (y2 - y1) / len;
+  const f = (n) => +n.toFixed(1);
+  // n dashes of length `on` with the gap adjusted so the first dash starts at
+  // (x1, y1) and the last ends exactly at (x2, y2) — an arrow's shaft then always
+  // meets its head. The dash count drops until the gap is at least MIN_GAP; an
+  // edge too short for two dashes and a gap is one solid segment.
+  const MIN_GAP = 2;
+  let n = Math.max(1, Math.round((len + off) / (on + off)));
+  while (n > 1 && (len - n * on) / (n - 1) < MIN_GAP) n--;
+  const step = n > 1 ? (len - on) / (n - 1) : 0;
+  let d = "";
+  for (let i = 0; i < n; i++) {
+    const s = i * step;
+    const e = n === 1 ? len : s + on;
+    d += `M${f(x1 + ux * s)} ${f(y1 + uy * s)}L${f(x1 + ux * e)} ${f(y1 + uy * e)}`;
+  }
+  return `<path d="${d}" stroke="${MUTED}" stroke-width="1.5" fill="none"/>`;
+};
+
 // arrow-ended edge. The head is an explicit triangle, not a <marker>: ImageMagick's
 // SVG fallback renderer (what `convert` uses in CI when inkscape is absent) drops
 // <marker> elements, so a marker-end head would vanish from every committed PNG.
@@ -110,7 +136,9 @@ export const arrow = (x1, y1, x2, y2, dashed = false) => {
   const by = y2 - uy * hl;
   const f = (n) => +n.toFixed(1);
   return (
-    `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(bx)}" y2="${f(by)}" stroke="${MUTED}" stroke-width="1.5"${dashed ? ` stroke-dasharray="6 5"` : ""}/>` +
+    (dashed
+      ? dashes(x1, y1, bx, by)
+      : `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(bx)}" y2="${f(by)}" stroke="${MUTED}" stroke-width="1.5"/>`) +
     `<path d="M${f(x2)} ${f(y2)}L${f(bx - uy * hw)} ${f(by + ux * hw)}L${f(bx + uy * hw)} ${f(by - ux * hw)}z" fill="${MUTED}"/>`
   );
 };

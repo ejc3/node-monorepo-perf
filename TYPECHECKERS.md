@@ -40,13 +40,37 @@ tsgo is **near-linear** (61ms/thousand at 10k → 69ms at 1M; 68.7s warm, 89.8s 
 
 - **A failing gate costs what a passing one costs**: tsgo 69.0s red vs 68.7s green at 1M (tsc, flow likewise flat).
 - **Memory** (peak RSS, full): tsgo ~54KB/module (53.7GB at 1M), Flow ~17KB/module (17.1GB), tsc ~67KB/module at its 100k anchor (6.7GB); no memory cliff on this 135GB box.
-- **Save loop** splits by mechanic: tsgo's CLI incremental costs 37.7s no-change / 53.7s one-edit at 1M — a CI tool, not a save loop. Flow's persistent server answers **one edit in 324ms at 1M** (19ms → 324ms across 100×), the fastest measured.
+- **Save loop** splits by mechanic (Figure 1): tsgo's CLI incremental costs 37.7s no-change / 53.7s one-edit at 1M — a CI tool, not a save loop. Flow's persistent server answers **one edit in 324ms at 1M** (19ms → 324ms across 100×), the fastest measured.
+
+![The save loop by mechanic at one million modules: a relaunching CLI, a rebuilding watcher, an open-file language server, and a resident checker server, on a log time axis](bench/charts/fig-save-loop.svg)
+
+[High-resolution PNG](bench/charts/fig-save-loop.png)
+
+**Figure 1.** The four mechanics differ in what they redo after an edit: the CLI relaunches and re-reads its saved incremental state, `--watch` stays resident but rebuilds the program, the LSP recomputes diagnostics for the open file only, and Flow's server keeps the checked program resident and rechecks incrementally.
+
+<details><summary>Figure 1 fields</summary>
+
+`bench/tsgo-scale-bench.json`, `points.1000000`: `tsgo.incrOneEdit.{killed,medianMs}`, `tsgo.incrPrimeMs`, `flow.incrOneEdit.{killed,medianMs}`, `flow.serverInitMs`; `versions.tsgo`, `versions.flow`, `cores`, `layers`, `tsgoInvocation`. `bench/lsp-scale-bench.json`, the `results` entry whose `modules` is 1,000,000: `tsgoWatch.oneEditRecheckMs`, `tsgoWatch.firstBuildMs`, `tsgoLsp.warm.errorAppearsMs`, `tsgoLsp.cold.coldOpenMs`; `meta.cores`, `meta.layers`, `meta.tsgoInvocation`, `meta.tsgoVersion`. The two records are drawn on one axis on the fields they share (cores, corpus depth, tsgo version and invocation); `lsp-scale-bench.json` records no architecture, mount or node version.
+
+</details>
 
 ### The daemons and codegen
 
 **Daemons** (`scripts/lsp-scale-bench.mjs` → `bench/lsp-scale-bench.json`): tsgo's `--lsp` serves the million-module program (17.5s cold open, 2.2s squiggle, 66.1GB RSS), **17× faster cold open than tsserver at the 100k anchor** (1.4s vs 24.6s). tsgo LSP completion grows with N (301,058 items at 100k, past the 120s ceiling from 250k up); tsserver stays ~1,067 items in 16–21ms.
 
-**Codegen** (`scripts/relay-codegen-bench.mjs` → `bench/relay-codegen-bench.json`; 192-core c8g.48xlarge, tsgo 7.0.2): relay-compiler over a 10,000-component tree in both dialects — codegen (~2.9s) dominates the checker (0.91s tsgo / 1.7s Flow — released 0.321, `flow-bin`; the main-branch build matters only at wedge scale). The checked-in-artifacts discipline holds up: relay's output is byte-stable on every timed no-change rerun, so a CI freshness gate (codegen + `git status --porcelain` over `__generated__` — status, not plain diff, so new untracked artifacts are caught too) costs 3.0s at 10k components and detects an edited query; the 30,000-component fleet anchor prices the same git-tracked freshness pass at 9.5s (codegen 9.48s + status 0.04s; 9.3s cold, one sample) — committing artifacts keeps the type gate build-free for ~10s of CI per pass.
+**Codegen** (`scripts/relay-codegen-bench.mjs` → `bench/relay-codegen-bench.json`; 192-core c8g.48xlarge, tsgo 7.0.2): relay-compiler over a 10,000-component tree in both dialects — codegen (~2.9s) dominates the checker (0.91s tsgo / 1.7s Flow — released 0.321, `flow-bin`; the main-branch build matters only at wedge scale). The checked-in-artifacts discipline holds up: the CI freshness gate (Figure 2) costs 3.0s at 10k components and detects an edited query; the 30,000-component fleet anchor prices the same git-tracked freshness pass at 9.5s (codegen 9.48s + status 0.04s; 9.3s cold, one sample) — committing artifacts keeps the type gate build-free for ~10s of CI per pass.
+
+![The freshness gate for checked-in codegen artifacts: a no-change codegen run, then git status over the generated directory, forking to a passing and a failing verdict](bench/charts/fig-freshness-gate.svg)
+
+[High-resolution PNG](bench/charts/fig-freshness-gate.png)
+
+**Figure 2.** Relay's output is byte-stable on every timed no-change rerun, so a codegen run over an up-to-date tree leaves `git status --porcelain` over `__generated__` with nothing to list, and any listed path — changed, or new and untracked, which a plain diff would miss — means a query and its committed artifact have drifted.
+
+<details><summary>Figure 2 fields</summary>
+
+`bench/relay-codegen-bench.json`: `components`, `samples`, `schemaTypes`, `freshness.gateMedianMs`, `freshness.gateSamplesMs`, `freshness.byteStable`, `freshness.driftDetected`; `fleetPoint.components`, `fleetPoint.samples`, `fleetPoint.codegenNoChangeMs`, `fleetPoint.statusMs`, `fleetPoint.freshnessMs`, `fleetPoint.byteStable`; `versions.relayCompiler`, `cores`.
+
+</details>
 
 Released Flow through 0.321 has a recheck-cancellation race that silently wedges its server at this scale (3 of 5 sweeps; [facebook/flow#9454](https://github.com/facebook/flow/issues/9454), fixed on main; retest `scripts/flow-wedge-retest.mjs`, evidence `bench/flow-0321-wedge-evidence.md`). The editor loop on one app's closure is in [LIMITS.md](LIMITS.md#editor-and-language-server).
 

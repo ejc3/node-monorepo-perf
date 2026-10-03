@@ -30,7 +30,19 @@ pnpm + Turborepo's single-graph, single-lockfile model has a ceiling where graph
 
 ## Remote Cache: Amortizing the O(repo) Cold Start
 
-Every CI runner starts with an empty local cache. Turborepo caches each task's outputs — the built files for a `build`, the checker's exit status and logs for a `typecheck` — keyed by a hash of that task's inputs (its own source, its dependencies' cached outputs, and global inputs like `tsconfig.base.json` and the pinned tool versions). A Turborepo remote cache (`turborepo-remote-cache@2.11.2`, localhost) shares those outputs across machines, so a later runner whose task inputs hash the same *restores* the stored output instead of recomputing it. Head-to-head per task/scale (`bench/ci-cache-bench.json`, 192-core c8g.48xlarge): typecheck restores 6.8× faster than no-cache cold at 300:100 (1.5s vs 9.9s), 6.4× at 1,000:200 (3.9s vs 24.8s); build 6.5× at 300:100 (3.8s vs 24.8s). Restore is itself O(repo) — it skips execution but pays Turbo's graph-load + hashing — so it grows with the repo (1.5s → 3.9s) and holds ~6.4–6.8× rather than widening. The ratio is specific to the box: the cold side is core-bound compute (`env.coreBound` in the record), the restore is not.
+Every CI runner starts with an empty local cache. Turborepo caches each task's outputs — the built files for a `build`, the checker's exit status and logs for a `typecheck` — keyed by a hash of that task's inputs (its own source, its dependencies' cached outputs, and global inputs like `tsconfig.base.json` and the pinned tool versions). A Turborepo remote cache (`turborepo-remote-cache@2.11.2`, localhost) shares those outputs across machines, so a later runner whose task inputs hash the same *restores* the stored output instead of recomputing it (Figure 1). Head-to-head per task/scale (`bench/ci-cache-bench.json`, 192-core c8g.48xlarge): typecheck restores 6.8× faster than no-cache cold at 300:100 (1.5s vs 9.9s), 6.4× at 1,000:200 (3.9s vs 24.8s); build 6.5× at 300:100 (3.8s vs 24.8s). Restore is itself O(repo) — it skips execution but pays Turbo's graph-load + hashing — so it grows with the repo (1.5s → 3.9s) and holds ~6.4–6.8× rather than widening. The ratio is specific to the box: the cold side is core-bound compute (`env.coreBound` in the record), the restore is not.
+
+![A shared Turborepo cache: the first runner computes and uploads, later runners restore; cold compute versus restore per task, and the tasks that still restore after a leaf-lib edit versus a foundation-lib edit](bench/charts/fig-remote-cache.svg)
+
+[High-resolution PNG](bench/charts/fig-remote-cache.png)
+
+**Figure 1.** A task's outputs are stored under a hash of its inputs, so the first runner to compute a task pays for it and uploads the result, every later runner with the same inputs downloads it instead, and an edit changes only the hashes of the tasks downstream of it — a leaf edit leaves most tasks restorable, a foundation edit none.
+
+<details><summary>Figure 1 fields</summary>
+
+`bench/ci-cache-bench.json`: per `headline` row `task`, `scale`, `apps`, `libs`, `totalTasks`, `coldNoRemoteMs`, `coldSeedMs`, `restoreMs`, `speedupVsCold`; `partialInvalidation` — `task`, `scale`, `apps`, `libs`, `totalTasks`, and per `leaf`/`foundation` `lib`, `restored`, `recomputed`, `total`; `env.cores`, `versions.remoteCacheServer`, `remoteCache.transport`, `samples.{cold,buildCold,restore}`, `concurrency`.
+
+</details>
 
 **Someone still pays the first build.** A remote cache only helps consumers after the first; the first runner computes and uploads (the "seed"). On localhost the seed is within compute noise; over a network the real seed cost is the artifact transfer.
 
@@ -49,12 +61,7 @@ The network cost grows with cache **size**. Same-region, both restores sit insid
 
 [High-resolution PNG](bench/charts/cache-network.png)
 
-**It cannot help when an edit changes everything.** A remote cache restores only artifacts an edit did not invalidate (`bench/ci-cache-bench.json`, 300:100 under `--universal 1`, 500 tasks):
-
-- **leaf edit** → **486 of 500** restored, 14 recomputed.
-- **foundation edit** → **0 of 500** restored, all recomputed.
-
-This is §3's blast radius from the cache's side: scope an edit and the cache absorbs the rest; touch a foundation and someone pays the full cold rebuild.
+**It cannot help when an edit changes everything.** A remote cache restores only artifacts an edit did not invalidate (Figure 1; `bench/ci-cache-bench.json`, 300:100 under `--universal 1`, 500 tasks): a leaf edit leaves **486 of 500** restored and 14 recomputed, a foundation edit **0 of 500** restored and all recomputed. This is §3's blast radius from the cache's side: scope an edit and the cache absorbs the rest; touch a foundation and someone pays the full cold rebuild.
 
 ## Editor and Language Server
 

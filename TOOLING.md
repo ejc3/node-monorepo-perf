@@ -6,9 +6,21 @@
 
 - pnpm-isolated (default) / pnpm-hoisted (flat)
 - bun (isolated `node_modules/.bun` store since 1.3)
-- yarn 4.18.1 under `node-modules` (flat) and PnP (its default: no `node_modules`, a `.pnp.cjs` table over global-cache zips)
+- yarn 4.18.1 under `node-modules` (flat) and PnP (its default)
 
-**cold** = no lockfile; **warm** = lockfile present, `node_modules` removed; **truly-cold** = network-cold. Every cell is a single sample, taken in the listed tool order within each scale; the fastest cold and warm cell per scale is bold. yarn-PnP's 64 entries are its unplugged native packages.
+![What each linker materializes for the same workspace: one flat hoisted node_modules, pnpm's isolated symlink tree over a content-addressable store, and yarn PnP's single .pnp.cjs table with no node_modules tree](bench/charts/fig-linker-layouts.svg)
+
+[High-resolution PNG](bench/charts/fig-linker-layouts.png)
+
+**Figure 1.** A hoisted linker writes packages side by side into one root `node_modules` that an import reaches by walking up the tree; pnpm's isolated linker gives each package its own `node_modules` of symlinks into a virtual store whose files are linked from the content-addressable store; yarn PnP writes no `node_modules` tree, only a `.pnp.cjs` table that maps each import to its package's location — a zip in the global cache, a workspace directory, or an unplugged directory for a native package.
+
+<details><summary>Figure 1 fields</summary>
+
+`bench/install-bench.json`: `scales[].apps` and `scales[].libs` (the scale matrix; the figure draws the largest, 2,000 / 300), and at that scale `pnpmHoisted.nmEntries`, `yarnNm.nmEntries`, `pnpmIsolated.nmEntries`, `bun.nmEntries`, `yarnPnp.nmEntries`, `yarnPnp.pnpCjsBytes`; `pnpmVersion`, `bunVersion`, `yarnVersion`. An entry is a path under any `node_modules` directory.
+
+</details>
+
+**cold** = no lockfile; **warm** = lockfile present, `node_modules` removed; **truly-cold** = network-cold. Every cell is a single sample, taken in the listed tool order within each scale; the fastest cold and warm cell per scale is bold. yarn-PnP's 64 entries are paths inside its unplugged native packages.
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
@@ -33,7 +45,7 @@ Truly-cold at 200/100 (network-bound, single sample) runs bun 1.2s, pnpm-hoisted
 - pnpm 12 (the Rust CLI) has no cold-resolve wall: pnpm cold is seconds — 0.67s → 8.2s isolated (12× over 10× apps), 0.65s → 2.5s hoisted (3.8×, sublinear) — at 91–196 MB peak install RSS. The pnpm-10-vs-12 rewrite is priced leg-vs-leg [below](#pnpm-12-the-rust-rewrite) (cold resolve 303.7s → 1.01s at 1,000:200).
 - The bun-vs-pnpm cold story inverts with scale. bun is ~5× faster at 200/100 (0.13s vs 0.65–0.67s) and ~1.7× faster truly-cold (1.2s vs 2.1s); at 1,000 apps **pnpm-hoisted cold beats bun** (1.2s vs 2.9s, ~2.4×; bun is 7% ahead of pnpm-isolated's 3.1s and behind yarn-PnP's 2.4s), and at 2,000 bun's cold is the slowest of the five configurations (9.6s; pnpm-hoisted 2.5s is ~3.8× faster). bun's install CPU falls with scale (235% → 38% → 22%, under one core from 1,000 apps) while pnpm-hoisted runs at 512–859%.
 - Cold fastest per scale: bun at 200 (0.13s), pnpm-hoisted at 1,000 (1.2s) and at 2,000 (2.5s). yarn-PnP is second at both larger scales (2.4s and 3.2s, ×2.0 and ×1.3 of pnpm-hoisted); both yarn linkers grow under 2× across the 10× app sweep (PnP 1.8s → 3.2s, node-modules 3.3s → 5.7s).
-- Warm relink shows the linker (pnpm-hoisted 2.1s vs pnpm-isolated 8.1s at 2,000); pnpm-hoisted is the fastest warm at 1,000/2,000 (0.78s/2.1s), bun at 200 (0.14s). bun's warm relink is no faster than its cold at any scale (0.14s/2.9s/10.1s warm vs 0.13s/2.9s/9.6s cold). Footprints at 2,000 apps: yarn-PnP 64, yarn-nm 13,220, pnpm-hoisted 24,222, bun/pnpm-isolated ~48–50k.
+- Warm relink shows the linker (pnpm-hoisted 2.1s vs pnpm-isolated 8.1s at 2,000); pnpm-hoisted is the fastest warm at 1,000/2,000 (0.78s/2.1s), bun at 200 (0.14s). bun's warm relink is no faster than its cold at any scale (0.14s/2.9s/10.1s warm vs 0.13s/2.9s/9.6s cold). Footprints at 2,000 apps (Figure 1): yarn-PnP 64, yarn-nm 13,220, pnpm-hoisted 24,222, bun/pnpm-isolated ~48–50k.
 
 bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decataloged copy.
 
@@ -84,13 +96,25 @@ it. Both defaults change CI behavior on upgrade; both are explicit config away.
 
 **Next under PnP depends on the node version.** `scripts/rspack-pnp-bench.mjs`, one Next App Router app (next 16.0.1), three builders, each PnP tree built twice — on the bench's node and on a pinned older node:
 
+![next build under Yarn PnP by node version: every builder crashes at config load on the bench's node, the same trees on the control node build with webpack and rspack while Turbopack fails to resolve next/package.json, and all three build under the node-modules linker](bench/charts/fig-next-pnp-node.svg)
+
+[High-resolution PNG](bench/charts/fig-next-pnp-node.png)
+
+**Figure 2.** The node version decides how far `next build` gets under PnP: on the newer node the config load crashes before a bundler is selected, so the three builders fail identically, and on the older node the build reaches the bundlers, where the outcome is each bundler's own PnP resolution.
+
+<details><summary>Figure 2 fields</summary>
+
+`bench/rspack-pnp-bench.json`: per cell `matrix.{pnp,pnpControlNode,nm}.{turbopack,webpack,rspack}` — `linker`, `builder`, `ok`, `exit`, `outputPresent`, `configLoadCrash`, `pnpResolveFailure`, `turbopackBanner`, `rspackBanner`, `webpackCompilationSpan`; `dotNextPresent` on a config-load cell, `pnpResolveFailureLine` on the resolution-failure cell, `treeUnchanged` on the three `matrix.pnp` cells; `matrix.pnpControlNode.node`, `versions.node`, `versions.controlNode`, `versions.next`, `versions.yarn`, `canonical`.
+
+</details>
+
 | PnP tree, builder | node 22.23.3 | node 22.22.0 (control) | node-modules, node 22.23.3 |
 |---|---|---|---|
 | Turbopack | fails at config load | fails: no PnP resolver (`next/package.json`) | builds |
 | webpack | fails at config load | builds | builds |
 | rspack (`next-rspack`) | fails at config load | builds | builds |
 
-On node 22.23.3 every builder fails the same way: the build crashes while loading `next.config` — next's config transpile hook reads `require.extensions['.js']`, which the `require()` it gets under the PnP loader does not carry — before a bundler is selected. The same installed trees on node 22.22.0 separate the bundlers: webpack and **rspack** build under PnP, and Turbopack fails at its own `next/package.json` resolution ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651)). All three build under the node-modules linker on 22.23.3, so the crash is specific to PnP. `pnp-compat-bench` records the same config-load crash on its generated app (next 16.2.9) (`bench/rspack-pnp-bench.json`, `bench/pnp-compat-bench.json`).
+The node 22.23.3 crash is in loading `next.config`: next's config transpile hook reads `require.extensions['.js']`, which the `require()` it gets under the PnP loader does not carry. On node 22.22.0 webpack and **rspack** build under PnP, and Turbopack fails at its own `next/package.json` resolution ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651)). All three build under the node-modules linker on 22.23.3, so the crash is specific to PnP. `pnp-compat-bench` records the same config-load crash on its generated app (next 16.2.9) (`bench/rspack-pnp-bench.json`, `bench/pnp-compat-bench.json`).
 
 **yarn 4 at fleet scale** (`scripts/yarn-fleet-bench.mjs`, 30,000 apps / 460 libs, the [FLEET.md](FLEET.md) shape with the fleet gate's exact devDependency set; `bench/yarn-fleet-bench.json`, yarn 4.18.1 on node 22.23.3 with `typescript@7` as the tree's checker, 64-core box, recorded pre-run 1-minute load 6.4): PnP installs the workspace **truly cold in 41.6s** (no lockfile, fresh global cache, network) and 39.9s warm — one 62MB `.pnp.cjs` instead of the node-modules farm. yarn's own node-modules linker takes **222.5s** truly cold (212.8s warm) on the same tree (4,884,956 `node_modules` entries — and its per-app package clones are CoW-or-copy: free reflinks on btrfs, real copies on ext4 — TB-scale at this shape, ENOSPC with 71GB free here); the fleet gate's bun install is 190.0s against the same workload, in the state of yarn's warm rows (lockfile present, warm store, install outputs wiped): PnP warm is 4.8× faster than bun and yarn's node-modules linker warm is 12% slower; PnP truly cold still beats bun's warm install 4.6×. The type gate closes the loop: the native-PnP tsgo build (head of the PR line consolidated in [microsoft/typescript-go#1966](https://github.com/microsoft/typescript-go/pull/1966); binary sha + git sha recorded) runs the whole-program fleet gate **through `.pnp.cjs` in 62.8s / 50.8GB — and the same binary over the node-modules tree in 64.6s / 52.4GB**, the same-binary control that isolates the linker: no linker penalty was observed in this one-timed-run-per-linker comparison (the PnP run is 2.7% lower on wall and 3% lower on peak RSS). It catches the breaking foundation rev with all 30,000 apps red in 63.9s. Stock tsgo on the same PnP tree fails with exactly 30,000 `TS2503` unresolved-name errors, the pnp-compat boundary at full scale. With the resolver in place the check shows no PnP penalty; what still stands between this stack and PnP is `next build` (above: no builder runs under PnP on node 22.23.3; on 22.22.0 webpack and rspack do and Turbopack does not) and the patch not yet being shipped.
 

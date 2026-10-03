@@ -46,20 +46,22 @@ captions.
    breaking rev turning the grid rust; leaf edit shading the leaf gate's share of
    the task set. Data: fleet-gate-bench.json + sliced-gate-bench.json + dev-sim.json.
 4. **Save loop by mechanic** (TYPECHECKERS): timeline lanes (CLI incremental / watch /
-   LSP pull / Flow server) from edit to verdict, bar length = measured ms. Data:
-   tsgo-scale-bench + lsp-scale-bench + fleet-flow-bench.
+   LSP pull / Flow server) from edit to verdict at 1M modules, bar length = measured ms
+   on a log axis. Data: tsgo-scale-bench + lsp-scale-bench.
 5. **Types-first vs inference closure** (TYPECHECKERS, the isolatedDeclarations
    story): two-panel — annotated boundary stops propagation (green wall) vs inference
    chain crossing files (dashed rust edges). Mechanism figure, no data fields; caption
    carries the trace.
 6. **Linker layouts** (TOOLING): three-panel node_modules geometry — hoisted / pnpm
-   isolated (symlink store) / PnP (no node_modules, .pnp.cjs table). Data:
-   install-bench + yarn-fleet (sizes/entries).
+   isolated (symlink store) / PnP (no node_modules tree, .pnp.cjs table). Data:
+   install-bench (nmEntries, pnpCjsBytes at its largest scale).
 7. **Freshness gate loop** (TYPECHECKERS): cycle diagram — codegen → git status →
    green/red fork, with measured costs on edges (3.0s @10k, 9.5s @30k). Data:
    relay-codegen-bench.json.
-8. **Remote cache economics** (LIMITS): seed-once/restore-many fan; edge labels from
-   ci-cache-bench (already partly charted — restyle to match).
+8. **Remote cache economics** (LIMITS): seed-once/restore-many fan; cold-vs-restore
+   bars and the leaf-vs-foundation partial-invalidation split from ci-cache-bench.
+9. **Next under PnP by node version** (TOOLING): builder × linker/node outcome matrix,
+   cells tinted by outcome with the failure kind. Data: rspack-pnp-bench.json.
 
 Styles beyond the cmux page worth adding (each maps to a real section):
 - **Grid/treemap** for blast radius (3) — the 30k-apps-red moment IS the thesis.
