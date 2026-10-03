@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="304" viewBox="0 0 660 304" role="img" aria-label="The freshness gate for checked-in codegen artifacts: a no-change relay-compiler run, then git status over the generated directory; nothing listed means the artifacts are byte-stable and the gate passes, a changed or untracked path means an edited query drifted from its artifact and the gate fails. One pass costs 3.0s at 10,000 components and 9.5s at 30,000." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="660" height="304" fill="#ffffff"/>
+<text x="16" y="22" font-size="13" fill="#1c2330" font-weight="600">freshness gate: no-change codegen, then git status over __generated__</text>
+<text x="16" y="46" font-size="16" fill="#1c2330" font-weight="700">3.0s · 10,000 components</text>
+<text x="330" y="46" font-size="16" fill="#1c2330" font-weight="700">9.5s · 30,000 components</text>
+<text x="16" y="62" font-size="10.5" fill="#6b7885">one gate pass, median of 3 samples</text>
+<text x="330" y="62" font-size="10.5" fill="#6b7885">one gate pass at the fleet anchor, 1 sample</text>
+<rect x="16" y="82" width="160" height="62" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="28" y="102" font-size="11.5" fill="#1c2330" font-weight="600">PR head</text>
+<text x="28" y="118" font-size="10" fill="#1c2330">components + the committed</text>
+<text x="28" y="132" font-size="10" fill="#1c2330">__generated__ artifacts</text>
+<rect x="236" y="82" width="170" height="62" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="248" y="102" font-size="11.5" fill="#1c2330" font-weight="600">relay-compiler</text>
+<text x="248" y="118" font-size="10" fill="#1c2330">no-change codegen:</text>
+<text x="248" y="132" font-size="10" fill="#1c2330">re-validates every document</text>
+<rect x="466" y="82" width="178" height="62" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="478" y="102" font-size="11.5" fill="#1c2330" font-weight="600">git status --porcelain</text>
+<text x="478" y="118" font-size="10" fill="#1c2330">-- src/__generated__</text>
+<text x="478" y="132" font-size="10" fill="#1c2330">lists untracked artifacts too</text>
+<line x1="180" y1="113" x2="225" y2="113" stroke="#6b7885" stroke-width="1.5"/><path d="M232 113L225 116L225 110z" fill="#6b7885"/>
+<text x="206" y="105" font-size="9.5" fill="#6b7885" text-anchor="middle">in CI</text>
+<line x1="410" y1="113" x2="455" y2="113" stroke="#6b7885" stroke-width="1.5"/><path d="M462 113L455 116L455 110z" fill="#6b7885"/>
+<text x="436" y="105" font-size="9.5" fill="#6b7885" text-anchor="middle">9.48s</text>
+<text x="436" y="129" font-size="9.5" fill="#6b7885" text-anchor="middle">@ 30,000</text>
+<rect x="444" y="198" width="200" height="62" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="456" y="218" font-size="11.5" fill="#1c2330" font-weight="600">clean → gate passes</text>
+<text x="456" y="234" font-size="10" fill="#1c2330">artifacts byte-stable on every</text>
+<text x="456" y="248" font-size="10" fill="#1c2330">timed no-change rerun</text>
+<rect x="206" y="198" width="200" height="62" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="218" y="218" font-size="11.5" fill="#1c2330" font-weight="600">dirty → gate fails</text>
+<text x="218" y="234" font-size="10" fill="#1c2330">an edited query changes its</text>
+<text x="218" y="248" font-size="10" fill="#1c2330">artifact: the drift is detected</text>
+<line x1="555" y1="147" x2="555" y2="187" stroke="#6b7885" stroke-width="1.5"/><path d="M555 194L552 187L558 187z" fill="#6b7885"/>
+<text x="563" y="168" font-size="9.5" fill="#6b7885">nothing listed</text>
+<text x="563" y="181" font-size="9.5" fill="#6b7885">0.04s @ 30,000</text>
+<line x1="486" y1="147" x2="350.6" y2="191.8" stroke="#6b7885" stroke-width="1.5"/><path d="M344 194L349.7 189L351.6 194.6z" fill="#6b7885"/>
+<text x="374" y="161" font-size="9.5" fill="#6b7885" text-anchor="end">a changed or</text>
+<text x="374" y="174" font-size="9.5" fill="#6b7885" text-anchor="end">untracked path</text>
+<path d="M202 229L196 229M190.9 229L184.9 229M179.8 229L173.8 229M168.7 229L162.7 229M157.6 229L151.6 229M146.4 229L140.4 229M135.3 229L129.3 229M124.2 229L118.2 229M113.1 229L107.1 229M102 229L96 229" stroke="#6b7885" stroke-width="1.5" fill="none"/>
+<path d="M96 229L96 223M96 217.5L96 211.5M96 206L96 200M96 194.5L96 188.5M96 183L96 177M96 171.5L96 165.5M96 160L96 154" stroke="#6b7885" stroke-width="1.5" fill="none"/><path d="M96 147L99 154L93 154z" fill="#6b7885"/>
+<text x="104" y="174" font-size="9.5" fill="#6b7885">regenerate,</text>
+<text x="104" y="187" font-size="9.5" fill="#6b7885">commit</text>
+<line x1="16" y1="278" x2="644" y2="278" stroke="#e4e8ec"/>
+<text x="16" y="292" font-size="10" fill="#6b7885">data: bench/relay-codegen-bench.json · relay-compiler 21.0.1 · 192 cores</text>
+</svg>

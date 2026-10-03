@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="426" viewBox="0 0 660 426" role="img" aria-label="A shared Turborepo cache: the first runner computes every task and uploads the outputs, and every later runner with the same task inputs restores them instead of recomputing (typecheck at 300 apps: 1.5s restore versus 9.9s no-cache cold). After a leaf-lib edit 486 of 500 tasks still restore; after a foundation-lib edit 0 do." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
+rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
+rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
+rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
+rect[fill="#e4b9a6"]{fill:#7a4630}
+}</style>
+<rect width="660" height="426" fill="#ffffff"/>
+<text x="16" y="22" font-size="13" fill="#1c2330" font-weight="600">a shared cache: one runner seeds, the rest restore</text>
+<text x="16" y="39" font-size="10.5" fill="#6b7885">192 cores · turborepo-remote-cache@2.11.2 on localhost: restore with no network latency</text>
+<rect x="16" y="54" width="178" height="70" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="28" y="75" font-size="11.5" fill="#1c2330" font-weight="600">runner 1: the seed</text>
+<text x="28" y="92" font-size="10.5" fill="#1c2330">empty local cache: computes</text>
+<text x="28" y="107" font-size="10.5" fill="#1c2330">every task, uploads the outputs</text>
+<rect x="242" y="54" width="176" height="70" rx="7" fill="#eef3fb" stroke="#b9cdec" stroke-width="1.2"/>
+<text x="254" y="75" font-size="11.5" fill="#1c2330" font-weight="600">shared cache</text>
+<text x="254" y="92" font-size="10.5" fill="#1c2330">task outputs, keyed by a</text>
+<text x="254" y="107" font-size="10.5" fill="#1c2330">hash of the task's inputs</text>
+<line x1="198" y1="89" x2="231" y2="89" stroke="#6b7885" stroke-width="1.5"/><path d="M238 89L231 92L231 86z" fill="#6b7885"/>
+<text x="218" y="81" font-size="9.5" fill="#6b7885" text-anchor="middle">upload</text>
+<rect x="466" y="54" width="178" height="22" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="478" y="69" font-size="10.5" fill="#1c2330">runner 2: restores</text>
+<line x1="422" y1="89" x2="456" y2="68.6" stroke="#6b7885" stroke-width="1.5"/><path d="M462 65L457.5 71.2L454.5 66z" fill="#6b7885"/>
+<rect x="466" y="78" width="178" height="22" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="478" y="93" font-size="10.5" fill="#1c2330">runner 3: restores</text>
+<line x1="422" y1="89" x2="455" y2="89" stroke="#6b7885" stroke-width="1.5"/><path d="M462 89L455 92L455 86z" fill="#6b7885"/>
+<rect x="466" y="102" width="178" height="22" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="478" y="117" font-size="10.5" fill="#1c2330">· · · runner R: restores</text>
+<line x1="422" y1="89" x2="456" y2="109.4" stroke="#6b7885" stroke-width="1.5"/><path d="M462 113L454.5 112L457.5 106.8z" fill="#6b7885"/>
+<text x="16" y="154" font-size="12" fill="#1c2330" font-weight="600">per task: no-cache cold compute vs restore</text>
+<text x="644" y="154" font-size="10" fill="#6b7885" text-anchor="end">bars: wall time on one linear scale</text>
+<text x="16" y="178" font-size="11" fill="#1c2330" font-weight="600">typecheck · 300 apps / 100 libs</text>
+<text x="16" y="193" font-size="10" fill="#6b7885">500 tasks · seed run 9.9s</text>
+<rect x="240" y="168" width="104.4" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="351.4070475345724" y="178" font-size="10.5" fill="#1c2330">9.9s no-cache cold</text>
+<rect x="240" y="184" width="15.4" height="12" rx="3" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="262.3800749909285" y="194" font-size="10.5" fill="#1c2330" font-weight="600">1.5s restore · ×6.8 faster</text>
+<text x="16" y="220" font-size="11" fill="#1c2330" font-weight="600">typecheck · 1,000 apps / 200 libs</text>
+<text x="16" y="235" font-size="10" fill="#6b7885">1,400 tasks · seed run 24.6s</text>
+<rect x="240" y="210" width="262" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="509" y="220" font-size="10.5" fill="#1c2330">24.8s no-cache cold</text>
+<rect x="240" y="226" width="41.1" height="12" rx="3" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="288.11212353344354" y="236" font-size="10.5" fill="#1c2330" font-weight="600">3.9s restore · ×6.4 faster</text>
+<text x="16" y="262" font-size="11" fill="#1c2330" font-weight="600">build · 300 apps / 100 libs</text>
+<text x="16" y="277" font-size="10" fill="#6b7885">400 tasks · seed run 25.0s</text>
+<rect x="240" y="252" width="261.8" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="508.7676087570052" y="262" font-size="10.5" fill="#1c2330">24.8s no-cache cold</text>
+<rect x="240" y="268" width="40.4" height="12" rx="3" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<text x="287.40438656614117" y="278" font-size="10.5" fill="#1c2330" font-weight="600">3.8s restore · ×6.5 faster</text>
+<text x="16" y="306" font-size="12" fill="#1c2330" font-weight="600">after an edit: what still restores</text>
+<text x="644" y="306" font-size="10" fill="#6b7885" text-anchor="end">typecheck, 300 apps / 100 libs, 500 tasks</text>
+<text x="16" y="330" font-size="11" fill="#1c2330" font-weight="600">leaf-lib edit</text>
+<text x="16" y="345" font-size="10" fill="#6b7885">@demo/lib-100</text>
+<rect x="240" y="324" width="253.7" height="12" rx="3" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
+<rect x="495.7" y="324" width="6.3" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="509" y="330" font-size="10.5" fill="#1c2330" font-weight="600">486 of 500 restored</text>
+<text x="509" y="344" font-size="10.5" fill="#1c2330">14 recomputed</text>
+<text x="16" y="370" font-size="11" fill="#1c2330" font-weight="600">foundation-lib edit</text>
+<text x="16" y="385" font-size="10" fill="#6b7885">@demo/lib-001</text>
+<rect x="240" y="364" width="262" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
+<text x="509" y="370" font-size="10.5" fill="#1c2330" font-weight="600">0 of 500 restored</text>
+<text x="509" y="384" font-size="10.5" fill="#1c2330">500 recomputed</text>
+<line x1="16" y1="400" x2="644" y2="400" stroke="#e4e8ec"/>
+<text x="16" y="414" font-size="10" fill="#6b7885">data: bench/ci-cache-bench.json · headline · partialInvalidation</text>
+</svg>

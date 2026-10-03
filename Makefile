@@ -68,7 +68,7 @@ typecheck-whole: ## One-command whole-workspace type gate (single tsgo program f
 fleet-chart: ## Render the fleet-scale infographic SVG + high-res PNG from the fleet bench JSONs
 	node scripts/fleet-chart.mjs
 
-figures: ## Render the mechanism figures (sliced gate, blast radius, O(repo) vs O(closure)) SVG + PNG
+figures: ## Render the mechanism figures (sliced gate, blast radius, O(repo) vs O(closure), save loop, freshness gate, linker layouts, Next under PnP, remote cache) SVG + PNG
 	node scripts/figures.mjs
 
 fleet-verify: ## Recompute the generated tree's graph metrics vs the fleet targets -> bench/fleet-shape.json

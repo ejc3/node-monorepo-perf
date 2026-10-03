@@ -810,7 +810,9 @@ Shared helpers the bench scripts import rather than run directly:
 - `scripts/_chartstyle.mjs`: the shared chart/figure visual system (diagram-style-spec.md)
   — palette + box tints, `TOOL_COLORS` (the stable per-tool hues, see the chart
   conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
-  aria label, system-ui), `box`/`txt`/`arrow`/`footer`/`sectionFrame`, the ×1/×2/×10/×100
+  aria label, system-ui), `box`/`txt`/`arrow`/`dashes`/`footer`/`sectionFrame` (a dashed
+  edge is explicit segments, not `stroke-dasharray`, which ImageMagick's internal renderer
+  underlines with a hairline), the ×1/×2/×10/×100
   heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
   painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
   (the guard a two-record figure calls before drawing the records as one contrast: named
@@ -930,15 +932,41 @@ two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
 `charts.yml` byte-gate.
 `bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core, the latter also
 on a c8gb.48xlarge with `SLICE_KS="2 4 8 16 24 32 48"`) FLEET.md's "The Sliced Gate" section reads.
-`figures.mjs` renders the three mechanism figures (`make figures`; SVG + `.png`, same
-contract, same `charts.yml` byte-gate): `bench/charts/fig-sliced-gate.svg` (one-program
+`figures.mjs` renders the eight mechanism figures (`make figures`; SVG + `.png`, same
+contract, same `charts.yml` byte-gate; `node scripts/figures.mjs <name>…` renders only
+the named ones): `bench/charts/fig-sliced-gate.svg` (one-program
 gate vs the K-slice fan vs the union check, from the two sliced-gate records; asserts
 `unionCheck.matchesWholeProgram`) and `bench/charts/fig-blast-radius.svg` (foundation rev
 turns the 30,000-app grid rust vs a leaf edit, from `fleet-gate-bench.json` +
 `sliced-gate-bench.json` + `dev-sim.json`'s `blast` rung), both embedded in FLEET.md, and
 `bench/charts/fig-orepo-oclosure.svg` (the thesis: a whole-repo selection vs one app's closure,
 from `fleet-gate-bench.json` `turboGate` + `results.json`'s largest scale), embedded in
-the README. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
+the README; `bench/charts/fig-save-loop.svg` (one edit to a verdict at the 1,000,000-module
+point, a lane per mechanic on a log axis: tsgo CLI incremental, `--watch`, the LSP squiggle,
+Flow's server, each with its one-time entry cost; from `tsgo-scale-bench.json` +
+`lsp-scale-bench.json`, `assertComparable` on cores/layers/tsgo version/invocation — the
+lsp record carries no arch, mount or node version to compare — asserts the flow-main
+provenance and the resident-servers < watch < CLI ordering) and
+`bench/charts/fig-freshness-gate.svg` (codegen → `git status` → the green/red fork with
+the 10,000-component gate cost and the 30,000-component fleet anchor, from
+`relay-codegen-bench.json`; asserts `byteStable` + `driftDetected`, that the fleet
+split sums to its total, and the bench's canonical knob tuple — 10,000 components, 3
+samples, 100 schema types, 30,000 fleet components), both embedded in TYPECHECKERS.md; `bench/charts/fig-linker-layouts.svg`
+(hoisted vs pnpm-isolated vs yarn-PnP layouts with the `nmEntries` counts at
+`install-bench.json`'s largest scale; asserts the canonical scale matrix, PnP the fewest
+entries, and isolated more than hoisted) and `bench/charts/fig-next-pnp-node.svg` (the builder × linker/node outcome
+matrix from `rspack-pnp-bench.json`; every cell is classified from its recorded evidence
+and asserted to be the outcome the figure draws, with `treeUnchanged` required for the
+same-trees column), both embedded in TOOLING.md; and
+`bench/charts/fig-remote-cache.svg` (seed → shared cache → restore fan, cold compute vs
+restore per `headline` row, and the `partialInvalidation` leaf-vs-foundation split, from
+`ci-cache-bench.json`; asserts the default row set, sample counts and concurrency,
+restore < cold, the recorded speedup, and that a foundation edit restores nothing; the
+core count is read and labeled, not pinned), embedded in LIMITS.md. `install-bench.json`,
+`relay-codegen-bench.json` and `ci-cache-bench.json` carry no canonical flag, so those
+three figures pin the knobs named above and throw on a record run at other values. Each
+doc embed of these five carries a collapsed `<details>` list of the fields its figure
+reads. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
 edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell
 grammar does not apply; determinism, need()-asserted fields, and the no-marketing rule do.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,

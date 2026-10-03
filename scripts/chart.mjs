@@ -302,6 +302,11 @@ const external = new Set([
   "fig-sliced-gate.svg",
   "fig-blast-radius.svg",
   "fig-orepo-oclosure.svg",
+  "fig-save-loop.svg",
+  "fig-freshness-gate.svg",
+  "fig-linker-layouts.svg",
+  "fig-next-pnp-node.svg",
+  "fig-remote-cache.svg",
 ]);
 // Under CHART_STRICT=1 (CI), a doc-linked chart this script owns but did not regenerate
 // is a hard failure: keeping the old file would sail through the byte-gate while the
