@@ -82,14 +82,15 @@ Two operations are genuinely O(repo) and cannot be scoped away:
   no-lockfile cold-resolve is 3.0s at 1,000:200 — within 0.5% of a frozen warm-store install
   (`bench/install-modes-bench.json`; the JS CLI paid 303.7s on that resolve,
   `bench/pnpm12-bench.json`). The pnpm-12-vs-bun head-to-head is measured
-  (`bench/install-bench.json`): bun cold is ~6× faster at 200 apps and ~1.9× truly-cold
-  (1.3s vs 2.4s); **pnpm-hoisted is 1.5–2.5× faster than bun cold at the measured 1,000- and
+  (`bench/install-bench.json`): bun cold is ~5× faster at 200 apps and ~1.7× truly-cold
+  (1.2s vs 2.1s); **pnpm-hoisted is 2.4–3.8× faster than bun cold at the measured 1,000- and
   2,000-app points** and the
-  fastest warm there (0.9s/1.4s), with bun's cold the slowest configuration at 2,000. yarn-PnP is
-  fastest cold at 2,000 (3.3s, pnpm-hoisted within 4%), but PnP can't run
+  fastest cold and warm there (1.2s/2.5s cold, 0.78s/2.1s warm), with bun's cold the slowest
+  configuration at 2,000. yarn-PnP is second cold at both (2.4s/3.2s), but PnP can't run
   stock tsgo or Next's default Turbopack
-  (`bench/pnp-compat-bench.json`; green paths exist via native-PnP tsgo and `next build` with
-  webpack/rspack). bun-vs-yarn reconciliation in
+  (`bench/pnp-compat-bench.json`; native-PnP tsgo is the green path for the checker, and
+  `next build` under PnP is node-version-scoped: webpack/rspack build on node 22.22.0, every
+  builder fails on 22.23.3, `bench/rspack-pnp-bench.json`). bun-vs-yarn reconciliation in
   [OPTIMAL-STACK.md](OPTIMAL-STACK.md#installing-the-workspace); yarn as rollout driver vetted in
   [ROLLOUT.md](ROLLOUT.md#yarn-as-a-driver).
 - **A whole-repo dist build** scales with package count.

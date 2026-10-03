@@ -349,8 +349,9 @@ const output = {
     `On a generated ${PAGES}-route App Router app under the node-modules linker, cold build ` +
     `speed ranks ${rankCold.map((r) => `${r.builder} ${r.coldMs}ms`).join(" < ")} ` +
     `(×${ratios.turbopack}/${ratios.webpack}/${ratios.rspack} turbopack/webpack/rspack vs the ` +
-    `fastest). Turbopack is Vercel's optimized default and leads here, but it does not run under ` +
-    `Yarn PnP; among the PnP-capable bundlers rspack builds faster than webpack. Each build's ` +
+    `fastest). Turbopack is Vercel's optimized default and leads here, but it has no Yarn PnP ` +
+    `resolver; of the two bundlers that do resolve PnP (rspack-pnp-bench records on which node ` +
+    `versions a PnP build runs at all), rspack builds faster than webpack. Each build's ` +
     `compiler is proven from Next's span trace, so the numbers are the named bundler, not a fallback.`,
 };
 

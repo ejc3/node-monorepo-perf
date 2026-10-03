@@ -35,16 +35,18 @@ type error in any of the 4,000 apps before merge, fast.
 present, `node_modules` cold — the warm-store clone/CI-runner materialization case;
 `install.storeWarm: true`). One-time
 setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
-Against pnpm 12.8.1 (the Rust CLI) the full re-resolve is scale-dependent — bun ~6× faster
-at 200 apps, pnpm-hoisted 1.5–2.5× faster than bun at 1,000–2,000 — and the fresh CI-runner
-frozen install is a near-tie (bun 1.04s vs pnpm 1.08s at 1,000 apps,
-`bench/container-install-bench.json`). At 2,000 apps yarn-PnP is fastest cold (3.3s, with
-pnpm-hoisted within 4%) and pnpm-hoisted fastest warm (1.4s). Per-cell numbers
+Against pnpm 12.8.1 (the Rust CLI) the full re-resolve is scale-dependent — bun ~5× faster
+at 200 apps, pnpm-hoisted 2.4–3.8× faster than bun at 1,000–2,000 — and on the fresh CI-runner
+frozen install bun is 6% ahead (1.03s vs pnpm 1.09s at 1,000 apps,
+`bench/container-install-bench.json`). At 2,000 apps pnpm-hoisted is fastest cold (2.5s, with
+yarn-PnP second at 3.2s) and fastest warm (2.1s). Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
 work; measured at 20:10 in `bench/pnp-compat-bench.json` and at full fleet scale in
 `bench/yarn-fleet-bench.json`, where stock tsgo fails with 30,000 unresolved-name errors and the
-native-PnP build runs the gate through `.pnp.cjs`), with green paths
+native-PnP build runs the gate through `.pnp.cjs`). The checker's green path is the native-PnP
+tsgo; `next build` under PnP builds via webpack/rspack on node 22.22.0 and fails on every
+builder on node 22.23.3
 (`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`;
 [TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
@@ -57,8 +59,9 @@ shares it across every importing app, skips the per-lib dist builds. At 4,000:40
 typechecks the tree in **1.59s**, peak RSS **857MB**. Typecheck-only;
 emits no `dist`.
 
-The integrated alternative, Vite+'s `vp check`, takes 2.44s on a 920-file corpus where this
-stack's gate shape takes 0.77s (`bench/vite-plus-tools-bench.json`).
+The integrated alternative, Vite+'s `vp check`, takes 2.56s on a 920-source-file corpus (921 files for `vp check`, which also checks the root
+`vite.config.ts`) where this
+stack's gate shape takes 0.80s (`bench/vite-plus-tools-bench.json`).
 
 ## Catching a Breaking Change
 

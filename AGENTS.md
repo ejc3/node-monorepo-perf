@@ -199,52 +199,79 @@ One command each for the O(repo)-vs-O(closure) thesis:
   installed under PnP AND node-modules (the CONTROL) by the same pinned yarn; oxlint / tsc
   lib build / turbo focused typecheck / tsgo / `next build` probed through yarn in both,
   with `turbopack.root` pinned in both trees (key validity asserted: a config-key
-  rejection in the control fails the bench; the recorded PnP failure persists with the
-  pin and names the unresolvable next/package.json). A tool failing BOTH trees hard-fails
+  rejection in the control fails the bench; each tree's next-build row records
+  `configLoadCrash` from the shared `isPnpConfigLoadCrash` signature, and `versions`
+  carries the catalog `next` and the node version). A tool failing BOTH trees hard-fails
   the bench (scaffold problem); a
   signal-killed tool is a harness fault, not a finding; tsgo/next probe only after the
   turbo closure build succeeded in that tree (else recorded skipped, not misattributed);
   oxlint's exit-0 is backed by a file-count parity assert across trees (`--format=json`
   `number_of_files`). A tool passing the control and failing PnP is a PnP incompatibility
-  (tsgo fails with TS2503 + TS2307, and `next build` fails because Turbopack can't locate
-  next/package.json by fs walk; tsc/turbo/oxlint work); ms fields are single yarn-exec
-  samples, diagnostic only →
+  (tsgo fails with TS2503 + TS2307, and `next build` crashes while loading next.config on
+  node 22.23.3 — the node-version split is measured in rspack-pnp-bench;
+  tsc/turbo/oxlint work); the oxlint probe excludes `**/node_modules/**` in both trees (the
+  node-modules linker nests a typescript copy under every workspace once the root pins
+  typescript@7 and the packages typescript 6); a `yarnTypescriptPatch` two-sided control,
+  measured first, installs a typescript-only PnP project under the pinned yarn (must exit 0,
+  write `.pnp.cjs`, and resolve typescript at the pin) and under `YARN_PRE_TS7_PATCH_VERSION`
+  (4.17.0: must fail in its builtin compat/typescript patch with ENOENT on
+  `typescript/lib/_tsc.js`, which the native typescript@7 does not ship — locator, ENOENT, and
+  path all required) — the reason for the yarn pin; yarn runs under the bench's own node
+  (`process.execPath`); the oxlint file counts must be equal AND positive; ms fields are single
+  yarn-exec samples, diagnostic only →
   `bench/pnp-compat-bench.json`, folded into TOOLING.md
   ("[yarn PnP Toolchain Compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)")
   + OPTIMAL-STACK/LIMITS.
 - `node scripts/tsgo-pnp-bench.mjs` (`TSGO_PNP_BIN`=patched tsgo, `TSGO_PNP_WORK` default
   `/mnt/fcvm-btrfs/tsgo-pnp-bench`, `TSGO_PNP_KEEP=1`, `TSGO_PNP_ALLOW_BUSY=1`): closes the
-  pnp-compat gap by pricing tsgo's **native PnP support** (upstream microsoft/typescript-go#460)
-  and the Next.js build matrix. Scaffolds an app importing a workspace lib + a leaf npm pkg
+  pnp-compat gap by pricing tsgo's **native PnP support** (upstream
+  microsoft/typescript-go#460). Scaffolds an app importing a workspace lib + a leaf npm pkg
   (react, a cache zip) + a peer-dep pkg (react-dom, which Yarn virtualizes under
   `.yarn/__virtual__`), installed at Yarn's PnP defaults (inlined `.pnp.cjs`, no sidecar) and
   under the node-modules linker (CONTROL). Matrix: stock tsgo (repo pin) vs patched tsgo
-  (`TSGO_PNP_BIN`, provenance recorded) × PnP vs node-modules, recording exit / error-code
-  histogram / program `--listFiles` count; a seeded TS2322 red control asserts patched tsgo
-  still type-checks (not skips) under PnP. Next matrix: `next build --webpack` (builds under
-  PnP) vs Turbopack (fails, `next/package.json` signature asserted) under PnP, plus Turbopack
-  under node-modules (builds). Asserts: stock PnP fails w/ TS2307, patched PnP === control ===
-  0 errors, webpack-PnP builds, Turbopack-PnP fails, Turbopack-nm builds. Without `TSGO_PNP_BIN`
-  only the stock+Next columns run → gitignored partial (canonical only on a patched run).
+  (`TSGO_PNP_BIN`, git provenance required for a canonical run) × PnP vs node-modules, recording
+  exit / error-code histogram / program size (unique path-only `--listFiles` lines; diagnostic
+  lines are excluded and an unclassifiable line fails the bench); a seeded TS2322 red control
+  asserts patched tsgo still type-checks (not skips) under PnP (exit 1 + exactly one TS2322).
+  Asserts: stock PnP fails with exit 1 and exactly the app's three TS2307 (one per import),
+  patched PnP === control === exit 0 with 0 errors. Every Node-based measured child — yarn
+  and the stock checker's node shim, run as `node <shim>` — runs under the bench's own node
+  (`process.execPath`, its bin dir asserted to hold that release and leading PATH). `next build`
+  under PnP is measured by rspack-pnp-bench (one bench owns that matrix). Without `TSGO_PNP_BIN`
+  only the stock column runs → gitignored partial (canonical only on a patched run).
   Self-contained (btrfs work dir, removed on exit unless `TSGO_PNP_KEEP=1`), no worktree →
   `bench/tsgo-pnp-bench.json`, folded into TOOLING.md
-  ("[Closing the Gap: Native PnP for tsgo, and Next Under PnP](TOOLING.md#closing-the-gap-native-pnp-for-tsgo-and-next-under-pnp)").
+  ("[yarn PnP toolchain compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)").
 - `node scripts/rspack-pnp-bench.mjs` (`RSPACK_PNP_WORK` default `/mnt/fcvm-btrfs/rspack-pnp-bench`,
   `RSPACK_PNP_KEEP=1`, `RSPACK_PNP_ALLOW_BUSY=1`): the **fast-Next-bundler-under-PnP** question.
   Turbopack has no PnP resolver (vercel/next.js#42651, declined + locked); rspack added one
   (web-infra-dev/rspack#13047) and Next's `next-rspack` (`withRspack`) carries it through. One Next
   App Router app (next + react + react-dom, react-dom virtualized under `.yarn/__virtual__`), each
   builder invoked the one way it works (turbopack default no-flag, webpack `--webpack`, rspack via
-  `withRspack` + no flag), under both linkers: PnP (turbopack **fails** with the `next/package.json`
-  resolution error, non-zero exit asserted, while webpack + rspack build) and node-modules (all
-  three build). Which bundler ran is PROVEN from Next's `.next/trace` (the JS webpack compiler emits
+  `withRspack` + no flag), in three asserted groups: PnP on the bench's node (node 22.23.3: all
+  three fail with the config-load-crash signature, before a bundler is selected), the SAME
+  installed PnP trees on the pinned control node (22.22.0: turbopack **fails** with the
+  `next/package.json` resolution error while webpack + rspack build), and node-modules on the
+  bench's node (all three build). Which bundler ran is PROVEN from Next's `.next/trace` (the JS webpack compiler emits
   `webpack-compilation`/`seal`/`make` spans; rspack native-Rust emits none, only the outer
   `run-webpack` wrapper; turbopack emits `run-turbopack`), so a silent webpack fallback can't read
   as rspack; a build counts only with a populated `.next` (BUILD_ID + routes/build manifests); PnP
-  cells assert no `node_modules`. Shared identity/env/output helpers in `scripts/_next-bundler-lib.mjs`.
+  cells assert no `node_modules`. Every cell runs under an explicit node binary with its dir leading PATH (the bench's
+  `process.execPath`, or the control node: `CONTROL_NODE` in `_pins.mjs`, tarball SHA-256-verified
+  before extraction, version-asserted; either way the dir leading PATH is asserted to hold that
+  same release, `nodeBinDirFor`), and a build with no exit code is a harness fault, never a
+  finding. The config-load cells additionally assert no bundler started (no `.next` directory at
+  all — recorded per cell as `dotNextPresent` — no banner, no compilation span) and, before the
+  control node builds the same tree, that its file inventory (path/size/mtime) is unchanged
+  (`treeUnchanged`). Turbopack's
+  resolution-failure signature requires both the wording and the `next/package.json` target, and
+  the matching line is persisted (`pnpResolveFailureLine`); the compiler proofs are mutually
+  exclusive in every cell. Shared identity/env/output helpers, both PnP failure signatures
+  (`isPnpConfigLoadCrash`, `isTurbopackPnpResolveFailure`), the node-identity assert, and the
+  control-node fetch live in `scripts/_next-bundler-lib.mjs`.
   Self-contained (btrfs work dir, removed unless `RSPACK_PNP_KEEP=1`), env-scrubbed, load-guarded, no
   worktree → `bench/rspack-pnp-bench.json`, folded into TOOLING.md
-  ("[The Fast Bundler Under PnP: rspack](TOOLING.md#the-fast-bundler-under-pnp-rspack)").
+  ("[yarn PnP toolchain compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)").
 - `node scripts/rspack-turbopack-speed-bench.mjs` (`SPEED_PAGES` 60, `SPEED_COMPONENTS` 30,
   `SPEED_SAMPLES` 3, `SPEED_WORK` default `/mnt/fcvm-btrfs/rspack-speed-bench`, `SPEED_KEEP=1`,
   `SPEED_ALLOW_BUSY=1`): the defensible **Turbopack-vs-rspack-vs-webpack build-SPEED** number the
@@ -257,7 +284,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   cold/warm medians + samples + the cold ranking/ratios. Non-canonical knobs → gitignored partial.
   Core-bound, load-guarded, self-contained (btrfs work dir, removed unless `SPEED_KEEP=1`), no
   worktree → `bench/rspack-turbopack-speed-bench.json`, folded into TOOLING.md
-  ("[Build Speed: Turbopack vs rspack vs webpack](TOOLING.md#build-speed-turbopack-vs-rspack-vs-webpack)").
+  ("[yarn PnP toolchain compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)", the Build speed paragraph).
 - `node scripts/fleet-flow-bench.mjs` (`FLEET_FLOW_APPS`/`FLEET_FLOW_WORK`/`FLEET_FLOW_KEEP=1`/
   `FLEET_FLOW_ALLOW_BUSY=1`, `FLOW_BIN`+`FLOW_SOURCE` as in tsgo-scale-bench): **Flow on the
   fleet shape** — mirrors a generated fleet tree module-for-module in Flow's dialect (876,440
@@ -434,7 +461,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   isolation per point; persist/promote partial protection; RSS via continuous
   sampler. Self-contained (corpus under WORK, removed on exit unless KEEP=1),
   load-guarded → `bench/lsp-scale-bench.json`, folded into TYPECHECKERS.md
-  ("[The Daemons at a Million Files](TYPECHECKERS.md#the-daemons-at-a-million-files)").
+  ("[The daemons and codegen](TYPECHECKERS.md#the-daemons-and-codegen)").
 - `node scripts/relay-codegen-bench.mjs` (`RELAY_COMPONENTS` default 10000 canonical,
   `RELAY_SAMPLES` 3, `RELAY_TYPES` 100, `FLOW_BIN`/`FLOW_SOURCE` as in tsgo-scale-bench,
   `RELAY_WORK`, `RELAY_KEEP=1`, `RELAY_ALLOW_BUSY=1`, `RELAY_FLEET_COMPONENTS` default 30000
@@ -785,7 +812,7 @@ Shared helpers the bench scripts import rather than run directly:
   conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
   aria label, system-ui), `box`/`txt`/`arrow`/`footer`/`sectionFrame`, the ×1/×2/×10/×100
   heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
-  painters, and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
+  painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
@@ -806,7 +833,9 @@ Shared helpers the bench scripts import rather than run directly:
   `ts6Tsc`/`ts6Tsserver`, and `assertTs7`/`assertTs6` (every bench asserts the resolved
   binary's version once, untimed, before timing it). The generated `typecheck:tsgo`
   task keeps its NAME (turbo.json, benches, and docs reference it) but runs the native
-  tsc via an absolute `node <shim>` command in the gitignored manifests.
+  tsc via the relative `node ../../node_modules/typescript/bin/tsc` command (portable across
+  checkouts; `generate.mjs` hard-fails unless it resolves; a temp scaffold that installs after
+  generating passes `--defer-install` and asserts typescript@7 itself after its install).
 - `scripts/_wyhash11.mjs`: bit-exact port of bun's legacy Wyhash11;
   `bunWorkspaceNameKey(name)` is the u32-truncated key behind bun's workspace-name
   duplicate check (oven-sh/bun#36386). Imported by `generate.mjs` for its
@@ -971,8 +1000,8 @@ relying on a contributor to re-render them. Docs: [README.md](README.md) (overvi
 scaling table + dev-sim), [TOOLING.md](TOOLING.md)
 (install / build / lint comparisons, incl. the pnpm-12 Rust-rewrite head-to-head from `bench/pnpm12-bench.json`, ESLint-vs-oxlint from `bench/lint-bench.json`
 and the five-way CI-runner frozen install from `bench/container-install-bench.json` and the PnP
-toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo + Next-build
-matrix that closes it from `bench/tsgo-pnp-bench.json`, plus the fast-bundler-under-PnP matrix and the
+toolchain-compat pricing from `bench/pnp-compat-bench.json` (and the native-PnP-for-tsgo
+matrix that closes it from `bench/tsgo-pnp-bench.json`, plus the Next-under-PnP builder × node-version matrix and the
 Turbopack-vs-rspack-vs-webpack build-speed numbers from `bench/rspack-pnp-bench.json` +
 `bench/rspack-turbopack-speed-bench.json`) and the Vite+ task-runner + tool-layer pricing from `bench/vite-task-bench.json` + `bench/vite-plus-tools-bench.json`, and "yarn 4 at fleet scale" from `bench/yarn-fleet-bench.json`), [LIMITS.md](LIMITS.md) (what stays O(repo),
 incl. the TEST-execution axis O(repo)-vs-O(closure) + foundation test blast radius
@@ -995,9 +1024,9 @@ traced to a `bench/*.json`), [ROLLOUT.md](ROLLOUT.md) (advancing an internal cor
 wave-based rollout, driven with bun: the lockfile-not-the-range determinism boundary with frozen vs
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm 12 as a
-head-to-head whose install-speed story is scale-dependent (bun ~6× faster cold at 200 apps, ~1.9×
-truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; CI frozen container a
-near-tie), the direct-clean vs
+head-to-head whose install-speed story is scale-dependent (bun ~5× faster cold at 200 apps, ~1.7×
+truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; bun 6% ahead on the fresh CI
+frozen container), the direct-clean vs
 universal-republish-fanout
 distinction, expand/migrate/contract for breaking changes, gating the artifact as well as the source,
 the pnpm-12 lockfile-portability caveat measured as a negative control (packageManagerDependencies

@@ -58,9 +58,10 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
 - [x] dev-sim
 - [x] editor-loop-bench (both sweeps)
 - [ ] real-app-bench (tsgo GA may change the adaptation-friction rows; that is data)
-- [ ] pnp-compat-bench, tsgo-pnp-bench (needs TSGO_PNP_BIN)
+- [x] pnp-compat-bench
+- [ ] tsgo-pnp-bench (needs TSGO_PNP_BIN; re-run pending on the file-count parser + node-identity fixes)
 - [x] vite-task-bench
-- [ ] vite-plus-tools-bench
+- [x] vite-plus-tools-bench
 - [x] lint-bench (type-aware row rides the checker substrate)
 - [x] measure.mjs sweep — the README core scaling table (200 → 20,000 apps;
       `results.json` holds this one sweep, every row on pnpm 12.8.1)

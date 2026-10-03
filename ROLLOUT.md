@@ -15,27 +15,29 @@ lockfile, fresh `node_modules`, warm store):
 
 | workspace | pnpm 12.8.1 cold (isolated / hoisted) | bun cold | faster |
 |---|---|---|---|
-| 200 apps / 100 libs | 0.83s / 0.81s | 0.14s | bun ~6× |
-| 1,000 apps / 200 libs | 3.1s / 1.4s | 2.1s | pnpm-hoisted ~1.5× |
-| 2,000 apps / 300 libs | 7.7s / 3.4s | 8.7s | pnpm-hoisted ~2.5× |
+| 200 apps / 100 libs | 0.67s / 0.65s | 0.13s | bun ~5× |
+| 1,000 apps / 200 libs | 3.1s / 1.2s | 2.9s | pnpm-hoisted ~2.4× |
+| 2,000 apps / 300 libs | 8.2s / 2.5s | 9.6s | pnpm-hoisted ~3.8× |
 
-Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.3s vs pnpm-hoisted 2.4s, fresh store + network,
-~1.9×); pnpm-hoisted wins warm at 1,000–2,000 (0.9s/1.4s vs bun's 3.5s/10.1s). pnpm 12's Rust CLI removed pnpm 10's
+Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.2s vs pnpm-hoisted 2.1s, fresh store + network,
+~1.7×); pnpm-hoisted wins warm at 1,000–2,000 (0.78s/2.1s vs bun's 2.9s/10.1s). pnpm 12's Rust CLI removed pnpm 10's
 cold-resolve wall (303.7s → 1.01s at 1,000:200, `bench/pnpm12-bench.json`). Every fresh container or clone
 re-materializes from the committed lockfile,
-and the CI-runner frozen install is a near-tie (`bench/container-install-bench.json`, 1,000 apps): **bun 1.04s
-vs pnpm 1.08s empty-cache; bun 0.47s vs pnpm 0.54s cache-restored** (fresh-runner yarn-PnP 4.9s, yarn-nm 7.0s, npm
-10.6s; cache-restored 2.3s / 4.5s / 9.9s). pnpm
+and on the CI-runner frozen install bun leads pnpm by 6% empty-cache and 15% cache-restored
+(`bench/container-install-bench.json`, 1,000 apps): **bun 1.03s
+vs pnpm 1.09s empty-cache; bun 0.47s vs pnpm 0.54s cache-restored** (fresh-runner yarn-PnP 4.8s, yarn-nm 6.7s, npm
+10.4s; cache-restored 2.3s / 4.3s / 9.7s). pnpm
 12 is a fully capable driver — the rungs below measure parity on catalog lanes, `workspace:` catalog values, and the
 publish rewrite, with pnpm auto-freezing in CI where bun needs a committed bunfig — so the choice between bun and
 pnpm 12 rests on the scale you install at and whose defaults you want, not on a blanket speed gap.
 
 ### yarn as a driver
 
-**yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.17.0, the same temp-scaffold
+**yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.18.1, the same temp-scaffold
 rungs), including the CI
 auto-immutable default bun lacks, but its fastest mode (PnP) doesn't run this repo's stock-tsgo/default-Turbopack
-path (native-PnP tsgo and `next build` via webpack/rspack are measured green,
+path (native-PnP tsgo is measured green; `next build` under PnP builds via webpack/rspack on node
+22.22.0 and fails on every builder on node 22.23.3,
 [TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)). **pnpm 12** does every
 mechanic and defaults on one guardrail bun makes you configure: auto-frozen in CI. (pnpm 10's second guardrail —
 rejecting a `workspace:` spec as a catalog value — is gone: pnpm 12 accepts every form and links the local package,

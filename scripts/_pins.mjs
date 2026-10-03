@@ -7,7 +7,25 @@ export const PNPM_VERSION = "12.8.1"; // the Rust CLI (pnpm 12), pinned since 20
 // needs a stable JS anchor after the main pin moved to 12.
 export const PNPM10_VERSION = "10.29.1";
 export const BUN_VERSION = "1.3.14";
-export const YARN_VERSION = "4.17.0";
+// yarn 4.17.0's builtin PnP typescript compat patch cannot patch the native
+// typescript@7 (it lstat's lib/_tsc.js, which TS7 does not ship), so a PnP install
+// with typescript@7 fails there; 4.18.1 installs it. pnp-compat-bench measures both
+// sides (its yarnTypescriptPatch control).
+export const YARN_VERSION = "4.18.1";
+// The yarn release pnp-compat-bench's negative control installs with: the last one
+// whose builtin typescript patch fails on typescript@7.
+export const YARN_PRE_TS7_PATCH_VERSION = "4.17.0";
+// The older node the Next-under-PnP benches re-run their PnP trees under (the
+// control that scopes the PnP config-load crash to the node version). Tarballs are
+// fetched from nodejs.org and verified against these SHA-256 digests (from that
+// release's SHASUMS256.txt) before anything is executed.
+export const CONTROL_NODE = {
+  version: "22.22.0",
+  sha256: {
+    arm64: "1bf1eb9ee63ffc4e5d324c0b9b62cf4a289f44332dfef9607cea1a0d9596ba6f",
+    x64: "9aa8e9d2298ab68c600bd6fb86a6c13bce11a4eca1ba9b39d79fa021755d7c37",
+  },
+};
 // vite-plus (Vite+, VoidZero) — beta; both vite-plus benches (vite-task-bench,
 // vite-plus-tools-bench) must probe the same version or their datasets drift
 export const VITE_PLUS_VERSION = "0.2.2";

@@ -2,9 +2,9 @@
 // The mechanics of advancing an internal core lib through a hermetic, wave-based rollout, measured as a
 // bun-vs-pnpm head-to-head on self-contained repros. This is the empirical backing for ROLLOUT.md. bun
 // is the recommended driver for its native mechanics and the 200-app/truly-cold install cases; against
-// pnpm 12 (the Rust CLI) the full-re-resolve speed is scale-dependent — bun ~6x faster at 200 apps,
-// pnpm-hoisted faster at the measured 1,000- and 2,000-app points, the CI frozen container a near-tie
-// (bench/install-bench.json; the recorded speedContext carries both directions).
+// pnpm 12 (the Rust CLI) the full-re-resolve speed is scale-dependent — bun ~5x faster at 200 apps,
+// pnpm-hoisted faster at the measured 1,000- and 2,000-app points, bun 6% ahead on the fresh CI frozen
+// container (bench/install-bench.json; the recorded speedContext carries both directions).
 // Each rung records a measured fact (hard-asserting where the fact is stable); setup failures (a seed
 // install that did not run, a missing lockfile, a network/registry error) HARD-FAIL, so a failed
 // measurement never reads as a clean result. The running bun is pinned to 1.3.14 (the version the source
@@ -591,8 +591,8 @@ const result = {
     "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun remains the " +
     "recommended driver for its native mechanics (committed-bunfig frozen, package.json catalogs) and " +
     "the 200-app/truly-cold install cases; against pnpm 12 (the Rust CLI) the full-re-resolve speed " +
-    "story is scale-dependent — bun ~6x faster at 200 apps, pnpm-hoisted faster at the measured 1,000- " +
-    "and 2,000-app points, the CI frozen container a near-tie " +
+    "story is scale-dependent — bun ~5x faster at 200 apps, pnpm-hoisted faster at the measured 1,000- " +
+    "and 2,000-app points, bun 6% ahead on the fresh CI frozen container " +
     "(bench/install-bench.json; see speedContext). " +
     "Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with " +
     "one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and " +
@@ -605,7 +605,7 @@ const result = {
   registry: REGISTRY,
   speedContext: {
     source: "bench/install-bench.json",
-    note: "The install state matters and both directions are recorded (pnpm 12.8.1, the Rust CLI). COLD install (no lockfile, fresh node_modules, warm store): bun ~6x faster at 200 apps (0.14s vs pnpm-isolated 0.83s / pnpm-hoisted 0.81s); at scale the story INVERTS — pnpm-hoisted 1.4s vs bun 2.1s at 1,000 apps and 3.4s vs 8.7s at 2,000, where bun's cold is the slowest of the five measured configurations (measured ceiling 2,000 apps). TRULY-COLD (fresh store + metadata, network; single samples): bun 1.3s vs pnpm-hoisted 2.4s at 200 apps. WARM (lockfile + store, node_modules removed): pnpm-hoisted 0.9s at 1,000 / 1.4s at 2,000 vs bun 3.5s / 10.1s. bun wins the 200-app cold and truly-cold cases; the CI-runner frozen container install is a near-tie (bun 1.04s vs pnpm 1.08s fresh, 0.47s vs 0.54s cache-restored; bench/container-install-bench.json); pnpm 12 hoisted wins cold and warm at the measured 1,000- and 2,000-app points.",
+    note: "The install state matters and both directions are recorded (pnpm 12.8.1, the Rust CLI). COLD install (no lockfile, fresh node_modules, warm store): bun ~5x faster at 200 apps (0.13s vs pnpm-isolated 0.67s / pnpm-hoisted 0.65s); at scale the story INVERTS — pnpm-hoisted 1.2s vs bun 2.9s at 1,000 apps and 2.5s vs 9.6s at 2,000, where bun's cold is the slowest of the five measured configurations (measured ceiling 2,000 apps). TRULY-COLD (fresh store + metadata, network; single samples): bun 1.2s vs pnpm-hoisted 2.1s at 200 apps. WARM (lockfile + store, node_modules removed): pnpm-hoisted 0.78s at 1,000 / 2.1s at 2,000 vs bun 2.9s / 10.1s. bun wins the 200-app cold and truly-cold cases and leads the CI-runner frozen container install by 6% fresh / 15% cache-restored (bun 1.03s vs pnpm 1.09s fresh, 0.47s vs 0.54s cache-restored; bench/container-install-bench.json); pnpm 12 hoisted wins cold and warm at the measured 1,000- and 2,000-app points.",
   },
   determinism: {
     bun: {

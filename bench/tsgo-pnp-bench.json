@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-07-08T21:36:59.461Z",
+  "generatedAt": "2026-10-03T16:44:57.321Z",
   "canonical": true,
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 0.92
+    "preRunLoadAvg1": 3.76
   },
   "versions": {
-    "yarn": "4.17.0",
-    "next": "16.0.1",
-    "stockTsgo": "7.0.0-dev.20260707.2",
-    "stockTsgoReported": "Version 7.0.0-dev.20260707.2"
+    "yarn": "4.18.1",
+    "node": "v22.23.3",
+    "stockTsgo": "7.0.2",
+    "stockTsgoReported": "Version 7.0.2"
   },
   "patchedTsgo": {
-    "bin": "/home/ubuntu/src/typescript-go/tsgo",
+    "bin": "/home/ubuntu/src/tsgo-pnp-rebuild/tsgo",
     "version": "Version 7.1.0-dev",
     "gitSha": "e14570937c5a279cf4387ee1a600dc1ba9465f81",
     "gitBranch": "feat/yarn-pnp-resolution"
@@ -38,14 +38,14 @@
         "codes": {
           "TS2307": 3
         },
-        "ms": 71,
-        "fileCount": 67
+        "ms": 80,
+        "fileCount": 64
       },
       "patched": {
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 56,
+        "ms": 59,
         "fileCount": 83
       }
     },
@@ -60,39 +60,17 @@
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 77,
+        "ms": 89,
         "fileCount": 83
       },
       "patched": {
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 54,
+        "ms": 58,
         "fileCount": 83
       }
     }
   },
-  "nextMatrix": {
-    "pnp": {
-      "webpack": {
-        "exit": 0,
-        "ms": 20199,
-        "ok": true
-      },
-      "turbopack": {
-        "exit": 1,
-        "ms": 2237,
-        "ok": false,
-        "pnpResolveFailure": true
-      }
-    },
-    "nm": {
-      "turbopack": {
-        "exit": 0,
-        "ms": 6411,
-        "ok": true
-      }
-    }
-  },
-  "finding": "Stock tsgo cannot resolve dependencies under Yarn PnP (TS2307); the native PnP resolver (microsoft/typescript-go#460) fixes it, matching the node-modules control. Next.js builds under PnP on the webpack builder; Turbopack has no PnP resolver, so Turbopack projects need Yarn's node-modules (or pnpm) linker."
+  "finding": "Stock tsgo cannot resolve dependencies under Yarn PnP (TS2307); the native PnP resolver (microsoft/typescript-go#460) fixes it, matching the node-modules control."
 }
