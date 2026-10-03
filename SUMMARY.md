@@ -11,7 +11,8 @@ record's core-count field; the instance type is stated in the README's Results s
 AGENTS.md's Data of Record); the fleet-gate, install-family, and real-app records on a
 64-core Neoverse-V1, 135 GB (`bench/env.json`). **Versions** for those 192-core records: bun
 1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`), oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3
-(the oracle), Node 22; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
+(the oracle), Node 22; the 64-core fleet-gate record ran the same tsgo, oxlint, and turbo
+with bun 1.3.14; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
 7.0.0-dev.20260614.1, oxlint 1.71.0).
 
 ## The one idea: O(repo) vs O(closure)
@@ -59,11 +60,11 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
   import, `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in
   **1.59s**, and catches a breaking change in **1.55s** with 4,000 / 4,000 apps red and named
   (TS2554). At the measured fleet scale (30,000 apps, ~1.03M generated files; 64-core box) the same gate is
-  **60.7s** clean (10.1× faster than the per-package turbo path, which also emits dist) and
-  **59.5s** to a full 30,000-apps-red breaking verdict
+  **61.2s** clean (10.8× faster than the per-package turbo path, which also emits dist) and
+  **61.7s** to a full 30,000-apps-red breaking verdict
   (`bench/fleet-gate-bench.json`, [FLEET.md](FLEET.md)); sliced into K concurrent programs
-  the same check is **9.9s** on 64 cores / **6.3s** on 192, identical verdict union-verified
-  (`bench/sliced-gate-bench.json`, [FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box)). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
+  the same check is **12.1s** on 64 cores / **6.2s** on 192, identical verdict union-verified
+  (`bench/sliced-gate-bench.json` + `.pbox.json`, [FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box)). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
   measured on a separate type-heavy 4,000:400 scaffold (`bench/typecheck-parity-bench.json`). The
   same gate via orchestrated turbo (also emits dist) is 46.9s / 4,800 tasks — the single tsgo
   process reads each lib's source once, skipping the 400 dist builds. The npm-dep version bump

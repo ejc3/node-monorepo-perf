@@ -71,12 +71,12 @@ dependent libs), in **1.55s**. Catch a type error in one of the 4,000 apps befor
 in about a second and a half.
 
 The same gate holds at the measured production-fleet scale (30,000 apps / 460 libs,
-~1.03M generated files; 64-core box): clean in **60.7s** (10.1× faster than the orchestrated per-package path, which also emits
-dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **59.5s** — and a bigger box
-does not speed it up (65.8s on 192 cores)
+~1.03M generated files; 64-core box): clean in **61.2s** (10.8× faster than the orchestrated per-package path, which also emits
+dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **61.7s** — and a bigger box
+does not speed it up (66.6s on 192 cores)
 ([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
 Slicing the same check into K concurrent programs (all lib source + 1/K of the apps) cuts
-it to **9.9s** on 64 cores and **6.3s** on 192 with a union-verified identical verdict
+it to **12.1s** on 64 cores and **6.2s** on 192 with a union-verified identical verdict
 ([FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box), `bench/sliced-gate-bench.json` +
 `.pbox.json`).
 

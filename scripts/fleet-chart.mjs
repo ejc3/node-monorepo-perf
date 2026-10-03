@@ -25,6 +25,7 @@ import {
   wrapText,
   esc,
   emitChart,
+  assertComparable,
   GRID,
 } from "./_chartstyle.mjs";
 
@@ -59,8 +60,11 @@ const N = {
   installMs: need(LOCAL, "install.ms"),
   oxlintMs: need(LOCAL, "summary.oxlintMs"),
   bun: need(LOCAL, "versions.bun"),
+  bunPbox: need(PBOX, "versions.bun"),
   turbo: need(LOCAL, "versions.turbo"),
   tsgo: need(LOCAL, "versions.tsgo"),
+  oxlint: need(LOCAL, "versions.oxlint"),
+  node: need(LOCAL, "versions.node"),
   // machine provenance recorded by the bench itself — the cross-box claims
   // must trace to the records, not to file names or memory
   coresLocal: need(LOCAL, "machine.cores"),
@@ -68,8 +72,35 @@ const N = {
   // libs imported by 100% of apps, measured from the manifests by fleet-shape-verify
   universalLibs: need(SHAPE, "generated.universalLibs"),
 };
-if (need(PBOX, "apps") !== N.apps || need(PBOX, "turboGate.total") !== N.universalTasks)
-  throw new Error("local and pbox datasets are not the same shape — refusing to compare");
+// panel 3 draws the two records as a machine contrast: same tree, same task
+// sets, and the same recorded checker, orchestrator, and node — or throw. (The
+// lib ^builds run each package's own tsc, whose version the gate bench does not
+// record, so it cannot be compared here.)
+assertComparable(
+  LOCAL,
+  PBOX,
+  {
+    fields: [
+      "apps",
+      "libs",
+      "modulesPerLib",
+      "shape",
+      "foundationLib",
+      "leafLib",
+      "machine.arch",
+      "optimalGate.kind",
+      "turboGate.kind",
+      "turboGate.total",
+      "leafGate.total",
+    ],
+    versions: ["tsgo", "turbo", "node"],
+  },
+  "fleet-gate 64- vs 192-core",
+);
+for (const rec of [LOCAL, PBOX])
+  for (const gate of ["turboGate", "leafGate"])
+    if (need(rec, `${gate}.ran`) !== need(rec, `${gate}.total`))
+      throw new Error(`${gate} did not run its full task set — the task counts are invalid`);
 if (!need(LOCAL, "breakingChange.caught"))
   throw new Error("dataset says the breaking change was not caught");
 if (N.coresPbox <= N.coresLocal)
@@ -83,6 +114,14 @@ if (need(PBOX, "turboGate.ms") >= need(LOCAL, "turboGate.ms"))
     "pipeline did not speed up on the big box — panel 3's verdict prose must be rewritten",
   );
 
+// bun is deliberately outside the guard above: it is on the path of the install
+// and of every pipeline task (turbo starts each task through the root
+// packageManager binary), not of the one-program check. When the two records
+// ran different bun versions the footer and panel 3 say so instead of throwing.
+const bunDiffers = N.bun !== N.bunPbox;
+const bunLabel = bunDiffers
+  ? `bun ${N.bun} (${N.coresLocal}-core) / ${N.bunPbox} (${N.coresPbox}-core)`
+  : `bun ${N.bun}`;
 const secs = (ms) => (ms >= 100000 ? `${Math.round(ms / 1000)}s` : `${(ms / 1000).toFixed(1)}s`);
 const mins = (ms) => `${(ms / 60000).toFixed(1)} min`;
 const int = (n) => n.toLocaleString("en-US");
@@ -124,7 +163,7 @@ note(
 // ---- panel 1: blast radius (edit box -> arrow -> outcome box) ----
 title("1. How far does a change reach?", 15, 40);
 note(
-  `${N.universalLibs} of the libs are imported by every app. Change one and the pipeline re-runs a task for every package (plus the lib builds); change an ordinary lib and almost nothing runs.`,
+  `${N.universalLibs} of the libs are imported by every app. Change one and the pipeline re-runs a typecheck for every package that depends on it (plus the lib builds); change an ordinary lib and almost nothing runs.`,
   20,
 );
 y += 14;
@@ -143,7 +182,7 @@ editRow(
   "edit a lib EVERY app imports",
   "the universal foundation — the worst case",
   `${int(N.universalTasks)} tasks re-run`,
-  "a task per package, plus the lib builds",
+  "a typecheck per dependent package, plus the lib builds",
 );
 editRow(
   "green",
@@ -165,7 +204,7 @@ const colW = (W - PAD * 2 - 16) / 2;
 const m2 = N.turboMsLocal / N.wholeMsLocal;
 factBox(PAD, colW, 74, "green", `${secs(N.wholeMsLocal)} — one command`, [
   `a single checker reads the whole workspace's source once`,
-  `(peak memory: ${int(N.wholeRssMB)}MB recorded — a ~50GB-class box)`,
+  `(peak RSS: ${int(N.wholeRssMB)}MB recorded)`,
 ]);
 factBox(PAD + colW + 16, colW, 74, "rust", `${mins(N.turboMsLocal)} — ${fmtMult(m2)} slower`, [
   `standard pipeline: ${int(N.universalTasks)} tasks — a checker process`,
@@ -180,7 +219,7 @@ y += 56;
 // ---- panel 3: bigger machine? ----
 title("3. Does a bigger machine help?", 15, 40);
 note(
-  `The same two mechanisms on two different machines (${N.coresLocal} vs ${N.coresPbox} cores, recorded per run). One comparison each — a cross-machine observation, not a controlled core-scaling experiment.`,
+  `The same two mechanisms on two different machines (${N.coresLocal} vs ${N.coresPbox} cores, recorded per run). One comparison each — a cross-machine observation, not a controlled core-scaling experiment.${bunDiffers ? ` The pipeline rows also differ in bun version (${N.bun} vs ${N.bunPbox}): turbo starts each task through the package manager.` : ""}`,
   20,
 );
 y += 14;
@@ -222,7 +261,7 @@ T.push(
   txt(
     PAD,
     y,
-    `also measured: installing the ${int(N.apps + N.libs)}-package workspace (plus its external deps) takes ${secs(N.installMs)} (bun, warm store) · linting the whole tree takes ${secs(N.oxlintMs)} (oxlint)`,
+    `also measured (${N.coresLocal}-core box): installing the ${int(N.apps + N.libs)}-package workspace (plus its external deps) takes ${secs(N.installMs)} (bun, warm store) · linting the whole tree takes ${secs(N.oxlintMs)} (oxlint)`,
     { size: 11.5, fill: MUTED },
   ),
 );
@@ -231,7 +270,7 @@ T.push(
   txt(
     PAD,
     y,
-    `toolchain: bun ${N.bun} · turbo ${N.turbo} · tsgo ${N.tsgo.replace("Version ", "")}`,
+    `toolchain: ${bunLabel} · turbo ${N.turbo} · tsgo ${N.tsgo.replace("Version ", "")} · oxlint ${N.oxlint.replace("Version: ", "")} · node ${N.node.replace(/^v/, "")}`,
     {
       size: 11.5,
       fill: MUTED,
@@ -269,7 +308,7 @@ emitChart(
   svgDoc(
     W,
     H,
-    `What a change costs in a ${int(N.apps)}-app workspace: a universal-lib edit re-runs ${int(N.universalTasks)} tasks against ${N.leafTasks} for a leaf edit; the worst case runs as one ${secs(N.wholeMsLocal)} whole-program check or a ${mins(N.turboMsLocal)} pipeline; and the bigger machine helps only the pipeline.`,
+    `What a change costs in a ${int(N.apps)}-app workspace: a universal-lib edit re-runs ${int(N.universalTasks)} tasks against ${N.leafTasks} for a leaf edit; the worst case runs as one ${secs(N.wholeMsLocal)} whole-program check or a ${mins(N.turboMsLocal)} pipeline; and in a cross-machine observation only the pipeline ran faster on the ${N.coresPbox}-core box.`,
     T,
   ),
   { strict: true },

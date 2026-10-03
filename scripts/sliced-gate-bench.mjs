@@ -2,9 +2,9 @@
 // The sliced-closure gate: the middle point between the fleet gate's two
 // measured extremes for a universal-lib rev. One tsgo program checks the whole
 // workspace in ~60s but leaves most of the box idle (this bench's own K=1
-// reference: 755% CPU on 64 cores, 1,629% on 192 — and the 192-core box is
-// SLOWER); the per-package pipeline uses every core
-// but re-parses the shared libs ~30,000× (613s). A slice = one tsgo program
+// reference: 718% CPU on 64 cores, 1,416% on 192 — and the 192-core reference
+// ran 9% slower, a cross-machine observation); the per-package pipeline uses every core
+// but re-parses the shared libs ~30,000× (663s). A slice = one tsgo program
 // over ALL lib source + 1/K of the apps: lib redundancy drops to K×, and K
 // programs run concurrently — K × tsgo's internal parallelism.
 //

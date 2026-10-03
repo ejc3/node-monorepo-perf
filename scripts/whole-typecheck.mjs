@@ -11,7 +11,7 @@
 // verdict: GREEN, or RED with an error digest (count, top error codes, how
 // many apps/libs are affected, first sample lines). Exits with tsgo's exit
 // code, so it works unchanged as a CI or pre-push gate. Measured on the
-// 30,000-app fleet shape: ~1 minute; the clean run records ~51GB peak RSS
+// 30,000-app fleet shape: ~1 minute; the clean run records ~52GB peak RSS
 // (bench/fleet-gate-bench.json); the same check as optimal-gate-bench's
 // "optimal gate" row, packaged as a day-to-day command.
 //
