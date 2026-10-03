@@ -59,12 +59,13 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
 - [x] editor-loop-bench (both sweeps)
 - [ ] real-app-bench (tsgo GA may change the adaptation-friction rows; that is data)
 - [ ] pnp-compat-bench, tsgo-pnp-bench (needs TSGO_PNP_BIN)
-- [ ] vite-task-bench, vite-plus-tools-bench
+- [x] vite-task-bench
+- [ ] vite-plus-tools-bench
 - [x] lint-bench (type-aware row rides the checker substrate)
-- [ ] measure.mjs sweep — the README core scaling table (its build/typecheck columns
-      are tsc-driven, now native)
-- [ ] axis-bench
-- [ ] ci-cache-bench, ci-cache-network-bench (typecheck task family; tc + sudo)
+- [x] measure.mjs sweep — the README core scaling table (200 → 20,000 apps;
+      `results.json` holds this one sweep, every row on pnpm 12.8.1)
+- [x] axis-bench
+- [x] ci-cache-bench, ci-cache-network-bench (typecheck task family; tc + sudo)
 - [ ] optimal-gate-bench fleet:30000 (192-core side)
 - [ ] sliced-gate-bench fleet (192-core side)
 - [ ] fleet-flow-bench (192-core side; FLOW_BIN)
@@ -75,9 +76,10 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
 - [ ] tsgo-scale-bench (1M; hours; needs root drop_caches; runs solo)
 - [ ] FINAL step, after every record above has re-measured: refresh the canonical
       `bench/env.json` (`node scripts/env.mjs`) and regenerate the chart/summary
-      outputs — env.json is the machine/toolchain provenance for the 64-core-era
-      records (per-record machine fields take precedence where present; dev-sim
-      and lib-rev carry neither, per AGENTS.md Data of Record), so it may only
+      outputs — env.json is the machine/toolchain provenance for the 64-core
+      install-family records only (per-record machine fields take precedence where
+      present; the 192-core dev-sim, lib-rev, results, and axis-bench records carry no
+      machine fields and are named in AGENTS.md Data of Record and the README), so it may only
       change once the records match it.
 
 Out of scope (substrate unchanged): test-axis (zero checker involvement — its tasks

@@ -1,18 +1,18 @@
 {
   "about": "centralized (remote) cache economics: does a shared Turborepo cache bring the CI cold start down? Every CI runner starts with an empty LOCAL cache, so without a centralized cache every run pays the cold compute; a remote cache lets the second-and-later runner RESTORE an artifact someone already built. Measured head-to-head per task and scale: coldNoRemote (pure compute, NO remote — the no-cache cost every runner pays, the baseline the speedup is taken against), coldSeed (the first runner: compute + upload to populate the cache), warmLocal (same-machine floor), remote-restore (a fresh runner restoring from the shared cache); plus the bytes a fresh runner downloads, partial invalidation (a remote cache only helps the tasks an edit did not touch: a leaf edit restores most, a universal-foundation edit restores none), and the fleet amortization. coldNoRemote/coldSeed assert 0 cached, warm-local and remote-restore assert all cached; the partial rung proves the prime fully populated the remote (clean restore = all cached) then asserts leaf-recompute < foundation-recompute (= total); speedup is asserted (restore < coldNoRemote).",
   "env": {
-    "cores": 64,
-    "preRunLoadAvg1": 0.38,
+    "cores": 192,
+    "preRunLoadAvg1": 25.78,
     "coreBound": true
   },
   "versions": {
-    "node": "v22.22.0",
+    "node": "v22.23.3",
     "turbo": "2.9.18",
     "remoteCacheServer": "turborepo-remote-cache@2.11.2"
   },
   "remoteCache": {
     "transport": "localhost HTTP (turborepo-remote-cache, STORAGE_PROVIDER=local)",
-    "port": 41150,
+    "port": 41101,
     "note": "localhost: restore time is the protocol + (de)compression floor with NO network latency. bytesTransferred is recorded so network cost is estimable (~bytes / bandwidth + RTT)."
   },
   "samples": {
@@ -29,26 +29,26 @@
       "apps": 300,
       "libs": 100,
       "totalTasks": 500,
-      "coldNoRemoteMs": 23551,
-      "coldSeedMs": 23930,
-      "seedUploadMs": 379,
-      "warmLocalMs": 1784,
-      "restoreMs": 1888,
-      "speedupVsCold": 12.5,
-      "bytesTransferred": 190040,
+      "coldNoRemoteMs": 9884,
+      "coldSeedMs": 9868,
+      "seedUploadMs": -16,
+      "warmLocalMs": 1367,
+      "restoreMs": 1456,
+      "speedupVsCold": 6.8,
+      "bytesTransferred": 165200,
       "coldNoRemoteSamples": [
-        23594,
-        23508
+        10039,
+        9730
       ],
       "warmLocalSamples": [
-        1586,
-        1784,
-        1879
+        1391,
+        1367,
+        1300
       ],
       "restoreSamples": [
-        1726,
-        1888,
-        2050
+        1456,
+        1471,
+        1440
       ]
     },
     {
@@ -57,26 +57,26 @@
       "apps": 1000,
       "libs": 200,
       "totalTasks": 1400,
-      "coldNoRemoteMs": 67217,
-      "coldSeedMs": 67293,
-      "seedUploadMs": 76,
-      "warmLocalMs": 5190,
-      "restoreMs": 5900,
-      "speedupVsCold": 11.4,
-      "bytesTransferred": 451258,
+      "coldNoRemoteMs": 24803,
+      "coldSeedMs": 24567,
+      "seedUploadMs": -236,
+      "warmLocalMs": 3503,
+      "restoreMs": 3892,
+      "speedupVsCold": 6.4,
+      "bytesTransferred": 378937,
       "coldNoRemoteSamples": [
-        67164,
-        67269
+        24641,
+        24964
       ],
       "warmLocalSamples": [
-        6015,
-        5190,
-        4646
+        3687,
+        3443,
+        3503
       ],
       "restoreSamples": [
-        6021,
-        5900,
-        5174
+        3892,
+        3948,
+        3813
       ]
     },
     {
@@ -85,25 +85,25 @@
       "apps": 300,
       "libs": 100,
       "totalTasks": 400,
-      "coldNoRemoteMs": 62654,
-      "coldSeedMs": 61856,
-      "seedUploadMs": -798,
-      "warmLocalMs": 1998,
-      "restoreMs": 4032,
-      "speedupVsCold": 15.5,
-      "bytesTransferred": 247016255,
+      "coldNoRemoteMs": 24781,
+      "coldSeedMs": 25031,
+      "seedUploadMs": 250,
+      "warmLocalMs": 1868,
+      "restoreMs": 3825,
+      "speedupVsCold": 6.5,
+      "bytesTransferred": 246988639,
       "coldNoRemoteSamples": [
-        62654
+        24781
       ],
       "warmLocalSamples": [
-        2133,
-        1998,
-        1811
+        1868,
+        1848,
+        1939
       ],
       "restoreSamples": [
-        4463,
-        4032,
-        3715
+        3825,
+        4155,
+        3224
       ]
     }
   ],
@@ -115,14 +115,14 @@
     "totalTasks": 500,
     "leaf": {
       "lib": "@demo/lib-100",
-      "ms": 4418,
+      "ms": 3450,
       "total": 500,
       "restored": 486,
       "recomputed": 14
     },
     "foundation": {
       "lib": "@demo/lib-001",
-      "ms": 25969,
+      "ms": 10393,
       "total": 500,
       "restored": 0,
       "recomputed": 500
@@ -133,45 +133,45 @@
     "basis": {
       "task": "typecheck",
       "scale": "1000:200",
-      "coldNoRemoteMs": 67217,
-      "coldSeedMs": 67293,
-      "restoreMs": 5900
+      "coldNoRemoteMs": 24803,
+      "coldSeedMs": 24567,
+      "restoreMs": 3892
     },
     "runners": [
       {
         "R": 1,
-        "withoutCacheMs": 67217,
-        "withCacheMs": 67293,
-        "amortizedPerRunnerMs": 67293,
+        "withoutCacheMs": 24803,
+        "withCacheMs": 24567,
+        "amortizedPerRunnerMs": 24567,
         "fleetSpeedup": 1
       },
       {
         "R": 2,
-        "withoutCacheMs": 134434,
-        "withCacheMs": 73193,
-        "amortizedPerRunnerMs": 36597,
-        "fleetSpeedup": 1.8
+        "withoutCacheMs": 49606,
+        "withCacheMs": 28459,
+        "amortizedPerRunnerMs": 14230,
+        "fleetSpeedup": 1.7
       },
       {
         "R": 5,
-        "withoutCacheMs": 336085,
-        "withCacheMs": 90893,
-        "amortizedPerRunnerMs": 18179,
-        "fleetSpeedup": 3.7
+        "withoutCacheMs": 124015,
+        "withCacheMs": 40135,
+        "amortizedPerRunnerMs": 8027,
+        "fleetSpeedup": 3.1
       },
       {
         "R": 10,
-        "withoutCacheMs": 672170,
-        "withCacheMs": 120393,
-        "amortizedPerRunnerMs": 12039,
-        "fleetSpeedup": 5.6
+        "withoutCacheMs": 248030,
+        "withCacheMs": 59595,
+        "amortizedPerRunnerMs": 5960,
+        "fleetSpeedup": 4.2
       },
       {
         "R": 50,
-        "withoutCacheMs": 3360850,
-        "withCacheMs": 356393,
-        "amortizedPerRunnerMs": 7128,
-        "fleetSpeedup": 9.4
+        "withoutCacheMs": 1240150,
+        "withCacheMs": 215275,
+        "amortizedPerRunnerMs": 4306,
+        "fleetSpeedup": 5.8
       }
     ],
     "note": "ARITHMETIC from the measured primitives, not separately timed. Without a centralized cache R runners each pay coldNoRemote; with one, the first pays coldSeed (compute + upload) and the other R-1 pay restore. Per-runner cost converges to the restore time as the fleet grows. restore is the localhost floor (no network latency) — over a real network add each runner's download (~bytesTransferred / bandwidth + RTT, see remoteCache.note), so the real fleet speedup is somewhat lower than this localhost arithmetic."

@@ -1,6 +1,6 @@
 # Optimization Playbook: pnpm + Turborepo + Next.js at 10k-App Scale
 
-Any operation touching all packages scales with repo size. These techniques scope work to the changed subset, cache the rest, and avoid materializing the whole tree. Costs are measured on [the workspace under test](README.md#the-workspace-under-test) to 4,000 apps ([README results](README.md#results-scaling-behavior)) and extrapolated; 10k is the target, not a measured scale.
+Any operation touching all packages scales with repo size. These techniques scope work to the changed subset, cache the rest, and avoid materializing the whole tree. Costs are measured on [the workspace under test](README.md#the-workspace-under-test) to 20,000 apps ([README results](README.md#results-scaling-behavior); the whole-workspace tsc typecheck to 10,000).
 
 ## 0. The Mental Model: Three Layers of "Focus"
 
@@ -47,7 +47,7 @@ The `package.json` column is the apples-to-apples comparison (0 vs 25 manifests 
 `turbo run build typecheck --affected` diffs main→HEAD and picks changed packages + dependents. Auto-detects GitHub Actions; override the base with `TURBO_SCM_BASE`.
 
 ### 2.3 Caching: Local, Then Remote
-Turborepo hashes each task's inputs and skips unchanged ones (`>>> FULL TURBO`). Whole-workspace typecheck warm ran 1.5s (200 apps) to 20.5s (4,000 apps) versus 19–233s cold. Remote Caching (`turbo login && turbo link`) restores outputs across machines. Catalogs ([§1.3](#13-catalogs-catalog)) matter: mismatched versions → different hashes → cache misses.
+Turborepo hashes each task's inputs and skips unchanged ones (`>>> FULL TURBO`). Whole-workspace typecheck warm ran 1.0s (200 apps) to 23.9s (10,000 apps) versus 8.4–222.8s cold (`results.json`, 192-core box). Remote Caching (`turbo login && turbo link`) restores outputs across machines. Catalogs ([§1.3](#13-catalogs-catalog)) matter: mismatched versions → different hashes → cache misses.
 
 ## 3. Next.js Build Cost
 
@@ -78,7 +78,7 @@ Auth goes in a scoped `.npmrc`, not the global one. npm needs `--userconfig` (it
 
 ## 5. Quick Reference
 
-Verified on pnpm 12.8.1 (`install-bench.json`) / pnpm 10.29 (`results.json`), turbo 2.9.18. The `isolated` linker is inode-heavy. It holds 50,169 `node_modules` entries vs hoisted's 24,222 at 2,000 apps (`install-bench.json`), and 86,749 entries / 49,712 symlinks at 4,000 apps (`results.json`). At ~10k packages this dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
+Verified on pnpm 12.8.1 (`install-bench.json`, `results.json`), turbo 2.9.18. The `isolated` linker is inode-heavy. It holds 50,169 `node_modules` entries vs hoisted's 24,222 at 2,000 apps (`install-bench.json`), and 194,827 entries / 121,712 symlinks at 10,000 apps, 374,827 / 241,712 at 20,000 (`results.json`). At these scales it dominates inode pressure; watch `df -i`. `hoisted` roughly halves it, PnP shrinks it to almost nothing ([§1.1](#11-node-linker-mode)).
 
 ## Sources
 pnpm: [settings](https://pnpm.io/settings), [catalogs](https://pnpm.io/catalogs). Turborepo: [run/filtering](https://turborepo.dev/docs/reference/run), [`turbo prune`](https://turborepo.dev/repo/docs/reference/prune). [Vercel monorepos](https://vercel.com/blog/monorepos).

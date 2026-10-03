@@ -153,22 +153,53 @@ function lineChart({ file, title, subtitle, series, xs, yFmt = fmtMs }) {
   return file;
 }
 
-const byLabel = new Map();
-for (const r of records) byLabel.set(r.label, r); // last write wins
-const all = [...byLabel.values()].sort((a, b) => a.apps - b.apps);
+// measure.mjs appends, so a re-measured sweep can land on top of rows from an older
+// toolchain (or another box). The charts and summary.md present the rows as ONE
+// series, so every row in the file must name the same pnpm (`versions.pnpm`, probed
+// per run). An un-versioned or differently-versioned row fails here, as does an
+// empty record (nothing to chart).
+const pnpmVersions = [...new Set(records.map((r) => r.versions?.pnpm ?? "(unrecorded)"))];
+if (pnpmVersions.length !== 1 || pnpmVersions[0] === "(unrecorded)") {
+  console.error(
+    records.length
+      ? `[chart] ERROR: bench/results.json rows span pnpm versions [${pnpmVersions.join(", ")}] — ` +
+          `one series needs one recorded toolchain; drop the superseded rows.`
+      : "[chart] ERROR: bench/results.json has no rows.",
+  );
+  process.exit(1);
+}
+const PNPM_VERSION = pnpmVersions[0];
+// One sweep means one row per scale: a second row for a label (measure.mjs appended a
+// re-run) is rejected rather than silently shadowing the first — which measurement is
+// the record is a deliberate edit of results.json, not a side effect of row order.
+const labels = records.map((r) => r.label);
+const dupLabels = [...new Set(labels.filter((l, i) => labels.indexOf(l) !== i))];
+if (dupLabels.length) {
+  console.error(
+    `[chart] ERROR: bench/results.json has more than one row for [${dupLabels.join(", ")}] — ` +
+      `keep one row per scale.`,
+  );
+  process.exit(1);
+}
+const all = [...records].sort((a, b) => a.apps - b.apps);
 const big = all[all.length - 1];
 
 const made = [];
 
-// Chart 1: typecheck cold vs warm for the largest scale. Only chart a fully
-// verified, warmup-isolated datapoint: cold+warm ran OK, the daemon warmup is
-// confirmed (warmupOk === true), and both timings are finite. Pre-warmup results
-// lack warmupOk and are confounded by daemon spin-up, so they're skipped.
+// Chart 1: typecheck cold vs warm for the largest scale that RAN the whole-workspace
+// typecheck (sweep.mjs skips it at its top scale, so the largest row can carry no
+// typecheck phase at all). Only chart a fully verified, warmup-isolated datapoint:
+// cold+warm ran OK, the daemon warmup is confirmed (warmupOk === true), and both
+// timings are finite. Pre-warmup results lack warmupOk and are confounded by daemon
+// spin-up, so they're skipped. A row whose typecheck ran but is unverified is NOT
+// passed over for a smaller scale: the chart is skipped (a hard failure under
+// CHART_STRICT) rather than silently charting a different scale.
 // The title names the mechanism (turbo-orchestrated tsc): presenting this as THE
 // whole-workspace typecheck cost would mislead now that the README table shows the
 // recommended whole-program tsgo checking the same tree in ~1s, so the subtitle
 // carries that number when the tsgo dataset has the matching scale point.
-const tcBig = big?.phases?.typecheck;
+const tcRec = [...all].reverse().find((r) => r.phases?.typecheck);
+const tcBig = tcRec?.phases?.typecheck;
 if (
   tcBig &&
   tcBig.coldOk === true &&
@@ -181,7 +212,7 @@ if (
   let tsgoNote = "";
   if (existsSync(tsgoTablePath)) {
     const tsgoTable = JSON.parse(readFileSync(tsgoTablePath, "utf8"));
-    const tsgoScale = tsgoTable.scales?.find((s) => s.apps === big.apps && s.libs === big.libs);
+    const tsgoScale = tsgoTable.scales?.find((s) => s.apps === tcRec.apps && s.libs === tcRec.libs);
     if (Number.isFinite(tsgoScale?.coldMedianMs))
       tsgoNote = `; whole-program tsgo: ${fmtMs(tsgoScale.coldMedianMs)} on ${tsgoTable.cores} cores (same generator shape, no cache)`;
   }
@@ -189,11 +220,11 @@ if (
     barChart({
       file: "typecheck-cold-vs-warm.svg",
       title: "Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache",
-      subtitle: `${fmtNum(big.apps)} apps + ${fmtNum(big.libs)} libs — Turborepo local cache${tsgoNote}`,
+      subtitle: `${fmtNum(tcRec.apps)} apps + ${fmtNum(tcRec.libs)} libs — Turborepo local cache${tsgoNote}`,
       logScale: true,
       bars: [
-        { label: "cold\n(first run)", value: big.phases.typecheck.coldMs, color: C_RED },
-        { label: "warm\n(FULL TURBO)", value: big.phases.typecheck.warmMs, color: C_GREEN },
+        { label: "cold\n(first run)", value: tcBig.coldMs, color: C_RED },
+        { label: "warm\n(FULL TURBO)", value: tcBig.warmMs, color: C_GREEN },
       ],
     }),
   );
@@ -298,16 +329,17 @@ for (const f of readdirSync(chartsDir)) {
 }
 
 // ---- markdown summary ----
-// The machine line comes from the COMMITTED bench/env.json, not process.platform —
-// a live-environment value would make summary.md's bytes differ between a macOS
-// contributor and the linux CI byte-gate.
-const envPath = join(ROOT, "bench", "env.json");
-const machine = existsSync(envPath)
-  ? (({ cpuModel, arch, os }) => `${cpuModel} (${arch}), ${os}`)(
-      JSON.parse(readFileSync(envPath, "utf8")),
-    )
-  : process.platform;
-let md = `# Benchmark results\n\nMachine: ${machine}, generated from \`bench/results.json\`.\n\n`;
+// The header names only what the record itself carries: the pnpm every row ran
+// (asserted uniform above). results.json has no machine fields, and bench/env.json
+// describes the 64-core install-family box, not necessarily this record's — so the
+// machine is stated once, in the README section the header points at, instead of
+// being read from a file that may describe a different box. Nothing here comes from
+// the live environment, so summary.md's bytes are identical on any contributor's
+// machine and in the CI byte-gate.
+let md =
+  `# Benchmark results\n\nGenerated from \`bench/results.json\` (pnpm ${PNPM_VERSION}, per each row's ` +
+  `\`versions.pnpm\`). The record carries no machine fields; the machine is described in the ` +
+  `README's [Results](../README.md#results-scaling-behavior) section.\n\n`;
 md += `| scale | gen | install | lockfile | node_modules | typecheck cold | typecheck warm | focus build | full build tasks | focus pkgs | prune |\n`;
 md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
 for (const r of all) {

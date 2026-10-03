@@ -6,9 +6,9 @@ What focus/cache/`--affected` cannot save you from, and the gotchas this build h
 
 Scoping and caching reduce *execution*; these costs remain because they are inherent to one workspace graph and one lockfile.
 
-1. **The single lockfile.** One `pnpm-lock.yaml` describes the whole workspace: 9,897 → 153,967 lines across 300 → 4,300 packages (≈36 lines/package), extrapolating to multi-MB / ~720k lines at 20k. Every install reads it and (on any dep change) rewrites it; every dep-touching branch is a merge-conflict surface. You cannot `--filter` it. Mitigations trade away its value ([OPTIMIZATIONS.md §1.5](OPTIMIZATIONS.md#15-lockfile-churn-and-merge-conflicts)): `shared-workspace-lockfile=false` (loses cross-package dedup) or git-branch lockfiles (avoids conflicts, not size; under pnpm 12 enabled via `pnpm-workspace.yaml` `gitBranchLockfile: true` — the npm-style `.npmrc` key is ignored, `bench/lockfile-merge-bench.json`).
+1. **The single lockfile.** One `pnpm-lock.yaml` describes the whole workspace: 10,185 → 746,255 lines across 300 → 20,300 packages (34–37 lines/package; 21,019,478 bytes at 20,000 apps, `results.json`). Every install reads it and (on any dep change) rewrites it; every dep-touching branch is a merge-conflict surface. You cannot `--filter` it. Mitigations trade away its value ([OPTIMIZATIONS.md §1.5](OPTIMIZATIONS.md#15-lockfile-churn-and-merge-conflicts)): `shared-workspace-lockfile=false` (loses cross-package dedup) or git-branch lockfiles (avoids conflicts, not size; under pnpm 12 enabled via `pnpm-workspace.yaml` `gitBranchLockfile: true` — the npm-style `.npmrc` key is ignored, `bench/lockfile-merge-bench.json`).
 
-2. **The Turbo graph-load floor.** `--filter`, `--affected`, and `prune` all parse every `package.json` and build the full DAG *before* selecting a subset — O(repo) on every invocation, including no-ops. A fully-cached `turbo run typecheck` grew 1.5s → 20.5s (200 → 4,000 apps); extrapolated, the per-command floor at 20k is ~100s before any task runs. The only escape in turbo is to stop having one graph (shard), giving up atomic cross-package changes. Vite Task (Vite+'s fs-traced runner) has no such floor: its focused warm run stays flat across 3× growth (0.85s → 0.86s, 400 → 1,200 tasks, vs turbo's 1.2s → 3.0s). The trade is a 2–3.7× slower whole-repo typecheck (`bench/vite-task-bench.json`, [TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
+2. **The Turbo graph-load floor.** `--filter`, `--affected`, and `prune` all parse every `package.json` and build the full DAG *before* selecting a subset — O(repo) on every invocation, including no-ops. A fully-cached `turbo run typecheck` grew 1.0s → 23.9s (200 → 10,000 apps, `results.json`, 192-core box). The scoped commands show the same term at fixed output: at 2,000 / 5,000 / 20,000 apps `turbo prune` emits the same-sized 101-package subtree in 1.9s / 4.4s / 25.0s, and a focused build of a 100-package closure takes 11.9s / 15.4s / 39.5s — at 20,000 apps a scoped command costs 23–28s more than the same-sized selection does at 2,000 (prune +23.1s, focused build +27.6s). The only escape in turbo is to stop having one graph (shard), giving up atomic cross-package changes. Vite Task (Vite+'s fs-traced runner) keeps its focused warm run flat as the workspace grows 3× (400 → 1,200 tasks; the focused selection is 61 and 56 tasks): 0.81s → 0.83s, where turbo's grows 0.76s → 1.01s — turbo is the faster of the two in the 400-task workspace, vp by 1.2× in the 1,200-task one. The trade is a whole-repo typecheck 8.4–10.7× slower cold and 3.2–4.1× slower warm (`bench/vite-task-bench.json`, [TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
 
 3. **Foundation/root-change blast radius = the whole repo.** A change to a widely-used lib or a root input (`tsconfig.base.json`, the catalog React/Next version, the pnpm/turbo/next version — all in every task's hash) invalidates the cache for all dependents.
    - Editing low-layer `lib-003` rebuilds 1,080 of 1,200 packages; at 20k that is ~18k.
@@ -18,7 +18,7 @@ Scoping and caching reduce *execution*; these costs remain because they are inhe
 
    The fix is organizational: change foundations rarely.
 
-4. **Materializing the whole tree (inodes/disk).** Installing all 20k apps creates a `node_modules` per package: isolated-linker symlinks measured 4,211 at 300/100 → hundreds of thousands at 20k, plus the `.pnpm` store. 40 Next apps = 156 MB of `.next` → 20k ≈ 78 GB; inodes can exhaust a modest filesystem. The levers are `node-linker=pnp` and not building everything.
+4. **Materializing the whole tree (inodes/disk).** Installing all 20k apps creates a `node_modules` per package: isolated-linker symlinks measured 3,011 at 200 apps / 100 libs → 241,712 (of 374,827 `node_modules` entries) at 20,000 apps / 300 libs (`results.json`), plus the `.pnpm` store. 40 Next apps = 156 MB of `.next` → 20k ≈ 78 GB; inodes can exhaust a modest filesystem. The levers are `node-linker=pnp` and not building everything.
 
 5. **Editor / language server.** Opening *one app* is O(closure): the server loads the opened app's closure (65 libs / 1,123 files), flat as the repo grows 8× (see [Editor and Language Server](#editor-and-language-server)). Opening the *whole* workspace as one project at 20k is genuinely O(repo): a multi-GB program with slow cross-package IntelliSense. Mitigations (sub-tree, sparse-checkout, pnp + editor SDK) scope it back to a closure.
 
@@ -30,20 +30,20 @@ pnpm + Turborepo's single-graph, single-lockfile model has a ceiling where graph
 
 ## Remote Cache: Amortizing the O(repo) Cold Start
 
-Every CI runner starts with an empty local cache. Turborepo caches each task's outputs — the built files for a `build`, the checker's exit status and logs for a `typecheck` — keyed by a hash of that task's inputs (its own source, its dependencies' cached outputs, and global inputs like `tsconfig.base.json` and the pinned tool versions). A Turborepo remote cache (`turborepo-remote-cache@2.11.2`, localhost) shares those outputs across machines, so a later runner whose task inputs hash the same *restores* the stored output instead of recomputing it. Head-to-head per task/scale (`bench/ci-cache-bench.json`, 64-core box): typecheck restores 12.5× faster than no-cache cold at 300:100 (1.9s vs 23.6s), 11.4× at 1,000:200 (5.9s vs 67.2s); build 15.5× at 300:100 (4.0s vs 62.7s). Restore is itself O(repo) — it skips execution but pays Turbo's graph-load + hashing — so it grows with the repo (1.9s → 5.9s) and holds ~11–12× rather than widening.
+Every CI runner starts with an empty local cache. Turborepo caches each task's outputs — the built files for a `build`, the checker's exit status and logs for a `typecheck` — keyed by a hash of that task's inputs (its own source, its dependencies' cached outputs, and global inputs like `tsconfig.base.json` and the pinned tool versions). A Turborepo remote cache (`turborepo-remote-cache@2.11.2`, localhost) shares those outputs across machines, so a later runner whose task inputs hash the same *restores* the stored output instead of recomputing it. Head-to-head per task/scale (`bench/ci-cache-bench.json`, 192-core c8g.48xlarge): typecheck restores 6.8× faster than no-cache cold at 300:100 (1.5s vs 9.9s), 6.4× at 1,000:200 (3.9s vs 24.8s); build 6.5× at 300:100 (3.8s vs 24.8s). Restore is itself O(repo) — it skips execution but pays Turbo's graph-load + hashing — so it grows with the repo (1.5s → 3.9s) and holds ~6.4–6.8× rather than widening. The ratio is specific to the box: the cold side is core-bound compute (`env.coreBound` in the record), the restore is not.
 
 **Someone still pays the first build.** A remote cache only helps consumers after the first; the first runner computes and uploads (the "seed"). On localhost the seed is within compute noise; over a network the real seed cost is the artifact transfer.
 
-**Across a fleet it amortizes.** With R runners building the identical closure, the first seeds and R−1 restore, so per-runner cost converges toward the restore time (5.9s at 1,000:200). A real fleet builds different commits, so reuse is partial and the factor lower (`bench/ci-cache-bench.json`).
+**Across a fleet it amortizes.** With R runners building the identical closure, the first seeds and R−1 restore, so per-runner cost converges toward the restore time (3.9s at 1,000:200; 10 runners amortize 4.2×, 50 runners 5.8×). A real fleet builds different commits, so reuse is partial and the factor lower (`bench/ci-cache-bench.json`).
 
-**The network cost, measured.** Shaping the loopback with `tc netem` prices what the floor leaves as arithmetic (`bench/ci-cache-network-bench.json`, 300:100, 64-core box; RTT = 2× the netem delay):
+**The network cost, measured.** Shaping the loopback with `tc netem` prices what the floor leaves as arithmetic (`bench/ci-cache-network-bench.json`, 300:100, 192-core c8g.48xlarge; RTT = 2× the netem delay):
 
 | task (cache size) | no-cache cold | localhost floor | same-region (1 Gbps, 2 ms) | cross-region (500 Mbps, 30 ms) |
 | ----------------- | ------------- | --------------- | -------------------------- | ------------------------------ |
-| typecheck (0.2 MB) | 23.2s | 2.0s | 2.0s | 2.0s |
-| build (247 MB) | 60.3s | 3.5s | 3.9s | 5.8s |
+| typecheck (0.2 MB) | 9.8s | 1.4s | 1.4s | 1.6s |
+| build (247 MB) | 24.7s | 3.7s | 3.5s | 5.5s |
 
-Cost scales with cache **size**, not repo size. The 0.2 MB typecheck cache restores in the same time on every link. The 247 MB build cache grows with the link (+0.4s same-region, +2.3s cross-region) but every restore stays ≥×10 under the 60s cold compute (×17 localhost down to ×10 cross-region), so the shared cache wins on any link.
+The network cost grows with cache **size**. Same-region, both restores sit inside the spread of their own localhost samples (typecheck 1.40–1.56s, build 2.4–4.1s). The cross-region profile (500 Mbps and 30 ms RTT, varied together) adds 0.2s to the 0.2 MB typecheck restore and 1.8s to the 247 MB build restore. Every restore stays ×4.5–×7.1 under the cold compute it replaces (typecheck ×6.9 localhost to ×6.0 cross-region; build ×6.7 to ×4.5), so the shared cache wins on every link measured.
 
 ![Remote cache restore vs cold compute across network profiles](bench/charts/cache-network.svg)
 
@@ -88,12 +88,12 @@ The build already measures:
 
 These gaps remain:
 
-1. Direct lockfile measurement at 10k/20k. Size is measured through 4,000 apps (`results.json`); resolve-vs-verify (`lockfile-bench`) to 2,000; the 20k figure is extrapolated.
-2. Turbo graph-load in isolation (`turbo run build --dry`), distinct from §2's fully-cached floor.
+1. Lockfile resolve-vs-verify beyond 2,000 apps (`lockfile-bench`). Size is measured through 20,000 apps (`results.json`).
+2. Turbo graph-load in isolation (`turbo run build --dry`), distinct from §2's fully-cached floor and its fixed-output prune/focus times. A whole-workspace tsc typecheck at 20,000 apps (the sweep stops it at 10,000).
 3. Foundation-change rebuild *time*: `test`-task selection is by COUNT (foundation 1,200 vs leaf 21 at 1,000:200); the *build* wall-clock (count 1,080) and real suite runtime stay open.
 4. `pnpm install --filter app...` at scale: install time + footprint vs `turbo prune` at 10k/20k (materialization scoping confirmed, `focus-install-bench`).
 5. pnpm's own `node-linker=pnp`. Yarn PnP install/footprint + toolchain compat measured ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility), `pnp-compat-bench.json`); editors under PnP and pnpm's pnp linker stay open.
-6. Cold onboarding: fresh `git clone` + `pnpm install` at 10k/20k.
+6. Cold onboarding: fresh `git clone` + a cold-store `pnpm install` at 10k/20k. The warm-store, no-lockfile install is measured (31.3s at 10,000 apps, 74.9s at 20,000, pnpm 12.8.1, `results.json`).
 7. Peak memory under `--concurrency=100%` typecheck/build (OOM risk).
 
 ## Gotchas This Build Hit

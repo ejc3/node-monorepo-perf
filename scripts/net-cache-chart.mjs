@@ -3,9 +3,11 @@
 // grammar (the shared scripts/_chartstyle.mjs system): rows = tasks, columns =
 // cold-compute + the three cache-restore profiles. Per row the fastest cell is green
 // and every other cell's headline is its multiple of that best, so the eye reads
-// two things at once — every cache profile beats cold compute, and the large build
-// cache is the one cell the network ambers. Deterministic from the JSON (no hand
-// numbers); missing fields throw. SVG + 300-DPI PNG in one step.
+// two things at once — every cache profile beats cold compute, and which restores
+// the network slows. The headline is derived from the same cells (the shared
+// scripts/_net-cache-finding.mjs summary), so it cannot name a cost the table does
+// not show. Deterministic from the JSON (no hand numbers); missing fields throw.
+// SVG + 300-DPI PNG in one step.
 //   node scripts/net-cache-chart.mjs
 
 import { readFileSync } from "node:fs";
@@ -28,6 +30,13 @@ import {
   esc,
   emitChart,
 } from "./_chartstyle.mjs";
+import {
+  netCacheSummary,
+  netCacheFinding,
+  speedupRange,
+  roundsToZero,
+  cacheMB as mb,
+} from "./_net-cache-finding.mjs";
 
 const DATA = JSON.parse(readFileSync("bench/ci-cache-network-bench.json", "utf8"));
 const need = (v, what) => {
@@ -36,8 +45,6 @@ const need = (v, what) => {
 };
 
 const secs = (ms) => (ms >= 10000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 1000).toFixed(1)}s`);
-// Always MB, matching the bench log; ≥10 MB rounds to integer, sub-MB keeps one decimal.
-const mb = (bytes) => `${(bytes / 1e6).toFixed(bytes >= 1e7 ? 0 : 1)} MB`;
 
 // --- columns: cold + each profile, subtitles derived from the JSON's shaping ----
 const rateLabel = (rate) => {
@@ -61,17 +68,34 @@ const LABEL_W = 250;
 const COL_W = 150;
 const HEAD_H = 52;
 const ROW_H = 58;
-// The one artifact that shows real network cost is the largest cache — derive its
-// task + size from the data so the headline can't drift from the cells it summarizes.
-const bigTask = TASK_ORDER.reduce((a, b) =>
-  need(DATA.results[b].bytesTransferred, `${b}.bytesTransferred`) >
-  need(DATA.results[a].bytesTransferred, `${a}.bytesTransferred`)
-    ? b
-    : a,
-);
-const bigMB = mb(DATA.results[bigTask].bytesTransferred);
+// The headline is derived from the cells it summarizes: the restore-vs-cold ratio
+// range over every cell, and per task what the highest-RTT profile adds over the
+// localhost floor (a restore inside the floor's own sample range is not called a cost). The
+// title claims every restore beats cold compute, so that is asserted.
+const SUMMARY = netCacheSummary(DATA);
+if (!(SUMMARY.minSpeedup > 1))
+  throw new Error(
+    `a restore is not faster than cold compute (min ratio ${SUMMARY.minSpeedup.toFixed(2)}×) — the chart's headline no longer holds; update it to the measured outcome`,
+  );
+// the committed record's `finding` must be the sentence the derivation produces for
+// its own cells (a record written after a failed derivation, or hand-edited, fails here)
+if (need(DATA.finding, "finding") !== netCacheFinding(DATA))
+  throw new Error(
+    "ci-cache-network-bench.json `finding` is not what scripts/_net-cache-finding.mjs derives from the record's cells",
+  );
+const FAR = SUMMARY.farthest;
+const farCost = SUMMARY.tasks
+  .map((t) => {
+    const p = t.shaped.find((x) => x.name === FAR.name);
+    const what = `the ${mb(t.cacheBytes)} ${t.task} restore`;
+    if (p.withinSpread) return `leaves ${what} within its floor's sample spread`;
+    if (roundsToZero(p.deltaMs)) return `makes no measured difference to ${what}`;
+    const d = `${(Math.abs(p.deltaMs) / 1000).toFixed(1)}s`;
+    return p.deltaMs > 0 ? `adds ${d} to ${what}` : `takes ${d} off ${what}`;
+  })
+  .join(" and ");
 const TITLE = "Remote cache restore: the network cost the localhost floor hides";
-const FINDING = `A shared Turborepo cache beats cold compute on every link tested; only the ${bigMB} ${bigTask} cache carries a network cost, and it stays a few seconds — largest cross-region.`;
+const FINDING = `A shared Turborepo cache beats cold compute on every link tested (${speedupRange(SUMMARY)}); the ${FAR.name} link (${profileSub(FAR)} RTT) ${farCost}.`;
 const KEY =
   "cell: restore time (big) · ×N vs the row's fastest (small). Cold compute carries no cache — the baseline every restore beats.";
 const srcNote = `turbo ${DATA.versions?.turbo ?? "?"}, ${DATA.scale}, restore = median of ${DATA.samples}, ${DATA.env?.cores ?? "?"} cores. RTT = 2×netem delay; restores asserted all-cached-from-remote.`;

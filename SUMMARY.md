@@ -5,8 +5,10 @@ libraries** (4,400 packages; [the workspace under test](README.md#the-workspace-
 on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolations are labeled.
 
 **Machine:** the 4,000:400 gate (`optimal-gate-bench.json`), inner-loop (`dev-loop-bench.json`),
-and editor (`editor-loop-bench.json`) records are measured on a 192-core c8g.48xlarge (arm64,
-per each record's `machine`/`cores`); the fleet-gate, install-family, and real-app records on a
+editor (`editor-loop-bench.json`), remote-cache (`ci-cache-bench.json`), and Vite Task
+(`vite-task-bench.json`) records are measured on a 192-core c8g.48xlarge (arm64, per each
+record's core-count field; the instance type is stated in the README's Results section and
+AGENTS.md's Data of Record); the fleet-gate, install-family, and real-app records on a
 64-core Neoverse-V1, 135 GB (`bench/env.json`). **Versions** for those 192-core records: bun
 1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`), oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3
 (the oracle), Node 22; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
@@ -18,8 +20,11 @@ Which cost class you pay is decided by what you touch, not by repo size.
 
 - **O(repo)**: whole-workspace operations (install, whole typecheck, revving a package every app
   imports). Scale with package count; on this stack they stay in **seconds**.
-- **O(closure)**: anything scoped to one app/lib and the packages it imports (`turbo --filter` /
-  `--affected`). Track that closure and **do not grow with the repo**.
+- **O(closure)**: anything scoped to one app/lib and the packages it imports (`turbo --filter`).
+  The work tracks that closure, **not the repo**. Each turbo invocation also loads the whole
+  graph, which does grow with the repo (a 100-package focused build takes 11.9s at 2,000 apps
+  and 39.5s at 20,000, `bench/results.json`), and what `--affected` selects depends on the edit:
+  a foundation edit selects every dependent.
 
 A developer's day is almost entirely O(closure). The O(repo) operations (first clone, CI install,
 core-lib rev) are infrequent and still fast.
@@ -33,9 +38,11 @@ core-lib rev) are infrequent and still fast.
 | lint                | **oxlint** | native Rust; whole tree in 251ms                       |
 | orchestrate + scope | **turbo**  | `--filter`/`--affected` + per-package caching          |
 
-Vite+'s task runner: turbo wins whole-repo typecheck by 2–3.7×; Vite Task wins the focused warm
-loop (0.86s vs 3.0s at 1,000 apps) but can't cache `next build`
-([TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
+Vite+'s task runner: turbo wins whole-repo typecheck by 8.4–10.7× cold and 3.2–4.1× warm; Vite
+Task's focused warm run is 1.2× faster at 1,000 apps (0.83s vs 1.01s) and 7% slower at 300 (0.81s
+vs 0.76s); on the 1,200-task test run Vite Task is 2.7× faster warm (1.0s vs 2.8s) and turbo 2.5×
+faster cold (7.1s vs 17.6s); Vite Task can't cache `next build` (`bench/vite-task-bench.json`,
+[TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
 
 ## By role
 
@@ -88,8 +95,8 @@ Two operations are genuinely O(repo) and cannot be scoped away:
 - **A whole-repo dist build** scales with package count.
 
 Whole-repo build and typecheck amortize across a CI fleet via a remote cache: after the first
-runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 23.6s →
-1.9s (12.5×) at 300:100 and 67.2s → 5.9s (11.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
+runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 9.9s →
+1.5s (6.8×) at 300:100 and 24.8s → 3.9s (6.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
 helps only the second-and-later consumer of an *unchanged* artifact: at 300:100, a leaf edit lets a
 fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
 [LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start).
