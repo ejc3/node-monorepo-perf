@@ -315,7 +315,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `SLICE_ALLOW_BUSY=1`): the **sliced-closure gate** — K concurrent tsgo programs, each all
   lib source + 1/K of the apps (exact `files` lists: include-glob matching is
   O(patterns×files) and would bias the sweep; find prunes node_modules/.next since `files`
-  bypasses `exclude`), between the one-program gate (755% CPU on 64 cores / 1,629% on 192,
+  bypasses `exclude`), between the one-program gate (718% CPU on 64 cores / 1,416% on 192,
   its own K=1 reference) and the per-package pipeline (30,000× lib re-parse). Whole-program
   reference
   first (blast-radius asserted: every app red + TS2554), then the K sweep (children are
@@ -812,7 +812,9 @@ Shared helpers the bench scripts import rather than run directly:
   conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
   aria label, system-ui), `box`/`txt`/`arrow`/`footer`/`sectionFrame`, the ×1/×2/×10/×100
   heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
-  painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
+  painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
+  (the guard a two-record figure calls before drawing the records as one contrast: named
+  fields deep-equal, named `versions` equal strings, missing fields throw), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
@@ -918,14 +920,16 @@ generated tree's recomputed metrics plus the `fleetContext` divergence numbers F
 cites (`fleet-shape-verify.mjs --expect fleet` regenerates it); `bench/fleet-gate-bench.json`
 is the optimal-stack gate run at that shape (`optimal-gate-bench.mjs fleet` — the 4000:400
 `bench/optimal-gate-bench.json` stays the canonical layered record) and
-`bench/fleet-gate-bench.pbox.json` the same run on a 192-core c8g.48xlarge (the
-one-program-vs-cores contrast FLEET.md reads). `fleet-chart.mjs` renders
+`bench/fleet-gate-bench.pbox.json` the same run on a 192-core c8gb.48xlarge (the
+one-program-vs-cores contrast FLEET.md reads; it ran bun 1.4.2 where the 64-core record
+ran 1.3.14 — bun is on the path of the install and turbo rows — the other recorded versions
+equal). `fleet-chart.mjs` renders
 `bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the
 fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
 two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
 `charts.yml` byte-gate.
-`bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core) FLEET.md's
-"The Sliced Gate" section reads.
+`bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core, the latter also
+on a c8gb.48xlarge with `SLICE_KS="2 4 8 16 24 32 48"`) FLEET.md's "The Sliced Gate" section reads.
 `figures.mjs` renders the three mechanism figures (`make figures`; SVG + `.png`, same
 contract, same `charts.yml` byte-gate): `bench/charts/fig-sliced-gate.svg` (one-program
 gate vs the K-slice fan vs the union check, from the two sliced-gate records; asserts
@@ -938,9 +942,12 @@ the README. Mechanism figures in the diagram-style visual language (tinted boxes
 edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell
 grammar does not apply; determinism, need()-asserted fields, and the no-marketing rule do.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
-batch + server rows, both boxes) and `bench/yarn-fleet-bench.json` (yarn 4 installs under both
-linkers + the native-PnP tsgo gate) extend the fleet record set; TYPECHECKERS.md and
-TOOLING.md carry their writeups.
+batch + server rows, both boxes; the 192-core one on a c8g.48xlarge) and
+`bench/yarn-fleet-bench.json` (yarn 4 installs under both linkers + the native-PnP tsgo gate)
+extend the fleet record set; TYPECHECKERS.md and TOOLING.md carry their writeups. The three
+192-core fleet companions record the core count (the gate and sliced records also the arch),
+not the instance type, and each ran with a deliberate 12-thread nice-19 CPU keep-warm on the
+box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
 
 **Comparison-chart conventions (every chart generator follows these):**
 
@@ -978,7 +985,12 @@ TOOLING.md carry their writeups.
 - **Deterministic from the cited bench JSONs**: no hand numbers, no Date; missing fields
   throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
   asserted (e.g. the chart REQUIRES the dataset's flow column to be the flow-main build
-  and fails if the provenance changes, forcing a deliberate chart update).
+  and fails if the provenance changes, forcing a deliberate chart update). A figure that
+  draws two records as one contrast (64- vs 192-core, batch vs sliced) calls
+  `assertComparable` on the tree identity and on every tool version the records carry for
+  the timed path (the fleet-gate records do not carry the lib `^build`s' package-local tsc
+  version); a version that legitimately differs (bun between the two fleet-gate records) is
+  labeled per record in the figure instead.
 - **SVG + PNG in one step, gated in CI.** The generator writes the SVG and rasterizes the
   300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
   delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs

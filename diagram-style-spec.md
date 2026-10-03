@@ -36,15 +36,15 @@ captions.
 
 ## Figure inventory (what replaces word-heavy sections)
 
-1. **O(repo) vs O(closure)** (README + FEASIBILITY): two-panel flow — whole-repo
-   fan-out (30,708 tasks, rust tint) vs one app's closure (blue), node size ∝ task
-   count. Data: fleet-gate + optimal-gate JSONs.
-2. **The sliced gate** (FLEET): fan-out diagram — one program (52GB, 8–16 cores,
-   rust) vs K slices (green, per-slice RSS labels), converging into the union check
+1. **O(repo) vs O(closure)** (README): two-panel flow — whole-repo
+   fan-out (30,708 tasks, rust tint) vs one app's closure (green), task counts
+   labeled. Data: fleet-gate-bench.json + results.json.
+2. **The sliced gate** (FLEET): fan-out diagram — one program (53GB, 7–14 cores,
+   rust) vs K slices (green, max-slice RSS labels), converging into the union check
    box (30,171 = 30,171). Data: sliced-gate-bench.json + .pbox.json.
 3. **Fleet blast radius** (FLEET): foundation lib at the base, 30,000 apps grid above,
-   breaking rev turning the grid rust; leaf edit turning 21 boxes. Data:
-   fleet-shape.json + fleet-gate-bench.json + lib-rev/test-axis.
+   breaking rev turning the grid rust; leaf edit shading the leaf gate's share of
+   the task set. Data: fleet-gate-bench.json + sliced-gate-bench.json + dev-sim.json.
 4. **Save loop by mechanic** (TYPECHECKERS): timeline lanes (CLI incremental / watch /
    LSP pull / Flow server) from edit to verdict, bar length = measured ms. Data:
    tsgo-scale-bench + lsp-scale-bench + fleet-flow-bench.

@@ -19,12 +19,15 @@ prior records; new numbers land in `bench/*.json` through the normal PR loop.
    (byte-gated like the charts) replacing word-heavy doc sections; every report
    refreshed against the new records.
 4. **Full re-measurement** of every bench the toolchain change invalidates, on
-   pbox 2, with the cross-box contrast benches also rerun on the 64-core box.
+   pbox 2 unless the inventory below names another machine for a bench, with the
+   cross-box contrast benches also rerun on the 64-core box.
 
 ## Machines
 
 - **pbox 2**: c8g.48xlarge, 192 cores, us-west-2d, spot ($2.41/hr), persistent work
   volume. Runs the queue. Bring up/down with `pbox up 2` / `pbox down 2`.
+- **192-core c8gb.48xlarge**: ran the 192-core fleet-gate and sliced-gate companions
+  (bun 1.4.2); the fleet-flow companion ran on the c8g.48xlarge.
 - **Local 64-core box**: PR work, reviews, and the 64-core side of the cross-box
   contrast benches (fleet-gate, sliced-gate, fleet-flow).
 
@@ -67,10 +70,11 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
       `results.json` holds this one sweep, every row on pnpm 12.8.1)
 - [x] axis-bench
 - [x] ci-cache-bench, ci-cache-network-bench (typecheck task family; tc + sudo)
-- [ ] optimal-gate-bench fleet:30000 (192-core side)
-- [ ] sliced-gate-bench fleet (192-core side)
-- [ ] fleet-flow-bench (192-core side; FLOW_BIN)
-- [ ] yarn-fleet-bench — runs LOCAL (pbox2's work volume is ext4/67G free; the nm
+- [x] optimal-gate-bench fleet:30000 (192-core side; ran on a c8gb.48xlarge, bun 1.4.2)
+- [x] sliced-gate-bench fleet (192-core side; ran on a c8gb.48xlarge,
+      `SLICE_KS="2 4 8 16 24 32 48"`)
+- [x] fleet-flow-bench (192-core side; FLOW_BIN; c8g.48xlarge)
+- [x] yarn-fleet-bench — ran LOCAL (pbox2's work volume is ext4/67G free; the nm
       linker at fleet scale needs CoW or ~1.5TB, so this one runs on the local
       btrfs volume)
 - [ ] lsp-scale-bench (1M; hours)
@@ -93,9 +97,9 @@ irrelevant unless those enter scope.
 
 ## Phase 2b — local 64-core companions (after the local box frees up)
 
-- [ ] optimal-gate-bench fleet:30000 → canonical `bench/fleet-gate-bench.json`
-- [ ] sliced-gate-bench fleet → canonical + the pbox2 run becomes `.pbox.json`
-- [ ] fleet-flow-bench → canonical + `.pbox.json`
+- [x] optimal-gate-bench fleet:30000 → canonical `bench/fleet-gate-bench.json`
+- [x] sliced-gate-bench fleet → canonical + the 192-core run is `.pbox.json`
+- [x] fleet-flow-bench → canonical + `.pbox.json`
 
 The cross-box contrast (one-program gate flat across cores; sliced gate transforming
 the big box) is a headline finding; both sides re-measure on the new toolchain.

@@ -59,25 +59,32 @@ Divergences from the measured fleet, recorded in `bench/fleet-shape.json` `fleet
 ([OPTIMAL-STACK.md](OPTIMAL-STACK.md), the canonical layered record) — bun installs the workspace, a foundation lib revs, one tsgo program checks every app from source, a breaking signature must turn all 30,000 apps red, turbo prices the orchestrated per-package path, oxlint sweeps the tree — and writes `bench/fleet-gate-bench.json` (the canonical `bench/optimal-gate-bench.json` stays the 4000:400 record). `fleet:<apps>` scales the app count while keeping the lib graph at its measured size, for machines that cannot hold the full shape.
 
 Measured at full scale on two machines — a 64-core dev box (`bench/fleet-gate-bench.json`)
-and a 192-core c8g.48xlarge (`bench/fleet-gate-bench.pbox.json`), the same recorded
-toolchain on both (versions in the JSONs):
+and a 192-core c8gb.48xlarge (`bench/fleet-gate-bench.pbox.json`; the record carries cores
+and arch, not the instance type). Both records ran typescript 7.0.2 (tsgo), turbo 2.9.18,
+oxlint 1.86.0 and node 22.23.3 (versions in the JSONs). bun is 1.3.14 on the 64-core box
+and 1.4.2 on the 192-core box, and bun is on the path of the install row and of both turbo
+rows (turbo starts each task through the root `packageManager` binary), so those three rows
+differ in bun version as well as machine; the tsgo and oxlint rows do not run through bun.
+bun's own installed-package count differs too (`install.packages`: 76 vs 38). A deliberate
+12-thread nice-19 CPU keep-warm ran on the 192-core box during this run and the sliced-gate
+run below; the fleet-gate records carry no load field:
 
 | phase | 64-core | 192-core |
 | --- | --- | --- |
-| bun install (30,460 packages, warm store) | 180.6s | 194.5s |
-| whole-workspace type check (one tsgo program, from source) | 60.7s / 51.3GB peak RSS | 65.8s / 52.7GB |
-| breaking foundation rev → all 30,000 apps red (TS2554, exact file:line) | 59.5s | 69.5s |
-| turbo per-package gate (30,708 tasks incl. the 460 tsc `^build`s) | 613.0s | 387.2s |
-| leaf-lib gate (`--filter=...leaf`, 100 tasks) | 116.3s | 90.4s |
-| oxlint across the tree | 2.9s | 3.6s |
+| bun install (30,460 packages, warm store) | 190.0s | 209.2s |
+| whole-workspace type check (one tsgo program, from source) | 61.2s / 52.4GB peak RSS | 66.6s / 50.4GB |
+| breaking foundation rev → all 30,000 apps red (TS2554, exact file:line) | 61.7s | 67.7s |
+| turbo per-package gate (30,708 tasks incl. the 460 tsc `^build`s) | 662.8s | 348.4s |
+| leaf-lib gate (`--filter=...leaf`, 100 tasks) | 107.5s | 45.5s |
+| oxlint across the tree | 2.6s | 3.1s |
 
 Three facts fall out. For a universal rev the one-program check beats the per-package
-pipeline **10.1×** on the clean pair (60.7s vs 613.0s; not like-for-like — the pipeline
+pipeline **10.8×** on the clean pair (61.2s vs 662.8s; not like-for-like — the pipeline
 also emits each lib's dist) — the pipeline's 30,248 typecheck processes each re-read the
 same shared types, plus the 460 lib builds. The one-program check was not faster on the
-bigger machine (60.7s → 65.8s on the 192-core box; one observation per machine, a
+bigger machine (61.2s → 66.6s on the 192-core box; one observation per machine, a
 cross-machine comparison, not a controlled core-scaling experiment). The per-package
-pipeline ran 1.6× faster on that box. The blast-radius contrast is structural: a
+pipeline ran 1.9× faster on that box. The blast-radius contrast is structural: a
 universal rev re-runs 30,708 tasks (a typecheck for each of the 30,248 packages in the
 foundation's closure + the 460 lib builds), a leaf rev 100 — 307× fewer.
 
@@ -96,51 +103,58 @@ that import it.
 
 ## The Sliced Gate: Using the Whole Box
 
-The one-program gate cannot use a big machine: its own reference run is 59.0s on 64
-cores and 67.8s on 192, at 755% / 1,629% CPU — most of either box idle. (The fleet-gate
-records above read 60.7s / 65.8s on their own trees — run-to-run spread; every ratio here
+The one-program gate cannot use a big machine: its own reference run is 61.9s on 64
+cores and 67.7s on 192, at 718% / 1,416% CPU — most of either box idle. (The fleet-gate
+records above read 61.2s / 66.6s on their own trees — run-to-run spread; every ratio here
 is computed within one record.) The per-package pipeline uses every core but re-parses
 the shared libs ~30,000×. The middle point wins outright: partition the apps into K
 slices, each a tsgo program over all lib source + 1/K of the apps, run concurrently
 (`scripts/sliced-gate-bench.mjs` → `bench/sliced-gate-bench.json`; 192-core column
-`bench/sliced-gate-bench.pbox.json`):
+`bench/sliced-gate-bench.pbox.json`, also a c8gb.48xlarge; recorded pre-run 1-minute
+load 6.9 on the 64-core box and 12.6 on the 192-core box):
 
 | K | 64-core wall | 192-core wall | max slice RSS† |
 | --- | --- | --- | --- |
-| 1 (reference) | 59.0s | 67.8s | 52.0GB |
-| 2 | 28.8s | 32.7s | 25.5GB |
-| 4 | 16.9s | 19.8s | 13.6GB |
-| 8 | 11.6s | 12.1s | 7.1GB |
-| 16 | **9.9s** | 8.6s | 3.9GB |
-| 24 | — | 7.2s | 2.6GB |
-| 32 | 10.4s | 6.8s | 2.2GB |
-| 48 | — | **6.3s** | 1.6GB |
+| 1 (reference) | 61.9s | 67.7s | 52.8GB |
+| 2 | 31.7s | 32.2s | 26.0GB |
+| 4 | 18.9s | 18.6s | 13.5GB |
+| 8 | 13.0s | 12.2s | 7.1GB |
+| 16 | 12.1s | 8.4s | 3.9GB |
+| 24 | — | 7.0s | 2.6GB |
+| 32 | **12.1s** | 6.6s | 2.2GB |
+| 48 | — | **6.2s** | 1.6GB |
 
 † RSS from the 64-core record; the K=24/48 rows come from the 192-core record because
 the 64-core sweep runs K ∈ {2, 4, 8, 16, 32} (hence its "—" wall cells). At every shared
-K the two boxes' RSS agree within 4%.
+K the two boxes' RSS agree within 6%. On the 64-core box K=16 and K=32 are within 0.4% of
+each other (12,125ms vs 12,080ms); the record's best K is 32.
 
-**6.0× faster than the one-program gate on the same 64-core box, and 10.7× on the
-192-core box (6.3s at K=48) — the machine the one-program gate could not use is now the
-fastest way to run it.** The verdict is identical: the breaking-rev union check asserts that the distinct error locations across
+**5.1× faster than the one-program gate on the same 64-core box (12.1s at K=32), and
+10.9× on the 192-core box (6.2s at K=48) — the machine the one-program gate could not use
+is now the fastest way to run it.** The 64-core wall is flat from K=16 to K=32; the
+192-core wall keeps falling through K=48. The verdict is identical: the breaking-rev union check asserts that the distinct error locations across
 all slices equal the whole-program set exactly (30,171 = 30,171; lib-side errors dedupe,
-app-side errors neither vanish nor invent). The breaking verdict lands in 10.1s on 64
-cores and 6.6s on 192 — on each box under Flow's server-incremental row on this shape
-(14.9s / 12.9s), and the sliced number is a from-scratch batch run, not a resident
-server. Slices are exact-`files` programs (per-app globs would make config matching
+app-side errors neither vanish nor invent). The breaking verdict lands in 11.8s on 64
+cores and 6.5s on 192, each a from-scratch batch run. Flow's resident server answers the
+same rev incrementally, on its smaller dialect mirror, in 15.2s on the same 64-core box
+and in 13.1s on a 192-core c8g.48xlarge (a different instance type from the sliced run's
+c8gb.48xlarge). Slices are exact-`files` programs (per-app globs would make config matching
 quadratic and bias the sweep). Re-parsing the lib closure K times is cheaper than it
-sounds: total CPU stays within +34% of the one-program run on the 64-core box (~446s →
-518s at K=16, 598s at K=32) and lands *below* it at every K on the 192-core box (~1,104s
-→ 849–1,033s), while per-slice memory falls to laptop-class (3.9GB at K=16 vs the 52GB
-monolith).
+sounds: on the 64-core box total CPU equals the one-program run through K=4 and rises to
++31% at K=16 and +47% at K=32 (~445s → 582s, 654s), and it lands *below* the one-program
+run at every K on the 192-core box (~959s → 774–935s). The largest slice's peak RSS falls
+to 2.2GB at K=32 against the 52.8GB monolith, and the slices' summed peak RSS rises:
+68.4GB at K=32 on the 64-core box (+30%) and 72.9GB at K=48 on the 192-core box (+38%
+over its 52.7GB reference) — an upper bound on the concurrent footprint, since the
+per-slice peaks need not coincide.
 
 ![The sliced gate: one mostly-idle whole-program checker versus K concurrent slices whose error-location union matches the whole-program set exactly](bench/charts/fig-sliced-gate.svg)
 
 [High-resolution PNG](bench/charts/fig-sliced-gate.png)
 
 **Figure 2.** Partitioning the apps across K concurrent checker programs trades one
-memory-bound, mostly-idle process for K core-bound ones, and the union check proves the
-partition changes nothing about the verdict.
+high-RSS, mostly-idle process for K concurrent lower-RSS ones, and the union check proves
+the partition changes nothing about the verdict.
 
 ## The Pre-Push Command
 
@@ -154,7 +168,7 @@ make typecheck-whole    # scripts/whole-typecheck.mjs
 One tsgo process reads every app and lib from source and prints a plain verdict: `GREEN`
 (safe to push) or `RED` with a digest — error count, top error codes, how many apps/libs
 are affected, first sample lines — and exits with the checker's code, so the same command
-works as a CI gate. On this shape that is ~1 minute; the clean run records ~51GB peak RSS. A
+works as a CI gate. On this shape that is ~1 minute; the clean run records ~52GB peak RSS. A
 breaking signature comes back as every affected call site with exact file and line, the
 input a codemod consumes. It needs no build step, no cache, and no orchestration — just a
 box with the RAM.

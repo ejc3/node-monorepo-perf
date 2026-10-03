@@ -6,74 +6,74 @@
     "cores": 192,
     "arch": "arm64"
   },
-  "preRunLoadAvg1": 0.42,
+  "preRunLoadAvg1": 12.57,
   "versions": {
-    "tsgo": "7.0.0-dev.20260707.2",
-    "bun": "1.3.14",
-    "node": "v22.23.1"
+    "tsgo": "Version 7.0.2",
+    "bun": "1.4.2",
+    "node": "v22.23.3"
   },
   "ks": {
     "2": {
-      "wallMs": 32721,
-      "totalCpuSec": 960,
-      "maxSliceRssMB": 26463,
-      "sumRssMB": 52848
+      "wallMs": 32163,
+      "totalCpuSec": 891,
+      "maxSliceRssMB": 26536,
+      "sumRssMB": 53035
     },
     "4": {
-      "wallMs": 19827,
-      "totalCpuSec": 1033,
-      "maxSliceRssMB": 13532,
-      "sumRssMB": 52639
+      "wallMs": 18647,
+      "totalCpuSec": 935,
+      "maxSliceRssMB": 13470,
+      "sumRssMB": 53200
     },
     "8": {
-      "wallMs": 12135,
-      "totalCpuSec": 996,
-      "maxSliceRssMB": 7138,
-      "sumRssMB": 55035
+      "wallMs": 12218,
+      "totalCpuSec": 923,
+      "maxSliceRssMB": 6999,
+      "sumRssMB": 54348
     },
     "16": {
-      "wallMs": 8572,
-      "totalCpuSec": 914,
-      "maxSliceRssMB": 3765,
-      "sumRssMB": 58650
+      "wallMs": 8440,
+      "totalCpuSec": 812,
+      "maxSliceRssMB": 3771,
+      "sumRssMB": 58662
     },
     "24": {
-      "wallMs": 7177,
-      "totalCpuSec": 852,
-      "maxSliceRssMB": 2585,
-      "sumRssMB": 60223
+      "wallMs": 6969,
+      "totalCpuSec": 785,
+      "maxSliceRssMB": 2619,
+      "sumRssMB": 60813
     },
     "32": {
-      "wallMs": 6794,
-      "totalCpuSec": 849,
-      "maxSliceRssMB": 2154,
-      "sumRssMB": 65371
+      "wallMs": 6586,
+      "totalCpuSec": 774,
+      "maxSliceRssMB": 2112,
+      "sumRssMB": 65686
     },
     "48": {
-      "wallMs": 6328,
-      "totalCpuSec": 889,
-      "maxSliceRssMB": 1599,
-      "sumRssMB": 72370
+      "wallMs": 6234,
+      "totalCpuSec": 802,
+      "maxSliceRssMB": 1595,
+      "sumRssMB": 72853
     }
   },
   "whole": {
-    "cleanMs": 67772,
-    "rssMB": 52668,
-    "cpuPct": 1629,
-    "breakingMs": 67976,
+    "cleanMs": 67695,
+    "rssMB": 52681,
+    "cpuPct": 1416,
+    "breakingMs": 68100,
     "breakingLocations": 30171
   },
   "unionCheck": {
     "k": 48,
-    "wallMs": 6559,
+    "wallMs": 6472,
     "locations": 30171,
     "matchesWholeProgram": true
   },
   "summary": {
-    "wholeCleanMs": 67772,
+    "wholeCleanMs": 67695,
     "bestK": 48,
-    "bestKWallMs": 6328,
-    "speedupVsWhole": 10.71,
-    "breakingSlicedMs": 6559
+    "bestKWallMs": 6234,
+    "speedupVsWhole": 10.86,
+    "breakingSlicedMs": 6472
   }
 }

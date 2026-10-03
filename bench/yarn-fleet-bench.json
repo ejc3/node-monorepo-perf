@@ -6,10 +6,10 @@
     "cores": 64,
     "arch": "arm64"
   },
-  "preRunLoadAvg1": 1.96,
+  "preRunLoadAvg1": 6.4,
   "versions": {
-    "yarn": "4.17.0",
-    "node": "v22.23.1",
+    "yarn": "4.18.1",
+    "node": "v22.23.3",
     "tsgoPatched": {
       "version": "Version 7.1.0-dev",
       "sha256": "0aba2ed0d157bef4a1d9cac5cc92ee2c5538806e080e09fb3835f0986e0013e4",
@@ -23,20 +23,20 @@
   ],
   "install": {
     "pnp": {
-      "trulyColdMs": 40808,
-      "warmMs": 38368,
-      "pnpCjsBytes": 62084761
+      "trulyColdMs": 41590,
+      "warmMs": 39853,
+      "pnpCjsBytes": 62089430
     },
     "nodeModules": {
-      "trulyColdMs": 441451,
-      "warmMs": 440404,
-      "nmEntries": 4641433
+      "trulyColdMs": 222468,
+      "warmMs": 212842,
+      "nmEntries": 4884956
     }
   },
   "gateNodeModules": {
     "tool": "tsgo patched, node-modules linker",
-    "ms": 58884,
-    "maxRssMB": 50380
+    "ms": 64564,
+    "maxRssMB": 52366
   },
   "stockControl": {
     "exit": 1,
@@ -48,25 +48,25 @@
   },
   "gate": {
     "tool": "tsgo patched (native PnP), one program from src",
-    "ms": 60093,
-    "maxRssMB": 53018
+    "ms": 62811,
+    "maxRssMB": 50821
   },
   "breaking": {
     "caught": true,
-    "ms": 59927,
+    "ms": 63927,
     "ts2554": 30171,
     "appsWithErrors": 30000,
     "sample": "error TS2554: Expected 2 arguments, but got 1."
   },
   "summary": {
-    "pnpTrulyColdMs": 40808,
-    "pnpWarmMs": 38368,
-    "nmTrulyColdMs": 441451,
-    "nmWarmMs": 440404,
-    "gateMs": 60093,
-    "gateRssMB": 53018,
+    "pnpTrulyColdMs": 41590,
+    "pnpWarmMs": 39853,
+    "nmTrulyColdMs": 222468,
+    "nmWarmMs": 212842,
+    "gateMs": 62811,
+    "gateRssMB": 50821,
     "breakingCaught": true,
-    "breakingMs": 59927,
+    "breakingMs": 63927,
     "stockUnresolved": 30000
   }
 }

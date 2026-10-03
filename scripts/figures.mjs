@@ -19,6 +19,8 @@ import {
   footer as footerLine,
   svgDoc as svgDocW,
   emitChart,
+  assertComparable,
+  NEAR_TIE_MAX,
 } from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -68,6 +70,16 @@ function figSlicedGate() {
       unionLocations: need(rec, "unionCheck.locations"),
       wholeLocations: need(rec, "whole.breakingLocations"),
     };
+    // the record's best K is the strict minimum of single-sample walls; when a
+    // smaller K is a near-tie (the chart convention's 5%), the figure says so
+    const tied = Object.keys(need(rec, "ks"))
+      .map(Number)
+      .sort((a, b) => a - b)
+      .find((k) => k < bestK && need(rec, `ks.${k}.wallMs`) <= r.bestKWallMs * NEAR_TIE_MAX);
+    r.tieNote =
+      tied == null
+        ? null
+        : `K=${tied} within ${((need(rec, `ks.${tied}.wallMs`) / r.bestKWallMs - 1) * 100).toFixed(1)}% of K=${bestK} (${r.cores}c)`;
     // outcome-shape asserts: the figure's story is "identical verdict, sliced"
     if (need(rec, "unionCheck.matchesWholeProgram") !== true)
       throw new Error("unionCheck.matchesWholeProgram is not true — the figure is invalid");
@@ -78,9 +90,19 @@ function figSlicedGate() {
   });
   const [c64, c192] = rows;
   if (c192.cores <= c64.cores) throw new Error("pbox record is not the bigger box");
-  if (need(SLICED, "apps") !== need(SLICED_PBOX, "apps"))
-    throw new Error("the two sliced-gate records are not the same tree");
+  // the figure draws the two records as a machine contrast: same tree, same
+  // checker and node on the timed path (slices spawn the checker directly)
+  assertComparable(
+    SLICED,
+    SLICED_PBOX,
+    {
+      fields: ["apps", "libs", "shape", "machine.arch", "whole.breakingLocations"],
+      versions: ["tsgo", "node"],
+    },
+    "sliced-gate 64- vs 192-core",
+  );
   const apps = need(SLICED, "apps");
+  const tsgoVer = String(need(SLICED, "versions.tsgo")).replace(/^Version:?\s*/, "");
 
   const T = [];
   // column headers: the wall-clock headline per mechanism
@@ -137,7 +159,7 @@ function figSlicedGate() {
   T.push(box(sx, elY + 18, sw, sliceH, "green", 5));
   T.push(txt(sx + 10, elY + 32, "slice K", { size: 10.5 }));
   T.push(
-    txt(sx, elY + 58, `per-slice RSS ${gb(c64.sliceRssMB)} (K=${c64.bestK}, ${c64.cores}c)`, {
+    txt(sx, elY + 58, `max slice RSS ${gb(c64.sliceRssMB)} (K=${c64.bestK}, ${c64.cores}c)`, {
       size: 11,
       weight: "600",
     }),
@@ -145,6 +167,8 @@ function figSlicedGate() {
   T.push(
     txt(sx, elY + 74, `${gb(c192.sliceRssMB)} (K=${c192.bestK}, ${c192.cores}c)`, { size: 11 }),
   );
+  const tieNotes = rows.map((r) => r.tieNote).filter(Boolean);
+  tieNotes.forEach((t, i) => T.push(txt(sx, elY + 90 + i * 14, t, { size: 10.5, fill: MUTED })));
 
   // right: the union-check box (green: the verdict matches)
   const ux = 492;
@@ -169,11 +193,16 @@ function figSlicedGate() {
   T.push(arrow(sx + sw + 4, uy + 30, ux - 6, uy + 30));
   T.push(txt(462, uy + 22, "union", { size: 9.5, fill: MUTED, anchor: "middle" }));
 
-  const y = 272;
-  T.push(...footer(y, "bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json"));
+  const y = 272 + tieNotes.length * 14;
+  T.push(
+    ...footer(
+      y,
+      `bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json · tsgo ${tsgoVer}`,
+    ),
+  );
   return svgDoc(
     y + 12,
-    `The sliced gate: one tsgo program over the whole workspace (${gb(c64.wholeRssMB)} RSS, ${c64.wholeCpuPct}% CPU on ${c64.cores} cores) versus ${c64.bestK} concurrent slices at ${gb(c64.sliceRssMB)} each, with a union check proving the sliced verdict identical to the whole-program one.`,
+    `The sliced gate: one tsgo program over the whole workspace (${gb(c64.wholeRssMB)} RSS, ${c64.wholeCpuPct}% CPU on ${c64.cores} cores) versus ${c64.bestK} concurrent slices at up to ${gb(c64.sliceRssMB)} each, with a union check proving the sliced verdict identical to the whole-program one.`,
     T,
   );
 }
@@ -194,8 +223,20 @@ function figBlastRadius() {
     throw new Error("dataset says the breaking change was not caught");
   if (breakApps !== apps)
     throw new Error("breaking rev did not turn every app red — the all-rust grid is invalid");
-  if (need(SLICED, "apps") !== apps)
-    throw new Error("sliced-gate record is not the same fleet scale");
+  // the verdict line puts the batch and the sliced time side by side as one
+  // box's two mechanisms: same tree shape, same machine size and arch, same
+  // checker and node. (The two records count the breaking rev differently —
+  // raw TS2554 occurrences vs distinct error locations — so those counts are
+  // not compared here.)
+  assertComparable(
+    FLEET,
+    SLICED,
+    {
+      fields: ["apps", "libs", "shape", "machine.cores", "machine.arch"],
+      versions: ["tsgo", "node"],
+    },
+    "fleet-gate vs sliced-gate (blast radius)",
+  );
   if (need(SLICED, "unionCheck.matchesWholeProgram") !== true)
     throw new Error("sliced verdict does not match the whole program — its time can't stand in");
   if (leafRan !== need(FLEET, "leafGate.total"))
@@ -251,17 +292,14 @@ function figBlastRadius() {
   T.push(...grid(RX, gy, leafCells));
 
   const schemY = gy + gridH + 18;
-  T.push(
-    txt(
-      W / 2,
-      schemY,
-      `schematic — each cell stands for ~${appsPerCell} of the ${int(apps)} apps`,
-      {
-        size: 10,
-        fill: MUTED,
-        anchor: "middle",
-      },
-    ),
+  // two short lines, centered between the two up-arrows (a full-width line
+  // would cross them). The panels use the grid differently, and say so: the left
+  // one counts apps, the right one shades the leaf gate's share of the task set.
+  [
+    `schematic — left: each cell ≈ ${appsPerCell} of the ${int(apps)} apps`,
+    `right: rust cells = the leaf gate's share of ${int(turboTotal)} tasks`,
+  ].forEach((line, i) =>
+    T.push(txt(W / 2, schemY + i * 13, line, { size: 10, fill: MUTED, anchor: "middle" })),
   );
 
   // the edited lib at the base of each panel, arrow up into the fleet

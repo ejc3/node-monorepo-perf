@@ -17,27 +17,27 @@
   },
   "versions": {
     "bun": "1.3.14",
-    "tsgo": "Version 7.0.0-dev.20260707.2",
+    "tsgo": "Version 7.0.2",
     "turbo": "2.9.18",
-    "oxlint": "Version: 1.76.0",
-    "node": "v22.23.1"
+    "oxlint": "Version: 1.86.0",
+    "node": "v22.23.3"
   },
   "install": {
     "tool": "bun",
     "storeWarm": true,
-    "ms": 180575,
-    "packages": 78
+    "ms": 190043,
+    "packages": 76
   },
   "optimalGate": {
     "tool": "tsgo (one program, from src)",
     "kind": "typecheck only (no dist emit)",
-    "ms": 60716,
-    "maxRssMB": 51321
+    "ms": 61236,
+    "maxRssMB": 52396
   },
   "breakingChange": {
     "tool": "tsgo (one program)",
     "caught": true,
-    "ms": 59487,
+    "ms": 61665,
     "appsWithErrors": 30000,
     "ts2554": 30171,
     "sample": "error TS2554: Expected 2 arguments, but got 1."
@@ -46,33 +46,33 @@
   "turboGate": {
     "tool": "turbo+tsgo (build+check)",
     "kind": "tsc dist build (^build) + tsgo typecheck",
-    "ms": 613049,
+    "ms": 662784,
     "ran": 30708,
     "total": 30708
   },
   "leafGate": {
     "tool": "turbo+tsgo",
-    "ms": 116262,
+    "ms": 107536,
     "ran": 100,
     "total": 100
   },
   "lint": {
     "tool": "oxlint",
     "ran": true,
-    "ms": 2894,
+    "ms": 2556,
     "findings": 0
   },
   "summary": {
-    "bunInstallMs": 180575,
-    "optimalGateMs": 60716,
-    "optimalGateRssMB": 51321,
+    "bunInstallMs": 190043,
+    "optimalGateMs": 61236,
+    "optimalGateRssMB": 52396,
     "breakingChangeCaught": true,
     "breakingChangeAppsRed": 30000,
-    "breakingChangeMs": 59487,
-    "turboGateMs": 613049,
+    "breakingChangeMs": 61665,
+    "turboGateMs": 662784,
     "turboGateRan": 30708,
-    "leafGateMs": 116262,
+    "leafGateMs": 107536,
     "leafGateRan": 100,
-    "oxlintMs": 2894
+    "oxlintMs": 2556
   }
 }

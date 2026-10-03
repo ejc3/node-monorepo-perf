@@ -8,10 +8,13 @@
 // Deterministic by construction: no Date, no environment reads — every export
 // is a pure constant or a pure function of its arguments (emitChart's PNG
 // raster is the one side effect, per the repo's SVG+PNG-in-one-step contract).
+// Also home to assertComparable, the guard every two-record figure calls before
+// it draws the records as one contrast.
 
 import { writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 // --- palette -------------------------------------------------------------------
 export const INK = "#1c2330";
@@ -286,6 +289,42 @@ export const wrapText = (s, maxChars) => {
   if (line) lines.push(line);
   return lines;
 };
+
+// --- cross-record guard ------------------------------------------------------------
+// A figure that reads two bench records as ONE contrast (64- vs 192-core, batch vs
+// sliced) compares the caller-named tree fields and recorded tool versions first; a
+// tool the records do not carry is outside this guard. `fields` are dotted paths
+// whose values must be deep-equal; `versions` are keys under each record's
+// `versions` whose values must be equal strings once tsc's "Version " banner prefix
+// is stripped (some benches record it verbatim).
+// Throws on a mismatch, a missing field, a non-string version, or an empty
+// comparison (a guard that compares nothing is a bug at the call site).
+export function assertComparable(a, b, { fields = [], versions = [] }, what) {
+  if (fields.length + versions.length === 0)
+    throw new Error(`${what}: assertComparable called with nothing to compare`);
+  const at = (o, path) => path.split(".").reduce((v, k) => v?.[k], o);
+  const pair = (path) => {
+    const va = at(a, path);
+    const vb = at(b, path);
+    if (va == null || vb == null)
+      throw new Error(`${what}: missing field ${path} in a cited bench JSON`);
+    return [va, vb];
+  };
+  const differs = (path, sa, sb) =>
+    new Error(`${what}: ${path} differs (${sa} vs ${sb}) — the records are not one contrast`);
+  for (const path of fields) {
+    const [va, vb] = pair(path);
+    if (!isDeepStrictEqual(va, vb)) throw differs(path, JSON.stringify(va), JSON.stringify(vb));
+  }
+  for (const key of versions) {
+    const path = `versions.${key}`;
+    const [va, vb] = pair(path);
+    if (typeof va !== "string" || typeof vb !== "string")
+      throw new Error(`${what}: ${path} is not a version string in a cited bench JSON`);
+    const ver = (v) => v.replace(/^Version(?::\s*|\s+)/, "");
+    if (ver(va) !== ver(vb)) throw differs(path, ver(va), ver(vb));
+  }
+}
 
 // --- emit: SVG + 300 DPI PNG in one step -------------------------------------------
 // The repo chart convention: regenerating a chart regenerates its raster, so the
