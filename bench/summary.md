@@ -1,13 +1,15 @@
 # Benchmark results
 
-Machine: Neoverse-V1 (arm64), linux 6.18.3-fcvm-8ee6c35df0e1, generated from `bench/results.json`.
+Generated from `bench/results.json` (pnpm 12.8.1, per each row's `versions.pnpm`). The record carries no machine fields; the machine is described in the README's [Results](../README.md#results-scaling-behavior) section.
 
 | scale | gen | install | lockfile | node_modules | typecheck cold | typecheck warm | focus build | full build tasks | focus pkgs | prune |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **200 apps / 100 libs** | 704ms | 48s | 9,897 lines / 268KB | 16,281 entries / 393MB | 19s | 1.5s | 12s | 300 | 75 | 917ms |
-| **1,000 apps / 200 libs** | 613ms | 234s | 41,227 lines / 1.1MB | 31,713 entries / 398MB | 69s | 5.0s | 14s | 1,200 | 124 | 2.7s |
-| **2,000 apps / 300 libs** | 1.6s | 472s | 79,967 lines / 2.1MB | 50,749 entries / 404MB | 127s | 7.6s | 16s | 2,300 | 100 | 5.3s |
-| **4,000 apps / 300 libs** | 2.0s | 984s | 153,967 lines / 4.1MB | 86,749 entries / 414MB | 233s | 21s | 21s | 4,300 | 121 | 7.6s |
+| **200 apps / 100 libs** | 890ms | 635ms | 10,185 lines / 277KB | 16,359 entries / 392MB | 8.4s | 978ms | 8.3s | 300 | 75 | 548ms |
+| **1,000 apps / 200 libs** | 432ms | 1.1s | 41,515 lines / 1.1MB | 31,791 entries / 403MB | 25s | 3.8s | 11s | 1,200 | 124 | 1.6s |
+| **2,000 apps / 300 libs** | 1.2s | 1.6s | 80,255 lines / 2.1MB | 50,827 entries / 418MB | 47s | 5.2s | 12s | 2,300 | 100 | 1.9s |
+| **5,000 apps / 300 libs** | 2.1s | 3.9s | 191,255 lines / 5.1MB | 104,827 entries / 460MB | 107s | 11s | 15s | 5,300 | 100 | 4.4s |
+| **10,000 apps / 300 libs** | 4.8s | 31s | 376,255 lines / 10.1MB | 194,827 entries / 529MB | 223s | 24s | 22s | 10,300 | 121 | 12s |
+| **20,000 apps / 300 libs** | 9.3s | 75s | 746,255 lines / 20.0MB | 374,827 entries / 668MB | — | — | 40s | 20,300 | 100 | 25s |
 
 ## Charts
 

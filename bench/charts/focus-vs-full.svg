@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Packages built: focused closure vs whole workspace — @demo/app-2000 + closure vs whole workspace — Turborepo --filter" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="420" viewBox="0 0 760 420" role="img" aria-label="Packages built: focused closure vs whole workspace — @demo/app-10000 + closure vs whole workspace — Turborepo --filter" font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -17,13 +17,13 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 }</style>
 <rect width="760" height="420" fill="#ffffff"/>
 <text x="70" y="34" font-size="18" fill="#1c2330" font-weight="700">Packages built: focused closure vs whole workspace</text>
-<text x="70" y="54" font-size="12.5" fill="#6b7885">@demo/app-2000 + closure vs whole workspace — Turborepo --filter</text>
+<text x="70" y="54" font-size="12.5" fill="#6b7885">@demo/app-10000 + closure vs whole workspace — Turborepo --filter</text>
 <line x1="70" y1="330" x2="736" y2="330" stroke="#e4e8ec"/>
-<rect x="88" y="323.1339534883721" width="120" height="6.866046511627907" rx="4" fill="rgb(31,138,77)"/>
-<text x="148" y="315.1339534883721" font-size="13" fill="#1c2330" font-weight="600" text-anchor="middle">121</text>
+<rect x="88" y="328" width="120" height="2" rx="4" fill="rgb(31,138,77)"/>
+<text x="148" y="320" font-size="13" fill="#1c2330" font-weight="600" text-anchor="middle">100</text>
 <text x="148" y="352" font-size="12" fill="#6b7885" text-anchor="middle">focused closure</text>
-<text x="148" y="368" font-size="12" fill="#6b7885" text-anchor="middle">(@demo/app-2000)</text>
+<text x="148" y="368" font-size="12" fill="#6b7885" text-anchor="middle">(@demo/app-10000)</text>
 <rect x="226" y="86" width="120" height="244" rx="4" fill="rgb(209,163,43)"/>
-<text x="286" y="78" font-size="13" fill="#1c2330" font-weight="600" text-anchor="middle">4,300</text>
+<text x="286" y="78" font-size="13" fill="#1c2330" font-weight="600" text-anchor="middle">20,300</text>
 <text x="286" y="352" font-size="12" fill="#6b7885" text-anchor="middle">whole workspace</text>
 </svg>

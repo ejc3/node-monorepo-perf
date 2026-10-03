@@ -5,10 +5,10 @@
     "axis": "corner",
     "totalTasks": 300,
     "focusClosure": 75,
-    "installMs": 48071,
-    "tcColdMs": 18728,
-    "focusMs": 11452,
-    "pruneMs": 844
+    "installMs": 614,
+    "tcColdMs": 8593,
+    "focusMs": 8131,
+    "pruneMs": 449
   },
   {
     "apps": 500,
@@ -16,10 +16,10 @@
     "axis": "apps",
     "totalTasks": 600,
     "focusClosure": 27,
-    "installMs": 117792,
-    "tcColdMs": 34826,
-    "focusMs": 7664,
-    "pruneMs": 1216
+    "installMs": 1024,
+    "tcColdMs": 12987,
+    "focusMs": 5749,
+    "pruneMs": 546
   },
   {
     "apps": 1000,
@@ -27,10 +27,10 @@
     "axis": "apps",
     "totalTasks": 1100,
     "focusClosure": 75,
-    "installMs": 228447,
-    "tcColdMs": 61764,
-    "focusMs": 12711,
-    "pruneMs": 3039
+    "installMs": 989,
+    "tcColdMs": 21411,
+    "focusMs": 8766,
+    "pruneMs": 946
   },
   {
     "apps": 200,
@@ -38,10 +38,10 @@
     "axis": "libs",
     "totalTasks": 250,
     "focusClosure": 43,
-    "installMs": 47426,
-    "tcColdMs": 15949,
-    "focusMs": 10689,
-    "pruneMs": 743
+    "installMs": 596,
+    "tcColdMs": 7954,
+    "focusMs": 7515,
+    "pruneMs": 349
   },
   {
     "apps": 200,
@@ -49,10 +49,10 @@
     "axis": "libs",
     "totalTasks": 350,
     "focusClosure": 81,
-    "installMs": 48512,
-    "tcColdMs": 23124,
-    "focusMs": 11589,
-    "pruneMs": 1004
+    "installMs": 638,
+    "tcColdMs": 10235,
+    "focusMs": 8269,
+    "pruneMs": 519
   },
   {
     "apps": 200,
@@ -60,9 +60,9 @@
     "axis": "libs",
     "totalTasks": 500,
     "focusClosure": 100,
-    "installMs": 49978,
-    "tcColdMs": 32723,
-    "focusMs": 12076,
-    "pruneMs": 1341
+    "installMs": 660,
+    "tcColdMs": 12693,
+    "focusMs": 8799,
+    "pruneMs": 708
   }
 ]

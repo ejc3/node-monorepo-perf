@@ -7,10 +7,11 @@
 // the REAL `turbo run <task> --cache=remote:rw` restore under a sweep of network
 // profiles (modern CI links: same-region 1 Gbps, cross-region 500 Mbps), at one
 // scale, for two tasks whose cache artifacts bracket the range: typecheck (a
-// sub-megabyte cache) and build (a few-hundred-megabyte cache). The finding: the
-// shared cache is ~10× faster than cold compute on any modern link, but the big
-// build artifact is a real bandwidth-bound download (seconds) that the localhost
-// floor hides, while the tiny typecheck cache costs the same on any link.
+// sub-megabyte cache) and build (a few-hundred-megabyte cache). The record's
+// `finding` sentence — the restore-vs-cold ratio range and each task's restore time
+// against the localhost floor per link — is derived from the measured cells
+// (scripts/_net-cache-finding.mjs), never hard-coded: the ratio moves with the box
+// (cold compute is core-bound, the restore is not) and with the toolchain.
 //
 // The completeness discipline of the sibling bench is preserved: every restore is
 // asserted all-cached-from-remote (a partial restore can't read as a fast number), the
@@ -41,6 +42,7 @@ import { join } from "node:path";
 import net from "node:net";
 import os from "node:os";
 import { enterSourceVisible } from "./_source-visible.mjs";
+import { netCacheFinding } from "./_net-cache-finding.mjs";
 
 const ROOT = process.cwd();
 const fail = (m) => {
@@ -66,11 +68,11 @@ const SCALE = parseScale(process.env.NET_SCALE || "300:100");
 const TASKS = (process.env.NET_TASKS || "typecheck build").trim().split(/\s+/);
 // Sample counts match the sibling ci-cache-bench's true-median convention: restore is
 // the variance-prone shaped measurement (median of 3); the cold-compute baseline is
-// medianed too, but cold BUILD is slow (~60s) and its speedup vs restore is ~16×, so a
-// single cold-build sample is enough (precision on a 16× denominator is irrelevant).
+// medianed too, except cold BUILD, the slowest step of the bench, which takes a single
+// sample (NET_BUILD_COLD_SAMPLES raises it; a non-default value diverts to .partial).
 const SAMPLES = intEnv("NET_SAMPLES", 3, 1); // restore samples per profile
 const COLD_SAMPLES = intEnv("NET_COLD_SAMPLES", 2, 1); // cold-compute baseline (non-build)
-const BUILD_COLD_SAMPLES = intEnv("NET_BUILD_COLD_SAMPLES", 1, 1); // cold build: slow, 16× effect
+const BUILD_COLD_SAMPLES = intEnv("NET_BUILD_COLD_SAMPLES", 1, 1); // cold build: the slowest step
 const PORT = intEnv("NET_PORT", 41171, 1024);
 const KEEP = process.env.NET_KEEP === "1";
 const TOKEN = "net-cache-token";
@@ -495,17 +497,27 @@ const output = {
   concurrency: CONC,
   profiles: PROFILES.map((p) => ({ name: p.name, rttMs: p.rttMs, rate: p.rate })),
   results,
-  finding:
-    "A shared remote cache restores a fresh CI runner about 10-14× faster than cold compute on every link " +
-    "measured; the restore's network cost scales with cache SIZE, not repo size. The sub-megabyte typecheck " +
-    "cache restores in the same time same-region or cross-region. The few-hundred-megabyte build cache is a " +
-    "bandwidth-bound download whose cost grows with the link: a fraction of a second same-region (1 Gbps), a " +
-    "couple of seconds cross-region (500 Mbps + RTT) — a cost the localhost floor hides but that stays about " +
-    "10× under the cold compute it replaces. The levers are artifact size and link bandwidth.",
 };
+// derived from the cells above (ratio range + per-task restore-vs-floor deltas), so
+// the sentence cannot outlive the numbers it summarizes. A derivation failure must
+// not discard the measured run, and must not land as the canonical record either: the
+// cells are written to the gitignored .partial file (finding: null) and the bench
+// exits non-zero. (net-cache-chart.mjs also refuses a record whose `finding` is not
+// the derived sentence.)
+let derived = true;
+try {
+  output.finding = netCacheFinding(output);
+} catch (e) {
+  derived = false;
+  output.finding = null;
+  output.canonical = false;
+  console.error(`\nFAIL: could not derive the finding sentence: ${e.message}`);
+  process.exitCode = 1;
+}
 
-const rel = canonical
-  ? "bench/ci-cache-network-bench.json"
-  : "bench/ci-cache-network-bench.partial.json";
+const rel =
+  canonical && derived
+    ? "bench/ci-cache-network-bench.json"
+    : "bench/ci-cache-network-bench.partial.json";
 writeFileSync(join(ROOT, rel), JSON.stringify(output, null, 2));
 console.log(`\n--- ${rel} written ---`);

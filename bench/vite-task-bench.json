@@ -2,12 +2,12 @@
   "versions": {
     "vitePlus": "0.2.2",
     "turbo": "2.9.18",
-    "tsgo": "7.0.0-dev.20260614.1",
-    "node": "v22.22.0"
+    "tsgo": "7.0.2",
+    "node": "v22.23.3"
   },
-  "cores": 64,
-  "preRunLoadAvg1": 4.24,
-  "concurrency": 64,
+  "cores": 192,
+  "preRunLoadAvg1": 13.52,
+  "concurrency": 192,
   "warmSamples": 3,
   "method": "same generated DAG, same tsgo binary, same pnpm-installed node_modules; concurrency pinned to the core count on both runners; vp runs --parallel (flat execution matching the dep-free task semantics turbo gets from dependsOn []; vp's default would impose workspace-topology ordering on package scripts); cold/warm asserted from each runner's own summary (turbo 'Cached: X cached, Y total'; vp 'X/Y cache hit'); cold is a single sample (repo convention for expensive colds), warm the median of warmSamples, per-rung 1-min load recorded; runner order alternates per scale (recorded) so neither side's cold systematically inherits the other's page cache; turbo cold follows an untimed --dry=json warmup (graph parse excluded, the measure.mjs convention); env scrubbed (TURBO_*/VITE_*/VP_*/npm_config_*/CI vars) then pinned per runner — turbo runs CI-absent, vp runs CI=true (it prompts and hangs a pipe otherwise; each runner in its own documented non-interactive state); turbo rungs run under enterSourceVisible (turbo hashes declared inputs and respects .gitignore), vp rungs run on the plain gitignored tree (Vite Task fingerprints the files a task reads) — the mechanism contrast is a finding, not a confound",
   "scaffoldPatches": "(1) per-package tsconfig.tsgo.json (extends the package tsconfig; incremental:false so no tsbuildinfo write — Vite Task refuses to cache a task that writes a file it read; rootDir ../.. so the source the paths mapping pulls in is admissible), with the typecheck:tsgo script pointed at it; (2) paths @demo/* -> ../../packages/*/src/index.ts in that derived config only (tsconfig.base is extended by the build tsconfigs, where a source mapping breaks emit) so typecheck resolves lib SOURCE and needs no dist; (3) turbo.json typecheck:tsgo dependsOn [] — with (2)+(3) the compared task is dep-free and identical on both runners (the test-axis isolation pattern); the ^build edge is also how turbo propagates cross-package invalidation, so the edit-invalidation rung's turbo false-hit is a structural consequence of this shape, disclosed there",
@@ -16,48 +16,48 @@
       "focusApp": "@demo/app-151",
       "runnerOrder": "turbo,vp",
       "turboWhole": {
-        "coldMs": 8680,
-        "warmMs": 1843,
+        "coldMs": 5161,
+        "warmMs": 1397,
         "warmSamplesMs": [
-          1843,
-          2010,
-          1826
+          1298,
+          1432,
+          1397
         ],
         "tasks": 400,
-        "loadAvg1": 33.75
+        "loadAvg1": 100.05
       },
       "turboFocused": {
-        "coldMs": 2173,
-        "warmMs": 1179,
+        "coldMs": 1358,
+        "warmMs": 756,
         "warmSamplesMs": [
-          1041,
-          1462,
-          1179
+          753,
+          802,
+          756
         ],
         "tasks": 61,
-        "loadAvg1": 33.44
+        "loadAvg1": 98.2
       },
       "vpWhole": {
-        "coldMs": 26992,
-        "warmMs": 3656,
+        "coldMs": 43509,
+        "warmMs": 4489,
         "warmSamplesMs": [
-          3655,
-          3661,
-          3656
+          4489,
+          4494,
+          4470
         ],
         "tasks": 400,
-        "loadAvg1": 20.05
+        "loadAvg1": 96.13
       },
       "vpFocused": {
-        "coldMs": 1833,
-        "warmMs": 849,
+        "coldMs": 2330,
+        "warmMs": 810,
         "warmSamplesMs": [
-          873,
-          844,
-          849
+          803,
+          823,
+          810
         ],
         "tasks": 61,
-        "loadAvg1": 18.52
+        "loadAvg1": 89.4
       },
       "vpCachesGitignoredSource": true
     },
@@ -65,49 +65,49 @@
       "focusApp": "@demo/app-0501",
       "runnerOrder": "vp,turbo",
       "vpWhole": {
-        "coldMs": 117293,
-        "warmMs": 10791,
+        "coldMs": 204161,
+        "warmMs": 14507,
         "warmSamplesMs": [
-          10791,
-          10860,
-          10707
+          14636,
+          14078,
+          14507
         ],
         "tasks": 1200,
-        "loadAvg1": 22.66
+        "loadAvg1": 117.76
       },
       "vpFocused": {
-        "coldMs": 1769,
-        "warmMs": 860,
+        "coldMs": 1983,
+        "warmMs": 826,
         "warmSamplesMs": [
-          860,
-          861,
-          855
+          826,
+          842,
+          812
         ],
         "tasks": 56,
-        "loadAvg1": 20.93
+        "loadAvg1": 109.62
       },
       "vpCachesGitignoredSource": true,
       "turboWhole": {
-        "coldMs": 31533,
-        "warmMs": 4996,
+        "coldMs": 19132,
+        "warmMs": 3523,
         "warmSamplesMs": [
-          4996,
-          6146,
-          4874
+          3523,
+          3702,
+          3068
         ],
         "tasks": 1200,
-        "loadAvg1": 110.12
+        "loadAvg1": 433.86
       },
       "turboFocused": {
-        "coldMs": 3394,
-        "warmMs": 2966,
+        "coldMs": 1543,
+        "warmMs": 1010,
         "warmSamplesMs": [
-          2966,
-          3475,
-          2613
+          1006,
+          1010,
+          1665
         ],
         "tasks": 56,
-        "loadAvg1": 86.02
+        "loadAvg1": 374.46
       }
     }
   },
@@ -131,38 +131,38 @@
     "msNote": "cacheability is the finding on this rung; the vp pass runs after turbo left dist/.next on disk, so its ms are not cold-comparable and are diagnostic only",
     "turbo": {
       "cachesNextBuild": true,
-      "coldMs": 10987,
-      "warmMs": 3582,
+      "coldMs": 9299,
+      "warmMs": 1000,
       "tasks": 56
     },
     "vp": {
       "cachesNextBuild": false,
-      "refusalSample": "→ Not cached: read and wrote 'apps/app-0501/.next/server/chunks/ssr/apps_app-0501_app_layout_tsx_05s7wt1._.js'"
+      "refusalSample": "→ Not cached: read and wrote 'apps/app-0501/.next/server/chunks/ssr/[root-of-the-server]__0yfk339._.js.map'"
     }
   },
   "testAxis": {
     "task": "test (node --test smoke test per package)",
     "turbo": {
-      "coldMs": 15268,
-      "warmMs": 4871,
+      "coldMs": 7051,
+      "warmMs": 2765,
       "warmSamplesMs": [
-        5537,
-        4871,
-        4785
+        2765,
+        3288,
+        2753
       ],
       "tasks": 1200,
-      "loadAvg1": 48.45
+      "loadAvg1": 86.31
     },
     "vp": {
-      "coldMs": 12925,
-      "warmMs": 953,
+      "coldMs": 17612,
+      "warmMs": 1024,
       "warmSamplesMs": [
-        953,
-        964,
-        953
+        1028,
+        1024,
+        1001
       ],
       "tasks": 1200,
-      "loadAvg1": 36.65
+      "loadAvg1": 68.14
     }
   }
 }

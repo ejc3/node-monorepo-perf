@@ -9,14 +9,18 @@ A measurement lab for a large pnpm + Turborepo monorepo. It generates a syntheti
 workspace (N Next.js apps + M shared libs, each package holding `MODULES` generated
 TS modules re-exported through an `index.ts`), with inter-package imports forming a
 layered dependency graph (apps import libs; libs import lower libs). It then
-benchmarks every workflow as the workspace scales (200 → 4,000 apps) and reports
-the results in the docs.
+benchmarks the core workflows as the workspace scales and reports the results in the
+docs. The core sweep (install, focus build, prune, lockfile) reaches 20,000 apps; the
+whole-workspace tsc typecheck 10,000; the whole-program tsgo column 4,000.
 
-**Thesis:** whole-workspace operations are **O(repo)**: they scale ~linearly with
-package count (install, cold/warm typecheck, lockfile, graph-load, prune). Focused
-operations (`turbo --filter=<app>...` / `--affected`) are **O(closure)**: they
-track one app's dependency closure and grow with that closure, not the repo.
-Scope work; optimizing unscoped commands does not remove the O(repo) cost.
+**Thesis:** whole-workspace operations are **O(repo)**: they grow with package count
+(install, cold/warm typecheck, lockfile, graph-load, prune) — cold/warm typecheck and
+lockfile size ~linearly, install faster than linearly past 5,000 apps. A focused
+operation (`turbo --filter=<app>...`) selects and executes **O(closure)** work: one
+app's dependency closure, 75–124 packages at every measured scale. Its wall time is
+that closure's work plus an O(repo) graph load paid on every turbo invocation, and
+what `--affected` selects depends on the edit (a foundation edit selects every
+dependent). Scope work; optimizing unscoped commands does not remove the O(repo) cost.
 
 The apps/ and packages/ trees are **generated and gitignored**: they are build
 inputs, not source. Tracked files are `scripts/`, the docs, `bench/*.json`,
@@ -74,7 +78,10 @@ One command each for the O(repo)-vs-O(closure) thesis:
 
 ### Decomposition / Axes
 - `node scripts/axis-bench.mjs`: separate the apps axis from the libs axis
-  (install scales with apps; focus tracks libs/closure) → `bench/axis-bench.json`.
+  (200–1,000 apps, 50–300 libs: cold typecheck and prune grow with package count on
+  either axis; the focus build follows the closure size — 8.1s vs 8.8s for the same
+  75-package closure at 200 and 1,000 apps; under pnpm 12.8.1 the install is 0.6–1.0s at
+  every point) → `bench/axis-bench.json`.
 - `node scripts/test-axis-bench.mjs` (`TEST_AXIS_SCALES`/`BLAST_SCALE`/`GATE_SAMPLES` knobs;
   default scales `300:100 1000:200`, blast `1000:200`): the missing TEST-execution axis,
   built with `generate.mjs --test-task`. Whole-repo `turbo run test` (O(repo), one task per
@@ -709,12 +716,14 @@ One command each for the O(repo)-vs-O(closure) thesis:
   a bandwidth cap) and times the REAL `turbo run <task> --cache=remote:rw` restore across profiles
   (localhost floor · same-region 1 Gbps/2 ms · cross-region 500 Mbps/30 ms — loopback egress is traversed
   once per direction, so RTT = 2×delay, validated) for two tasks whose caches bracket the range: typecheck
-  (sub-MB) and build (a few-hundred-MB). The finding: the shared cache is ~10× faster than cold compute on
-  every link; the restore's network cost scales with cache SIZE, not repo size — the tiny typecheck cache
-  is free everywhere, the big build cache is a real bandwidth-bound download (+0.4s same-region, +2.3s
-  cross-region) that stays ~10× under the cold compute it replaces. Discipline: every
+  (sub-MB) and build (a few-hundred-MB). The finding (192-core record): every restore is 4.5–7.1× faster
+  than cold compute; same-region both restores sit inside the localhost floor's own sample spread, and
+  the cross-region profile (500 Mbps + 30 ms RTT, varied together) adds 0.2s to the 0.2 MB typecheck
+  restore and 1.8s to the 247 MB build restore. The record's `finding` sentence and the chart headline are DERIVED from
+  the measured cells by `scripts/_net-cache-finding.mjs` (ratio range + per-task restore-vs-floor deltas;
+  a restore inside the floor's sample range is not called a cost), never hard-coded. Discipline: every
   restore asserted all-cached-from-remote (a partial restore can't read fast), cold asserted 0-cached and
-  medianed (build cold is slow/16×-diluted → 1 sample, matching ci-cache-bench), restore = median of 3;
+  medianed (build cold, the slowest step, takes 1 sample, matching ci-cache-bench), restore = median of 3;
   for the big artifact the cross-region link is asserted measurably slower than the floor (a silently-no-op
   tc leaves the download cost visible, not free); a stale qdisc from a prior killed run is detected +
   cleared before measuring; the canonical gate covers every number-moving knob (scale/samples/conc/tasks)
@@ -758,7 +767,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   [WORKSPACE-VS-SEMVER.md §7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces).
 
 ### Environment
-- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the machine record for the 64-core-era results; a bench JSON's own machine/cores fields take precedence where present).
+- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the machine record for the 64-core install-family records; a bench JSON's own machine/cores fields take precedence where present, and the 192-core records without such fields are listed under Data of Record).
 
 ### Shared Internals
 
@@ -779,6 +788,14 @@ Shared helpers the bench scripts import rather than run directly:
   painters, and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
+- `scripts/_net-cache-finding.mjs`: the derived claim text for
+  `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold
+  ratio range and, per task, each shaped profile's restore time against the localhost
+  floor, marking a shaped restore inside the floor's own [min, max] sample range
+  `withinSpread` (never with a single-sample floor); `netCacheFinding(rec)` renders that
+  as the record's `finding` sentence. Imported by `ci-cache-network-bench.mjs` (writes
+  `finding`; a failed derivation diverts the run to `.partial.json`) and
+  `net-cache-chart.mjs` (headline; asserts the record's `finding` equals the derivation).
 - `scripts/_ts.mjs`: the single TypeScript-toolchain resolver. typescript@7 is the
   native compiler (formerly tsgo; its only bin is `tsc`) and the `typescript6` alias
   is the last JS release (the tsc oracle + tsserver), so `node_modules/.bin/tsc` is a
@@ -826,15 +843,27 @@ Shared helpers the bench scripts import rather than run directly:
 
 `bench/*.json` is the source of truth; the docs must not contain a number that
 isn't backed by one of these. `bench/env.json` records the machine for the 64-core
-records (`results.json` and the install family); a record that carries its own
+records (the install family); a record that carries its own
 `machine`/`cores` fields overrides it. The TS7-toolchain records — `relay-codegen-bench.json`,
 `tsgo-scale-table.json`, `optimal-gate-bench.json`, `dev-loop-bench.json`,
-`lib-rev-bench.json`, `dev-sim.json`, `editor-loop-bench.json`, `lint-bench.json` — are
-canonical on a 192-core c8g.48xlarge; all but `dev-sim.json` and `lib-rev-bench.json`
-record machine/cores in the JSON (those two carry no machine fields). `chart.mjs`
+`lib-rev-bench.json`, `dev-sim.json`, `editor-loop-bench.json`, `lint-bench.json`,
+`results.json`, `axis-bench.json`, `ci-cache-bench.json`, `ci-cache-network-bench.json`,
+`vite-task-bench.json` — are canonical on a 192-core c8g.48xlarge. Of those,
+`dev-sim.json`, `lib-rev-bench.json`, `results.json`, and `axis-bench.json` carry no
+machine fields (`results.json` rows carry only `versions.pnpm`; `axis-bench.json` is a bare
+array of scale points); the rest record cores in the JSON (`ci-cache-bench.json` and
+`ci-cache-network-bench.json` as `env.cores` + `env.preRunLoadAvg1`, `vite-task-bench.json`
+as top-level `cores` + `preRunLoadAvg1`); none of the five records the instance type,
+which the README's Results section states. `results.json` contains one sweep: one row per
+scale, every row recording the same `versions.pnpm`, and `chart.mjs` enforces both (it
+refuses an empty dataset, an un-versioned or differently-versioned row, and a second row
+for a scale label). `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
-(+ `tsgo-scale-table.json` for the typecheck chart's subtitle and `env.json` for
-summary.md's machine line — committed inputs, so the output stays deterministic);
+(+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
+scale point — committed inputs, so the output stays deterministic; summary.md's header
+names the rows' pnpm version and points at the README for the machine, since the record
+carries none). Its typecheck chart uses the largest scale that ran the whole-workspace
+typecheck (`sweep.mjs` omits that phase at its top scale);
 it keeps and warns about a doc-linked chart it can't regenerate this run rather than
 deleting it (`CHART_STRICT=1`, set in CI, turns that into a hard failure so a kept
 stale chart can't pass the byte-gate; it exempts charts owned by another generator
@@ -874,7 +903,7 @@ gate vs the K-slice fan vs the union check, from the two sliced-gate records; as
 `unionCheck.matchesWholeProgram`) and `bench/charts/fig-blast-radius.svg` (foundation rev
 turns the 30,000-app grid rust vs a leaf edit, from `fleet-gate-bench.json` +
 `sliced-gate-bench.json` + `dev-sim.json`'s `blast` rung), both embedded in FLEET.md, and
-`bench/charts/fig-orepo-oclosure.svg` (the thesis: unscoped fan-out vs one app's closure,
+`bench/charts/fig-orepo-oclosure.svg` (the thesis: a whole-repo selection vs one app's closure,
 from `fleet-gate-bench.json` `turboGate` + `results.json`'s largest scale), embedded in
 the README. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
 edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell

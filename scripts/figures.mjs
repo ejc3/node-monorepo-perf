@@ -2,7 +2,7 @@
 // Mechanism figures for the diagram-heavy reports (diagram-style-spec.md):
 //   fig-sliced-gate     — one-program gate vs the K-slice fan vs the union check (FLEET.md)
 //   fig-blast-radius    — foundation rev turns the whole fleet red; a leaf rev doesn't (FLEET.md)
-//   fig-orepo-oclosure  — the thesis: unscoped O(repo) fan-out vs a scoped closure (README.md)
+//   fig-orepo-oclosure  — the thesis: a whole-repo selection vs one app's closure (README.md)
 // Deterministic from the cited bench JSONs (no Date, no hand numbers; missing or
 // renamed fields throw) -> bench/charts/fig-*.svg + a 300 DPI PNG each, one step.
 //
@@ -316,7 +316,11 @@ function figBlastRadius() {
 // ============================================================================
 function figOrepoOclosure() {
   const fleetApps = need(FLEET, "apps");
-  const fleetLibs = need(FLEET, "libs");
+  // the O(repo) side is the fleet gate's turbo run: optimal-gate-bench.mjs times
+  // `turbo run typecheck:tsgo --filter=...<foundationLib>`, whose selection is the
+  // foundation lib plus every dependent — labeled as that command, not as "no filter"
+  const foundation = need(FLEET, "foundationLib");
+  const turboKind = need(FLEET, "turboGate.kind");
   const turboMs = need(FLEET, "turboGate.ms");
   const turboTasks = need(FLEET, "turboGate.total");
   if (need(FLEET, "turboGate.ran") !== turboTasks)
@@ -333,14 +337,14 @@ function figOrepoOclosure() {
     throw new Error("the focused build did not succeed at the largest scale");
 
   const T = [];
-  T.push(txt(16, 22, "O(repo): the unscoped command", { size: 13, weight: "600" }));
+  T.push(txt(16, 22, "O(repo): the whole-repo selection", { size: 13, weight: "600" }));
   T.push(txt(356, 22, "O(closure): the scoped command", { size: 13, weight: "600" }));
 
   // command boxes (blue: the thing you type)
   const cy = 38;
   T.push(box(16, cy, 288, 46, "blue"));
-  T.push(txt(30, cy + 20, "turbo run typecheck", { size: 12, weight: "600" }));
-  T.push(txt(30, cy + 36, "no filter — every package is selected", { size: 10.5 }));
+  T.push(txt(30, cy + 20, "turbo run typecheck:tsgo", { size: 12, weight: "600" }));
+  T.push(txt(30, cy + 36, `--filter=...${foundation} — every dependent`, { size: 10.5 }));
   T.push(box(356, cy, 288, 46, "blue"));
   T.push(txt(370, cy + 20, `turbo run build --filter=${focusApp}...`, { size: 11, weight: "600" }));
   T.push(txt(370, cy + 36, "one app + its dependency closure", { size: 10.5 }));
@@ -355,7 +359,7 @@ function figOrepoOclosure() {
   T.push(
     txt(30, ry + 26, `${int(turboTasks)} tasks · ${secs(turboMs)}`, { size: 16, weight: "700" }),
   );
-  T.push(txt(30, ry + 46, `a task per package + ${int(fleetLibs)} lib builds`, { size: 10.5 }));
+  T.push(txt(30, ry + 46, turboKind, { size: 10.5 }));
   T.push(
     txt(30, ry + 62, `${int(fleetApps)}-app fleet tree — grows with the repo`, { size: 10.5 }),
   );
@@ -369,7 +373,7 @@ function figOrepoOclosure() {
     }),
   );
   T.push(
-    txt(370, ry + 62, `${int(rApps)}-app tree (${rLibs} libs) — grows with the closure`, {
+    txt(370, ry + 62, `${int(rApps)}-app tree (${rLibs} libs) — tasks track the closure`, {
       size: 10.5,
     }),
   );
@@ -379,7 +383,7 @@ function figOrepoOclosure() {
     txt(
       16,
       ny,
-      "different trees and tasks — the contrast is the selection mechanism, not a like-for-like ratio",
+      "different trees and tasks — the contrast is the task selection, not a like-for-like time ratio",
       { size: 10.5, fill: MUTED },
     ),
   );
@@ -388,7 +392,7 @@ function figOrepoOclosure() {
   T.push(...footer(y, "bench/fleet-gate-bench.json · bench/results.json"));
   return svgDoc(
     y + 12,
-    `The thesis: an unscoped whole-repo command runs a task for every package (${int(turboTasks)} tasks on the ${int(fleetApps)}-app fleet), while a scoped command runs one app's dependency closure (${focusTasks} tasks at the largest measured layered scale).`,
+    `The thesis: a command whose selection is the whole repo — a filter on the foundation lib selects every dependent — runs ${int(turboTasks)} tasks on the ${int(fleetApps)}-app fleet, while a command scoped to one app runs that app's dependency closure (${focusTasks} tasks at the largest measured layered scale).`,
     T,
   );
 }

@@ -6,21 +6,24 @@
     "modules": 16,
     "framework": "next",
     "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
     "phases": {
       "gen": {
-        "ms": 704,
+        "ms": 890,
         "ok": true,
         "approxFiles": 3100,
-        "generateMs": 678
+        "generateMs": 861
       },
       "install": {
-        "ms": 47709,
+        "ms": 635,
         "ok": true,
-        "lockfileBytes": 274784,
-        "lockfileLines": 9897,
-        "nmEntries": 16281,
+        "lockfileBytes": 283485,
+        "lockfileLines": 10185,
+        "nmEntries": 16359,
         "nmSymlinks": 3011,
-        "nmApparentBytes": 412032735
+        "nmApparentBytes": 410561891
       },
       "graph": {
         "totalBuildTasks": 300,
@@ -29,22 +32,22 @@
         "sampleApp": "@demo/app-100"
       },
       "typecheck": {
-        "coldMs": 18969,
+        "coldMs": 8448,
         "coldOk": true,
         "warmupOk": true,
-        "warmMs": 1538,
+        "warmMs": 978,
         "warmOk": true
       },
       "focus": {
-        "ms": 11535,
+        "ms": 8278,
         "ok": true,
         "app": "@demo/app-100"
       },
       "prune": {
-        "ms": 917,
+        "ms": 548,
         "ok": true,
         "app": "@demo/app-100",
-        "outApparentBytes": 1146597,
+        "outApparentBytes": 1169369,
         "outPackages": 76,
         "outFiles": 1416
       }
@@ -57,21 +60,24 @@
     "modules": 16,
     "framework": "next",
     "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
     "phases": {
       "gen": {
-        "ms": 613,
+        "ms": 432,
         "ok": true,
         "approxFiles": 9800,
-        "generateMs": 586
+        "generateMs": 401
       },
       "install": {
-        "ms": 234065,
+        "ms": 1077,
         "ok": true,
-        "lockfileBytes": 1150541,
-        "lockfileLines": 41227,
-        "nmEntries": 31713,
+        "lockfileBytes": 1159242,
+        "lockfileLines": 41515,
+        "nmEntries": 31791,
         "nmSymlinks": 13160,
-        "nmApparentBytes": 417087876
+        "nmApparentBytes": 423074132
       },
       "graph": {
         "totalBuildTasks": 1200,
@@ -80,22 +86,22 @@
         "sampleApp": "@demo/app-0500"
       },
       "typecheck": {
-        "coldMs": 68908,
+        "coldMs": 25169,
         "coldOk": true,
         "warmupOk": true,
-        "warmMs": 5002,
+        "warmMs": 3767,
         "warmOk": true
       },
       "focus": {
-        "ms": 14171,
+        "ms": 10782,
         "ok": true,
         "app": "@demo/app-0500"
       },
       "prune": {
-        "ms": 2659,
+        "ms": 1608,
         "ok": true,
         "app": "@demo/app-0500",
-        "outApparentBytes": 1860993,
+        "outApparentBytes": 1883765,
         "outPackages": 125,
         "outFiles": 2347
       }
@@ -108,21 +114,24 @@
     "modules": 16,
     "framework": "next",
     "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
     "phases": {
       "gen": {
-        "ms": 1603,
+        "ms": 1195,
         "ok": true,
         "approxFiles": 17700,
-        "generateMs": 1575
+        "generateMs": 1163
       },
       "install": {
-        "ms": 471519,
+        "ms": 1613,
         "ok": true,
-        "lockfileBytes": 2234777,
-        "lockfileLines": 79967,
-        "nmEntries": 50749,
+        "lockfileBytes": 2243478,
+        "lockfileLines": 80255,
+        "nmEntries": 50827,
         "nmSymlinks": 25712,
-        "nmApparentBytes": 423327944
+        "nmApparentBytes": 438489700
       },
       "graph": {
         "totalBuildTasks": 2300,
@@ -131,75 +140,179 @@
         "sampleApp": "@demo/app-1000"
       },
       "typecheck": {
-        "coldMs": 127160,
+        "coldMs": 46627,
         "coldOk": true,
         "warmupOk": true,
-        "warmMs": 7638,
+        "warmMs": 5188,
         "warmOk": true
       },
       "focus": {
-        "ms": 15523,
+        "ms": 11915,
         "ok": true,
         "app": "@demo/app-1000"
       },
       "prune": {
-        "ms": 5255,
+        "ms": 1860,
         "ok": true,
         "app": "@demo/app-1000",
-        "outApparentBytes": 1498607,
+        "outApparentBytes": 1521379,
         "outPackages": 101,
         "outFiles": 1891
       }
     }
   },
   {
-    "label": "4000x300",
-    "apps": 4000,
+    "label": "5kx300",
+    "apps": 5000,
     "libs": 300,
     "modules": 16,
     "framework": "next",
     "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
     "phases": {
       "gen": {
-        "ms": 2048,
+        "ms": 2101,
         "ok": true,
-        "approxFiles": 29700,
-        "generateMs": 2021
+        "approxFiles": 35700,
+        "generateMs": 2062
       },
       "install": {
-        "ms": 984426,
+        "ms": 3868,
         "ok": true,
-        "lockfileBytes": 4318777,
-        "lockfileLines": 153967,
-        "nmEntries": 86749,
-        "nmSymlinks": 49712,
-        "nmApparentBytes": 434275728
+        "lockfileBytes": 5369478,
+        "lockfileLines": 191255,
+        "nmEntries": 104827,
+        "nmSymlinks": 61712,
+        "nmApparentBytes": 482052700
       },
       "graph": {
-        "totalBuildTasks": 4300,
-        "focusTasks": 121,
-        "focusPackages": 121,
-        "sampleApp": "@demo/app-2000"
+        "totalBuildTasks": 5300,
+        "focusTasks": 100,
+        "focusPackages": 100,
+        "sampleApp": "@demo/app-2500"
       },
       "typecheck": {
-        "coldMs": 233426,
+        "coldMs": 106967,
         "coldOk": true,
         "warmupOk": true,
-        "warmMs": 20506,
+        "warmMs": 11297,
         "warmOk": true
       },
       "focus": {
-        "ms": 21071,
+        "ms": 15393,
         "ok": true,
-        "app": "@demo/app-2000"
+        "app": "@demo/app-2500"
       },
       "prune": {
-        "ms": 7614,
+        "ms": 4437,
         "ok": true,
-        "app": "@demo/app-2000",
-        "outApparentBytes": 1805022,
+        "app": "@demo/app-2500",
+        "outApparentBytes": 1521379,
+        "outPackages": 101,
+        "outFiles": 1891
+      }
+    }
+  },
+  {
+    "label": "10kx300",
+    "apps": 10000,
+    "libs": 300,
+    "modules": 16,
+    "framework": "next",
+    "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
+    "phases": {
+      "gen": {
+        "ms": 4845,
+        "ok": true,
+        "approxFiles": 65700,
+        "generateMs": 4799
+      },
+      "install": {
+        "ms": 31262,
+        "ok": true,
+        "lockfileBytes": 10589478,
+        "lockfileLines": 376255,
+        "nmEntries": 194827,
+        "nmSymlinks": 121712,
+        "nmApparentBytes": 554717700
+      },
+      "graph": {
+        "totalBuildTasks": 10300,
+        "focusTasks": 121,
+        "focusPackages": 121,
+        "sampleApp": "@demo/app-05000"
+      },
+      "typecheck": {
+        "coldMs": 222781,
+        "coldOk": true,
+        "warmupOk": true,
+        "warmMs": 23866,
+        "warmOk": true
+      },
+      "focus": {
+        "ms": 22198,
+        "ok": true,
+        "app": "@demo/app-05000"
+      },
+      "prune": {
+        "ms": 11810,
+        "ok": true,
+        "app": "@demo/app-05000",
+        "outApparentBytes": 1827799,
         "outPackages": 122,
         "outFiles": 2290
+      }
+    }
+  },
+  {
+    "label": "20kx300",
+    "apps": 20000,
+    "libs": 300,
+    "modules": 16,
+    "framework": "next",
+    "versioned": false,
+    "versions": {
+      "pnpm": "12.8.1"
+    },
+    "phases": {
+      "gen": {
+        "ms": 9277,
+        "ok": true,
+        "approxFiles": 125700,
+        "generateMs": 9214
+      },
+      "install": {
+        "ms": 74890,
+        "ok": true,
+        "lockfileBytes": 21019478,
+        "lockfileLines": 746255,
+        "nmEntries": 374827,
+        "nmSymlinks": 241712,
+        "nmApparentBytes": 699987706
+      },
+      "graph": {
+        "totalBuildTasks": 20300,
+        "focusTasks": 100,
+        "focusPackages": 100,
+        "sampleApp": "@demo/app-10000"
+      },
+      "focus": {
+        "ms": 39546,
+        "ok": true,
+        "app": "@demo/app-10000"
+      },
+      "prune": {
+        "ms": 24969,
+        "ok": true,
+        "app": "@demo/app-10000",
+        "outApparentBytes": 1521384,
+        "outPackages": 101,
+        "outFiles": 1891
       }
     }
   }
