@@ -8,23 +8,25 @@ bun behaviors cross-checked against source at `bun-v1.3.14`.
 
 ## The Recommendation
 
-Drive with bun: it runs the entire rollout natively (below), and its remaining speed edges are the 200-app and
-truly-cold cases. Against pnpm 12.8.1 (the Rust CLI) the full re-resolve on
+Drive with bun: it runs the entire rollout natively (below), with its catalogs in `package.json`. The measured
+mechanics are parity with pnpm 12, and bun's speed edges are the 200-app cold and truly-cold installs and the
+CI-runner frozen container install. Against pnpm 12.8.1 (the Rust CLI) the full re-resolve on
 [the workspace under test](README.md#the-workspace-under-test) is scale-dependent (`bench/install-bench.json`, no
 lockfile, fresh `node_modules`, warm store):
 
-| workspace | pnpm 12.8.1 cold (isolated / hoisted) | bun cold | faster |
+| workspace | bun cold | pnpm 12.8.1 cold (isolated / hoisted) | faster |
 |---|---|---|---|
-| 200 apps / 100 libs | 0.67s / 0.65s | 0.13s | bun ~5× |
-| 1,000 apps / 200 libs | 3.1s / 1.2s | 2.9s | pnpm-hoisted ~2.4× |
-| 2,000 apps / 300 libs | 8.2s / 2.5s | 9.6s | pnpm-hoisted ~3.8× |
+| 200 apps / 100 libs | 0.28s | 0.43s / 0.46s | bun ~1.6× |
+| 1,000 apps / 200 libs | 2.9s | 2.1s / 0.96s | pnpm-hoisted ~3.1× (pnpm-isolated 1.4×) |
+| 2,000 apps / 300 libs | 8.6s | 6.8s / 2.5s | pnpm-hoisted ~3.4× (pnpm-isolated 1.3×) |
 
-Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.2s vs pnpm-hoisted 2.1s, fresh store + network,
-~1.7×); pnpm-hoisted wins warm at 1,000–2,000 (0.78s/2.1s vs bun's 2.9s/10.1s). pnpm 12's Rust CLI removed pnpm 10's
-cold-resolve wall (303.7s → 1.01s at 1,000:200, `bench/pnpm12-bench.json`). Every fresh container or clone
+Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.3s vs pnpm-hoisted 2.2s, fresh store + network,
+~1.7×); pnpm-hoisted wins warm at 1,000–2,000 (0.59s/1.1s vs bun's 2.8s/8.8s), and at 200 the warm relink is about 8%
+apart across bun and both pnpm linkers (0.25–0.27s, pnpm-isolated fastest). pnpm 12's Rust CLI removed pnpm 10's
+cold-resolve wall (307.4s → 0.93s at 1,000:200, `bench/pnpm12-bench.json`). Every fresh container or clone
 re-materializes from the committed lockfile,
 and on the CI-runner frozen install bun leads pnpm by 6% empty-cache and 15% cache-restored
-(`bench/container-install-bench.json`, 1,000 apps): **bun 1.03s
+(`bench/container-install-bench.json`, 1,000 apps, a shared-box record): **bun 1.03s
 vs pnpm 1.09s empty-cache; bun 0.47s vs pnpm 0.54s cache-restored** (fresh-runner yarn-PnP 4.8s, yarn-nm 6.7s, npm
 10.4s; cache-restored 2.3s / 4.3s / 9.7s). pnpm
 12 is a fully capable driver — the rungs below measure parity on catalog lanes, `workspace:` catalog values, and the
@@ -64,8 +66,8 @@ from a wiped `node_modules` is byte-identical under pnpm; drift the manifest and
 `ERR_PNPM_OUTDATED_LOCKFILE`; bun exit 1). So reproducibility is **commit the lockfile + install frozen everywhere**,
 not pin every range. Not-frozen runs only where you author an advance (the wave) or add/remove a dep, and the lockfile
 diff is the change. Under pnpm 12 the frozen discipline is for determinism, not speed: the from-scratch resolve costs
-within 0.5% of a frozen warm-store install (3.0s resolve vs 3.0s frozen-warm; frozen-cold-store 3.2s;
-`bench/install-modes-bench.json`, 1,000/200, pnpm 12.8.1 — the JS CLI paid 303.7s on a 1,000:200 cold resolve,
+within 3% of a frozen warm-store install (2.9s resolve vs 2.8s frozen-warm; frozen-cold-store 2.8s;
+`bench/install-modes-bench.json`, 1,000/200, pnpm 12.8.1 — the JS CLI paid 307.4s on a 1,000:200 cold resolve,
 `bench/pnpm12-bench.json`).
 
 One pnpm-12 lockfile-portability caveat, measured as a negative control: pnpm 12's launcher records the

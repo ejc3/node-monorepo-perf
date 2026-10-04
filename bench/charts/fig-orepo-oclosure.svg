@@ -31,7 +31,7 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <line x1="160" y1="86" x2="267.2" y2="112.3" stroke="#6b7885" stroke-width="1.5"/><path d="M274 114L266.5 115.2L267.9 109.4z" fill="#6b7885"/>
 <line x1="500" y1="86" x2="500" y2="107" stroke="#6b7885" stroke-width="1.5"/><path d="M500 114L497 107L503 107z" fill="#6b7885"/>
 <rect x="16" y="120" width="288" height="78" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
-<text x="30" y="146" font-size="16" fill="#1c2330" font-weight="700">30,708 tasks · 662.8s</text>
+<text x="30" y="146" font-size="16" fill="#1c2330" font-weight="700">30,708 tasks · 633.9s</text>
 <text x="30" y="166" font-size="10.5" fill="#1c2330">tsc dist build (^build) + tsgo typecheck</text>
 <text x="30" y="182" font-size="10.5" fill="#1c2330">30,000-app fleet tree — grows with the repo</text>
 <rect x="356" y="120" width="288" height="78" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>

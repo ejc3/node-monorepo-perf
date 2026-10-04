@@ -16,38 +16,38 @@
       "libs": 100,
       "depEdgesVerified": 2649,
       "pnpmIsolated": {
-        "coldMs": 671,
-        "coldCpuPct": 325,
-        "coldRssMB": 92,
-        "warmMs": 462,
+        "coldMs": 432,
+        "coldCpuPct": 430,
+        "coldRssMB": 91,
+        "warmMs": 250,
         "nmEntries": 15701
       },
       "pnpmHoisted": {
-        "coldMs": 653,
-        "coldCpuPct": 512,
-        "coldRssMB": 91,
-        "warmMs": 465,
+        "coldMs": 458,
+        "coldCpuPct": 642,
+        "coldRssMB": 81,
+        "warmMs": 257,
         "nmEntries": 12554
       },
       "bun": {
-        "coldMs": 126,
-        "coldCpuPct": 235,
-        "coldRssMB": 42,
-        "warmMs": 141,
+        "coldMs": 277,
+        "coldCpuPct": 169,
+        "coldRssMB": 44,
+        "warmMs": 271,
         "nmEntries": 15419
       },
       "yarnNm": {
-        "coldMs": 3277,
-        "coldCpuPct": 151,
-        "coldRssMB": 937,
-        "warmMs": 2922,
+        "coldMs": 3175,
+        "coldCpuPct": 156,
+        "coldRssMB": 939,
+        "warmMs": 2798,
         "nmEntries": 11220
       },
       "yarnPnp": {
-        "coldMs": 1765,
-        "coldCpuPct": 141,
-        "coldRssMB": 610,
-        "warmMs": 1461,
+        "coldMs": 1670,
+        "coldCpuPct": 144,
+        "coldRssMB": 612,
+        "warmMs": 1372,
         "nmEntries": 64,
         "pnpCjsBytes": 820806
       }
@@ -57,38 +57,38 @@
       "libs": 200,
       "depEdgesVerified": 11898,
       "pnpmIsolated": {
-        "coldMs": 3101,
-        "coldCpuPct": 148,
-        "coldRssMB": 134,
-        "warmMs": 2670,
+        "coldMs": 2090,
+        "coldCpuPct": 196,
+        "coldRssMB": 135,
+        "warmMs": 2544,
         "nmEntries": 31133
       },
       "pnpmHoisted": {
-        "coldMs": 1188,
-        "coldCpuPct": 859,
-        "coldRssMB": 120,
-        "warmMs": 775,
+        "coldMs": 959,
+        "coldCpuPct": 983,
+        "coldRssMB": 123,
+        "warmMs": 586,
         "nmEntries": 17786
       },
       "bun": {
-        "coldMs": 2890,
-        "coldCpuPct": 38,
+        "coldMs": 2926,
+        "coldCpuPct": 37,
         "coldRssMB": 69,
-        "warmMs": 2922,
+        "warmMs": 2823,
         "nmEntries": 29951
       },
       "yarnNm": {
-        "coldMs": 4449,
-        "coldCpuPct": 157,
+        "coldMs": 4254,
+        "coldCpuPct": 159,
         "coldRssMB": 1019,
-        "warmMs": 4108,
+        "warmMs": 3908,
         "nmEntries": 12120
       },
       "yarnPnp": {
-        "coldMs": 2403,
-        "coldCpuPct": 150,
-        "coldRssMB": 660,
-        "warmMs": 2173,
+        "coldMs": 2330,
+        "coldCpuPct": 152,
+        "coldRssMB": 663,
+        "warmMs": 2108,
         "nmEntries": 64,
         "pnpCjsBytes": 2036746
       }
@@ -98,38 +98,38 @@
       "libs": 300,
       "depEdgesVerified": 23350,
       "pnpmIsolated": {
-        "coldMs": 8230,
-        "coldCpuPct": 98,
-        "coldRssMB": 196,
-        "warmMs": 8071,
+        "coldMs": 6756,
+        "coldCpuPct": 111,
+        "coldRssMB": 191,
+        "warmMs": 7288,
         "nmEntries": 50169
       },
       "pnpmHoisted": {
-        "coldMs": 2489,
-        "coldCpuPct": 734,
-        "coldRssMB": 180,
-        "warmMs": 2095,
+        "coldMs": 2521,
+        "coldCpuPct": 700,
+        "coldRssMB": 174,
+        "warmMs": 1071,
         "nmEntries": 24222
       },
       "bun": {
-        "coldMs": 9566,
-        "coldCpuPct": 22,
-        "coldRssMB": 97,
-        "warmMs": 10139,
+        "coldMs": 8579,
+        "coldCpuPct": 24,
+        "coldRssMB": 94,
+        "warmMs": 8841,
         "nmEntries": 47887
       },
       "yarnNm": {
-        "coldMs": 5747,
-        "coldCpuPct": 158,
-        "coldRssMB": 1093,
-        "warmMs": 5452,
+        "coldMs": 5561,
+        "coldCpuPct": 160,
+        "coldRssMB": 1100,
+        "warmMs": 5375,
         "nmEntries": 13220
       },
       "yarnPnp": {
-        "coldMs": 3230,
-        "coldCpuPct": 149,
-        "coldRssMB": 722,
-        "warmMs": 3067,
+        "coldMs": 3155,
+        "coldCpuPct": 150,
+        "coldRssMB": 726,
+        "warmMs": 2939,
         "nmEntries": 64,
         "pnpCjsBytes": 3536266
       }
@@ -138,10 +138,10 @@
   "trulyCold": {
     "apps": 200,
     "libs": 100,
-    "pnpmHoistedMs": 2073,
-    "bunMs": 1233,
-    "yarnNmMs": 9746,
-    "yarnPnpMs": 8203,
+    "pnpmHoistedMs": 2216,
+    "bunMs": 1337,
+    "yarnNmMs": 9220,
+    "yarnPnpMs": 7803,
     "order": [
       "pnpm-hoisted",
       "bun",

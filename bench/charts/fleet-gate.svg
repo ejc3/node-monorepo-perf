@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="874" viewBox="0 0 900 874" role="img" aria-label="What a change costs in a 30,000-app workspace: a universal-lib edit re-runs 30,708 tasks against 100 for a leaf edit; the worst case runs as one 61.2s whole-program check or a 11.0 min pipeline; and in a cross-machine observation only the pipeline ran faster on the 192-core box." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="874" viewBox="0 0 900 874" role="img" aria-label="What a change costs in a 30,000-app workspace: a universal-lib edit re-runs 30,708 tasks against 100 for a leaf edit; the worst case runs as one 58.1s whole-program check or a 10.6 min pipeline; and in a cross-machine observation only the pipeline ran faster on the 192-core box." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -39,34 +39,34 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <text x="28" y="338" font-size="12" fill="#6b7885">Same question — “did my change break any app?” — two mechanisms. Not like-for-like: the pipeline also builds each lib's dist output; the one command</text>
 <text x="28" y="354" font-size="12" fill="#6b7885">only type-checks.</text>
 <rect x="28" y="368" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
-<text x="42" y="394" font-size="17" fill="#1c2330" font-weight="700">61.2s — one command</text>
+<text x="42" y="394" font-size="17" fill="#1c2330" font-weight="700">58.1s — one command</text>
 <text x="42" y="412" font-size="11.5" fill="#6b7885">a single checker reads the whole workspace's source once</text>
-<text x="42" y="427" font-size="11.5" fill="#6b7885">(peak RSS: 52,396MB recorded)</text>
+<text x="42" y="427" font-size="11.5" fill="#6b7885">(peak RSS: 51,262MB recorded)</text>
 <rect x="458" y="368" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
-<text x="472" y="394" font-size="17" fill="#1c2330" font-weight="700">11.0 min — ×11 slower</text>
+<text x="472" y="394" font-size="17" fill="#1c2330" font-weight="700">10.6 min — ×11 slower</text>
 <text x="472" y="412" font-size="11.5" fill="#6b7885">standard pipeline: 30,708 tasks — a checker process</text>
 <text x="472" y="427" font-size="11.5" fill="#6b7885">per affected package plus 460 lib builds</text>
 <rect x="28" y="454" width="844" height="56" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
-<text x="42" y="480" font-size="17" fill="#1c2330" font-weight="700">A breaking change is caught in 61.7s</text>
+<text x="42" y="480" font-size="17" fill="#1c2330" font-weight="700">A breaking change is caught in 58.9s</text>
 <text x="42" y="498" font-size="11.5" fill="#6b7885">all 30,000 affected apps flagged with exact file and line — the fix-list a codemod can consume</text>
 <text x="28" y="550" font-size="15" fill="#1c2330" font-weight="600">3. Does a bigger machine help?</text>
 <text x="28" y="570" font-size="12" fill="#6b7885">The same two mechanisms on two different machines (64 vs 192 cores, recorded per run). One comparison each — a cross-machine observation, not a</text>
 <text x="28" y="586" font-size="12" fill="#6b7885">controlled core-scaling experiment. The pipeline rows also differ in bun version (1.3.14 vs 1.4.2): turbo starts each task through the package</text>
 <text x="28" y="602" font-size="12" fill="#6b7885">manager.</text>
 <rect x="28" y="616" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
-<text x="42" y="642" font-size="17" fill="#1c2330" font-weight="700">one command, 64 cores: 61.2s</text>
+<text x="42" y="642" font-size="17" fill="#1c2330" font-weight="700">one command, 64 cores: 58.1s</text>
 <text x="42" y="660" font-size="11.5" fill="#6b7885">one process; the smaller box was faster</text>
 <rect x="458" y="616" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
 <text x="472" y="642" font-size="17" fill="#1c2330" font-weight="700">one command, 192 cores: 66.6s</text>
 <text x="472" y="660" font-size="11.5" fill="#6b7885">×1.1 slower — this check did not gain from the bigger box</text>
 <rect x="28" y="702" width="414" height="74" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
-<text x="42" y="728" font-size="17" fill="#1c2330" font-weight="700">pipeline, 64 cores: 11.0 min</text>
-<text x="42" y="746" font-size="11.5" fill="#6b7885">×1.9 slower than the big box</text>
+<text x="42" y="728" font-size="17" fill="#1c2330" font-weight="700">pipeline, 64 cores: 10.6 min</text>
+<text x="42" y="746" font-size="11.5" fill="#6b7885">×1.8 slower than the big box</text>
 <rect x="458" y="702" width="414" height="74" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
 <text x="472" y="728" font-size="17" fill="#1c2330" font-weight="700">pipeline, 192 cores: 5.8 min</text>
-<text x="472" y="746" font-size="11.5" fill="#6b7885">ran 1.9× faster on this box (3.0× the cores)</text>
+<text x="472" y="746" font-size="11.5" fill="#6b7885">ran 1.8× faster on this box (3.0× the cores)</text>
 <line x1="28" y1="794" x2="872" y2="794" stroke="#e4e8ec"/>
-<text x="28" y="810" font-size="11.5" fill="#6b7885">also measured (64-core box): installing the 30,460-package workspace (plus its external deps) takes 190s (bun, warm store) · linting the whole tree takes 2.6s (oxlint)</text>
+<text x="28" y="810" font-size="11.5" fill="#6b7885">also measured (64-core box): installing the 30,460-package workspace (plus its external deps) takes 181s (bun, warm store) · linting the whole tree takes 2.4s (oxlint)</text>
 <text x="28" y="828" font-size="11.5" fill="#6b7885">toolchain: bun 1.3.14 (64-core) / 1.4.2 (192-core) · turbo 2.9.18 · tsgo 7.0.2 · oxlint 1.86.0 · node 22.23.3</text>
 <text x="28" y="848" font-size="11" fill="#6b7885">data: </text>
 <a href="../fleet-gate-bench.json"><text x="65" y="848" font-size="11" fill="#1a73e8">fleet-gate-bench.json</text></a>

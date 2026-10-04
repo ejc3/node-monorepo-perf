@@ -2,11 +2,11 @@
   "about": "the TEST-execution axis: whole-repo `turbo run test` (O(repo)) vs a focused `--filter=<app>...` (O(closure)), cold then warm, per scale, plus the edit-location blast radius and the structural sharding benefit. The `test` task has no task deps, so this isolates test-task selection + per-task runner cost from the build axis; the per-package body is a trivial node:test smoke test, so the wall-clock is Turbo orchestration + `node --test` startup per selected package, not real test logic. The structural test-task COUNTS are the primary evidence (the axis shape); cold/warm ms are the secondary, overhead-bound signal. Cold asserts 0 cached, warm asserts all cached, and the O(closure) contrasts are structurally asserted (focus < whole; universal foundation selects every package; leaf < foundation).",
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 3.73,
+    "preRunLoadAvg1": 1.41,
     "coreBound": true
   },
   "versions": {
-    "node": "v22.22.0",
+    "node": "v22.23.3",
     "turbo": "2.9.18"
   },
   "samples": 3,
@@ -19,17 +19,17 @@
       "whole": {
         "testTasks": 400,
         "totalTasks": 400,
-        "coldMs": 5769,
-        "warmMs": 1595,
+        "coldMs": 3731,
+        "warmMs": 1804,
         "coldSamples": [
-          5769,
-          5925,
-          5584
+          3731,
+          3926,
+          3684
         ],
         "warmSamples": [
-          1535,
-          1755,
-          1595
+          1492,
+          2019,
+          1804
         ],
         "coldCached": {
           "cached": 0,
@@ -43,17 +43,17 @@
       "focus": {
         "testTasks": 27,
         "totalTasks": 27,
-        "coldMs": 1570,
-        "warmMs": 1044,
+        "coldMs": 1181,
+        "warmMs": 914,
         "coldSamples": [
-          1493,
-          1570,
-          1674
+          1081,
+          1181,
+          1206
         ],
         "warmSamples": [
-          1236,
-          964,
-          1044
+          852,
+          935,
+          914
         ],
         "coldCached": {
           "cached": 0,
@@ -86,17 +86,17 @@
       "whole": {
         "testTasks": 1200,
         "totalTasks": 1200,
-        "coldMs": 15053,
-        "warmMs": 5360,
+        "coldMs": 12343,
+        "warmMs": 4690,
         "coldSamples": [
-          14295,
-          15053,
-          15146
+          10606,
+          12343,
+          12417
         ],
         "warmSamples": [
-          5360,
-          4054,
-          5485
+          4690,
+          4888,
+          3773
         ],
         "coldCached": {
           "cached": 0,
@@ -110,17 +110,17 @@
       "focus": {
         "testTasks": 124,
         "totalTasks": 124,
-        "coldMs": 4220,
-        "warmMs": 2563,
+        "coldMs": 3455,
+        "warmMs": 2523,
         "coldSamples": [
-          4220,
-          4604,
-          3984
+          3455,
+          3670,
+          3052
         ],
         "warmSamples": [
-          2356,
-          2563,
-          2621
+          2523,
+          2486,
+          2635
         ],
         "coldCached": {
           "cached": 0,
@@ -154,7 +154,7 @@
     "foundation": {
       "lib": "@demo/lib-001",
       "testTasks": 1200,
-      "coldMs": 14279
+      "coldMs": 11955
     },
     "mid": {
       "lib": "@demo/lib-100",
@@ -163,7 +163,7 @@
     "leaf": {
       "lib": "@demo/lib-200",
       "testTasks": 21,
-      "coldMs": 2980
+      "coldMs": 2738
     },
     "note": "editing the universal foundation selects every package's test (O(repo)); a mid-layer lib fewer; a leaf only its dependents (O(closure)). `--filter=...<lib>` is the git-free equivalent of `--affected` after editing <lib>."
   },

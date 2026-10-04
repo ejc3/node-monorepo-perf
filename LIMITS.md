@@ -12,7 +12,7 @@ Scoping and caching reduce *execution*; these costs remain because they are inhe
 
 3. **Foundation/root-change blast radius = the whole repo.** A change to a widely-used lib or a root input (`tsconfig.base.json`, the catalog React/Next version, the pnpm/turbo/next version — all in every task's hash) invalidates the cache for all dependents.
    - Editing low-layer `lib-003` rebuilds 1,080 of 1,200 packages; at 20k that is ~18k.
-   - Same shape for `test` (`bench/test-axis-bench.json`, 1,000:200): a universal-foundation edit re-tests 1,200 of 1,200 vs a leaf's 21 (~57× spread). Cold wall-clocks (14.3s vs 3.0s) are over minimal smoke bodies, so they bound Turbo orchestration + `node --test` startup, not real suite runtime; the count is the evidence.
+   - Same shape for `test` (`bench/test-axis-bench.json`, 1,000:200): a universal-foundation edit re-tests 1,200 of 1,200 vs a leaf's 21 (~57× spread). Cold wall-clocks (12.0s vs 2.7s) are over minimal smoke bodies, so they bound Turbo orchestration + `node --test` startup, not real suite runtime; the count is the evidence.
    - Remote cache only helps the *second* consumer; after a foundation edit it restores nothing (see [Remote Cache](#remote-cache-amortizing-the-orepo-cold-start)).
    - The lever for the unavoidable whole-repo case is sharding independent test tasks across machines (1,200 → 150/shard at eight shards).
 

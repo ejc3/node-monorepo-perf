@@ -18,8 +18,8 @@ isolation blocks importing undeclared core (a "phantom dependency",
 
 **2. Identical CI.** As an app dev today's build matches yesterday's because her lockfile is
 the freeze; a manifest edited without re-resolving fails the frozen install closed, measured
-for five package managers in fresh containers (`bench/container-install-bench.json`;
-1.0–10.4s by tool).
+for five package managers, each sample in a fresh container
+(`bench/container-install-bench.json`; 1.0–10.4s by tool on an empty cache).
 
 **3. Upgrades on her terms.** As an app dev I take upgrades when I choose — a lockfile diff
 (`1.8.0 → 1.9.0`, `core 2.5.1 → 2.5.3` riding ui's `^2.5.0`); breaks → stay on 1.8.0.

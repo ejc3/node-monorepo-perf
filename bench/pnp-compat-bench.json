@@ -13,21 +13,21 @@
     "libs": 10
   },
   "cores": 64,
-  "preRunLoadAvg1": 1.54,
+  "preRunLoadAvg1": 1.23,
   "method": "one generated workspace installed twice by the same pinned yarn — PnP and node-modules (the control); each tool runs through yarn in both trees; a tool failing BOTH trees invalidates the run (scaffold problem), a tool passing the control and failing PnP is the finding; ms fields are single samples through yarn (`yarn exec` / `yarn node`, yarn boot + PnP runtime init included) — diagnostic only, the ok booleans are the finding",
   "tools": {
     "oxlint": {
       "pnp": {
         "ok": true,
         "exit": 0,
-        "ms": 556,
+        "ms": 540,
         "errorSample": null,
         "filesLinted": 210
       },
       "nm": {
         "ok": true,
         "exit": 0,
-        "ms": 383,
+        "ms": 367,
         "errorSample": null,
         "filesLinted": 210
       }
@@ -36,13 +36,13 @@
       "pnp": {
         "ok": true,
         "exit": 0,
-        "ms": 1179,
+        "ms": 1205,
         "errorSample": null
       },
       "nm": {
         "ok": true,
         "exit": 0,
-        "ms": 917,
+        "ms": 906,
         "errorSample": null
       }
     },
@@ -50,13 +50,13 @@
       "pnp": {
         "ok": true,
         "exit": 0,
-        "ms": 9966,
+        "ms": 9695,
         "errorSample": null
       },
       "nm": {
         "ok": true,
         "exit": 0,
-        "ms": 6685,
+        "ms": 6623,
         "errorSample": null
       }
     },
@@ -64,13 +64,13 @@
       "pnp": {
         "ok": false,
         "exit": 1,
-        "ms": 671,
+        "ms": 625,
         "errorSample": "apps/app-01/app/layout.tsx(3,62): error TS2503: Cannot find namespace 'React'.\napps/app-01/app/layout.tsx(5,5): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/layout.tsx(6,7): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/layout.tsx(6,23): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\n--- tail ---\napps/app-01/app/page.tsx(3,27): error TS2307: Cannot find module '@demo/lib-06' or its corresponding type declarations.\napps/app-01/app/page.tsx(4,27): error TS2307: Cannot find module '@demo/lib-09' or its corresponding type declarations.\napps/app-01/app/page.tsx(9,5): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(10,7): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(10,23): error TS7026: JSX element implicitly has type 'any' because no interface 'JSX.IntrinsicElements' exists.\napps/app-01/app/page.tsx(11,7): error TS70"
       },
       "nm": {
         "ok": true,
         "exit": 0,
-        "ms": 465,
+        "ms": 450,
         "errorSample": null
       }
     },
@@ -78,8 +78,8 @@
       "pnp": {
         "ok": false,
         "exit": 1,
-        "ms": 978,
-        "errorSample": "TypeError: Cannot read properties of undefined (reading '.js')\n--- tail ---\n    at ModuleJob.runSync (node:internal/modules/esm/module_job:315:39)\n    at require (node:internal/modules/esm/translators:160:9)\n    at Object.<anonymous> (/tmp/pnp-compat-BUAsD1/pnp/.yarn/__virtual__/next-virtual-0ab5b0833e/4/home/ubuntu/.yarn/berry/cache/next-npm-16.2.9-ee9903672a-10c0.zip/node_modules/next/dist/build/next-config-ts/transpile-config.js:15:22)\n    at loadCJSModule (node:internal/modules/esm/translators:195:3)\n    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:235:7)\n    at ModuleJob.runSync (node:internal/modules/esm/module_job:315:39)\n    at require (node:internal/modules/esm/translators:160:9)\nNode.js v22.23.3",
+        "ms": 921,
+        "errorSample": "TypeError: Cannot read properties of undefined (reading '.js')\n--- tail ---\n    at ModuleJob.runSync (node:internal/modules/esm/module_job:315:39)\n    at require (node:internal/modules/esm/translators:160:9)\n    at Object.<anonymous> (/tmp/pnp-compat-dPha8C/pnp/.yarn/__virtual__/next-virtual-0ab5b0833e/4/home/ubuntu/.yarn/berry/cache/next-npm-16.2.9-ee9903672a-10c0.zip/node_modules/next/dist/build/next-config-ts/transpile-config.js:15:22)\n    at loadCJSModule (node:internal/modules/esm/translators:195:3)\n    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:235:7)\n    at ModuleJob.runSync (node:internal/modules/esm/module_job:315:39)\n    at require (node:internal/modules/esm/translators:160:9)\nNode.js v22.23.3",
         "configKeyRejected": false,
         "rootInferenceMessagePresent": false,
         "configLoadCrash": true
@@ -87,7 +87,7 @@
       "nm": {
         "ok": true,
         "exit": 0,
-        "ms": 3032,
+        "ms": 2930,
         "errorSample": null,
         "configKeyRejected": false,
         "rootInferenceMessagePresent": false,

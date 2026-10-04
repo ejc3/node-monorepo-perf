@@ -19,8 +19,9 @@ installed as the `typescript6` alias — the oracle checker and the tsserver. Th
 inner-loop records (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`),
 `bench/typecheck-parity-bench.json`, and `bench/decl-emit-caveat.json` are measured on
 typescript 7.0.2; the gate and inner-loop records on a 192-core c8g.48xlarge (arm64, per
-each record's `machine`/`cores`). `bench/real-app-bench.json` is still the
-`7.0.0-dev.20260614.1` nightly on the 64-core box.
+each record's `machine`/`cores`), the parity record on the dedicated 64-core c7gd.metal
+([README](README.md#the-64-core-machine)). `bench/real-app-bench.json` uses the
+`7.0.0-dev.20260614.1` nightly on the shared 64-core dev box.
 
 ## The Scenario
 
@@ -35,11 +36,11 @@ type error in any of the 4,000 apps before merge, fast.
 present, `node_modules` cold — the warm-store clone/CI-runner materialization case;
 `install.storeWarm: true`). One-time
 setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
-Against pnpm 12.8.1 (the Rust CLI) the full re-resolve is scale-dependent — bun ~5× faster
-at 200 apps, pnpm-hoisted 2.4–3.8× faster than bun at 1,000–2,000 — and on the fresh CI-runner
+Against pnpm 12.8.1 (the Rust CLI) the full re-resolve is scale-dependent — bun ~1.6× faster
+at 200 apps, pnpm-hoisted 3.1–3.4× faster than bun at 1,000–2,000 — and on the fresh CI-runner
 frozen install bun is 6% ahead (1.03s vs pnpm 1.09s at 1,000 apps,
-`bench/container-install-bench.json`). At 2,000 apps pnpm-hoisted is fastest cold (2.5s, with
-yarn-PnP second at 3.2s) and fastest warm (2.1s). Per-cell numbers
+`bench/container-install-bench.json`, a shared-box record). At 2,000 apps pnpm-hoisted is fastest cold (2.5s, with
+yarn-PnP second at 3.2s) and fastest warm (1.1s). Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
 work; measured at 20:10 in `bench/pnp-compat-bench.json` and at full fleet scale in
@@ -59,9 +60,11 @@ shares it across every importing app, skips the per-lib dist builds. At 4,000:40
 typechecks the tree in **1.59s**, peak RSS **857MB**. Typecheck-only;
 emits no `dist`.
 
-The integrated alternative, Vite+'s `vp check`, takes 2.56s on a 920-source-file corpus (921 files for `vp check`, which also checks the root
+The integrated alternative, Vite+'s `vp check`, takes 2.35s on a 920-source-file corpus (921 files for `vp check`, which also checks the root
 `vite.config.ts`) where this
-stack's gate shape takes 0.80s (`bench/vite-plus-tools-bench.json`).
+stack's gate shape takes 0.42s — context, not a like-for-like engine comparison: one tsgo
+program over lib source against tsgolint's per-file typed lint
+(`bench/vite-plus-tools-bench.json`).
 
 ## Catching a Breaking Change
 
@@ -71,12 +74,12 @@ dependent libs), in **1.55s**. Catch a type error in one of the 4,000 apps befor
 in about a second and a half.
 
 The same gate holds at the measured production-fleet scale (30,000 apps / 460 libs,
-~1.03M generated files; 64-core box): clean in **61.2s** (10.8× faster than the orchestrated per-package path, which also emits
-dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **61.7s** — and a bigger box
+~1.03M generated files; 64-core box): clean in **58.1s** (10.9× faster than the orchestrated per-package path, which also emits
+dist, as at 4,000:400), breaking rev caught with all 30,000 apps red in **58.9s** — and a bigger box
 does not speed it up (66.6s on 192 cores)
 ([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
 Slicing the same check into K concurrent programs (all lib source + 1/K of the apps) cuts
-it to **12.1s** on 64 cores and **6.2s** on 192 with a union-verified identical verdict
+it to **10.3s** on 64 cores and **6.2s** on 192 with a union-verified identical verdict
 ([FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box), `bench/sliced-gate-bench.json` +
 `.pbox.json`).
 
@@ -86,12 +89,12 @@ A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program 
 own throwaway scaffold at 4,000:400:8 — libs carrying genuinely heavy types (recursive
 conditional + mapped types, 48-member unions, cross-lib intersections), not the standard
 workspace's 16-line re-export modules, so the parity claim rests on real type complexity. One
-tsgo program checks it in **2.04s**, peak RSS **1280MB**.
+tsgo program checks it in **1.92s**, peak RSS **1279MB**.
 On the valid tree both tsc (the TypeScript 6 oracle) and tsgo report **0**. Injecting 25
 error sites, tsgo flags the
 same **25 locations**, missing **0** and adding **0**; codes match on 20 of 25 (at the
-arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **17.8s** to
-tsgo's 2.04s (**8.7×**).
+arg-type site tsc emits `TS2345`, tsgo `TS2739`). On the same check tsc takes **16.9s** to
+tsgo's 1.92s (**8.8×**).
 
 ## The Orchestrated turbo Path
 

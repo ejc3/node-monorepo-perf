@@ -28,8 +28,12 @@ prior records; new numbers land in `bench/*.json` through the normal PR loop.
   volume. Runs the queue. Bring up/down with `pbox up 2` / `pbox down 2`.
 - **192-core c8gb.48xlarge**: ran the 192-core fleet-gate and sliced-gate companions
   (bun 1.4.2); the fleet-flow companion ran on the c8g.48xlarge.
-- **Local 64-core box**: PR work, reviews, and the 64-core side of the cross-box
-  contrast benches (fleet-gate, sliced-gate, fleet-flow).
+- **Local 64-core box**: PR work and reviews; a shared dev box (other users' processes
+  running). The 64-core records not on the dedicated box's list are its measurements.
+- **Dedicated 64-core c7gd.metal** (the local box's instance type, no other user or
+  workload): the 64-core records listed in the README's "The 64-Core Machine", including
+  the 64-core side of the cross-box contrast benches (fleet-gate, sliced-gate,
+  fleet-flow). Run protocol in the same README section.
 
 ## Prerequisites
 
@@ -52,7 +56,8 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
 
 - [x] relay-codegen-bench (+30k fleet anchor)
 - [x] typecheck-parity-bench, typecheck-bench, decl-emit-caveat — done on the
-      local box inside PR A (listed for completeness); env refresh stays the FINAL
+      local box inside PR A (listed for completeness); the committed
+      typecheck-parity record is now the dedicated box's; env capture stays the FINAL
       step below
 - [x] tsgo-scale-table (4 scales)
 - [x] optimal-gate-bench 4000:400 (canonical layered record)
@@ -79,13 +84,13 @@ pbox 2's clone. One record-batch PR per group, normal review loop.
       btrfs volume)
 - [ ] lsp-scale-bench (1M; hours)
 - [ ] tsgo-scale-bench (1M; hours; needs root drop_caches; runs solo)
-- [ ] FINAL step, after every record above has re-measured: refresh the canonical
-      `bench/env.json` (`node scripts/env.mjs`) and regenerate the chart/summary
-      outputs — env.json is the machine/toolchain provenance for the 64-core
-      install-family records only (per-record machine fields take precedence where
-      present; the 192-core dev-sim, lib-rev, results, and axis-bench records carry no
-      machine fields and are named in AGENTS.md Data of Record and the README), so it may only
-      change once the records match it.
+- [ ] FINAL step: capture `bench/env.json` on the dedicated 64-core box
+      (`node scripts/env.mjs` there) and regenerate the chart/summary outputs. The
+      committed env.json is the shared dev box's capture (node 22.22.0, pnpm 10.29.1) and
+      is the provenance of no dedicated-box record; that box's machine facts are stated
+      in the README's "The 64-Core Machine" (per-record machine fields take precedence
+      where present; the 192-core dev-sim, lib-rev, results, and axis-bench records carry
+      no machine fields and are named in AGENTS.md Data of Record and the README).
 
 Out of scope (substrate unchanged): test-axis (zero checker involvement — its tasks
 are `node:test`), build-bench + the turbopack/rspack pair (generated Next apps set
@@ -95,14 +100,15 @@ to Phase 3 if the pnpm pin bumps), install family (Phase 3 decision). Note: pbox
 carries bun 1.4.2, which wave-rollout/bun-safety would refuse (they assert 1.3.14) —
 irrelevant unless those enter scope.
 
-## Phase 2b — local 64-core companions (after the local box frees up)
+## Phase 2b — 64-core companions
 
 - [x] optimal-gate-bench fleet:30000 → canonical `bench/fleet-gate-bench.json`
 - [x] sliced-gate-bench fleet → canonical + the 192-core run is `.pbox.json`
 - [x] fleet-flow-bench → canonical + `.pbox.json`
 
-The cross-box contrast (one-program gate flat across cores; sliced gate transforming
-the big box) is a headline finding; both sides re-measure on the new toolchain.
+The three canonical 64-core records are the dedicated box's runs. The cross-box contrast
+(one-program gate flat across cores; sliced gate transforming the big box) is a headline
+finding; both sides are measured on the new toolchain.
 
 ## Phase 3 — pnpm 12
 
@@ -111,7 +117,10 @@ the big box) is a headline finding; both sides re-measure on the new toolchain.
       (`PNPM10_VERSION` kept as pnpm12-bench's JS baseline); generated/scaffold
       workspace yamls carry `ignoreScripts` + `minimumReleaseAge: 0` (pnpm 12's
       fail-closed defaults, relaxed identically everywhere).
-- [x] Install-family rerun under pnpm 12 (this box): install-bench,
+- [x] Install-family rerun under pnpm 12 (the local box; the committed install-bench,
+      install-modes, lockfile-bench, focus-install, and lockfile-merge records are now
+      the dedicated box's, and perf-matrix, fs-bench, and container-install-bench remain
+      the local box's): install-bench,
       install-modes, lockfile-bench, focus-install, lockfile-merge,
       perf-matrix, fs-bench, container-install-bench; then wave-rollout +
       bun-safety (behavior-assert benches — outcomes that flip under 12 are

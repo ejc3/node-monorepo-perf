@@ -24,11 +24,12 @@
 
 import { execSync, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { availableParallelism, loadavg } from "node:os";
 import { tsNativeShim, assertTs7 } from "./_ts.mjs";
 
-const REPO = "/home/ubuntu/pnpm-demo";
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WORK = process.env.REAL_APP_WORK || "/mnt/fcvm-btrfs/real-app-bench";
 const KEEP = !!process.env.REAL_APP_KEEP;
 const OXLINT_VER = process.env.REAL_APP_OXLINT || "1.71.0";

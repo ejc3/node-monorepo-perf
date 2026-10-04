@@ -7,19 +7,19 @@
       "bun": "1.3.14"
     },
     "pnpm": {
-      "resolveMs": 646,
-      "verifyMs": 437,
-      "fullMs": 773,
+      "resolveMs": 310,
+      "verifyMs": 114,
+      "fullMs": 410,
       "lockLines": 9872,
       "lockBytes": 267137,
-      "resolveSharePct": 84
+      "resolveSharePct": 76
     },
     "bun": {
-      "resolveMs": 30,
-      "fullMs": 145,
+      "resolveMs": 26,
+      "fullMs": 272,
       "lockLines": 5741,
       "lockBytes": 173057,
-      "resolveSharePct": 21
+      "resolveSharePct": 10
     }
   },
   {
@@ -30,16 +30,16 @@
       "bun": "1.3.14"
     },
     "pnpm": {
-      "resolveMs": 889,
-      "verifyMs": 523,
-      "fullMs": 3096,
+      "resolveMs": 615,
+      "verifyMs": 202,
+      "fullMs": 2329,
       "lockLines": 41202,
       "lockBytes": 1120494,
-      "resolveSharePct": 29
+      "resolveSharePct": 26
     },
     "bun": {
-      "resolveMs": 98,
-      "fullMs": 2270,
+      "resolveMs": 92,
+      "fullMs": 2419,
       "lockLines": 23956,
       "lockBytes": 697456,
       "resolveSharePct": 4
@@ -53,19 +53,19 @@
       "bun": "1.3.14"
     },
     "pnpm": {
-      "resolveMs": 1204,
-      "verifyMs": 636,
-      "fullMs": 7240,
+      "resolveMs": 950,
+      "verifyMs": 310,
+      "fullMs": 6633,
       "lockLines": 79942,
       "lockBytes": 2176930,
-      "resolveSharePct": 17
+      "resolveSharePct": 14
     },
     "bun": {
       "resolveMs": 226,
-      "fullMs": 8777,
+      "fullMs": 9400,
       "lockLines": 46376,
       "lockBytes": 1342208,
-      "resolveSharePct": 3
+      "resolveSharePct": 2
     }
   }
 ]
