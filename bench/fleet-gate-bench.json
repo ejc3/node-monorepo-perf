@@ -25,19 +25,19 @@
   "install": {
     "tool": "bun",
     "storeWarm": true,
-    "ms": 190043,
+    "ms": 180820,
     "packages": 76
   },
   "optimalGate": {
     "tool": "tsgo (one program, from src)",
     "kind": "typecheck only (no dist emit)",
-    "ms": 61236,
-    "maxRssMB": 52396
+    "ms": 58147,
+    "maxRssMB": 51262
   },
   "breakingChange": {
     "tool": "tsgo (one program)",
     "caught": true,
-    "ms": 61665,
+    "ms": 58874,
     "appsWithErrors": 30000,
     "ts2554": 30171,
     "sample": "error TS2554: Expected 2 arguments, but got 1."
@@ -46,33 +46,33 @@
   "turboGate": {
     "tool": "turbo+tsgo (build+check)",
     "kind": "tsc dist build (^build) + tsgo typecheck",
-    "ms": 662784,
+    "ms": 633857,
     "ran": 30708,
     "total": 30708
   },
   "leafGate": {
     "tool": "turbo+tsgo",
-    "ms": 107536,
+    "ms": 120280,
     "ran": 100,
     "total": 100
   },
   "lint": {
     "tool": "oxlint",
     "ran": true,
-    "ms": 2556,
+    "ms": 2396,
     "findings": 0
   },
   "summary": {
-    "bunInstallMs": 190043,
-    "optimalGateMs": 61236,
-    "optimalGateRssMB": 52396,
+    "bunInstallMs": 180820,
+    "optimalGateMs": 58147,
+    "optimalGateRssMB": 51262,
     "breakingChangeCaught": true,
     "breakingChangeAppsRed": 30000,
-    "breakingChangeMs": 61665,
-    "turboGateMs": 662784,
+    "breakingChangeMs": 58874,
+    "turboGateMs": 633857,
     "turboGateRan": 30708,
-    "leafGateMs": 107536,
+    "leafGateMs": 120280,
     "leafGateRan": 100,
-    "oxlintMs": 2556
+    "oxlintMs": 2396
   }
 }

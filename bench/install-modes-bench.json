@@ -3,11 +3,11 @@
   "libs": 200,
   "pnpm": "12.8.1",
   "lockfileLines": 41227,
-  "coldResolveMs": 2977,
-  "frozenWarmMs": 2992,
-  "frozenColdStoreMs": 3200,
-  "depChangeAddOneMs": 1347,
-  "depChangeCatalogBumpMs": 1386,
-  "frozenWarmPctOfCold": 100.5,
-  "depChangeAddPctOfCold": 45.2
+  "coldResolveMs": 2918,
+  "frozenWarmMs": 2834,
+  "frozenColdStoreMs": 2824,
+  "depChangeAddOneMs": 1011,
+  "depChangeCatalogBumpMs": 1320,
+  "frozenWarmPctOfCold": 97.1,
+  "depChangeAddPctOfCold": 34.6
 }

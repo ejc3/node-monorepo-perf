@@ -2,7 +2,7 @@
 
 ## Install: bun vs pnpm vs yarn 4
 
-`scripts/install-bench.mjs`, installing [the workspace under test](README.md#the-workspace-under-test) at the table's apps/libs scales (`bench/env.json`: Neoverse-V1, 64 cores, 135 GB). Each manager runs its default and alternate linkers; non-linker knobs are normalized across tools (dependency build scripts are disabled for every tool, registries and caches pinned — see the script header). Tool provenance is in the record and pin-asserted: pnpm 12.8.1 — the Rust CLI, probed through the per-scaffold `packageManager` pin — bun 1.3.14, yarn 4.18.1:
+`scripts/install-bench.mjs`, installing [the workspace under test](README.md#the-workspace-under-test) at the table's apps/libs scales, on the dedicated 64-core c7gd.metal ([README](README.md#the-64-core-machine)). Each manager runs its default and alternate linkers; non-linker knobs are normalized across tools (dependency build scripts are disabled for every tool, registries and caches pinned — see the script header). Tool provenance is in the record and pin-asserted: pnpm 12.8.1 — the Rust CLI, probed through the per-scaffold `packageManager` pin — bun 1.3.14, yarn 4.18.1:
 
 - pnpm-isolated (default) / pnpm-hoisted (flat)
 - bun (isolated `node_modules/.bun` store since 1.3)
@@ -24,28 +24,28 @@
 
 | scale | manager | cold | warm | CPU | peak RSS | nm entries |
 |---|---|---|---|---|---|---|
-| 200 / 100 | pnpm 12.8.1 isolated | 0.67s | 0.46s | 325% | 92 MB | 15,701 |
-| | pnpm 12.8.1 hoisted | 0.65s | 0.47s | 512% | 91 MB | 12,554 |
-| | bun | **0.13s** | **0.14s** | 235% | 42 MB | 15,419 |
-| | yarn node-modules | 3.3s | 2.9s | 151% | 937 MB | 11,220 |
-| | yarn PnP | 1.8s | 1.5s | 141% | 610 MB | 64 |
-| 1,000 / 200 | pnpm 12.8.1 isolated | 3.1s | 2.7s | 148% | 134 MB | 31,133 |
-| | pnpm 12.8.1 hoisted | **1.2s** | **0.78s** | 859% | 120 MB | 17,786 |
-| | bun | 2.9s | 2.9s | 38% | 69 MB | 29,951 |
-| | yarn node-modules | 4.4s | 4.1s | 157% | 1,019 MB | 12,120 |
-| | yarn PnP | 2.4s | 2.2s | 150% | 660 MB | 64 |
-| 2,000 / 300 | pnpm 12.8.1 isolated | 8.2s | 8.1s | 98% | 196 MB | 50,169 |
-| | pnpm 12.8.1 hoisted | **2.5s** | **2.1s** | 734% | 180 MB | 24,222 |
-| | bun | 9.6s | 10.1s | 22% | 97 MB | 47,887 |
-| | yarn node-modules | 5.7s | 5.5s | 158% | 1,093 MB | 13,220 |
-| | yarn PnP | 3.2s | 3.1s | 149% | 722 MB | 64 |
+| 200 / 100 | pnpm 12.8.1 isolated | 0.43s | **0.25s** | 430% | 91 MB | 15,701 |
+| | pnpm 12.8.1 hoisted | 0.46s | 0.26s | 642% | 81 MB | 12,554 |
+| | bun | **0.28s** | 0.27s | 169% | 44 MB | 15,419 |
+| | yarn node-modules | 3.2s | 2.8s | 156% | 939 MB | 11,220 |
+| | yarn PnP | 1.7s | 1.4s | 144% | 612 MB | 64 |
+| 1,000 / 200 | pnpm 12.8.1 isolated | 2.1s | 2.5s | 196% | 135 MB | 31,133 |
+| | pnpm 12.8.1 hoisted | **0.96s** | **0.59s** | 983% | 123 MB | 17,786 |
+| | bun | 2.9s | 2.8s | 37% | 69 MB | 29,951 |
+| | yarn node-modules | 4.3s | 3.9s | 159% | 1,019 MB | 12,120 |
+| | yarn PnP | 2.3s | 2.1s | 152% | 663 MB | 64 |
+| 2,000 / 300 | pnpm 12.8.1 isolated | 6.8s | 7.3s | 111% | 191 MB | 50,169 |
+| | pnpm 12.8.1 hoisted | **2.5s** | **1.1s** | 700% | 174 MB | 24,222 |
+| | bun | 8.6s | 8.8s | 24% | 94 MB | 47,887 |
+| | yarn node-modules | 5.6s | 5.4s | 160% | 1,100 MB | 13,220 |
+| | yarn PnP | 3.2s | 2.9s | 150% | 726 MB | 64 |
 
-Truly-cold at 200/100 (network-bound, single sample) runs bun 1.2s, pnpm-hoisted 2.1s, yarn PnP 8.2s, yarn node-modules 9.7s.
+Truly-cold at 200/100 (network-bound, single sample) runs bun 1.3s, pnpm-hoisted 2.2s, yarn PnP 7.8s, yarn node-modules 9.2s.
 
-- pnpm 12 (the Rust CLI) has no cold-resolve wall: pnpm cold is seconds — 0.67s → 8.2s isolated (12× over 10× apps), 0.65s → 2.5s hoisted (3.8×, sublinear) — at 91–196 MB peak install RSS. The pnpm-10-vs-12 rewrite is priced leg-vs-leg [below](#pnpm-12-the-rust-rewrite) (cold resolve 303.7s → 1.01s at 1,000:200).
-- The bun-vs-pnpm cold story inverts with scale. bun is ~5× faster at 200/100 (0.13s vs 0.65–0.67s) and ~1.7× faster truly-cold (1.2s vs 2.1s); at 1,000 apps **pnpm-hoisted cold beats bun** (1.2s vs 2.9s, ~2.4×; bun is 7% ahead of pnpm-isolated's 3.1s and behind yarn-PnP's 2.4s), and at 2,000 bun's cold is the slowest of the five configurations (9.6s; pnpm-hoisted 2.5s is ~3.8× faster). bun's install CPU falls with scale (235% → 38% → 22%, under one core from 1,000 apps) while pnpm-hoisted runs at 512–859%.
-- Cold fastest per scale: bun at 200 (0.13s), pnpm-hoisted at 1,000 (1.2s) and at 2,000 (2.5s). yarn-PnP is second at both larger scales (2.4s and 3.2s, ×2.0 and ×1.3 of pnpm-hoisted); both yarn linkers grow under 2× across the 10× app sweep (PnP 1.8s → 3.2s, node-modules 3.3s → 5.7s).
-- Warm relink shows the linker (pnpm-hoisted 2.1s vs pnpm-isolated 8.1s at 2,000); pnpm-hoisted is the fastest warm at 1,000/2,000 (0.78s/2.1s), bun at 200 (0.14s). bun's warm relink is no faster than its cold at any scale (0.14s/2.9s/10.1s warm vs 0.13s/2.9s/9.6s cold). Footprints at 2,000 apps (Figure 1): yarn-PnP 64, yarn-nm 13,220, pnpm-hoisted 24,222, bun/pnpm-isolated ~48–50k.
+- pnpm 12 (the Rust CLI) has no cold-resolve wall: pnpm cold is seconds — 0.43s → 6.8s isolated (15.6× over 10× apps), 0.46s → 2.5s hoisted (5.5×, sublinear) — at 81–191 MB peak install RSS. The pnpm-10-vs-12 rewrite is priced leg-vs-leg [below](#pnpm-12-the-rust-rewrite) (cold resolve 307.4s → 0.93s at 1,000:200).
+- The bun-vs-pnpm cold order depends on scale. bun is ~1.6× faster at 200/100 (0.28s vs 0.43–0.46s) and ~1.7× faster truly-cold (1.3s vs 2.2s); at 1,000 apps **both pnpm linkers are ahead of bun** (hoisted 0.96s vs 2.9s, ~3.1×; isolated 2.1s, 1.4×; bun is also behind yarn-PnP's 2.3s), and at 2,000 bun's cold is the slowest of the five configurations (8.6s; pnpm-hoisted 2.5s is ~3.4× faster, pnpm-isolated 6.8s 1.3×). bun's install CPU falls with scale (169% → 37% → 24%, under one core from 1,000 apps) while pnpm-hoisted runs at 642–983%.
+- Cold fastest per scale: bun at 200 (0.28s), pnpm-hoisted at 1,000 (0.96s) and at 2,000 (2.5s). Second is pnpm-isolated at 1,000 (2.1s, with yarn-PnP third at 2.3s, ×2.4 of pnpm-hoisted) and yarn-PnP at 2,000 (3.2s, ×1.3); both yarn linkers grow under 2× across the 10× app sweep (PnP 1.7s → 3.2s, node-modules 3.2s → 5.6s).
+- Warm relink shows the linker (pnpm-hoisted 1.1s vs pnpm-isolated 7.3s at 2,000); pnpm-hoisted is the fastest warm at 1,000/2,000 (0.59s/1.1s); at 200 the two pnpm linkers and bun are about 8% apart (0.25–0.27s, pnpm-isolated the fastest). bun's warm relink is within 4% of its cold at every scale (0.27s/2.8s/8.8s warm vs 0.28s/2.9s/8.6s cold). Footprints at 2,000 apps (Figure 1): yarn-PnP 64, yarn-nm 13,220, pnpm-hoisted 24,222, bun/pnpm-isolated ~48–50k.
 
 bun and yarn ignore `pnpm-workspace.yaml`/`catalog:`, so the bench runs a decataloged copy.
 
@@ -58,19 +58,18 @@ scale/modules pinned and the printed summary asserted; package-identity
 equivalence gate: every leg must lock the identical package set — 58 packages,
 1,201 importers; leg order rotated per sample round and recorded; completeness
 verified by the shared `_verify-install.cjs` after every timed install;
-`bench/pnpm12-bench.json`, 64-core, btrfs):
+`bench/pnpm12-bench.json`, the dedicated 64-core box, btrfs):
 
 | row | pnpm 10.29.1 (JS) | pnpm 12.8.1 (Rust) | tip (12.8.2 @ 26aeeb11) |
 |---|---|---|---|
-| cold resolve (no lockfile, warm store; median of 3) | 303.7s | 1.01s | 1.00s |
-| warm rebuild (lockfile + store, no `node_modules`; median of 3) | 5.35s | 0.57s | 0.57s |
-| frozen rebuild (`--frozen-lockfile`, same tree; median of 3) | 5.17s | 0.53s | 0.53s |
-| truly cold (fresh store + cache + network; lockfile retained, frozen; 1 sample, fixed order) | 7.55s | 1.12s | 1.14s |
+| cold resolve (no lockfile, warm store; median of 3) | 307.4s | 0.93s | 0.92s |
+| warm rebuild (lockfile + store, no `node_modules`; median of 3) | 5.07s | 0.52s | 0.52s |
+| frozen rebuild (`--frozen-lockfile`, same tree; median of 3) | 4.86s | 0.49s | 0.49s |
+| truly cold (fresh store + cache + network; lockfile retained, frozen; 1 sample, fixed order) | 7.00s | 1.08s | 1.08s |
 
-The rewrite is **301× faster on cold resolution** at this shape — the JS
-implementation's cold resolve grows ~linearly with importer count and pays five
-minutes on this 1,201-importer workspace — and 9–10× on the warm and frozen rows,
-6.7× truly-cold. Tip of main measures within ±2% of stable on every row. These rows
+The rewrite is **331× faster on cold resolution** at this shape — the JS
+implementation pays five minutes on this 1,201-importer workspace — and ~10× on the warm and frozen rows
+(9.7× and 10.0×), 6.5× truly-cold. Tip of main measures within ±2% of stable on every row. These rows
 are leg-vs-leg inside this bench (separate runs, its own flag set and install-state
 definitions); they are not directly comparable to the install-bench table above,
 and the containerized frozen install is measured separately in
@@ -116,19 +115,19 @@ it. Both defaults change CI behavior on upgrade; both are explicit config away.
 
 The node 22.23.3 crash is in loading `next.config`: next's config transpile hook reads `require.extensions['.js']`, which the `require()` it gets under the PnP loader does not carry. On node 22.22.0 webpack and **rspack** build under PnP, and Turbopack fails at its own `next/package.json` resolution ([vercel/next.js#42651](https://github.com/vercel/next.js/issues/42651)). All three build under the node-modules linker on 22.23.3, so the crash is specific to PnP. `pnp-compat-bench` records the same config-load crash on its generated app (next 16.2.9) (`bench/rspack-pnp-bench.json`, `bench/pnp-compat-bench.json`).
 
-**yarn 4 at fleet scale** (`scripts/yarn-fleet-bench.mjs`, 30,000 apps / 460 libs, the [FLEET.md](FLEET.md) shape with the fleet gate's exact devDependency set; `bench/yarn-fleet-bench.json`, yarn 4.18.1 on node 22.23.3 with `typescript@7` as the tree's checker, 64-core box, recorded pre-run 1-minute load 6.4): PnP installs the workspace **truly cold in 41.6s** (no lockfile, fresh global cache, network) and 39.9s warm — one 62MB `.pnp.cjs` instead of the node-modules farm. yarn's own node-modules linker takes **222.5s** truly cold (212.8s warm) on the same tree (4,884,956 `node_modules` entries — and its per-app package clones are CoW-or-copy: free reflinks on btrfs, real copies on ext4 — TB-scale at this shape, ENOSPC with 71GB free here); the fleet gate's bun install is 190.0s against the same workload, in the state of yarn's warm rows (lockfile present, warm store, install outputs wiped): PnP warm is 4.8× faster than bun and yarn's node-modules linker warm is 12% slower; PnP truly cold still beats bun's warm install 4.6×. The type gate closes the loop: the native-PnP tsgo build (head of the PR line consolidated in [microsoft/typescript-go#1966](https://github.com/microsoft/typescript-go/pull/1966); binary sha + git sha recorded) runs the whole-program fleet gate **through `.pnp.cjs` in 62.8s / 50.8GB — and the same binary over the node-modules tree in 64.6s / 52.4GB**, the same-binary control that isolates the linker: no linker penalty was observed in this one-timed-run-per-linker comparison (the PnP run is 2.7% lower on wall and 3% lower on peak RSS). It catches the breaking foundation rev with all 30,000 apps red in 63.9s. Stock tsgo on the same PnP tree fails with exactly 30,000 `TS2503` unresolved-name errors, the pnp-compat boundary at full scale. With the resolver in place the check shows no PnP penalty; what still stands between this stack and PnP is `next build` (above: no builder runs under PnP on node 22.23.3; on 22.22.0 webpack and rspack do and Turbopack does not) and the patch not yet being shipped.
+**yarn 4 at fleet scale** (`scripts/yarn-fleet-bench.mjs`, 30,000 apps / 460 libs, the [FLEET.md](FLEET.md) shape with the fleet gate's exact devDependency set; `bench/yarn-fleet-bench.json`, yarn 4.18.1 on node 22.23.3 with `typescript@7` as the tree's checker; measured on the shared 64-core dev box, recorded pre-run 1-minute load 6.4): PnP installs the workspace **truly cold in 41.6s** (no lockfile, fresh global cache, network) and 39.9s warm — one 62MB `.pnp.cjs` instead of the node-modules farm. yarn's own node-modules linker takes **222.5s** truly cold (212.8s warm) on the same tree (4,884,956 `node_modules` entries). The fleet gate's bun install of the same workload, in the state of yarn's warm rows (lockfile present, warm store, install outputs wiped), is 180.8s on the dedicated box (`bench/fleet-gate-bench.json`); the yarn rows are a different box, so no ratio is drawn between the two records. The type gate closes the loop: the native-PnP tsgo build (head of the PR line consolidated in [microsoft/typescript-go#1966](https://github.com/microsoft/typescript-go/pull/1966); binary sha + git sha recorded) runs the whole-program fleet gate **through `.pnp.cjs` in 62.8s / 50.8GB — and the same binary over the node-modules tree in 64.6s / 52.4GB**, the same-binary control that isolates the linker: no linker penalty was observed in this one-timed-run-per-linker comparison (the PnP run is 2.7% lower on wall and 3% lower on peak RSS). It catches the breaking foundation rev with all 30,000 apps red in 63.9s. Stock tsgo on the same PnP tree fails with exactly 30,000 `TS2503` unresolved-name errors, the pnp-compat boundary at full scale. With the resolver in place the check shows no PnP penalty; what still stands between this stack and PnP is `next build` (above: no builder runs under PnP on node 22.23.3; on 22.22.0 webpack and rspack do and Turbopack does not) and the patch not yet being shipped.
 
-**Build speed** (`scripts/rspack-turbopack-speed-bench.mjs`, 60-route app, node-modules, median of 3, `bench/rspack-turbopack-speed-bench.json`): Turbopack **9.4s** cold (×1), rspack 15.7s (×1.67), webpack 19.3s (×2.06). rspack is ~1.23× faster than webpack cold.
+**Build speed** (`scripts/rspack-turbopack-speed-bench.mjs`, 60-route app, node-modules, median of 3, `bench/rspack-turbopack-speed-bench.json`): Turbopack **8.7s** cold (×1), rspack 15.5s (×1.78), webpack 19.1s (×2.20). rspack is ~1.24× faster than webpack cold.
 
-**Specifier form and node-linker** (`scripts/perf-matrix.mjs`, pnpm 12.8.1, cold at 300/100): the `workspace:` form is install-neutral (0.91s vs 0.91s versioned, +0.2%). The linker is not: on this catalog workspace hoisted cold runs ~3.1× slower than isolated (2.80s vs 0.91s) and materializes far more (77,781 nm entries / 10.2 GB apparent vs isolated's 18,159 / 0.42 GB). The larger decataloged install-bench trees above point the other way (hoisted cold beats isolated at 1,000–2,000 apps); the two records vary scale and catalog form together, so they do not isolate which causes the reversal. Choose the specifier form for publish semantics.
+**Specifier form and node-linker** (`scripts/perf-matrix.mjs`, pnpm 12.8.1, cold at 300/100): the `workspace:` form is install-neutral (0.91s vs 0.91s versioned, +0.2%). The linker is not: on this catalog workspace hoisted cold runs ~3.1× slower than isolated (2.80s vs 0.91s) and materializes far more (77,781 nm entries / 10.2 GB apparent vs isolated's 18,159 / 0.42 GB). The larger decataloged install-bench trees above point the other way (hoisted cold beats isolated at 1,000–2,000 apps); the two records vary scale, catalog form and machine together (`perf-matrix.json` is a shared-box record), so they do not isolate which causes the reversal. Choose the specifier form for publish semantics.
 
 ## The CI-runner install: frozen, in a fresh container
 
-`scripts/container-install-bench.mjs`: a committed lockfile installed frozen (`pnpm --frozen-lockfile`, `bun --frozen-lockfile`, `yarn --immutable`, `npm ci`) in a fresh rootless-podman container at 1,000 apps / 200 libs, median of five (pnpm 12.8.1, bun 1.3.14, yarn 4.18.1). On a fresh runner (empty caches + real network), wall times are **bun 1.03s and pnpm 1.09s (+6%)**, then yarn-PnP 4.8s, yarn-nm 6.7s, npm 10.4s. With a pre-warmed store: bun 0.47s, pnpm 0.54s (+15%), yarn-PnP 2.3s, yarn-nm 4.3s, npm 9.7s. Fail-closed holds on all five (drift → exit 1, lockfile untouched). `bench/container-install-bench.json`.
+`scripts/container-install-bench.mjs`: a committed lockfile installed frozen (`pnpm --frozen-lockfile`, `bun --frozen-lockfile`, `yarn --immutable`, `npm ci`) in a fresh rootless-podman container at 1,000 apps / 200 libs, median of five (pnpm 12.8.1, bun 1.3.14, yarn 4.18.1; the container image carries node 22.23.1 and npm 10.9.8; measured on the shared 64-core dev box, recorded pre-run 1-minute load 6.5). On a fresh runner (empty caches + real network), wall times are **bun 1.03s and pnpm 1.09s (+6%)**, then yarn-PnP 4.8s, yarn-nm 6.7s, npm 10.4s. With a pre-warmed store: bun 0.47s, pnpm 0.54s (+15%), yarn-PnP 2.3s, yarn-nm 4.3s, npm 9.7s. Fail-closed holds on all five (drift → exit 1, lockfile untouched). `bench/container-install-bench.json`.
 
 ## Build: Next vs Vite
 
-`scripts/build-bench.mjs` runs `turbo run build` of 40 apps + 24 libs on 64 cores. Next (App Router): 17.2s, 741 MB RSS, 156.8 MB `.next`. Vite (SPA): 7.6s, 193 MB RSS, 7.7 MB `dist`. Vite builds ~2.3x faster and emits ~20x less for these tiny apps (`.next` includes server/RSC bundles; not equivalent features). At scale, not building unchanged apps matters more than per-build time (`bench/build-bench.json`).
+`scripts/build-bench.mjs` runs `turbo run build` of 40 apps + 24 libs on 64 cores. Next (App Router): 15.1s, 747 MB RSS, 156.8 MB `.next`. Vite (SPA): 4.7s, 398 MB RSS, 7.7 MB `dist`. Vite builds ~3.2x faster and emits ~20x less for these tiny apps (`.next` includes server/RSC bundles; not equivalent features). At scale, not building unchanged apps matters more than per-build time (`bench/build-bench.json`).
 
 ## Lint: ESLint vs oxlint
 
@@ -148,4 +147,4 @@ Vite+ is VoidZero's unified toolchain CLI: one `vp` binary wrapping Rolldown-Vit
 
 **Task orchestration** (`bench/vite-task-bench.json`; the workspace under test with a dep-free `typecheck:tsgo` task set; 192-core c8g.48xlarge, concurrency 192 on both runners, typescript 7.0.2): turbo hashes declared inputs; Vite Task fs-traces reads and cached the gitignored tree with zero config. Whole-repo typecheck turbo wins 3.2–10.7× — cold ×8.4 at 300:100 (5.2s vs 43.5s) and ×10.7 at 1,000:200 (19.1s vs 204.2s), warm ×3.2 (1.4s vs 4.5s) and ×4.1 (3.5s vs 14.5s). Focused warm is close: vp stays flat across 3× repo growth (0.81s → 0.83s) while turbo's grows with the repo (0.76s → 1.01s, [LIMITS.md](LIMITS.md)), so turbo leads at 300:100 and vp by 1.2× at 1,000:200; focused cold, turbo is faster at both scales (1.4s vs 2.3s; 1.5s vs 2.0s). On a cross-package edit (1,000:200), vp recomputed exactly the 559 tasks whose traced reads touch the file; turbo recomputed 1 of 1,200. On the test axis (1,200 `node:test` tasks at 1,000:200) turbo is faster cold (7.1s vs 17.6s) and vp faster warm (1.0s vs 2.8s). vp refuses to cache self-mutating tasks (`next build`, `vite build`, `tsc --noEmit` with `incremental: true`).
 
-**Tool layer** (`bench/vite-plus-tools-bench.json`, self-contained temp scaffolds): `vp check --no-fmt` (one pass) 2.56s vs the same engines standalone (`oxlint --type-aware --type-check` **1.90s**) vs this repo's gate (`oxlint` + whole-program `tsgo --noEmit` **0.80s**) — 3.2× slower than the optimal-gate shape. `vp build` vs `vite build` (one generated Vite app, 40:24 scaffold): byte-identical `dist`, 969ms vs 560ms (~1.7× wrapper cost). The Vite+ layer costs time on every cold row and on the whole-repo warm typecheck; it is faster on the warm test run and on the focused warm typecheck at 1,000:200. Its fs-traced cache is the first measured runner correct on gitignored source and cross-package edits with zero config.
+**Tool layer** (`bench/vite-plus-tools-bench.json`, self-contained temp scaffolds, the dedicated 64-core box): `vp check --no-fmt` (one pass) 2.35s vs the same engines standalone (`oxlint --type-aware --type-check` **1.68s**) and, as context, this repo's gate (`oxlint` + whole-program `tsgo --noEmit`) at **0.42s** — a different type-check model (one tsgo program over lib source against tsgolint's per-file typed lint), so the 5.6× between them is not a like-for-like engine comparison. `vp build` vs `vite build` (one generated Vite app): byte-identical `dist`, 792ms vs 367ms (~2.2× wrapper cost). The Vite+ layer costs time on every cold row and on the whole-repo warm typecheck; it is faster on the warm test run and on the focused warm typecheck at 1,000:200. Of the two measured runners, only Vite Task's fs-traced cache is correct on gitignored source and cross-package edits with zero config.

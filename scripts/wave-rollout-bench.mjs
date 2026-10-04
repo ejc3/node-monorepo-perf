@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // The mechanics of advancing an internal core lib through a hermetic, wave-based rollout, measured as a
 // bun-vs-pnpm head-to-head on self-contained repros. This is the empirical backing for ROLLOUT.md. bun
-// is the recommended driver for its native mechanics and the 200-app/truly-cold install cases; against
-// pnpm 12 (the Rust CLI) the full-re-resolve speed is scale-dependent — bun ~5x faster at 200 apps,
-// pnpm-hoisted faster at the measured 1,000- and 2,000-app points, bun 6% ahead on the fresh CI frozen
-// container (bench/install-bench.json; the recorded speedContext carries both directions).
+// is the recommended driver for its native mechanics. This bench measures no install speed: the record's
+// `speedContext` and the speed sentence of its `claim` are DERIVED from bench/install-bench.json +
+// bench/container-install-bench.json by scripts/_install-speed-context.mjs (which tool is faster depends
+// on scale and install state; the derivation states every direction), and comparison-chart.mjs asserts
+// in CI that the committed record still equals that derivation.
 // Each rung records a measured fact (hard-asserting where the fact is stable); setup failures (a seed
 // install that did not run, a missing lockfile, a network/registry error) HARD-FAIL, so a failed
 // measurement never reads as a clean result. The running bun is pinned to 1.3.14 (the version the source
@@ -46,10 +47,25 @@ import {
   existsSync,
   readdirSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { PNPM_VERSION } from "./_pins.mjs";
+import {
+  claimSpeedSentence,
+  installSpeedContext,
+  loadInstallSpeedRecords,
+} from "./_install-speed-context.mjs";
+
+// The install-speed text the record carries is derived from the committed install records. They
+// are read from this script's own checkout (before any rung runs, so a missing record fails up
+// front), and the record is written back into that same checkout — the derived text and the
+// records it quotes always sit in one tree, whatever the working directory.
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const SPEED_RECORDS = loadInstallSpeedRecords(REPO);
+const SPEED_CONTEXT = installSpeedContext(SPEED_RECORDS.install, SPEED_RECORDS.container);
+const SPEED_SENTENCE = claimSpeedSentence(SPEED_RECORDS.install, SPEED_RECORDS.container);
 
 // is-odd has long-stable ancient versions; 1.0.0 = "stable" channel, 3.0.0 = "next" channel.
 const DEP = "is-odd";
@@ -589,11 +605,8 @@ const wsCatalogClause = pnpmWsAcceptsAll
 const result = {
   claim:
     "Core-lib wave-rollout mechanics, measured as a bun-vs-pnpm head-to-head. bun remains the " +
-    "recommended driver for its native mechanics (committed-bunfig frozen, package.json catalogs) and " +
-    "the 200-app/truly-cold install cases; against pnpm 12 (the Rust CLI) the full-re-resolve speed " +
-    "story is scale-dependent — bun ~5x faster at 200 apps, pnpm-hoisted faster at the measured 1,000- " +
-    "and 2,000-app points, bun 6% ahead on the fresh CI frozen container " +
-    "(bench/install-bench.json; see speedContext). " +
+    "recommended driver for its native mechanics (committed-bunfig frozen, package.json catalogs). " +
+    SPEED_SENTENCE +
     "Determinism is the lockfile + a frozen install (the range is inert): bun fails closed on drift with " +
     "one committed bunfig line (frozenLockfile=true); pnpm fails closed with --frozen-lockfile and " +
     "auto-enables frozen in CI. Named catalogs route two cohorts to two versions in one lockfile and a " +
@@ -603,10 +616,7 @@ const result = {
     "republish-fanout. bun does not read pnpm-workspace.yaml catalogs, so author them in package.json.",
   versions: { pnpm: PNPM_VER, bun: BUN_VER, node: process.version },
   registry: REGISTRY,
-  speedContext: {
-    source: "bench/install-bench.json",
-    note: "The install state matters and both directions are recorded (pnpm 12.8.1, the Rust CLI). COLD install (no lockfile, fresh node_modules, warm store): bun ~5x faster at 200 apps (0.13s vs pnpm-isolated 0.67s / pnpm-hoisted 0.65s); at scale the story INVERTS — pnpm-hoisted 1.2s vs bun 2.9s at 1,000 apps and 2.5s vs 9.6s at 2,000, where bun's cold is the slowest of the five measured configurations (measured ceiling 2,000 apps). TRULY-COLD (fresh store + metadata, network; single samples): bun 1.2s vs pnpm-hoisted 2.1s at 200 apps. WARM (lockfile + store, node_modules removed): pnpm-hoisted 0.78s at 1,000 / 2.1s at 2,000 vs bun 2.9s / 10.1s. bun wins the 200-app cold and truly-cold cases and leads the CI-runner frozen container install by 6% fresh / 15% cache-restored (bun 1.03s vs pnpm 1.09s fresh, 0.47s vs 0.54s cache-restored; bench/container-install-bench.json); pnpm 12 hoisted wins cold and warm at the measured 1,000- and 2,000-app points.",
-  },
+  speedContext: SPEED_CONTEXT,
   determinism: {
     bun: {
       config: "bunfig.toml [install] frozenLockfile=true; bare bun install on drift",
@@ -699,9 +709,6 @@ const result = {
   },
   reproduced: true,
 };
-mkdirSync(join(process.cwd(), "bench"), { recursive: true });
-writeFileSync(
-  join(process.cwd(), "bench/wave-rollout-bench.json"),
-  JSON.stringify(result, null, 2),
-);
+mkdirSync(join(REPO, "bench"), { recursive: true });
+writeFileSync(join(REPO, "bench/wave-rollout-bench.json"), JSON.stringify(result, null, 2));
 console.log("\n--- bench/wave-rollout-bench.json written (all rungs reproduced) ---");

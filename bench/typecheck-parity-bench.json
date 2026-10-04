@@ -9,31 +9,31 @@
     "node": "v22.23.3"
   },
   "cores": 64,
-  "preRunLoadAvg1": 13.43,
+  "preRunLoadAvg1": 1.35,
   "samples": 3,
   "typeShape": "recursive conditional + mapped types, 48-member unions, path-flatten, cross-lib intersections",
   "cleanBaseline": {
     "tsgo": {
-      "ms": 2043,
-      "rssMB": 1280,
+      "ms": 1919,
+      "rssMB": 1279,
       "diagnostics": 0,
       "sampleMs": [
-        2043,
-        2030,
-        2064
+        1926,
+        1919,
+        1912
       ]
     },
     "tsc": {
-      "ms": 17813,
-      "rssMB": 2120,
+      "ms": 16943,
+      "rssMB": 2110,
       "diagnostics": 0,
       "sampleMs": [
-        17813,
-        17607,
-        17896
+        16922,
+        16943,
+        17151
       ]
     },
-    "speedupTsgoOverTsc": 8.7
+    "speedupTsgoOverTsc": 8.8
   },
   "injected": {
     "apps": 5,

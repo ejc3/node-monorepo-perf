@@ -34,6 +34,7 @@ import {
   esc,
   emitChart,
 } from "./_chartstyle.mjs";
+import { assertWaveRolloutSpeedText } from "./_install-speed-context.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
 const IB = read("bench/install-bench.json");
@@ -44,6 +45,11 @@ const PAR = read("bench/typecheck-parity-bench.json");
 const BB = read("bench/build-bench.json");
 const IM = read("bench/install-modes-bench.json");
 const LB = read("bench/lint-bench.json");
+// bench/wave-rollout-bench.json quotes these two install records in its `speedContext`
+// and `claim`. This generator is the CI step that reads both, so it also holds the
+// quote to the data: the committed text must equal what
+// scripts/_install-speed-context.mjs derives, or the chart (and the byte-gate) fails.
+assertWaveRolloutSpeedText(read("bench/wave-rollout-bench.json"), IB, CI);
 const byScale = Object.fromEntries(IB.scales.map((s) => [`${s.apps}x${s.libs}`, s]));
 const inst = (scale, tool, state) => byScale[scale][tool][state];
 // deep accessor for the pnpm12 dataset: the section must fail the build, not
@@ -131,6 +137,17 @@ for (const leg of ["pnpm10", "pnpm12", "tip"]) {
   if (pnNum(`rows.${leg}.trulyCold.samples`) !== 1)
     throw new Error(`pnpm12-bench rows.${leg}.trulyCold is not the single-sample record`);
 }
+// the container bench times each tool inside its image, so the npm column and the
+// node the installs ran under are the image's (not the host's): both come from the
+// record, and the "npm N" label is its major
+const ciNpm = String(need(CI, "image.npm", "bench/container-install-bench.json"));
+const ciImageNode = String(need(CI, "image.node", "bench/container-install-bench.json")).replace(
+  /^v/,
+  "",
+);
+const ciNpmMajor = ciNpm.split(".")[0];
+if (!/^\d+$/.test(ciNpmMajor))
+  throw new Error(`container-install image.npm ${ciNpm} has no numeric major for the npm label`);
 const pnRow = (leg, row) => pnNum(`rows.${leg}.${row}.medianMs`);
 const pnTipShort = String(need(PN, "versions.tip", "pnpm12-bench")).split(" ")[0];
 
@@ -211,7 +228,7 @@ const SECTIONS = [
       { k: "pnpm", label: "pnpm 12", chip: "pnpm" },
       { k: "ynm", label: "yarn 4\nnode-modules", chip: "yarn" },
       { k: "ypnp", label: "yarn 4\nPnP", sub: "no nm tree — zip cache + table", chip: "yarn" },
-      { k: "npm", label: "npm", chip: "npm" },
+      { k: "npm", label: `npm ${ciNpmMajor}`, chip: "npm" },
     ],
     rows: [
       [
@@ -236,7 +253,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/container-install-bench.json",
-    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of ${CI.samplesPerCell} rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker. Versions per the JSON: pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn}.`,
+    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of ${CI.samplesPerCell} rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker. Versions per the JSON: pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn} · npm ${ciNpm}, in a container image on node ${ciImageNode}.`,
   },
   {
     title: `pnpm 12 (the Rust CLI) vs pnpm 10 (JS) — ${pnNum("scale.apps").toLocaleString("en-US")} apps / ${pnNum("scale.libs")} libs`,

@@ -315,7 +315,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `SLICE_ALLOW_BUSY=1`): the **sliced-closure gate** — K concurrent tsgo programs, each all
   lib source + 1/K of the apps (exact `files` lists: include-glob matching is
   O(patterns×files) and would bias the sweep; find prunes node_modules/.next since `files`
-  bypasses `exclude`), between the one-program gate (718% CPU on 64 cores / 1,416% on 192,
+  bypasses `exclude`), between the one-program gate (786% CPU on 64 cores / 1,416% on 192,
   its own K=1 reference) and the per-package pipeline (30,000× lib re-parse). Whole-program
   reference
   first (blast-radius asserted: every app red + TS2554), then the K sweep (children are
@@ -648,9 +648,13 @@ One command each for the O(repo)-vs-O(closure) thesis:
   needs no worktree → `bench/decl-emit-caveat.json`, folded into OPTIMAL-STACK.md.
 - `node scripts/wave-rollout-bench.mjs`: the **rollout-mechanics vet**, the load-bearing facts for
   advancing an internal core lib through a hermetic, wave-based rollout, measured as a **bun-vs-pnpm-12
-  head-to-head** (writeup in ROLLOUT.md, which recommends bun for the native mechanics and the
-  200-app/truly-cold install cases; against pnpm 12 the full re-resolve is scale-dependent — the
-  recorded `speedContext` carries both directions from `bench/install-bench.json`). Five rungs on
+  head-to-head** (writeup in ROLLOUT.md, which recommends bun for the native mechanics). The bench
+  measures no install speed: the record's `speedContext` and the speed sentence of its `claim` are
+  derived from `bench/install-bench.json` + `bench/container-install-bench.json` by
+  `scripts/_install-speed-context.mjs` (which tool is faster depends on scale and install state; every
+  direction is stated), and `comparison-chart.mjs` asserts in CI that the committed record equals the
+  derivation — when either install record changes, run
+  `node scripts/_install-speed-context.mjs --write`. Five rungs on
   self-contained temp scaffolds recording measured facts (hard-asserting where the fact is stable); the
   bun behaviors are cross-checked against bun's source at `bun-v1.3.14`
   (and the script asserts it is running 1.3.14). Every root-manifest rewrite preserves the scaffold's
@@ -794,7 +798,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   [WORKSPACE-VS-SEMVER.md §7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces).
 
 ### Environment
-- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the machine record for the 64-core install-family records; a bench JSON's own machine/cores fields take precedence where present, and the 192-core records without such fields are listed under Data of Record).
+- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the shared 64-core dev box's capture; the dedicated 64-core box and its records are listed under Data of Record and in the README's "The 64-Core Machine"; a bench JSON's own machine/cores fields take precedence where present, and the 192-core records without such fields are listed under Data of Record).
 
 ### Shared Internals
 
@@ -827,6 +831,21 @@ Shared helpers the bench scripts import rather than run directly:
   as the record's `finding` sentence. Imported by `ci-cache-network-bench.mjs` (writes
   `finding`; a failed derivation diverts the run to `.partial.json`) and
   `net-cache-chart.mjs` (headline; asserts the record's `finding` equals the derivation).
+- `scripts/_install-speed-context.mjs`: the derived install-speed text in
+  `bench/wave-rollout-bench.json`, the same pattern as `_net-cache-finding.mjs`.
+  `installSpeedSummary(install, container)` reads the bun / pnpm-isolated / pnpm-hoisted cold
+  and warm cells per scale, the truly-cold pair, and the container bench's fresh and
+  cache-restored bun/pnpm medians, and names the faster side of each from the cells (equal
+  cells are reported as tied; a margin is worded by `_chartstyle.mjs`'s near-tie rule, the
+  same words the comparison chart prints for that cell); `installSpeedContext()` renders the
+  record's `speedContext` and `claimSpeedSentence()` the speed sentence of its `claim`, each
+  clause labelled with its own record's tool versions. Imported by `wave-rollout-bench.mjs`
+  (writes both, into its own checkout) and `comparison-chart.mjs`
+  (`assertWaveRolloutSpeedText`: the whole `speedContext` object and the claim's one speed
+  sentence must equal the derivation exactly, so the charts.yml gate fails on a stale or
+  hand-edited quote). As a CLI,
+  `node scripts/_install-speed-context.mjs --write` re-derives those two texts in the
+  committed record and nothing else (it refuses unless the record round-trips byte-identically).
 - `scripts/_ts.mjs`: the single TypeScript-toolchain resolver. typescript@7 is the
   native compiler (formerly tsgo; its only bin is `tsc`) and the `typescript6` alias
   is the last JS release (the tsc oracle + tsserver), so `node_modules/.bin/tsc` is a
@@ -875,9 +894,23 @@ Shared helpers the bench scripts import rather than run directly:
 ## Data of Record
 
 `bench/*.json` is the source of truth; the docs must not contain a number that
-isn't backed by one of these. `bench/env.json` records the machine for the 64-core
-records (the install family); a record that carries its own
-`machine`/`cores` fields overrides it. The TS7-toolchain records — `relay-codegen-bench.json`,
+isn't backed by one of these. The 64-core records `install-bench.json`,
+`install-modes-bench.json`, `lockfile-bench.json`, `focus-install-bench.json`,
+`lockfile-merge-bench.json`, `pnpm12-bench.json`,
+`typecheck-parity-bench.json`, `rspack-turbopack-speed-bench.json`, `rspack-pnp-bench.json`,
+`pnp-compat-bench.json`, `vite-plus-tools-bench.json`, `build-bench.json`,
+`turbopack-bench.json`, `test-axis-bench.json`, `fleet-gate-bench.json`,
+`sliced-gate-bench.json`, and `fleet-flow-bench.json` are canonical on the dedicated
+64-core box. Its hardware, host toolchain, and pre-bench protocol are stated in the
+README's "The 64-Core Machine" and not restated here; no record carries the instance type
+or that protocol, and a record carries its core count, tool versions, and in places memory
+or filesystem fields only where its bench writes them. Every other 64-core record (among the timing records:
+`container-install-bench.json`, `typecheck-bench.json`, `perf-matrix.json`, `fs-bench.json`,
+`fs-iops-bench.json`, `yarn-fleet-bench.json`, `tsgo-pnp-bench.json`, `real-app-bench.json`,
+`lsp-scale-bench.json`, `tsgo-scale-bench.json`) was measured on a shared dev box of the
+same instance type with other users' processes running, and `bench/env.json` is that box's
+capture. No doc draws a ratio between a dedicated-box record and a shared-box one. The
+TS7-toolchain records — `relay-codegen-bench.json`,
 `tsgo-scale-table.json`, `optimal-gate-bench.json`, `dev-loop-bench.json`,
 `lib-rev-bench.json`, `dev-sim.json`, `editor-loop-bench.json`, `lint-bench.json`,
 `results.json`, `axis-bench.json`, `ci-cache-bench.json`, `ci-cache-network-bench.json`,
@@ -904,7 +937,9 @@ from that warning + cleanup). `comparison-chart.mjs` renders the
 `bench/charts/tool-comparison.svg` tool head-to-head heatmap (install, CI-runner frozen
 install from `bench/container-install-bench.json`, the pnpm 12 Rust-CLI vs pnpm 10 JS
 section from `bench/pnpm12-bench.json`, typecheck, build, pnpm
-install-situations, lint) from the comparison benches, embedded in the README, and in the same step
+install-situations, lint) from the comparison benches, embedded in the README (it also asserts
+that `bench/wave-rollout-bench.json`'s install-speed text equals the
+`_install-speed-context.mjs` derivation from the two install records it reads), and in the same step
 rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
 linked below the SVG) so a chart regeneration regenerates both; `make comparison-chart` regenerates both.
 `scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`),
@@ -1064,7 +1099,7 @@ traced to a `bench/*.json`), [ROLLOUT.md](ROLLOUT.md) (advancing an internal cor
 wave-based rollout, driven with bun: the lockfile-not-the-range determinism boundary with frozen vs
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm 12 as a
-head-to-head whose install-speed story is scale-dependent (bun ~5× faster cold at 200 apps, ~1.7×
+head-to-head whose install-speed story is scale-dependent (bun ~1.6× faster cold at 200 apps, ~1.7×
 truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; bun 6% ahead on the fresh CI
 frozen container), the direct-clean vs
 universal-republish-fanout

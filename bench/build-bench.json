@@ -4,16 +4,16 @@
   "concurrency": "12",
   "next": {
     "framework": "next",
-    "ms": 17232,
-    "cpuPct": 2798,
-    "rssMB": 741,
-    "outputBytes": 156802774
+    "ms": 15051,
+    "cpuPct": 3202,
+    "rssMB": 747,
+    "outputBytes": 156783597
   },
   "vite": {
     "framework": "vite",
-    "ms": 7583,
-    "cpuPct": 1187,
-    "rssMB": 193,
+    "ms": 4681,
+    "cpuPct": 1443,
+    "rssMB": 398,
     "outputBytes": 7698238
   }
 }

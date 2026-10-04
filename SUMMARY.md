@@ -8,8 +8,10 @@ on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolat
 editor (`editor-loop-bench.json`), remote-cache (`ci-cache-bench.json`), and Vite Task
 (`vite-task-bench.json`) records are measured on a 192-core c8g.48xlarge (arm64, per each
 record's core-count field; the instance type is stated in the README's Results section and
-AGENTS.md's Data of Record); the fleet-gate, install-family, and real-app records on a
-64-core Neoverse-V1, 135 GB (`bench/env.json`). **Versions** for those 192-core records: bun
+AGENTS.md's Data of Record). The 64-core records are split between a dedicated c7gd.metal
+(including the fleet-gate, sliced-gate, typecheck-parity, install-bench, install-modes,
+pnpm12, pnp-compat, and rspack-pnp records cited here) and a shared dev box of the same instance type (the real-app record);
+the full split is in the [README](README.md#the-64-core-machine). **Versions** for those 192-core records: bun
 1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`), oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3
 (the oracle), Node 22; the 64-core fleet-gate record ran the same tsgo, oxlint, and turbo
 with bun 1.3.14; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
@@ -35,7 +37,7 @@ core-lib rev) are infrequent and still fast.
 | job                 | tool       | why                                                    |
 | ------------------- | ---------- | ------------------------------------------------------ |
 | install             | **bun**    | links the 4,400-package workspace in ~2.6s (warm store) |
-| typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.7× tsc 6, same error locations |
+| typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.8× tsc 6, same error locations |
 | lint                | **oxlint** | native Rust; whole tree in 251ms                       |
 | orchestrate + scope | **turbo**  | `--filter`/`--affected` + per-package caching          |
 
@@ -60,10 +62,10 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
   import, `bench/optimal-gate-bench.json`): one tsgo program gates every dependent clean in
   **1.59s**, and catches a breaking change in **1.55s** with 4,000 / 4,000 apps red and named
   (TS2554). At the measured fleet scale (30,000 apps, ~1.03M generated files; 64-core box) the same gate is
-  **61.2s** clean (10.8× faster than the per-package turbo path, which also emits dist) and
-  **61.7s** to a full 30,000-apps-red breaking verdict
+  **58.1s** clean (10.9× faster than the per-package turbo path, which also emits dist) and
+  **58.9s** to a full 30,000-apps-red breaking verdict
   (`bench/fleet-gate-bench.json`, [FLEET.md](FLEET.md)); sliced into K concurrent programs
-  the same check is **12.1s** on 64 cores / **6.2s** on 192, identical verdict union-verified
+  the same check is **10.3s** on 64 cores / **6.2s** on 192, identical verdict union-verified
   (`bench/sliced-gate-bench.json` + `.pbox.json`, [FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box)). tsgo agrees with tsc: **0 missed, 0 false-positive** on 25 injected real-type errors,
   measured on a separate type-heavy 4,000:400 scaffold (`bench/typecheck-parity-bench.json`). The
   same gate via orchestrated turbo (also emits dist) is 46.9s / 4,800 tasks — the single tsgo
@@ -80,14 +82,15 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 Two operations are genuinely O(repo) and cannot be scoped away:
 
 - **Install** of the whole workspace (~2.6s warm store at 4,000:400), paid on clean clone or CI. pnpm 12.8.1's
-  no-lockfile cold-resolve is 3.0s at 1,000:200 — within 0.5% of a frozen warm-store install
-  (`bench/install-modes-bench.json`; the JS CLI paid 303.7s on that resolve,
+  no-lockfile cold-resolve is 2.9s at 1,000:200 — within 3% of a frozen warm-store install
+  (2.8s; `bench/install-modes-bench.json`; the JS CLI paid 307.4s on that resolve,
   `bench/pnpm12-bench.json`). The pnpm-12-vs-bun head-to-head is measured
-  (`bench/install-bench.json`): bun cold is ~5× faster at 200 apps and ~1.7× truly-cold
-  (1.2s vs 2.1s); **pnpm-hoisted is 2.4–3.8× faster than bun cold at the measured 1,000- and
+  (`bench/install-bench.json`): bun cold is ~1.6× faster at 200 apps and ~1.7× truly-cold
+  (1.3s vs 2.2s); **pnpm-hoisted is 3.1–3.4× faster than bun cold at the measured 1,000- and
   2,000-app points** and the
-  fastest cold and warm there (1.2s/2.5s cold, 0.78s/2.1s warm), with bun's cold the slowest
-  configuration at 2,000. yarn-PnP is second cold at both (2.4s/3.2s), but PnP can't run
+  fastest cold and warm there (0.96s/2.5s cold, 0.59s/1.1s warm), with bun's cold the slowest
+  configuration at 2,000. yarn-PnP is third cold at 1,000 (2.3s, behind pnpm-isolated's
+  2.1s) and second at 2,000 (3.2s), but PnP can't run
   stock tsgo or Next's default Turbopack
   (`bench/pnp-compat-bench.json`; native-PnP tsgo is the green path for the checker, and
   `next build` under PnP is node-version-scoped: webpack/rspack build on node 22.22.0, every
@@ -108,7 +111,7 @@ Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.6s, whole 
 ## Real apps
 
 The same tool set — at that record's measured pins (bun 1.3.14, tsgo 7.0.0-dev.20260614.1,
-oxlint 1.71.0, 64-core box) — against two real open-source Next.js apps at pinned commits
+oxlint 1.71.0, the shared 64-core dev box) — against two real open-source Next.js apps at pinned commits
 (`bench/real-app-bench.json`):
 
 | app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm       |

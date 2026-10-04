@@ -6,7 +6,7 @@
   "samples": 3,
   "machine": {
     "cores": 64,
-    "preRunLoadAvg1": 0.35
+    "preRunLoadAvg1": 1.34
   },
   "work": {
     "path": "/mnt/fcvm-btrfs/pnpm12-bench",
@@ -19,7 +19,7 @@
     "tip": "12.8.2 (26aeeb1143726fc69091a1cc13bee14391ae92ce 2026-09-30 pnpm/pnpm main, cargo --locked release build)"
   },
   "tipIdentity": {
-    "path": "/home/ubuntu/src/pnpm-tip/bin/pnpm-tip",
+    "path": "/mnt/work/tools/bin/pnpm-tip",
     "sha256": "f41cb07da04a02af945f56fe81b43236adfad3696aa98030cd9beee6f6d3781f",
     "source": "26aeeb1143726fc69091a1cc13bee14391ae92ce 2026-09-30 pnpm/pnpm main, cargo --locked release build"
   },
@@ -51,41 +51,41 @@
     "pnpm10": {
       "coldResolve": {
         "samplesMs": [
-          303728,
-          302643,
-          308321
+          307434,
+          300506,
+          309372
         ],
         "rssMBs": [
-          1156,
-          1139,
-          1126
+          870,
+          798,
+          830
         ],
-        "medianMs": 303728,
-        "rssMB": 1156
+        "medianMs": 307434,
+        "rssMB": 870
       },
       "warm": {
         "samplesMs": [
-          5345,
-          5306,
-          5510
+          5038,
+          5164,
+          5070
         ],
-        "medianMs": 5345
+        "medianMs": 5070
       },
       "frozen": {
         "samplesMs": [
-          5260,
-          5167,
-          5144
+          4893,
+          4862,
+          4833
         ],
-        "medianMs": 5167
+        "medianMs": 4862
       },
       "depEdgesVerified": 11898,
       "lockfileVersion": "9.0",
       "lockPackages": 58,
       "importers": 1201,
       "trulyCold": {
-        "ms": 7548,
-        "rssMB": 1461,
+        "ms": 6995,
+        "rssMB": 1451,
         "samples": 1,
         "cacheTouched": false
       }
@@ -93,41 +93,41 @@
     "pnpm12": {
       "coldResolve": {
         "samplesMs": [
-          1041,
-          980,
-          1009
+          951,
+          929,
+          905
         ],
         "rssMBs": [
-          139,
-          134,
-          133
+          142,
+          140,
+          142
         ],
-        "medianMs": 1009,
-        "rssMB": 139
+        "medianMs": 929,
+        "rssMB": 142
       },
       "warm": {
         "samplesMs": [
-          575,
-          574,
-          561
+          517,
+          523,
+          522
         ],
-        "medianMs": 574
+        "medianMs": 522
       },
       "frozen": {
         "samplesMs": [
-          530,
-          528,
-          523
+          485,
+          487,
+          485
         ],
-        "medianMs": 528
+        "medianMs": 485
       },
       "depEdgesVerified": 11898,
       "lockfileVersion": "9.0",
       "lockPackages": 58,
       "importers": 1201,
       "trulyCold": {
-        "ms": 1122,
-        "rssMB": 145,
+        "ms": 1078,
+        "rssMB": 149,
         "samples": 1,
         "cacheTouched": true
       }
@@ -135,41 +135,41 @@
     "tip": {
       "coldResolve": {
         "samplesMs": [
-          959,
-          1000,
-          1658
+          880,
+          922,
+          916
         ],
         "rssMBs": [
-          117,
-          117,
-          117
+          119,
+          124,
+          124
         ],
-        "medianMs": 1000,
-        "rssMB": 117
+        "medianMs": 916,
+        "rssMB": 124
       },
       "warm": {
         "samplesMs": [
-          554,
-          568,
-          571
+          519,
+          521,
+          528
         ],
-        "medianMs": 568
+        "medianMs": 521
       },
       "frozen": {
         "samplesMs": [
-          535,
-          527,
-          530
+          480,
+          486,
+          486
         ],
-        "medianMs": 530
+        "medianMs": 486
       },
       "depEdgesVerified": 11898,
       "lockfileVersion": "9.0",
       "lockPackages": 58,
       "importers": 1201,
       "trulyCold": {
-        "ms": 1140,
-        "rssMB": 146,
+        "ms": 1082,
+        "rssMB": 149,
         "samples": 1,
         "cacheTouched": true
       }

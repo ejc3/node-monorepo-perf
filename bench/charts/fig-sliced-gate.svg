@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="298" viewBox="0 0 660 298" role="img" aria-label="The sliced gate: one tsgo program over the whole workspace (52.8GB RSS, 718% CPU on 64 cores) versus 32 concurrent slices at up to 2.2GB each, with a union check proving the sliced verdict identical to the whole-program one." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="298" viewBox="0 0 660 298" role="img" aria-label="The sliced gate: one tsgo program over the whole workspace (51.2GB RSS, 786% CPU on 64 cores) versus 32 concurrent slices at up to 2.2GB each, with a union check proving the sliced verdict identical to the whole-program one." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -17,18 +17,18 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 }</style>
 <rect width="660" height="298" fill="#ffffff"/>
 <text x="16" y="24" font-size="13" fill="#1c2330" font-weight="600">one tsgo program</text>
-<text x="16" y="45" font-size="16" fill="#1c2330" font-weight="700">61.9s · 64c</text>
+<text x="16" y="45" font-size="16" fill="#1c2330" font-weight="700">58.2s · 64c</text>
 <text x="118" y="45" font-size="16" fill="#1c2330" font-weight="700">67.7s · 192c</text>
 <text x="258" y="24" font-size="13" fill="#1c2330" font-weight="600">K concurrent slices</text>
-<text x="258" y="45" font-size="16" fill="#1c2330" font-weight="700">12.1s · 64c</text>
+<text x="258" y="45" font-size="16" fill="#1c2330" font-weight="700">10.3s · 64c</text>
 <text x="352" y="45" font-size="16" fill="#1c2330" font-weight="700">6.2s · 192c</text>
 <text x="492" y="24" font-size="13" fill="#1c2330" font-weight="600">union check</text>
 <text x="492" y="45" font-size="16" fill="#1c2330" font-weight="700">verdict identical</text>
 <rect x="16" y="64" width="196" height="128" rx="7" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
 <text x="30" y="86" font-size="11.5" fill="#1c2330" font-weight="600">whole workspace, one process</text>
 <text x="30" y="105" font-size="11" fill="#1c2330">30,000 apps + all lib source</text>
-<text x="30" y="124" font-size="11.5" fill="#1c2330" font-weight="600">52.8GB peak RSS</text>
-<text x="30" y="143" font-size="11" fill="#1c2330">718% CPU of 6,400% (64c)</text>
+<text x="30" y="124" font-size="11.5" fill="#1c2330" font-weight="600">51.2GB peak RSS</text>
+<text x="30" y="143" font-size="11" fill="#1c2330">786% CPU of 6,400% (64c)</text>
 <text x="30" y="160" font-size="11" fill="#1c2330">1,416% of 19,200% (192c)</text>
 <text x="30" y="178" font-size="10.5" fill="#6b7885">— most of either box idle</text>
 <rect x="258" y="64" width="178" height="20" rx="5" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
@@ -44,7 +44,7 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <text x="268" y="204" font-size="10.5" fill="#1c2330">slice K</text>
 <text x="258" y="230" font-size="11" fill="#1c2330" font-weight="600">max slice RSS 2.2GB (K=32, 64c)</text>
 <text x="258" y="246" font-size="11" fill="#1c2330">1.6GB (K=48, 192c)</text>
-<text x="258" y="262" font-size="10.5" fill="#6b7885">K=16 within 0.4% of K=32 (64c)</text>
+<text x="258" y="262" font-size="10.5" fill="#6b7885">K=16 within 2.6% of K=32 (64c)</text>
 <rect x="492" y="88" width="152" height="96" rx="7" fill="#f0faf5" stroke="#a9d8bd" stroke-width="1.2"/>
 <text x="504" y="110" font-size="11.5" fill="#1c2330" font-weight="600">breaking-rev union</text>
 <text x="504" y="132" font-size="14" fill="#1c2330" font-weight="700">30,171 = 30,171</text>
