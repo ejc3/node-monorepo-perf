@@ -7,7 +7,7 @@
   "image": {
     "ref": "docker.io/library/node@sha256:c601a46abb4d2ab80a9dc3da208d50d1122642d53f17a101926ace71e5a9bf1c",
     "tag": "localhost/pm-container-install-bench:pnpm12.8.1-bun1.3.14-yarn4.18.1",
-    "id": "aea5e4892da9",
+    "id": "d536c9d59c95",
     "node": "v22.23.1",
     "npm": "10.9.8"
   },
@@ -18,7 +18,7 @@
   },
   "host": {
     "cores": 64,
-    "preRunLoadAvg1": 6.53,
+    "preRunLoadAvg1": 1.18,
     "networkBackend": "netavark"
   },
   "samplesPerCell": 5,
@@ -174,87 +174,87 @@
   "tools": {
     "pnpm": {
       "freshRunner": {
-        "medianMs": 1090,
+        "medianMs": 1030,
         "samplesMs": [
-          1080,
-          1080,
-          1090,
-          1110,
-          1110
+          1030,
+          1020,
+          1040,
+          1020,
+          1030
         ],
-        "cpuPct": 670,
-        "rssMB": 149,
+        "cpuPct": 706,
+        "rssMB": 151,
         "load1PerSample": [
-          3.76,
-          2.04,
-          2,
-          2,
-          1.85
+          1.04,
+          1.17,
+          1.45,
+          2.43,
+          2.19
         ],
         "copyFallbackSeen": false
       },
       "cacheVolumeEntries": 9877,
       "cacheRestored": {
-        "medianMs": 540,
+        "medianMs": 500,
         "samplesMs": [
-          560,
-          540,
-          540,
-          550,
-          530
+          490,
+          500,
+          500,
+          500,
+          510
         ],
-        "cpuPct": 727,
-        "rssMB": 83,
+        "cpuPct": 734,
+        "rssMB": 85,
         "load1PerSample": [
-          6.9,
-          3.7,
-          3.15,
-          2.73,
-          2.77
+          1.69,
+          1.98,
+          1.93,
+          1.66,
+          1.44
         ],
         "copyFallbackSeen": false
       }
     },
     "bun": {
       "freshRunner": {
-        "medianMs": 1030,
+        "medianMs": 930,
         "samplesMs": [
-          1040,
-          1020,
-          1030,
-          1050,
-          1020
+          950,
+          920,
+          930,
+          920,
+          930
         ],
-        "cpuPct": 390,
-        "rssMB": 276,
+        "cpuPct": 401,
+        "rssMB": 261,
         "load1PerSample": [
-          3.54,
-          2.72,
-          2,
-          2,
-          1.94
+          1.04,
+          1.08,
+          1.45,
+          2.31,
+          2.09
         ],
         "copyFallbackSeen": false,
         "bunStoreDirSeen": true
       },
       "cacheVolumeEntries": 10994,
       "cacheRestored": {
-        "medianMs": 470,
+        "medianMs": 420,
         "samplesMs": [
-          480,
-          470,
-          470,
-          460,
-          470
+          420,
+          420,
+          420,
+          420,
+          410
         ],
-        "cpuPct": 456,
+        "cpuPct": 402,
         "rssMB": 64,
         "load1PerSample": [
-          6.9,
-          5,
-          2.98,
-          2.59,
-          2.77
+          1.64,
+          1.82,
+          1.85,
+          1.61,
+          1.44
         ],
         "copyFallbackSeen": false,
         "bunStoreDirSeen": true
@@ -262,129 +262,129 @@
     },
     "yarnNm": {
       "freshRunner": {
-        "medianMs": 6720,
+        "medianMs": 6480,
         "samplesMs": [
-          6820,
-          6720,
-          6640,
-          6730,
-          6690
+          6410,
+          6480,
+          6420,
+          6570,
+          6570
         ],
-        "cpuPct": 233,
-        "rssMB": 3153,
+        "cpuPct": 234,
+        "rssMB": 3156,
         "load1PerSample": [
-          3.22,
-          2.59,
-          2.04,
-          2,
-          1.86
+          1.12,
+          1.07,
+          1.52,
+          2.53,
+          2.01
         ],
         "copyFallbackSeen": false
       },
       "cacheVolumeEntries": 289,
       "cacheRestored": {
-        "medianMs": 4290,
+        "medianMs": 4160,
         "samplesMs": [
-          4290,
-          4290,
+          4150,
+          4170,
           4220,
-          4320,
-          4270
+          4110,
+          4160
         ],
         "cpuPct": 154,
-        "rssMB": 979,
+        "rssMB": 980,
         "load1PerSample": [
-          6.14,
-          4.68,
-          3.57,
-          2.54,
-          2.65
+          1.59,
+          1.69,
+          1.98,
+          1.56,
+          1.4
         ],
         "copyFallbackSeen": false
       }
     },
     "yarnPnp": {
       "freshRunner": {
-        "medianMs": 4790,
+        "medianMs": 4530,
         "samplesMs": [
-          4750,
-          4740,
-          4880,
-          4790,
-          4860
+          4550,
+          4530,
+          4600,
+          4460,
+          4490
         ],
-        "cpuPct": 264,
-        "rssMB": 3194,
+        "cpuPct": 268,
+        "rssMB": 3182,
         "load1PerSample": [
-          3.04,
-          2.34,
-          2.2,
-          2,
-          1.81
+          1.1,
+          1.22,
+          1.47,
+          2.45,
+          1.93
         ],
         "copyFallbackSeen": false
       },
       "cacheVolumeEntries": 289,
       "cacheRestored": {
-        "medianMs": 2310,
+        "medianMs": 2220,
         "samplesMs": [
-          2320,
-          2320,
-          2310,
-          2310,
-          2280
+          2200,
+          2210,
+          2240,
+          2220,
+          2240
         ],
-        "cpuPct": 146,
+        "cpuPct": 148,
         "rssMB": 646,
         "load1PerSample": [
-          6.14,
-          4.39,
-          3.36,
-          3.14,
-          2.65
+          1.78,
+          1.69,
+          1.91,
+          1.78,
+          1.45
         ],
         "copyFallbackSeen": false
       }
     },
     "npm": {
       "freshRunner": {
-        "medianMs": 10360,
+        "medianMs": 10380,
         "samplesMs": [
-          10330,
-          10430,
-          10290,
-          10440,
-          10360
+          10380,
+          10380,
+          10360,
+          10530,
+          10350
         ],
-        "cpuPct": 132,
-        "rssMB": 374,
+        "cpuPct": 131,
+        "rssMB": 367,
         "load1PerSample": [
-          2.88,
-          2.14,
-          2,
-          2,
-          1.85
+          1.08,
+          1.17,
+          1.4,
+          2.43,
+          2.19
         ],
         "copyFallbackSeen": false
       },
       "cacheVolumeEntries": 193,
       "cacheRestored": {
-        "medianMs": 9670,
+        "medianMs": 9740,
         "samplesMs": [
-          9760,
-          9720,
-          9640,
-          9550,
-          9670
+          9740,
+          9680,
+          9790,
+          9750,
+          9700
         ],
-        "cpuPct": 135,
-        "rssMB": 703,
+        "cpuPct": 134,
+        "rssMB": 693,
         "load1PerSample": [
-          5,
-          3.94,
-          3.15,
-          2.73,
-          2.93
+          1.82,
+          1.98,
+          1.93,
+          1.66,
+          1.47
         ],
         "copyFallbackSeen": false
       }

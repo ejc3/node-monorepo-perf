@@ -17,11 +17,11 @@ name is retired; this repo keeps `tsgo` as the task and record label). Pin the e
 the same discipline as the old nightly pin. TypeScript 6, the last JS release, stays
 installed as the `typescript6` alias — the oracle checker and the tsserver. The gate and
 inner-loop records (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`),
-`bench/typecheck-parity-bench.json`, and `bench/decl-emit-caveat.json` are measured on
-typescript 7.0.2; the gate and inner-loop records on a 192-core c8g.48xlarge (arm64, per
-each record's `machine`/`cores`), the parity record on the dedicated 64-core c7gd.metal
-([README](README.md#the-64-core-machine)). `bench/real-app-bench.json` uses the
-`7.0.0-dev.20260614.1` nightly on the shared 64-core dev box.
+`bench/typecheck-parity-bench.json`, `bench/real-app-bench.json`, and
+`bench/decl-emit-caveat.json` are measured on typescript 7.0.2; the gate and inner-loop
+records on a 192-core c8g.48xlarge (arm64, per each record's `machine`/`cores`), the parity
+and real-app records on the dedicated 64-core c7gd.metal
+([README](README.md#the-64-core-machine)).
 
 ## The Scenario
 
@@ -38,8 +38,8 @@ present, `node_modules` cold — the warm-store clone/CI-runner materialization 
 setup; revving a lib needs no reinstall. Which install case matters depends on the runner.
 Against pnpm 12.8.1 (the Rust CLI) the full re-resolve is scale-dependent — bun ~1.6× faster
 at 200 apps, pnpm-hoisted 3.1–3.4× faster than bun at 1,000–2,000 — and on the fresh CI-runner
-frozen install bun is 6% ahead (1.03s vs pnpm 1.09s at 1,000 apps,
-`bench/container-install-bench.json`, a shared-box record). At 2,000 apps pnpm-hoisted is fastest cold (2.5s, with
+frozen install bun is 11% ahead (0.93s vs pnpm 1.03s at 1,000 apps,
+`bench/container-install-bench.json`). At 2,000 apps pnpm-hoisted is fastest cold (2.5s, with
 yarn-PnP second at 3.2s) and fastest warm (1.1s). Per-cell numbers
 in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4). A yarn-PnP variant has a
 compatibility boundary (stock tsgo and Next's default Turbopack fail under PnP; tsc/turbo/oxlint
@@ -131,7 +131,7 @@ O(repo) (1.6s as one tsgo program); a developer's edit reaches only their closur
 
 - **Real-app vet.** The stack holds on real product code: cloning vercel/commerce (3.9k LOC)
   and shadcn/taxonomy (7.5k LOC), per-app tsgo `--noEmit` stays in the low hundreds of ms
-  (128ms / 229ms), oxlint ~60–80ms; tsgo needs a modernized tsconfig + an ambient `*.css`
+  (151ms / 309ms), oxlint ~60ms; tsgo needs a modernized tsconfig + an ambient `*.css`
   decl to start (`bench/real-app-bench.json`).
 - **Lint.** oxlint checks the whole 4,400-package tree in **251ms** (0 findings), off the
   critical path.

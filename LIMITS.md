@@ -81,7 +81,7 @@ Before answering a keystroke, the language server loads a project. Racing `tsser
 - **Apps grow, closure fixed** (300 libs; 500 → 4,000 apps): closure stays 65 libs / 1,123 files; cost near-flat (tsserver 1,325 → 1,563ms, tsgo 113 → 113ms). 8× the repo, ≤1.2× the cost.
 - **Closure grows** (2,000 apps; 100 → 300 libs): closure grows 628 → 1,123 files; memory rises (tsserver 389 → 413MB; tsgo 272 → 282MB) and cold open rises modestly (tsserver 1,324 → 1,328ms, tsgo 98 → 104ms).
 
-The lever is the same: scope the open to one app's closure; a faster server (tsgo) cuts the one cost that scales by ~14×. Opening the *whole* workspace at 20k still means a repo-sized program; where that's unavoidable, the daemons are measured to 1,000,000 modules on a standalone generated layered program (not this workspace) in [TYPECHECKERS.md](TYPECHECKERS.md#the-daemons-and-codegen) (`bench/lsp-scale-bench.json`): tsgo `--lsp` opens 1M in 17.5s and serves a 2.2s squiggle at 66.1GB.
+The lever is the same: scope the open to one app's closure; a faster server (tsgo) cuts the one cost that scales by ~14×. Opening the *whole* workspace at 20k still means a repo-sized program; where that's unavoidable, the daemons are measured to 1,000,000 modules on a standalone generated layered program (not this workspace) in [TYPECHECKERS.md](TYPECHECKERS.md#the-daemons-and-codegen) (`bench/lsp-scale-bench.json`): tsgo `--lsp` opens 1M in 17.5s and serves a 2.4s squiggle at 68.0GB.
 
 ## Open Questions
 

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="342" viewBox="0 0 660 342" role="img" aria-label="The save loop by mechanic at 1,000,000 modules, on a log time axis: tsgo's CLI incremental rerun relaunches and returns a verdict in 53.7s, its --watch rebuild in 21.9s, its LSP shows a seeded error in the open file in 2.2s, and Flow's resident server rechecks one edit in 324ms." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="342" viewBox="0 0 660 342" role="img" aria-label="The save loop by mechanic at 1,000,000 modules, on a log time axis: tsgo's CLI incremental rerun relaunches and returns a verdict in 53.7s, its --watch rebuild in 22.6s, its LSP shows a seeded error in the open file in 2.4s, and Flow's resident server rechecks one edit in 324ms." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -29,24 +29,24 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <line x1="420" y1="70" x2="420" y2="90" stroke="#e4e8ec"/>
 <rect x="204" y="73" width="294.8" height="14" rx="3" fill="#1a73e8"/>
 <text x="506.8" y="84.5" font-size="12.5" fill="#1c2330" font-weight="700">53.7s</text>
-<text x="204" y="103" font-size="10" fill="#6b7885">one-time entry: 94.8s incremental prime</text>
+<text x="204" y="103" font-size="10" fill="#6b7885">one-time entry: 96.6s incremental prime</text>
 <text x="16" y="131" font-size="11.5" fill="#1c2330" font-weight="600">tsgo --watch</text>
 <text x="16" y="146" font-size="10" fill="#6b7885">resident; rebuilds the program</text>
 <line x1="204" y1="118" x2="204" y2="138" stroke="#e4e8ec"/>
 <line x1="312" y1="118" x2="312" y2="138" stroke="#e4e8ec"/>
 <line x1="420" y1="118" x2="420" y2="138" stroke="#e4e8ec"/>
 <line x1="528" y1="118" x2="528" y2="138" stroke="#e4e8ec"/>
-<rect x="204" y="121" width="252.7" height="14" rx="3" fill="#1a73e8"/>
-<text x="464.7" y="132.5" font-size="12.5" fill="#1c2330" font-weight="700">21.9s</text>
-<text x="204" y="151" font-size="10" fill="#6b7885">one-time entry: 82.0s first build</text>
+<rect x="204" y="121" width="254.3" height="14" rx="3" fill="#1a73e8"/>
+<text x="466.3" y="132.5" font-size="12.5" fill="#1c2330" font-weight="700">22.6s</text>
+<text x="204" y="151" font-size="10" fill="#6b7885">one-time entry: 82.8s first build</text>
 <text x="16" y="179" font-size="11.5" fill="#1c2330" font-weight="600">tsgo --lsp squiggle</text>
 <text x="16" y="194" font-size="10" fill="#6b7885">didChange → error appears</text>
 <line x1="204" y1="166" x2="204" y2="186" stroke="#e4e8ec"/>
 <line x1="312" y1="166" x2="312" y2="186" stroke="#e4e8ec"/>
 <line x1="420" y1="166" x2="420" y2="186" stroke="#e4e8ec"/>
 <line x1="528" y1="166" x2="528" y2="186" stroke="#e4e8ec"/>
-<rect x="204" y="169" width="145.5" height="14" rx="3" fill="#1a73e8"/>
-<text x="357.5" y="180.5" font-size="12.5" fill="#1c2330" font-weight="700">2.2s</text>
+<rect x="204" y="169" width="148.3" height="14" rx="3" fill="#1a73e8"/>
+<text x="360.3" y="180.5" font-size="12.5" fill="#1c2330" font-weight="700">2.4s</text>
 <text x="204" y="199" font-size="10" fill="#6b7885">one-time entry: 17.5s cold open</text>
 <text x="16" y="227" font-size="11.5" fill="#1c2330" font-weight="600">Flow server (main build)</text>
 <text x="16" y="242" font-size="10" fill="#6b7885">live server: notify + status</text>
@@ -56,10 +56,10 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 <line x1="528" y1="214" x2="528" y2="234" stroke="#e4e8ec"/>
 <rect x="204" y="217" width="55.1" height="14" rx="3" fill="#b28a2f"/>
 <text x="267.1" y="228.5" font-size="12.5" fill="#1c2330" font-weight="700">324ms</text>
-<text x="204" y="247" font-size="10" fill="#6b7885">one-time entry: 90.5s server init</text>
+<text x="204" y="247" font-size="10" fill="#6b7885">one-time entry: 92.8s server init</text>
 <text x="16" y="274" font-size="10.5" fill="#6b7885">bars start at the 100ms axis floor, not at zero — bar length is the log of the time</text>
 <text x="16" y="288" font-size="10.5" fill="#6b7885">CLI, --watch and Flow: a valid one-module edit, verdict over the whole program</text>
 <text x="16" y="302" font-size="10.5" fill="#6b7885">LSP: an edit that seeds a type error, verdict for the open file only</text>
 <line x1="16" y1="316" x2="644" y2="316" stroke="#e4e8ec"/>
-<text x="16" y="330" font-size="10" fill="#6b7885">data: bench/tsgo-scale-bench.json · bench/lsp-scale-bench.json · tsgo 7.0.0-dev.20260707.2 · 64 cores</text>
+<text x="16" y="330" font-size="10" fill="#6b7885">data: bench/tsgo-scale-bench.json · bench/lsp-scale-bench.json · tsgo 7.0.2 · 64 cores</text>
 </svg>

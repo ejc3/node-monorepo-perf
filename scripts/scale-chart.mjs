@@ -270,7 +270,7 @@ T.push(
   txt(
     PAD,
     80,
-    `tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`,
+    `tsgo ${String(TS.versions.tsgo).replace(/^Version:?\s*/, "")} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`,
     { size: 12.5, fill: MUTED },
   ),
 );

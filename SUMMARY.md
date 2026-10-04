@@ -8,14 +8,15 @@ on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolat
 editor (`editor-loop-bench.json`), remote-cache (`ci-cache-bench.json`), and Vite Task
 (`vite-task-bench.json`) records are measured on a 192-core c8g.48xlarge (arm64, per each
 record's core-count field; the instance type is stated in the README's Results section and
-AGENTS.md's Data of Record). The 64-core records are split between a dedicated c7gd.metal
-(including the fleet-gate, sliced-gate, typecheck-parity, install-bench, install-modes,
-pnpm12, pnp-compat, and rspack-pnp records cited here) and a shared dev box of the same instance type (the real-app record);
-the full split is in the [README](README.md#the-64-core-machine). **Versions** for those 192-core records: bun
+AGENTS.md's Data of Record). The 64-core timing records cited here (fleet-gate, sliced-gate,
+typecheck-parity, install-bench, install-modes, pnpm12, pnp-compat, rspack-pnp, and real-app)
+are measured on a dedicated c7gd.metal; `bun-safety-bench.json`, a behavior record with no
+timings, is a run on a shared dev box of the same instance type. The machine and the record
+list are in the [README](README.md#the-64-core-machine). **Versions** for those 192-core records: bun
 1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`), oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3
 (the oracle), Node 22; the 64-core fleet-gate record ran the same tsgo, oxlint, and turbo
-with bun 1.3.14; `real-app-bench.json` keeps its measured pins (bun 1.3.14, tsgo
-7.0.0-dev.20260614.1, oxlint 1.71.0).
+with bun 1.3.14; `real-app-bench.json` ran bun 1.3.14, tsgo 7.0.2, oxlint 1.71.0, and
+turbo 2.9.18 (its `versions`).
 
 ## The one idea: O(repo) vs O(closure)
 
@@ -110,17 +111,17 @@ Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.6s, whole 
 
 ## Real apps
 
-The same tool set — at that record's measured pins (bun 1.3.14, tsgo 7.0.0-dev.20260614.1,
-oxlint 1.71.0, the shared 64-core dev box) — against two real open-source Next.js apps at pinned commits
+The same tool set — bun 1.3.14, tsgo 7.0.2, oxlint 1.71.0, and turbo 2.9.18 per the record's
+`versions`, on the dedicated 64-core box — against two real open-source Next.js apps at pinned commits
 (`bench/real-app-bench.json`):
 
 | app             | files / LOC | bun install   | tsgo --noEmit     | oxlint | turbo cold → warm       |
 | --------------- | ----------- | ------------- | ----------------- | ------ | ----------------------- |
-| vercel/commerce | 65 / 3.9k   | 543ms (76)    | **128ms** / 123MB | 62ms   | 190 → **56ms** (2 of 2) |
-| shadcn/taxonomy | 125 / 7.5k  | 3370ms (1031) | **229ms** / 220MB | 79ms   | 290 → 293ms (1 of 2)    |
+| vercel/commerce | 65 / 3.9k   | 528ms (76)    | **151ms** / 125MB | 60ms   | 219 → **57ms** (2 of 2) |
+| shadcn/taxonomy | 125 / 7.5k  | 3351ms (1029) | **309ms** / 248MB | 59ms   | 358 → 373ms (1 of 2)    |
 
-Per-app typecheck stays in the low hundreds of ms. The friction is config, not speed. **tsgo (a
-preview) refuses to start on a real Next tsconfig**, erroring in 136–268ms on removed options
+Per-app typecheck stays in the low hundreds of ms. The friction is config, not speed. **tsgo
+refuses to start on a real Next tsconfig**, erroring in 137–280ms on removed options
 (`baseUrl`, `moduleResolution: node`; commerce also `downlevelIteration`, taxonomy also
 `target: es5`). Wiring an app in means modernizing the config and adding an ambient `*.css` decl.
 Commerce then checks clean; taxonomy shows 13 (seven TS2307 cannot-find-module, six genuine

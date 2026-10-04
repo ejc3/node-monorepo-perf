@@ -336,7 +336,7 @@ for (const f of readdirSync(chartsDir)) {
 // ---- markdown summary ----
 // The header names only what the record itself carries: the pnpm every row ran
 // (asserted uniform above). results.json has no machine fields, and bench/env.json
-// is the shared 64-core dev box's capture, not this record's machine — so the
+// is the dedicated 64-core box's capture, not this 192-core record's machine — so the
 // machine is stated once, in the README section the header points at, instead of
 // being read from a file that may describe a different box. Nothing here comes from
 // the live environment, so summary.md's bytes are identical on any contributor's

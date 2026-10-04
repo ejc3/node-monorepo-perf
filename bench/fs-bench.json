@@ -7,23 +7,23 @@
       "label": "ext4",
       "root": "/tmp",
       "fstype": "ext4",
-      "relinkMs": 608,
-      "importMethod": "hardlink (link count 2)",
-      "apparentBytes": 335929582,
+      "relinkMs": 281,
+      "importMethod": "hardlink (link count 62)",
+      "apparentBytes": 335929119,
       "duActualBytes": 367497216,
       "btrfsExclusiveBytes": null,
-      "storeBytes": 337802243
+      "storeBytes": 337806680
     },
     {
       "label": "btrfs",
       "root": "/mnt/fcvm-btrfs",
       "fstype": "btrfs",
-      "relinkMs": 673,
+      "relinkMs": 328,
       "importMethod": "reflink (CoW; 0.4MB exclusive of 336MB apparent → shared with store)",
-      "apparentBytes": 335934004,
-      "duActualBytes": 365187072,
+      "apparentBytes": 335933541,
+      "duActualBytes": 365182976,
       "btrfsExclusiveBytes": 364544,
-      "storeBytes": 337806339
+      "storeBytes": 337806680
     }
   ]
 }

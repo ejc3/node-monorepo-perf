@@ -17,7 +17,7 @@ The primary source behind each practice in the benchmark, where pnpm + Turborepo
 | Remote caching | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
 | One Vercel project per app | [Vercel monorepos](https://vercel.com/docs/monorepos), [Vercel limits](https://vercel.com/docs/limits) |
 
-- **`node-linker`.** Under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and runs 2.2–2.7× faster at 1,000–2,000; warm relink 4.3–6.8× faster hoisted there, on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees). The 300:100 catalog workspace reverses the cold direction (hoisted ~3.1× slower, `bench/perf-matrix.json`); the records vary scale, catalog form and machine together (`perf-matrix.json` is a shared-box record), so the cause of the reversal is not isolated.
+- **`node-linker`.** Under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and runs 2.2–2.7× faster at 1,000–2,000; warm relink 4.3–6.8× faster hoisted there, on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees). The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower, `bench/perf-matrix.json`); the records vary scale and catalog form together, so the cause of the reversal is not isolated.
 - **Vercel.** Skip-unaffected does not consume a build slot; legacy turbo-ignore does.
 
 ## The Ceiling
@@ -50,7 +50,7 @@ At ~130k files (20k apps) Git itself needs scaling, with the same focus-vs-whole
 
 - **State.** Fresh per-run temp workspace; node_modules/yarn-state/lockfile removed per measurement; ambient tool env (`YARN_*`/`BUN_*`/`PNPM_*`/`npm_config_*`) stripped per timed run. Truly-cold redirects each tool's store + metadata to a throwaway dir, asserted populated.
 - **Completeness.** `verifyComplete()` throws unless every app and lib resolves all declared deps + devDeps (yarn PnP through `.pnp.cjs`); build-bench errors on 0-byte output.
-- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run; a record carries its core count and tool versions where its bench writes them, and the 64-core machine and run protocol are stated in the [README](README.md#the-64-core-machine) (`bench/env.json` is the shared dev box's capture: CPU model, cores, RAM, OS, tool versions).
+- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run; a record carries its core count and tool versions where its bench writes them, and the 64-core machine and run protocol are stated in the [README](README.md#the-64-core-machine) (`bench/env.json` is that box's capture: CPU model, cores, RAM, OS, tool versions).
 
 ## Scenario Realism
 
