@@ -7,12 +7,12 @@
     "libs": 100,
     "linker": "isolated",
     "versioned": false,
-    "installMs": 912,
+    "installMs": 623,
     "lockfileBytes": 387585,
     "lockfileLines": 13885,
     "nmEntries": 18159,
     "nmSymlinks": 4211,
-    "nmApparentBytes": 417720592
+    "nmApparentBytes": 412016144
   },
   {
     "label": "versioned",
@@ -22,12 +22,12 @@
     "libs": 100,
     "linker": "isolated",
     "versioned": true,
-    "installMs": 914,
+    "installMs": 563,
     "lockfileBytes": 396156,
     "lockfileLines": 13885,
     "nmEntries": 18159,
     "nmSymlinks": 4211,
-    "nmApparentBytes": 417729255
+    "nmApparentBytes": 412024807
   },
   {
     "label": "hoisted",
@@ -37,11 +37,11 @@
     "libs": 100,
     "linker": "hoisted",
     "versioned": false,
-    "installMs": 2801,
+    "installMs": 1058,
     "lockfileBytes": 387585,
     "lockfileLines": 13885,
     "nmEntries": 77781,
     "nmSymlinks": 3057,
-    "nmApparentBytes": 10151637126
+    "nmApparentBytes": 407267605
   }
 ]

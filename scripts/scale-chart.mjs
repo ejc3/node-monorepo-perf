@@ -33,6 +33,8 @@ import {
   wrapText,
   esc,
   emitChart,
+  bareVer,
+  assertComparable,
 } from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -58,6 +60,31 @@ if (!String(TS.versions.flow).includes("flow main"))
   throw new Error(
     "expected the flow column to be a flow-main build — dataset changed, update the chart",
   );
+// the save-loop and completion sections draw lsp-scale rows beside tsgo-scale rows
+// under one header (tsgo version, core count): same machine size, same corpus depth,
+// same checker build invoked the same way (lsp-scale records no arch, mount or node
+// version, so those cannot be compared)
+const field = (rec, path, name) => {
+  const v = path.split(".").reduce((o, k) => o?.[k], rec);
+  if (v === undefined) throw new Error(`missing ${path} in ${name}`);
+  return v;
+};
+assertComparable(
+  {
+    cores: field(TS, "cores", "tsgo-scale-bench"),
+    layers: field(TS, "layers", "tsgo-scale-bench"),
+    tsgoInvocation: field(TS, "tsgoInvocation", "tsgo-scale-bench"),
+    versions: { tsgo: field(TS, "versions.tsgo", "tsgo-scale-bench") },
+  },
+  {
+    cores: field(LSP, "meta.cores", "lsp-scale-bench"),
+    layers: field(LSP, "meta.layers", "lsp-scale-bench"),
+    tsgoInvocation: field(LSP, "meta.tsgoInvocation", "lsp-scale-bench"),
+    versions: { tsgo: field(LSP, "meta.tsgoVersion", "lsp-scale-bench") },
+  },
+  { fields: ["cores", "layers", "tsgoInvocation"], versions: ["tsgo"] },
+  "checker-scale: tsgo-scale vs lsp-scale",
+);
 const HOUR_MS = 3_600_000;
 // tsgo LSP completion at 500k/1M is the recorded probe timeout at its request ceiling
 const compCeil = (n) => {
@@ -270,7 +297,7 @@ T.push(
   txt(
     PAD,
     80,
-    `tsgo ${TS.versions.tsgo} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`,
+    `tsgo ${bareVer(TS.versions.tsgo)} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host. Every number traces to the cited bench JSON.`,
     { size: 12.5, fill: MUTED },
   ),
 );

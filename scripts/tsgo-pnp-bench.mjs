@@ -102,7 +102,8 @@ function patchedProvenance() {
   // a canonical record names the build it measured: no sha, no canonical run
   if (!gitSha || !gitBranch)
     fail(`TSGO_PNP_BIN provenance unreadable: ${gitDir} is not a git checkout with a HEAD`);
-  return { bin: PATCHED_TSGO, version: tsgoVersion(PATCHED), gitSha, gitBranch };
+  // the record names the build by version + git provenance, not by its local path
+  return { version: tsgoVersion(PATCHED), gitSha, gitBranch };
 }
 // resolved up front: an unreadable checkout must fail before any install or timing
 const PATCHED_PROVENANCE = patchedProvenance();

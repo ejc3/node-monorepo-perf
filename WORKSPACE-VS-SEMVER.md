@@ -31,7 +31,7 @@ The two halves of this repo sit on opposite sides of the gate: the benchmark wor
 | `workspace:^` | link local | `^1.4.9` |
 | `workspace:^1.4.9` | link local if satisfied | `^1.4.9` |
 
-At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only (on-disk file untouched). An explicit `workspace:^1.4.9` just has `workspace:` stripped. All forms link local at install, so spec form does not affect install time — only the published string. Install perf is driven by resolution source and `node-linker` (`scripts/perf-matrix.mjs`).
+At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only (on-disk file untouched). An explicit `workspace:^1.4.9` just has `workspace:` stripped. All forms link local at install and produce the same lockfile line count and `node_modules` entry count; the measured cold installs are 0.62s (`workspace:*`) and 0.56s (`workspace:^x.y.z`), one sample each, against a ~1.7× move from the `node-linker` (`bench/perf-matrix.json`). The spec form sets the published string.
 
 ## 3. Diamond Resolution Under Semver
 

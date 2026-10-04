@@ -229,7 +229,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   (react, a cache zip) + a peer-dep pkg (react-dom, which Yarn virtualizes under
   `.yarn/__virtual__`), installed at Yarn's PnP defaults (inlined `.pnp.cjs`, no sidecar) and
   under the node-modules linker (CONTROL). Matrix: stock tsgo (repo pin) vs patched tsgo
-  (`TSGO_PNP_BIN`, git provenance required for a canonical run) × PnP vs node-modules, recording
+  (`TSGO_PNP_BIN`, git provenance required for a canonical run and recorded as version + git
+  sha/branch, not the binary's path) × PnP vs node-modules, recording
   exit / error-code histogram / program size (unique path-only `--listFiles` lines; diagnostic
   lines are excluded and an unclassifiable line fails the bench); a seeded TS2322 red control
   asserts patched tsgo still type-checks (not skips) under PnP (exit 1 + exactly one TS2322).
@@ -453,9 +454,9 @@ One command each for the O(repo)-vs-O(closure) thesis:
   TS5xxx config codes fail the pull. Diagnostic gates count ERROR severity only (the
   LSP also serves hints batch --noEmit never emits). Completion is probed LAST with
   its timeout recorded as the PROBE's outcome (tsgo LSP completion returns the
-  full exported-symbol space and grows superlinearly (301k items in 49s at 100k, past
+  full exported-symbol space and grows superlinearly (301k items in 51s at 100k, past
   the 120s ceiling from 250k up) while tsserver returns a bounded ~1k-entry set in
-  16–21ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
+  17–20ms; different set sizes, reported with counts, not scored; teardown follows immediately so a grinding completion pollutes no
   row); capacity outcomes only from crash signals or load-bearing (1h) timeouts;
   plain exits/protocol errors hard-fail with the output tail. Per-driver failure
   isolation per point; persist/promote partial protection; RSS via continuous
@@ -516,13 +517,13 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
   relink time + exclusive disk (pnpm version recorded, pin-asserted) →
   `bench/fs-bench.json`.
-- `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default working
-  tree vs `/mnt/fcvm-btrfs`): the device layer under fs-bench: 4K random read/write
+- `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default the home
+  directory vs `/mnt/fcvm-btrfs`): the device layer under fs-bench: 4K random read/write
   IOPS + p99 at `O_DIRECT` (no page cache) and a small-file burst (buffered create-only
-  vs per-file `fsync`), per mount with fstype/device. Shows the btrfs NVMe faster in
-  every access pattern (~35× random-read IOPS and ~16× per-file-fsync throughput of the
-  working-tree NVMe) while a buffered create burst is within ~1.3× (page-cache-bound,
-  matching fs-bench's equal relink). Asserts engine/qd parity across targets (else marks
+  vs per-file `fsync`), per mount with fstype/device. Shows the btrfs RAID0 over the local
+  NVMe disks faster in every access pattern (~49× the random-read IOPS and ~17× the
+  per-file-fsync throughput of the ext4 root volume, a gp3 EBS volume) while a buffered
+  create burst is within ~1.5× (page-cache-bound, like fs-bench's relink). Asserts engine/qd parity across targets (else marks
   `likeForLike:false`, omits ratios); refuses on a loaded box (`FS_IOPS_ALLOW_BUSY=1`)
   → `bench/fs-iops-bench.json`, folded into OPTIMIZATIONS.md §1.2.1. Requires `fio` +
   `findmnt`; self-contained, cleans up on exit.
@@ -609,9 +610,9 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `node scripts/real-app-bench.mjs` (`REAL_APP_ONLY=<name>` to run one): the **real-app vet**:
   does the per-app inner loop hold on real, larger product code, not only the synthetic tiny apps?
   Clones real open-source Next.js App Router apps at pinned commits (vercel/commerce ~3.9k LOC,
-  shadcn/taxonomy ~7.5k LOC) and runs this repo's pinned toolchain on each: bun install (cold
+  shadcn/taxonomy ~7.5k LOC) and runs the bench's pinned toolchain (oxlint 1.71.0) on each: bun install (cold
   node_modules, warm store), tsgo `--noEmit`, oxlint, and the two checks orchestrated by turbo
-  (cold then warm cache hit). Records the **adaptation friction**: tsgo (TS7 preview) rejects a real
+  (cold then warm cache hit). Records the **adaptation friction**: tsgo (TypeScript 7) rejects a real
   tsconfig's removed options (`baseUrl`/`moduleResolution:node`/`target:es5`/`downlevelIteration`)
   before type-checking, so the bench modernizes the config and adds an ambient `*.css` decl, then
   measures the real typecheck (time/RSS/error count + code histogram). A checker exiting non-zero on
@@ -798,7 +799,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   [WORKSPACE-VS-SEMVER.md §7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces).
 
 ### Environment
-- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the shared 64-core dev box's capture; the dedicated 64-core box and its records are listed under Data of Record and in the README's "The 64-Core Machine"; a bench JSON's own machine/cores fields take precedence where present, and the 192-core records without such fields are listed under Data of Record).
+- `node scripts/env.mjs`: capture CPU/RAM/OS/tool versions → `bench/env.json` (the dedicated 64-core box's capture; that box and its records are listed under Data of Record and in the README's "The 64-Core Machine"; a bench JSON's own machine/cores fields take precedence where present, and the 192-core records without such fields are listed under Data of Record).
 
 ### Shared Internals
 
@@ -820,7 +821,9 @@ Shared helpers the bench scripts import rather than run directly:
   heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
   painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
   (the guard a two-record figure calls before drawing the records as one contrast: named
-  fields deep-equal, named `versions` equal strings, missing fields throw), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
+  fields deep-equal, named `versions` equal strings, missing fields throw), `bareVer` (the one
+  strip of a recorded version banner — "Version 7.0.2", "v22.23.3" — to the bare version for
+  display), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
@@ -896,20 +899,27 @@ Shared helpers the bench scripts import rather than run directly:
 `bench/*.json` is the source of truth; the docs must not contain a number that
 isn't backed by one of these. The 64-core records `install-bench.json`,
 `install-modes-bench.json`, `lockfile-bench.json`, `focus-install-bench.json`,
-`lockfile-merge-bench.json`, `pnpm12-bench.json`,
-`typecheck-parity-bench.json`, `rspack-turbopack-speed-bench.json`, `rspack-pnp-bench.json`,
-`pnp-compat-bench.json`, `vite-plus-tools-bench.json`, `build-bench.json`,
-`turbopack-bench.json`, `test-axis-bench.json`, `fleet-gate-bench.json`,
-`sliced-gate-bench.json`, and `fleet-flow-bench.json` are canonical on the dedicated
-64-core box. Its hardware, host toolchain, and pre-bench protocol are stated in the
-README's "The 64-Core Machine" and not restated here; no record carries the instance type
-or that protocol, and a record carries its core count, tool versions, and in places memory
-or filesystem fields only where its bench writes them. Every other 64-core record (among the timing records:
-`container-install-bench.json`, `typecheck-bench.json`, `perf-matrix.json`, `fs-bench.json`,
-`fs-iops-bench.json`, `yarn-fleet-bench.json`, `tsgo-pnp-bench.json`, `real-app-bench.json`,
-`lsp-scale-bench.json`, `tsgo-scale-bench.json`) was measured on a shared dev box of the
-same instance type with other users' processes running, and `bench/env.json` is that box's
-capture. No doc draws a ratio between a dedicated-box record and a shared-box one. The
+`lockfile-merge-bench.json`, `pnpm12-bench.json`, `container-install-bench.json`,
+`perf-matrix.json`, `fs-bench.json`, `fs-iops-bench.json`, `typecheck-bench.json`,
+`typecheck-parity-bench.json`, `tsgo-scale-bench.json`, `lsp-scale-bench.json`,
+`tsgo-pnp-bench.json`, `real-app-bench.json`, `rspack-turbopack-speed-bench.json`,
+`rspack-pnp-bench.json`, `pnp-compat-bench.json`, `vite-plus-tools-bench.json`,
+`build-bench.json`, `turbopack-bench.json`, `test-axis-bench.json`,
+`fleet-gate-bench.json`, `sliced-gate-bench.json`, `fleet-flow-bench.json`, and
+`yarn-fleet-bench.json` are canonical on the dedicated 64-core box, and `bench/env.json`
+is that box's capture. Its hardware, storage, host toolchain, and pre-bench protocol are
+stated in the README's "The 64-Core Machine" and not restated here; no record carries the
+instance type, the root volume's provisioning, podman's storage location or that
+protocol, and a record carries its core count, tool versions, and in places memory or
+filesystem fields only where its bench writes them. The other 64-core records are runs on
+a shared dev box of the same instance type with other users' processes running:
+`wave-rollout-bench.json`, `bun-safety-bench.json`, `yarn-rollout-bench.json`, and
+`decl-emit-caveat.json` record tool behavior and no timing (`wave-rollout-bench.json`'s
+install-speed text is derived from the two dedicated-box install records), `fleet-shape.json` records
+graph metrics of the generated tree, and `flow-wedge-retest.json` records a crash
+reproduction with the recheck times of the two Flow builds it compares. `deploy.json`
+records one Vercel cloud build's wall time and no local machine. No doc draws a
+ratio between a dedicated-box record and a shared-box one. The
 TS7-toolchain records — `relay-codegen-bench.json`,
 `tsgo-scale-table.json`, `optimal-gate-bench.json`, `dev-loop-bench.json`,
 `lib-rev-bench.json`, `dev-sim.json`, `editor-loop-bench.json`, `lint-bench.json`,
@@ -945,7 +955,8 @@ linked below the SVG) so a chart regeneration regenerates both; `make comparison
 `scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`),
 the million-module checker heat chart (whole-program check, red-vs-green, the save loop by mechanic,
 completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
-`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json`, embedded in TYPECHECKERS.md.
+`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json` (`assertComparable` on
+cores/layers/tsgo version/invocation across the first two), embedded in TYPECHECKERS.md.
 `net-cache-chart.mjs` renders `bench/charts/cache-network.svg` (+ `.png`, same contract; `make
 net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks with their cache size, columns
 = cold-compute + each shaped restore profile; per row the fastest cell is green and the rest are ×N of it)
@@ -1100,7 +1111,7 @@ wave-based rollout, driven with bun: the lockfile-not-the-range determinism boun
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm 12 as a
 head-to-head whose install-speed story is scale-dependent (bun ~1.6× faster cold at 200 apps, ~1.7×
-truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; bun 6% ahead on the fresh CI
+truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; pnpm 11% behind bun on the fresh CI
 frozen container), the direct-clean vs
 universal-republish-fanout
 distinction, expand/migrate/contract for breaking changes, gating the artifact as well as the source,

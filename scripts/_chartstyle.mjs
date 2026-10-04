@@ -318,6 +318,16 @@ export const wrapText = (s, maxChars) => {
   return lines;
 };
 
+// recorded version banners ("v22.23.3", "Version 7.0.2", "Version: 1.86.0",
+// "Relay Compiler 21.0.1") down to the bare version, for display. Benches record
+// the banner their tool printed, so every generator strips through this one helper.
+// A non-string or empty field throws: a malformed record must not render as a version.
+export const bareVer = (v) => {
+  if (typeof v !== "string" || v.trim() === "")
+    throw new Error("version banner is not a non-empty string in a cited bench JSON");
+  return v.replace(/^(?:Version:?\s*|Relay Compiler\s+|v)/, "");
+};
+
 // --- cross-record guard ------------------------------------------------------------
 // A figure that reads two bench records as ONE contrast (64- vs 192-core, batch vs
 // sliced) compares the caller-named tree fields and recorded tool versions first; a

@@ -6,7 +6,7 @@
     "cores": 64,
     "arch": "arm64"
   },
-  "preRunLoadAvg1": 6.4,
+  "preRunLoadAvg1": 1.24,
   "versions": {
     "yarn": "4.18.1",
     "node": "v22.23.3",
@@ -23,20 +23,20 @@
   ],
   "install": {
     "pnp": {
-      "trulyColdMs": 41590,
-      "warmMs": 39853,
+      "trulyColdMs": 41189,
+      "warmMs": 37970,
       "pnpCjsBytes": 62089430
     },
     "nodeModules": {
-      "trulyColdMs": 222468,
-      "warmMs": 212842,
+      "trulyColdMs": 203469,
+      "warmMs": 197331,
       "nmEntries": 4884956
     }
   },
   "gateNodeModules": {
     "tool": "tsgo patched, node-modules linker",
-    "ms": 64564,
-    "maxRssMB": 52366
+    "ms": 57408,
+    "maxRssMB": 50538
   },
   "stockControl": {
     "exit": 1,
@@ -48,25 +48,25 @@
   },
   "gate": {
     "tool": "tsgo patched (native PnP), one program from src",
-    "ms": 62811,
-    "maxRssMB": 50821
+    "ms": 57892,
+    "maxRssMB": 51339
   },
   "breaking": {
     "caught": true,
-    "ms": 63927,
+    "ms": 57645,
     "ts2554": 30171,
     "appsWithErrors": 30000,
     "sample": "error TS2554: Expected 2 arguments, but got 1."
   },
   "summary": {
-    "pnpTrulyColdMs": 41590,
-    "pnpWarmMs": 39853,
-    "nmTrulyColdMs": 222468,
-    "nmWarmMs": 212842,
-    "gateMs": 62811,
-    "gateRssMB": 50821,
+    "pnpTrulyColdMs": 41189,
+    "pnpWarmMs": 37970,
+    "nmTrulyColdMs": 203469,
+    "nmWarmMs": 197331,
+    "gateMs": 57892,
+    "gateRssMB": 51339,
     "breakingCaught": true,
-    "breakingMs": 63927,
+    "breakingMs": 57645,
     "stockUnresolved": 30000
   }
 }

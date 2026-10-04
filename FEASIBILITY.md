@@ -3,8 +3,7 @@
 **Stack:** pnpm 12.8.1 (the Rust CLI), Turborepo 2.9.18, Node 22, Next 16.2.9. The core
 scaling record (`results.json`) and `dev-sim.json` run the TypeScript 6.0.3 `tsc` task on a
 192-core c8g.48xlarge; the 64-core install-family records cited below ran on a dedicated
-c7gd.metal, except `container-install-bench.json`, a shared dev box of the same instance
-type ([README](README.md#the-64-core-machine)). Measured on [the workspace under test](README.md#the-workspace-under-test)
+c7gd.metal ([README](README.md#the-64-core-machine)). Measured on [the workspace under test](README.md#the-workspace-under-test)
 at 200 / 1,000 / 2,000 / 5,000 / 10,000 / 20,000 apps (300 → 20,300 packages); the
 whole-workspace typecheck stops at 10,000 apps.
 
@@ -61,8 +60,8 @@ warm-store relink (`install-modes-bench.json`, 1,000 apps):
 - frozen cold-store 2.8s (97%)
 
 Per tool, frozen install on an empty cache, each sample in a fresh podman container
-(`container-install-bench.json`, 1,000 apps, pnpm 12.8.1): bun **1.03s** and pnpm **1.09s** (+6%), yarn-PnP 4.8s,
-yarn node-modules 6.7s, npm 10.4s
+(`container-install-bench.json`, 1,000 apps, pnpm 12.8.1 on its default isolated linker): bun **0.93s** and pnpm **1.03s** (+11%), yarn-PnP 4.5s,
+yarn node-modules 6.5s, npm 10.4s
 ([TOOLING.md](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
 
 Cold typecheck recurs on a shared `tsconfig`/toolchain bump or a foundation-lib edit
@@ -96,7 +95,7 @@ independently-published hybrid is in
 | situation | direction |
 |---|---|
 | share libs, want one-version + cross-package refactors | shared pnpm workspace + Turborepo (remote cache + prune + catalogs) |
-| same, but install/resolve time dominates | same; pnpm 12's Rust CLI removed the resolve wall — cold installs are under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`). bun leads cold at 200 apps and truly-cold, pnpm-hoisted at 1,000–2,000, and bun leads the CI frozen install by 6% (fresh) |
+| same, but install/resolve time dominates | same; pnpm 12's Rust CLI removed the resolve wall — cold installs are under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`). bun leads cold at 200 apps and truly-cold, pnpm-hoisted at 1,000–2,000, and bun leads the CI frozen install (pnpm +11%, fresh) |
 | many apps, weak sharing | shard into smaller workspaces |
 | apps independent (no shared libs) | polyrepo / separate installs |
 

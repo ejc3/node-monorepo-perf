@@ -5,29 +5,29 @@
     "tsc": "Version 6.0.3",
     "tsgo": "Version 7.0.2"
   },
-  "tscMs": 3188,
-  "tsgoMs": 265,
+  "tscMs": 3062,
+  "tsgoMs": 257,
   "tsc": {
-    "medianMs": 3188,
-    "minMs": 3179,
+    "medianMs": 3062,
+    "minMs": 3018,
     "samples": [
-      3188,
-      3233,
-      3179,
-      3188,
-      3256
+      3058,
+      3018,
+      3062,
+      3083,
+      3129
     ]
   },
   "tsgo": {
-    "medianMs": 265,
-    "minMs": 263,
+    "medianMs": 257,
+    "minMs": 254,
     "samples": [
-      265,
-      263,
-      275,
-      264,
-      275
+      257,
+      259,
+      254,
+      260,
+      254
     ]
   },
-  "speedup": 12.03
+  "speedup": 11.91
 }

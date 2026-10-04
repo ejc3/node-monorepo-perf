@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-03T16:44:57.321Z",
+  "generatedAt": "2026-10-04T01:59:10.442Z",
   "canonical": true,
   "env": {
     "cores": 64,
-    "preRunLoadAvg1": 3.76
+    "preRunLoadAvg1": 1.19
   },
   "versions": {
     "yarn": "4.18.1",
@@ -12,7 +12,6 @@
     "stockTsgoReported": "Version 7.0.2"
   },
   "patchedTsgo": {
-    "bin": "/home/ubuntu/src/tsgo-pnp-rebuild/tsgo",
     "version": "Version 7.1.0-dev",
     "gitSha": "e14570937c5a279cf4387ee1a600dc1ba9465f81",
     "gitBranch": "feat/yarn-pnp-resolution"
@@ -38,14 +37,14 @@
         "codes": {
           "TS2307": 3
         },
-        "ms": 80,
+        "ms": 68,
         "fileCount": 64
       },
       "patched": {
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 59,
+        "ms": 95,
         "fileCount": 83
       }
     },
@@ -60,14 +59,14 @@
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 89,
+        "ms": 75,
         "fileCount": 83
       },
       "patched": {
         "exit": 0,
         "errorCount": 0,
         "codes": {},
-        "ms": 58,
+        "ms": 55,
         "fileCount": 83
       }
     }

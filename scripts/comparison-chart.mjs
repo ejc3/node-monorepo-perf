@@ -33,6 +33,7 @@ import {
   wrapText,
   esc,
   emitChart,
+  bareVer,
 } from "./_chartstyle.mjs";
 import { assertWaveRolloutSpeedText } from "./_install-speed-context.mjs";
 
@@ -324,7 +325,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/typecheck-bench.json, bench/typecheck-parity-bench.json",
-    note: `Versions per the JSONs: tsgo ${String(TB.versions.tsgo).replace("Version ", "")} · tsc ${String(TB.versions.tsc).replace("Version ", "")} (the parity row records the same pins).`,
+    note: `Versions per the JSONs: tsgo ${bareVer(TB.versions.tsgo)} · tsc ${bareVer(TB.versions.tsc)} (the parity row records the same pins).`,
   },
   {
     title: "Production build — Vite vs Next",

@@ -8,13 +8,13 @@ Each package in [the workspace under test](README.md#the-workspace-under-test) r
 
 | modules | tsc | tsgo | speedup |
 |---|---|---|---|
-| 3,000 | 3,188ms | 265ms | 12.0x |
+| 3,000 | 3,062ms | 257ms | 11.9x |
 
 Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the per-package Turborepo task for modern configs. TypeScript 7 is GA: it ships as `typescript` (this repo pins `7.0.2` exactly) with a native `tsc` — the tsgo name is retired, though this repo keeps `tsgo` as the task/record label. It drops some legacy config (bare `baseUrl`, `moduleResolution: node10`, older `target`s), has no plugin API, and ships no tsserver. TypeScript 6 is the last JS release; keep it installed (here as the `typescript6` alias) for tsserver and as the oracle checker. With both majors installed, `node_modules/.bin/tsc` is ambiguous — every bench resolves both checkers by direct path (`scripts/_ts.mjs`) and asserts the version before timing.
 
 ## Behavior at a Million Files: tsgo vs tsc vs Flow
 
-`scripts/tsgo-scale-bench.mjs` sweeps ONE growing generated program (a standalone corpus, not the workspace) through 10k, 100k, 250k, 500k, 1,000,000 modules for **tsgo**, **tsc** (anchored ≤100k), and **Flow**.¹ `bench/tsgo-scale-bench.json`; 64-core arm64.
+`scripts/tsgo-scale-bench.mjs` sweeps ONE growing generated program (a standalone corpus, not the workspace) through 10k, 100k, 250k, 500k, 1,000,000 modules for **tsgo**, **tsc** (anchored ≤100k), and **Flow**.¹ `bench/tsgo-scale-bench.json`; the dedicated 64-core arm64 box ([README](README.md#the-64-core-machine)).
 
 ![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)
 
@@ -26,21 +26,21 @@ The corpus is **fixed-depth**: 100 layers, each importing ≤3 from the layer be
 
 | modules | tsgo full | tsgo cold | tsc full | flow full | flow cold |
 |---|---|---|---|---|---|
-| 10,000 | 0.61s | 0.94s | 7.4s | 0.92s | 1.05s |
-| 100,000 | 5.9s | 7.3s | 66.8s | 9.3s | 9.5s |
-| 250,000 | 15.9s | 19.9s | anchor cutoff | 22.4s | 22.7s |
-| 500,000 | 32.7s | 41.8s | — | 44.6s | 45.5s |
-| 1,000,000 | 68.7s | 89.8s | — | 90.6s | 90.8s |
+| 10,000 | 0.60s | 0.73s | 7.4s | 0.91s | 1.27s |
+| 100,000 | 6.1s | 7.1s | 65.0s | 9.6s | 10.1s |
+| 250,000 | 16.0s | 18.8s | anchor cutoff | 23.2s | 24.8s |
+| 500,000 | 33.4s | 40.0s | — | 45.7s | 46.8s |
+| 1,000,000 | 70.7s | 84.8s | — | 92.5s | 94.0s |
 
 ¹ Flow is a main-branch build; released 0.321's server crashes at this scale (last paragraph).
 
-tsgo is **near-linear** (61ms/thousand at 10k → 69ms at 1M; 68.7s warm, 89.8s truly cold at 1M). Flow's full sweep is +32% of tsgo at 1M (90.6s vs 68.7s); the tsc anchor at 100k is 11× (66.8s vs 5.9s).
+tsgo is **near-linear** (60ms/thousand at 10k → 71ms at 1M; 70.7s warm, 84.8s truly cold at 1M). Flow's full sweep is +31% of tsgo at 1M (92.5s vs 70.7s); the tsc anchor at 100k is 11× (65.0s vs 6.1s).
 
 ### Red rows, memory, developer loops
 
-- **A failing gate costs what a passing one costs**: tsgo 69.0s red vs 68.7s green at 1M (tsc, flow likewise flat).
+- **A failing gate costs what a passing one costs**: tsgo 70.3s red vs 70.7s green at 1M (Flow 93.5s vs 92.5s there; tsc 65.5s vs 65.0s at its 100k anchor).
 - **Memory** (peak RSS, full): tsgo ~54KB/module (53.7GB at 1M), Flow ~17KB/module (17.1GB), tsc ~67KB/module at its 100k anchor (6.7GB); no memory cliff on this 135GB box.
-- **Save loop** splits by mechanic (Figure 1): tsgo's CLI incremental costs 37.7s no-change / 53.7s one-edit at 1M — a CI tool, not a save loop. Flow's persistent server answers **one edit in 324ms at 1M** (19ms → 324ms across 100×), the fastest measured.
+- **Save loop** splits by mechanic (Figure 1): tsgo's CLI incremental costs 38.0s no-change / 53.7s one-edit at 1M — a CI tool, not a save loop. Flow's persistent server answers **one edit in 324ms at 1M** (19ms → 324ms across 100×), the fastest measured.
 
 ![The save loop by mechanic at one million modules: a relaunching CLI, a rebuilding watcher, an open-file language server, and a resident checker server, on a log time axis](bench/charts/fig-save-loop.svg)
 
@@ -56,7 +56,7 @@ tsgo is **near-linear** (61ms/thousand at 10k → 69ms at 1M; 68.7s warm, 89.8s 
 
 ### The daemons and codegen
 
-**Daemons** (`scripts/lsp-scale-bench.mjs` → `bench/lsp-scale-bench.json`): tsgo's `--lsp` serves the million-module program (17.5s cold open, 2.2s squiggle, 66.1GB RSS), **17× faster cold open than tsserver at the 100k anchor** (1.4s vs 24.6s). tsgo LSP completion grows with N (301,058 items at 100k, past the 120s ceiling from 250k up); tsserver stays ~1,067 items in 16–21ms.
+**Daemons** (`scripts/lsp-scale-bench.mjs` → `bench/lsp-scale-bench.json`): tsgo's `--lsp` serves the million-module program (17.5s cold open, 2.4s squiggle, 68.0GB RSS), **17× faster cold open than tsserver at the 100k anchor** (1.5s vs 24.3s). tsgo LSP completion grows with N (301,058 items at 100k, past the 120s ceiling from 250k up); tsserver stays at 1,067 items in 17–20ms.
 
 **Codegen** (`scripts/relay-codegen-bench.mjs` → `bench/relay-codegen-bench.json`; 192-core c8g.48xlarge, tsgo 7.0.2): relay-compiler over a 10,000-component tree in both dialects — codegen (~2.9s) dominates the checker (0.91s tsgo / 1.7s Flow — released 0.321, `flow-bin`; the main-branch build matters only at wedge scale). The checked-in-artifacts discipline holds up: the CI freshness gate (Figure 2) costs 3.0s at 10k components and detects an edited query; the 30,000-component fleet anchor prices the same git-tracked freshness pass at 9.5s (codegen 9.48s + status 0.04s; 9.3s cold, one sample) — committing artifacts keeps the type gate build-free for ~10s of CI per pass.
 
@@ -87,7 +87,7 @@ Released Flow through 0.321 has a recheck-cancellation race that silently wedges
 | foundation edit, stays green | — | 9.3s | 15.4s |
 | **foundation edit → 30,000 apps red (incremental)** | — | **14.9s** | 13.1s |
 
-Three findings. tsgo wins the batch rows (1.4× on the check, 1.5× on the batch breaking rev, same 64-core box) in the fleet's actual dialect; Flow holds the mirrored program in **2.6× less memory**. Flow's resident server changes the foundation owner's loop: the full-fleet breaking verdict costs **14.9s incrementally** against tsgo's 58.9s-per-run batch — tsgo's resident mechanics today are its `--watch` (~22s per re-check at the million-file scale) and its LSP (an editor server, not a batch verdict); upstream's incremental work targets tsc parity, not server-style incrementality (see the daemons section). On the 192-core box Flow's batch check, batch breaking rev, and server init are 1–9% faster, its incremental breaking rev 12% faster, and its stays-green edit 66% slower (9.3s → 15.4s); tsgo's one-program check and breaking rev are 15% slower there (66.6s / 67.7s in `bench/fleet-gate-bench.pbox.json`, a c8gb.48xlarge). Three times the cores buys neither checker more than 12% on any row — one run per machine, a cross-machine observation, matching the fleet gate's result. A universal-lib edit costs 9–15s even incrementally: blast radius binds every checker; the sub-second edit loops measured at 1M modules were minimal-invalidation edits (a non-exported const on a mid-corpus module, and an error seeded in a zero-dependent leaf — nothing downstream to recheck), where the fleet rev changes an exported surface every app imports.
+Three findings. tsgo wins the batch rows (1.4× on the check, 1.5× on the batch breaking rev, same 64-core box) in the fleet's actual dialect; Flow holds the mirrored program in **2.6× less memory**. Flow's resident server changes the foundation owner's loop: the full-fleet breaking verdict costs **14.9s incrementally** against tsgo's 58.9s-per-run batch — tsgo's resident mechanics today are its `--watch` (~23s per re-check at the million-file scale) and its LSP (an editor server, not a batch verdict); upstream's incremental work targets tsc parity, not server-style incrementality (see the daemons section). On the 192-core box Flow's batch check, batch breaking rev, and server init are 1–9% faster, its incremental breaking rev 12% faster, and its stays-green edit 66% slower (9.3s → 15.4s); tsgo's one-program check and breaking rev are 15% slower there (66.6s / 67.7s in `bench/fleet-gate-bench.pbox.json`, a c8gb.48xlarge). Three times the cores buys neither checker more than 12% on any row — one run per machine, a cross-machine observation, matching the fleet gate's result. A universal-lib edit costs 9–15s even incrementally: blast radius binds every checker; the sub-second edit loops measured at 1M modules were minimal-invalidation edits (a non-exported const on a mid-corpus module, and an error seeded in a zero-dependent leaf — nothing downstream to recheck), where the fleet rev changes an exported surface every app imports.
 
 ## Ranked Levers
 
