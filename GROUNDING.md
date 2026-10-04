@@ -17,7 +17,7 @@ The primary source behind each practice in the benchmark, where pnpm + Turborepo
 | Remote caching | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
 | One Vercel project per app | [Vercel monorepos](https://vercel.com/docs/monorepos), [Vercel limits](https://vercel.com/docs/limits) |
 
-- **`node-linker`.** Under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and runs 2.2–2.7× faster at 1,000–2,000; warm relink 4.3–6.8× faster hoisted there, on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees). The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower, `bench/perf-matrix.json`); the records vary scale and catalog form together, so the cause of the reversal is not isolated.
+- **`node-linker`.** Under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and runs 2.2–2.7× faster at 1,000–2,000; warm relink 4.3–6.8× faster hoisted there, on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees). The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower on one sample per variant, `bench/perf-matrix.json`); the records vary scale and catalog form together, so the cause of the reversal is not isolated.
 - **Vercel.** Skip-unaffected does not consume a build slot; legacy turbo-ignore does.
 
 ## The Ceiling

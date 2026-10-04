@@ -39,7 +39,7 @@ captions.
 1. **O(repo) vs O(closure)** (README): two-panel flow — whole-repo
    fan-out (30,708 tasks, rust tint) vs one app's closure (green), task counts
    labeled. Data: fleet-gate-bench.json + results.json.
-2. **The sliced gate** (FLEET): fan-out diagram — one program (53GB, 7–14 cores,
+2. **The sliced gate** (FLEET): fan-out diagram — one program (51–53GB, 8–14 cores,
    rust) vs K slices (green, max-slice RSS labels), converging into the union check
    box (30,171 = 30,171). Data: sliced-gate-bench.json + .pbox.json.
 3. **Fleet blast radius** (FLEET): foundation lib at the base, 30,000 apps grid above,

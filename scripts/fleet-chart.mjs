@@ -26,6 +26,7 @@ import {
   esc,
   emitChart,
   assertComparable,
+  bareVer,
   GRID,
 } from "./_chartstyle.mjs";
 
@@ -270,7 +271,7 @@ T.push(
   txt(
     PAD,
     y,
-    `toolchain: ${bunLabel} · turbo ${N.turbo} · tsgo ${N.tsgo.replace("Version ", "")} · oxlint ${N.oxlint.replace("Version: ", "")} · node ${N.node.replace(/^v/, "")}`,
+    `toolchain: ${bunLabel} · turbo ${N.turbo} · tsgo ${bareVer(N.tsgo)} · oxlint ${bareVer(N.oxlint)} · node ${bareVer(N.node)}`,
     {
       size: 11.5,
       fill: MUTED,

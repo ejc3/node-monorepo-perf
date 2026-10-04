@@ -25,8 +25,8 @@ Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.3s vs pnpm-hoist
 apart across bun and both pnpm linkers (0.25–0.27s, pnpm-isolated fastest). pnpm 12's Rust CLI removed pnpm 10's
 cold-resolve wall (307.4s → 0.93s at 1,000:200, `bench/pnpm12-bench.json`). Every fresh container or clone
 re-materializes from the committed lockfile,
-and on the CI-runner frozen install bun leads pnpm by 11% empty-cache and 19% cache-restored
-(`bench/container-install-bench.json`, 1,000 apps): **bun 0.93s
+and on the CI-runner frozen install bun leads pnpm (pnpm +11% empty-cache, +19% cache-restored;
+`bench/container-install-bench.json`, 1,000 apps, pnpm on its default isolated linker — hoisted was not run in containers): **bun 0.93s
 vs pnpm 1.03s empty-cache; bun 0.42s vs pnpm 0.50s cache-restored** (fresh-runner yarn-PnP 4.5s, yarn-nm 6.5s, npm
 10.4s; cache-restored 2.2s / 4.2s / 9.7s). pnpm
 12 is a fully capable driver — the rungs below measure parity on catalog lanes, `workspace:` catalog values, and the

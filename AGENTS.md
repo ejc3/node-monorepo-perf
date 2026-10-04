@@ -229,7 +229,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   (react, a cache zip) + a peer-dep pkg (react-dom, which Yarn virtualizes under
   `.yarn/__virtual__`), installed at Yarn's PnP defaults (inlined `.pnp.cjs`, no sidecar) and
   under the node-modules linker (CONTROL). Matrix: stock tsgo (repo pin) vs patched tsgo
-  (`TSGO_PNP_BIN`, git provenance required for a canonical run) × PnP vs node-modules, recording
+  (`TSGO_PNP_BIN`, git provenance required for a canonical run and recorded as version + git
+  sha/branch, not the binary's path) × PnP vs node-modules, recording
   exit / error-code histogram / program size (unique path-only `--listFiles` lines; diagnostic
   lines are excluded and an unclassifiable line fails the bench); a seeded TS2322 red control
   asserts patched tsgo still type-checks (not skips) under PnP (exit 1 + exactly one TS2322).
@@ -516,8 +517,8 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `package-import-method` on a CoW filesystem (btrfs reflink) vs hardlink (ext4):
   relink time + exclusive disk (pnpm version recorded, pin-asserted) →
   `bench/fs-bench.json`.
-- `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default working
-  tree vs `/mnt/fcvm-btrfs`): the device layer under fs-bench: 4K random read/write
+- `node scripts/fs-iops-bench.mjs` (`FS_TARGETS="label:root ..."`, default the home
+  directory vs `/mnt/fcvm-btrfs`): the device layer under fs-bench: 4K random read/write
   IOPS + p99 at `O_DIRECT` (no page cache) and a small-file burst (buffered create-only
   vs per-file `fsync`), per mount with fstype/device. Shows the btrfs RAID0 over the local
   NVMe disks faster in every access pattern (~49× the random-read IOPS and ~17× the
@@ -609,7 +610,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `node scripts/real-app-bench.mjs` (`REAL_APP_ONLY=<name>` to run one): the **real-app vet**:
   does the per-app inner loop hold on real, larger product code, not only the synthetic tiny apps?
   Clones real open-source Next.js App Router apps at pinned commits (vercel/commerce ~3.9k LOC,
-  shadcn/taxonomy ~7.5k LOC) and runs this repo's pinned toolchain on each: bun install (cold
+  shadcn/taxonomy ~7.5k LOC) and runs the bench's pinned toolchain (oxlint 1.71.0) on each: bun install (cold
   node_modules, warm store), tsgo `--noEmit`, oxlint, and the two checks orchestrated by turbo
   (cold then warm cache hit). Records the **adaptation friction**: tsgo (TypeScript 7) rejects a real
   tsconfig's removed options (`baseUrl`/`moduleResolution:node`/`target:es5`/`downlevelIteration`)
@@ -820,7 +821,9 @@ Shared helpers the bench scripts import rather than run directly:
   heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
   painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
   (the guard a two-record figure calls before drawing the records as one contrast: named
-  fields deep-equal, named `versions` equal strings, missing fields throw), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
+  fields deep-equal, named `versions` equal strings, missing fields throw), `bareVer` (the one
+  strip of a recorded version banner — "Version 7.0.2", "v22.23.3" — to the bare version for
+  display), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
@@ -911,9 +914,11 @@ protocol, and a record carries its core count, tool versions, and in places memo
 filesystem fields only where its bench writes them. The other 64-core records are runs on
 a shared dev box of the same instance type with other users' processes running:
 `wave-rollout-bench.json`, `bun-safety-bench.json`, `yarn-rollout-bench.json`, and
-`decl-emit-caveat.json` record tool behavior and no timing, `fleet-shape.json` records
+`decl-emit-caveat.json` record tool behavior and no timing (`wave-rollout-bench.json`'s
+install-speed text is derived from the two dedicated-box install records), `fleet-shape.json` records
 graph metrics of the generated tree, and `flow-wedge-retest.json` records a crash
-reproduction with the recheck times of the two Flow builds it compares. No doc draws a
+reproduction with the recheck times of the two Flow builds it compares. `deploy.json`
+records one Vercel cloud build's wall time and no local machine. No doc draws a
 ratio between a dedicated-box record and a shared-box one. The
 TS7-toolchain records — `relay-codegen-bench.json`,
 `tsgo-scale-table.json`, `optimal-gate-bench.json`, `dev-loop-bench.json`,
@@ -950,7 +955,8 @@ linked below the SVG) so a chart regeneration regenerates both; `make comparison
 `scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`),
 the million-module checker heat chart (whole-program check, red-vs-green, the save loop by mechanic,
 completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
-`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json`, embedded in TYPECHECKERS.md.
+`bench/lsp-scale-bench.json` + `bench/flow-wedge-retest.json` (`assertComparable` on
+cores/layers/tsgo version/invocation across the first two), embedded in TYPECHECKERS.md.
 `net-cache-chart.mjs` renders `bench/charts/cache-network.svg` (+ `.png`, same contract; `make
 net-cache-chart`) — the remote-cache network-cost heat table (rows = tasks with their cache size, columns
 = cold-compute + each shaped restore profile; per row the fastest cell is green and the rest are ×N of it)
@@ -1105,7 +1111,7 @@ wave-based rollout, driven with bun: the lockfile-not-the-range determinism boun
 not-frozen, the bun-native recipe (committed `bunfig` frozen, `package.json` named-catalog cohorts, the
 `workspace:` HEAD-tracking partition, the concrete-range publish rewrite) measured against pnpm 12 as a
 head-to-head whose install-speed story is scale-dependent (bun ~1.6× faster cold at 200 apps, ~1.7×
-truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; bun 11% ahead on the fresh CI
+truly-cold; pnpm-hoisted faster at the measured 1,000- and 2,000-app points; pnpm 11% behind bun on the fresh CI
 frozen container), the direct-clean vs
 universal-republish-fanout
 distinction, expand/migrate/contract for breaking changes, gating the artifact as well as the source,

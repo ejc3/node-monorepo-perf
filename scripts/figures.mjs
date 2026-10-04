@@ -30,6 +30,7 @@ import {
   svgDoc as svgDocW,
   emitChart,
   assertComparable,
+  bareVer,
   NEAR_TIE_MAX,
 } from "./_chartstyle.mjs";
 
@@ -90,10 +91,6 @@ const count = (o, path) => {
     throw new Error(`field ${path} is not a count in a cited bench JSON`);
   return v;
 };
-// recorded version banners ("v22.23.3", "Version 7.0.2", "Relay Compiler 21.0.1")
-// down to the bare version
-const bareVer = (v) => String(v).replace(/^(?:Version:?\s*|Relay Compiler\s+|v)/, "");
-
 const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
 const secs2 = (ms) => `${(ms / 1000).toFixed(2)}s`;
 // sub-second times stay in ms (a 324ms recheck is not "0.3s")
@@ -158,7 +155,7 @@ function figSlicedGate() {
     "sliced-gate 64- vs 192-core",
   );
   const apps = need(SLICED, "apps");
-  const tsgoVer = String(need(SLICED, "versions.tsgo")).replace(/^Version:?\s*/, "");
+  const tsgoVer = bareVer(need(SLICED, "versions.tsgo"));
 
   const T = [];
   // column headers: the wall-clock headline per mechanism

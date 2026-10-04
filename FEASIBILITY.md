@@ -60,7 +60,7 @@ warm-store relink (`install-modes-bench.json`, 1,000 apps):
 - frozen cold-store 2.8s (97%)
 
 Per tool, frozen install on an empty cache, each sample in a fresh podman container
-(`container-install-bench.json`, 1,000 apps, pnpm 12.8.1): bun **0.93s** and pnpm **1.03s** (+11%), yarn-PnP 4.5s,
+(`container-install-bench.json`, 1,000 apps, pnpm 12.8.1 on its default isolated linker): bun **0.93s** and pnpm **1.03s** (+11%), yarn-PnP 4.5s,
 yarn node-modules 6.5s, npm 10.4s
 ([TOOLING.md](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
 
@@ -95,7 +95,7 @@ independently-published hybrid is in
 | situation | direction |
 |---|---|
 | share libs, want one-version + cross-package refactors | shared pnpm workspace + Turborepo (remote cache + prune + catalogs) |
-| same, but install/resolve time dominates | same; pnpm 12's Rust CLI removed the resolve wall — cold installs are under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`). bun leads cold at 200 apps and truly-cold, pnpm-hoisted at 1,000–2,000, and bun leads the CI frozen install by 11% (fresh) |
+| same, but install/resolve time dominates | same; pnpm 12's Rust CLI removed the resolve wall — cold installs are under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`). bun leads cold at 200 apps and truly-cold, pnpm-hoisted at 1,000–2,000, and bun leads the CI frozen install (pnpm +11%, fresh) |
 | many apps, weak sharing | shard into smaller workspaces |
 | apps independent (no shared libs) | polyrepo / separate installs |
 

@@ -12,7 +12,6 @@
     "stockTsgoReported": "Version 7.0.2"
   },
   "patchedTsgo": {
-    "bin": "$TSGO_PNP_BIN",
     "version": "Version 7.1.0-dev",
     "gitSha": "e14570937c5a279cf4387ee1a600dc1ba9465f81",
     "gitBranch": "feat/yarn-pnp-resolution"
