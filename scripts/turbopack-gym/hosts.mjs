@@ -66,7 +66,9 @@ function rsync(h, src, dest, extra = []) {
 // Copy the gym code and the named bindings to the host.
 export function sync(h, bindings) {
   // only what a remote A/B needs: the gym scripts and the app generator
-  execFileSync("ssh", [...h.ssh, h.target, `mkdir -p ${h.repoDir}/scripts`], { stdio: "inherit" });
+  execFileSync("ssh", [...h.ssh, h.target, `mkdir -p ${h.repoDir}/scripts ${h.root}/bindings`], {
+    stdio: "inherit",
+  });
   rsync(h, `${REPO}/scripts/turbopack-gym/`, `${h.repoDir}/scripts/turbopack-gym/`, [
     "--exclude",
     "hosts.local.json",
