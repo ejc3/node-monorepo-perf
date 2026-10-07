@@ -112,7 +112,10 @@ function emit(rel, text) {
 // A function body with real parse/transform work: a type, a constant table, and
 // a few small functions. `tag` makes every module's identifiers unique.
 function body(tag, n = 3) {
-  const rows = Array.from({ length: 6 }, (_, i) => `  { id: ${i}, label: "${tag}-${i}", w: ${randInt(1, 99)} },`);
+  const rows = Array.from(
+    { length: 6 },
+    (_, i) => `  { id: ${i}, label: "${tag}-${i}", w: ${randInt(1, 99)} },`,
+  );
   const fns = Array.from(
     { length: n },
     (_, i) => `export function ${tag}_fn${i}(input: ${tag}Row[], k = ${randInt(2, 9)}): number {
@@ -211,8 +214,14 @@ for (let f = 1; f <= FEATURES; f++) {
       lines.push(...lower.map((d) => `import { ${F}${mod(d)}_fn0 } from "./${mod(d)}";`));
       lines.push(...utils.map((u) => `import { ${util(u)}_fn0 } from "@/lib/${util(u)}";`));
       if (chance(20)) lines.push(`import { ${util(1)}_score } from "@/lib";`);
-      const use = [...lower.map((d) => `${F}${mod(d)}_fn0(${tag}_TABLE)`), ...utils.map((u) => `${util(u)}_fn0(${tag}_TABLE)`)];
-      emit(`src/features/${F}/${mod(m)}.ts`, `${lines.join("\n")}\n\n${body(tag)}\nexport const ${tag}_value = () => ${use.join(" + ") || "0"};\n`);
+      const use = [
+        ...lower.map((d) => `${F}${mod(d)}_fn0(${tag}_TABLE)`),
+        ...utils.map((u) => `${util(u)}_fn0(${tag}_TABLE)`),
+      ];
+      emit(
+        `src/features/${F}/${mod(m)}.ts`,
+        `${lines.join("\n")}\n\n${body(tag)}\nexport const ${tag}_value = () => ${use.join(" + ") || "0"};\n`,
+      );
       continue;
     }
     // client and server components
@@ -234,13 +243,17 @@ for (let f = 1; f <= FEATURES; f++) {
     let cross = [];
     if (!client && f > 1 && chance(CROSS_PCT)) {
       cross = pickDistinct(randInt(1, 2), () => zipf(f - 1));
-      lines.push(...cross.map((g) => `import { ${featureEntry(g)} } from "@/features/${feat(g)}";`));
+      lines.push(
+        ...cross.map((g) => `import { ${featureEntry(g)} } from "@/features/${feat(g)}";`),
+      );
     } else if (client && f > 1 && chance(CROSS_PCT / 2)) {
       const g = zipf(f - 1);
       lines.push(`import { ${feat(g)}${mod(1)}_value } from "@/features/${feat(g)}/${mod(1)}";`);
     }
     const kids = [
-      ...lowerComp.filter((d) => tierOf(d) !== "lib").map((d) => `<${compName(f, d)} id={id + ${d}} />`),
+      ...lowerComp
+        .filter((d) => tierOf(d) !== "lib")
+        .map((d) => `<${compName(f, d)} id={id + ${d}} />`),
       ...uis.map((c) => `<${ui(c)} label="${tag}" />`),
       ...cross.map((g) => `<${featureEntry(g)} id={id} />`),
     ];
@@ -359,7 +372,9 @@ export async function POST(req: Request) {
   const extra = pickDistinct(randInt(1, 2), () => zipf(FEATURES)).filter((x) => x !== own);
   const fs_ = [own, ...extra];
   const dynamic = chance(DYNAMIC_PCT);
-  const imports = fs_.map((x) => `import { ${featureEntry(x)} } from "@/features/${feat(x)}";`).join("\n");
+  const imports = fs_
+    .map((x) => `import { ${featureEntry(x)} } from "@/features/${feat(x)}";`)
+    .join("\n");
   const els = fs_.map((x) => `<${featureEntry(x)} id={n} />`).join("\n      ");
   const sig = dynamic
     ? `export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -400,7 +415,10 @@ emit(
       name: "@demo/monolith",
       version: "0.0.0",
       private: true,
-      scripts: { build: "next build", "build:compile": "next build --experimental-build-mode=compile" },
+      scripts: {
+        build: "next build",
+        "build:compile": "next build --experimental-build-mode=compile",
+      },
       dependencies: { next: NEXT_VERSION, react: REACT_VERSION, "react-dom": REACT_VERSION },
       devDependencies: { typescript: "6.0.3", "@types/react": "19.2.17", "@types/node": "^25.0.0" },
     },
@@ -451,6 +469,19 @@ emit(
 );
 emit(".gitignore", "node_modules/\n.next*/\nnext-env.d.ts\n");
 
-const summary = { out: OUT, files, routes: ROUTES, pages, handlers, layouts: layouts.size, features: FEATURES, featureModules: FEATURE_MODULES, ui: UI, utils: UTILS, seed: SEED, next: NEXT_VERSION };
+const summary = {
+  out: OUT,
+  files,
+  routes: ROUTES,
+  pages,
+  handlers,
+  layouts: layouts.size,
+  features: FEATURES,
+  featureModules: FEATURE_MODULES,
+  ui: UI,
+  utils: UTILS,
+  seed: SEED,
+  next: NEXT_VERSION,
+};
 writeFileSync(join(OUT, "monolith.json"), JSON.stringify(summary, null, 2) + "\n");
 console.log(JSON.stringify(summary));

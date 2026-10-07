@@ -528,6 +528,39 @@ One command each for the O(repo)-vs-O(closure) thesis:
   → `bench/fs-iops-bench.json`, folded into OPTIMIZATIONS.md §1.2.1. Requires `fio` +
   `findmnt`; self-contained, cleans up on exit.
 
+### Turbopack Graph Gym
+One large app instead of many small ones: the shape of vercel/next.js#98043, where a
+single `next build` spends most of its Turbopack compile in the whole-app module graph
+phase, which does not get faster with more cores. Results and method: TURBOPACK-GRAPH.md.
+- `scripts/monolith-gen.mjs` (`make monolith`): one App Router app, default 2,070 routes
+  (pages, route handlers, section layouts) over ~16,000 first-party TS files (feature
+  folders, a UI kit and a util layer behind `export *` barrels, `'use client'` boundaries,
+  zipf cross-feature imports). Deterministic per `--seed`. Standalone (own package.json);
+  `next.config` reads `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`, `MONOLITH_TP_FS_CACHE`.
+- `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
+  `setup.mjs` (`make gym-setup`) clones next.js at a tag under `GYM_ROOT`, builds the base
+  binding (release, no LTO, 16 codegen units) and a frame-pointer one, generates and
+  installs the `monolith` and 400-route `quick` apps. `bench.mjs` is one cold
+  `next build --experimental-build-mode=compile` in a `systemd-run --scope` pinned to a CPU
+  set (memory on that set's NUMA nodes): phase durations from `.next/trace-build`, cores
+  used per phase from the scope's `cpu.stat`, peak memory, an output fingerprint (the
+  multiset of directory + file size: Turbopack output is not byte-reproducible, the
+  minifier permutes local names), machine fields. `ab.mjs` runs A and B concurrently on a
+  lane pair and swaps lanes every rep; the verdict is the geometric mean over swapped rep
+  pairs (lanes on one box differ by >10%; a fixed lane offset cancels), sign-consistent
+  per swap pair, guard on `run-turbopack`, same fingerprint. `build.mjs` builds a candidate
+  from a next.js worktree; `climb.mjs` (`make gym-climb`) evaluates
+  `bench/turbopack-gym/candidates/*.json` and folds winners into branch `gym/incumbent`;
+  `scaling.mjs` (`make gym-scaling`) sweeps lane sizes holding the whole box; `profile.mjs`
+  records `perf` (on-CPU + `sched_switch`) and prints per-phase `--time` windows;
+  `show.mjs` prints a run's CPU timeline with phases; `depth.mjs` the longest import chain.
+  CPUs are locked one by one (`withCpus`), so concurrent A/Bs never share a core.
+  `--host <name>` runs A/B, scaling, setup and record on a machine from the gitignored
+  `scripts/turbopack-gym/hosts.local.json` (bindings are built here and rsynced). Raw logs
+  go to `bench/raw/turbopack-gym/`; `record.mjs` (`make gym-record`) writes
+  `bench/turbopack-graph-scaling.json` and `bench/turbopack-graph-ab.json`. Needs
+  passwordless sudo (systemd-run, perf), Node 22, pnpm, the next.js rust toolchain.
+
 ### Developer Experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>`: simulate D devs each
   owning a feature area (two apps + one lib): onboarding, typecheck-on-save,

@@ -1,0 +1,16 @@
+{
+  "description": "mimalloc: eager arena commit + large OS pages",
+  "env": {
+    "MIMALLOC_ARENA_EAGER_COMMIT": "1",
+    "MIMALLOC_ALLOW_LARGE_OS_PAGES": "1"
+  },
+  "result": {
+    "status": "rejected",
+    "ratio": 1.0089,
+    "guardRatio": 1.0132,
+    "sameOutput": true,
+    "a": 9.783,
+    "b": 9.87,
+    "when": "2026-10-07T14:13:58.519Z"
+  }
+}

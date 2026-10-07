@@ -1,0 +1,15 @@
+{
+  "description": "build without the persistent filesystem cache (experimental.turbopackFileSystemCacheForBuild=false)",
+  "env": {
+    "MONOLITH_TP_FS_CACHE": "0"
+  },
+  "result": {
+    "status": "rejected",
+    "ratio": 0.93,
+    "guardRatio": 0.7779,
+    "sameOutput": true,
+    "a": 9.719,
+    "b": 8.818,
+    "when": "2026-10-07T14:21:33.521Z"
+  }
+}

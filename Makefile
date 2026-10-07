@@ -12,7 +12,7 @@ APP ?= @demo/app-00100
 # `make lockfile-bench` can no longer write a record at non-canonical scale points
 SCALES ?= 200:100 1000:200 2000:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith gym-setup gym-scaling gym-climb gym-record clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -108,6 +108,26 @@ lib-rev-bench: ## rev a universal lib: workspace-dep vs npm-dep cost, tsc vs tsg
 
 tsgo-scale-table-bench: ## whole-program tsgo cold typecheck across the README scales -> bench/tsgo-scale-table.json
 	node scripts/tsgo-scale-table-bench.mjs
+
+# Turbopack whole-app module graph gym (TURBOPACK-GRAPH.md). State lives under GYM_ROOT
+# (default: the OS temp dir); point it at a large scratch disk. GYM_HOST runs the
+# A/B and scaling steps on a machine defined in scripts/turbopack-gym/hosts.local.json.
+GYM_HOST ?=
+monolith: ## Generate the one-large-app shape of vercel/next.js#98043 into ./monolith
+	node scripts/monolith-gen.mjs --out monolith --clean
+
+gym-setup: ## Clone next.js, build the base binding, generate + install the gym apps (GYM_ROOT)
+	node scripts/turbopack-gym/setup.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+gym-scaling: ## Turbopack graph phase vs lane size (8..all cores), one build at a time
+	node scripts/turbopack-gym/scaling.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+gym-climb: ## Evaluate queued candidates (bench/turbopack-gym/candidates) against the incumbent
+	node scripts/turbopack-gym/climb.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+gym-record: ## Write bench/turbopack-graph-{scaling,ab}.json from the raw gym logs
+	node scripts/turbopack-gym/record.mjs scaling $(if $(GYM_HOST),--host $(GYM_HOST),)
+	node scripts/turbopack-gym/record.mjs ab $(if $(GYM_HOST),--host $(GYM_HOST),)
 
 clean: ## Reset worktree: restore patched tracked files, wipe generated tree + bench scratch (add KILL=1 to stop strays)
 	node scripts/clean-state.mjs --wipe $(if $(KILL),--kill,)

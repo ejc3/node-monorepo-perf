@@ -1,0 +1,15 @@
+{
+  "description": "cap turbo-tasks worker parallelism at 16 threads (negative scaling seen above 16 cores)",
+  "env": {
+    "TURBO_TASKS_AVAILABLE_PARALLELISM": "16"
+  },
+  "result": {
+    "status": "accepted",
+    "ratio": 0.761,
+    "guardRatio": 1.0072,
+    "sameOutput": true,
+    "a": 12.802,
+    "b": 9.739,
+    "when": "2026-10-07T14:00:17.393Z"
+  }
+}

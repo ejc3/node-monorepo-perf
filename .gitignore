@@ -62,3 +62,7 @@ bench/fleet-flow-bench.partial.json
 /bench/sliced-gate-bench.partial.json
 /tsconfig.slice-*.json
 /bench/lockfile-bench.partial.json
+# turbopack-gym: per-machine host definitions (addresses, keys, paths)
+scripts/turbopack-gym/hosts.local.json
+# make monolith output (scripts/monolith-gen.mjs)
+/monolith/
