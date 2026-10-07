@@ -1,548 +1,2958 @@
 {
-  "generator": "scripts/turbopack-gym (bench.mjs: next build --experimental-build-mode=compile, cold, cpuset-pinned scope)",
-  "nextjsSource": "vercel/next.js tag v16.4.0, next-napi-bindings built with --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
-  "bindings": {
-    "base": [],
-    "incumbent": [
-      {
-        "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
-        "sha256": "33e69240c6803ec9"
-      },
-      {
-        "patch": "bench/turbopack-gym/candidates/22-sharded-runner-2choice.patch",
-        "sha256": "f17d498b091b13f2"
-      }
-    ]
-  },
+  "generator": "scripts/turbopack-gym (bench.mjs: next build --experimental-build-mode=compile, cold, cpuset-pinned systemd scope)",
+  "bindingBuild": "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
+  "sweep": "sweep-muyjpix6-2843",
   "app": {
+    "name": "monolith",
+    "appHash": "5fe5ee1c2e743416",
     "files": 16071,
-    "routes": 2070,
-    "pages": 1708,
+    "tsFiles": 16068,
+    "routes": 2071,
+    "pages": 1709,
     "handlers": 362,
     "layouts": 192,
     "features": 420,
     "featureModules": 29,
     "ui": 700,
     "utils": 500,
+    "options": {
+      "routes": 2070,
+      "handlerPct": 19,
+      "dynamicPct": 30,
+      "groups": 12,
+      "sections": 16,
+      "crossPct": 25
+    },
     "seed": 98043,
-    "next": "16.4.0"
+    "next": "16.4.0",
+    "react": "19.2.7"
   },
-  "rows": [
+  "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 192,
+    "numaNodes": 2,
+    "memGiB": 371,
+    "instanceType": "c8g.48xlarge",
+    "node": "v22.23.3",
+    "sharedBox": false,
+    "buildNode": "v22.23.3"
+  },
+  "bindings": {
+    "base": {
+      "diffSha256": "e3b0c44298fc1c14",
+      "patches": []
+    },
+    "15+22": {
+      "diffSha256": "b032d66a7371fd6e",
+      "patches": [
+        {
+          "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+          "sha256": "33e69240c6803ec9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/22-sharded-runner-2choice.patch",
+          "sha256": "f17d498b091b13f2"
+        }
+      ]
+    }
+  },
+  "points": [
     {
       "binding": "base",
       "ncpu": 8,
-      "cpus": "0-7",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 12.168,
+          "cores": 5.05,
+          "sysShare": 0.033
+        },
+        "entrypoints": {
+          "s": 35.501,
+          "cores": 5.08,
+          "sysShare": 0.021
+        },
+        "emit": {
+          "s": 20.992,
+          "cores": 7.47,
+          "sysShare": 0.024
+        },
+        "turbopack": {
+          "s": 57.72,
+          "cores": 5.88,
+          "sysShare": 0.025
+        },
+        "persistence": {
+          "s": 14.232,
+          "cores": 5.13,
+          "sysShare": 0.625
+        }
       },
-      "when": "2026-10-07T17:08:34.674Z",
-      "wall": 102.594,
-      "cores": 4.4,
-      "memPeakGB": 12.4,
-      "graph": {
-        "s": 12.274,
-        "cores": 5.07,
-        "sysShare": 0.035
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T20:13:54.160Z",
+          "wall": 101.141,
+          "cores": 4.47,
+          "memPeakGiB": 11.41,
+          "graph": {
+            "s": 12.168,
+            "at": 1.013,
+            "cores": 5.09,
+            "sysShare": 0.033
+          },
+          "entrypoints": {
+            "s": 35.546,
+            "at": 0.521,
+            "cores": 5.11,
+            "sysShare": 0.019
+          },
+          "emit": {
+            "s": 21.89,
+            "at": 36.122,
+            "cores": 7.5,
+            "sysShare": 0.021
+          },
+          "turbopack": {
+            "s": 58.658,
+            "at": 0.51,
+            "cores": 5.93,
+            "sysShare": 0.023
+          },
+          "persistence": {
+            "s": 14.417,
+            "at": 59.177,
+            "cores": 4.95,
+            "sysShare": 0.625
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "8e5563358c4954c5"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T20:41:48.752Z",
+          "wall": 100.968,
+          "cores": 4.36,
+          "memPeakGiB": 11.54,
+          "graph": {
+            "s": 12.164,
+            "at": 1.006,
+            "cores": 5.01,
+            "sysShare": 0.033
+          },
+          "entrypoints": {
+            "s": 35.403,
+            "at": 0.515,
+            "cores": 5.07,
+            "sysShare": 0.021
+          },
+          "emit": {
+            "s": 20.735,
+            "at": 35.971,
+            "cores": 7.44,
+            "sysShare": 0.026
+          },
+          "turbopack": {
+            "s": 57.37,
+            "at": 0.504,
+            "cores": 5.86,
+            "sysShare": 0.026
+          },
+          "persistence": {
+            "s": 13.237,
+            "at": 57.885,
+            "cores": 5.23,
+            "sysShare": 0.614
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "0325ae6f189da259"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T21:05:55.607Z",
+          "wall": 98.458,
+          "cores": 4.5,
+          "memPeakGiB": 11.54,
+          "graph": {
+            "s": 12.171,
+            "at": 0.999,
+            "cores": 5.05,
+            "sysShare": 0.035
+          },
+          "entrypoints": {
+            "s": 35.501,
+            "at": 0.517,
+            "cores": 5.08,
+            "sysShare": 0.021
+          },
+          "emit": {
+            "s": 20.992,
+            "at": 36.072,
+            "cores": 7.47,
+            "sysShare": 0.024
+          },
+          "turbopack": {
+            "s": 57.72,
+            "at": 0.506,
+            "cores": 5.88,
+            "sysShare": 0.025
+          },
+          "persistence": {
+            "s": 14.232,
+            "at": 58.237,
+            "cores": 5.13,
+            "sysShare": 0.632
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "29d49061c1a24e7e"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "15+22",
+      "ncpu": 8,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 8.184,
+          "cores": 7.01,
+          "sysShare": 0.034
+        },
+        "entrypoints": {
+          "s": 22.996,
+          "cores": 5.7,
+          "sysShare": 0.029
+        },
+        "emit": {
+          "s": 22.133,
+          "cores": 7.47,
+          "sysShare": 0.022
+        },
+        "turbopack": {
+          "s": 46.336,
+          "cores": 6.43,
+          "sysShare": 0.028
+        },
+        "persistence": {
+          "s": 12.828,
+          "cores": 5.28,
+          "sysShare": 0.61
+        }
       },
-      "entrypoints": {
-        "s": 35.719,
-        "cores": 5.11,
-        "sysShare": 0.02
-      },
-      "emit": {
-        "s": 22.161,
-        "cores": 7.5,
-        "sysShare": 0.023
-      },
-      "turbopack": {
-        "s": 59.109,
-        "cores": 5.94,
-        "sysShare": 0.024
-      },
-      "persistence": {
-        "s": 12.315,
-        "cores": 5.21,
-        "sysShare": 0.593
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T20:15:53.523Z",
+          "wall": 83.526,
+          "cores": 4.61,
+          "memPeakGiB": 11.49,
+          "graph": {
+            "s": 8.099,
+            "at": 0.972,
+            "cores": 6.99,
+            "sysShare": 0.033
+          },
+          "entrypoints": {
+            "s": 22.673,
+            "at": 0.512,
+            "cores": 5.7,
+            "sysShare": 0.029
+          },
+          "emit": {
+            "s": 20.831,
+            "at": 23.239,
+            "cores": 7.47,
+            "sysShare": 0.025
+          },
+          "turbopack": {
+            "s": 44.719,
+            "at": 0.502,
+            "cores": 6.42,
+            "sysShare": 0.03
+          },
+          "persistence": {
+            "s": 12.172,
+            "at": 45.231,
+            "cores": 5.47,
+            "sysShare": 0.603
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "4cd37af83ca0b3b4"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T20:40:02.079Z",
+          "wall": 88.968,
+          "cores": 4.54,
+          "memPeakGiB": 12.57,
+          "graph": {
+            "s": 8.28,
+            "at": 1.015,
+            "cores": 7.02,
+            "sysShare": 0.035
+          },
+          "entrypoints": {
+            "s": 23.024,
+            "at": 0.53,
+            "cores": 5.73,
+            "sysShare": 0.029
+          },
+          "emit": {
+            "s": 22.352,
+            "at": 23.609,
+            "cores": 7.49,
+            "sysShare": 0.021
+          },
+          "turbopack": {
+            "s": 46.603,
+            "at": 0.519,
+            "cores": 6.47,
+            "sysShare": 0.027
+          },
+          "persistence": {
+            "s": 12.828,
+            "at": 47.132,
+            "cores": 5.28,
+            "sysShare": 0.61
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "0cc9ebd7f3e57619"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-7",
+          "env": {},
+          "when": "2026-10-07T21:07:51.717Z",
+          "wall": 88.814,
+          "cores": 4.53,
+          "memPeakGiB": 11.75,
+          "graph": {
+            "s": 8.184,
+            "at": 0.992,
+            "cores": 7.01,
+            "sysShare": 0.034
+          },
+          "entrypoints": {
+            "s": 22.996,
+            "at": 0.507,
+            "cores": 5.69,
+            "sysShare": 0.029
+          },
+          "emit": {
+            "s": 22.133,
+            "at": 23.556,
+            "cores": 7.44,
+            "sysShare": 0.022
+          },
+          "turbopack": {
+            "s": 46.336,
+            "at": 0.497,
+            "cores": 6.43,
+            "sysShare": 0.028
+          },
+          "persistence": {
+            "s": 13.435,
+            "at": 46.842,
+            "cores": 5.25,
+            "sysShare": 0.621
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "f7125f5413e43785"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
     },
     {
       "binding": "base",
       "ncpu": 16,
-      "cpus": "0-15",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 9.56,
+          "cores": 7.85,
+          "sysShare": 0.068
+        },
+        "entrypoints": {
+          "s": 26.095,
+          "cores": 7.88,
+          "sysShare": 0.037
+        },
+        "emit": {
+          "s": 17.162,
+          "cores": 13.51,
+          "sysShare": 0.021
+        },
+        "turbopack": {
+          "s": 44.494,
+          "cores": 9.89,
+          "sysShare": 0.031
+        },
+        "persistence": {
+          "s": 7.605,
+          "cores": 9.94,
+          "sysShare": 0.661
+        }
       },
-      "when": "2026-10-07T17:10:18.983Z",
-      "wall": 79.696,
-      "cores": 6.6,
-      "memPeakGB": 11.7,
-      "graph": {
-        "s": 9.594,
-        "cores": 7.68,
-        "sysShare": 0.074
-      },
-      "entrypoints": {
-        "s": 26.061,
-        "cores": 7.81,
-        "sysShare": 0.04
-      },
-      "emit": {
-        "s": 16.069,
-        "cores": 13.34,
-        "sysShare": 0.032
-      },
-      "turbopack": {
-        "s": 43.357,
-        "cores": 9.69,
-        "sysShare": 0.038
-      },
-      "persistence": {
-        "s": 7.189,
-        "cores": 10.07,
-        "sysShare": 0.648
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T20:17:35.004Z",
+          "wall": 82.105,
+          "cores": 6.71,
+          "memPeakGiB": 11.7,
+          "graph": {
+            "s": 9.56,
+            "at": 0.982,
+            "cores": 7.85,
+            "sysShare": 0.068
+          },
+          "entrypoints": {
+            "s": 26.095,
+            "at": 0.52,
+            "cores": 7.88,
+            "sysShare": 0.037
+          },
+          "emit": {
+            "s": 17.162,
+            "at": 26.673,
+            "cores": 13.51,
+            "sysShare": 0.021
+          },
+          "turbopack": {
+            "s": 44.494,
+            "at": 0.503,
+            "cores": 9.89,
+            "sysShare": 0.031
+          },
+          "persistence": {
+            "s": 7.605,
+            "at": 45.001,
+            "cores": 9.93,
+            "sysShare": 0.661
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "5fed78e9240c8a51"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T20:45:16.531Z",
+          "wall": 80.798,
+          "cores": 6.58,
+          "memPeakGiB": 11.66,
+          "graph": {
+            "s": 9.403,
+            "at": 0.99,
+            "cores": 7.75,
+            "sysShare": 0.07
+          },
+          "entrypoints": {
+            "s": 25.783,
+            "at": 0.519,
+            "cores": 7.81,
+            "sysShare": 0.038
+          },
+          "emit": {
+            "s": 16.099,
+            "at": 26.358,
+            "cores": 13.32,
+            "sysShare": 0.03
+          },
+          "turbopack": {
+            "s": 43.114,
+            "at": 0.503,
+            "cores": 9.7,
+            "sysShare": 0.036
+          },
+          "persistence": {
+            "s": 7.871,
+            "at": 43.62,
+            "cores": 9.95,
+            "sysShare": 0.671
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "5c618a82cdb8a332"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T21:09:38.173Z",
+          "wall": 83.446,
+          "cores": 6.83,
+          "memPeakGiB": 11.83,
+          "graph": {
+            "s": 9.625,
+            "at": 0.982,
+            "cores": 7.97,
+            "sysShare": 0.06
+          },
+          "entrypoints": {
+            "s": 26.262,
+            "at": 0.518,
+            "cores": 7.98,
+            "sysShare": 0.033
+          },
+          "emit": {
+            "s": 18.456,
+            "at": 26.832,
+            "cores": 13.61,
+            "sysShare": 0.019
+          },
+          "turbopack": {
+            "s": 45.933,
+            "at": 0.502,
+            "cores": 10.08,
+            "sysShare": 0.027
+          },
+          "persistence": {
+            "s": 7.172,
+            "at": 46.441,
+            "cores": 9.94,
+            "sysShare": 0.64
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "dd7df8eb41ee5911"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
     },
     {
-      "binding": "base",
-      "ncpu": 32,
-      "cpus": "0-31",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
-      },
-      "when": "2026-10-07T17:11:40.337Z",
-      "wall": 83.673,
-      "cores": 10.64,
-      "memPeakGB": 12.16,
-      "graph": {
-        "s": 13.21,
-        "cores": 10.68,
-        "sysShare": 0.349
-      },
-      "entrypoints": {
-        "s": 26.854,
-        "cores": 11.6,
-        "sysShare": 0.167
-      },
-      "emit": {
-        "s": 16.781,
-        "cores": 25.45,
-        "sysShare": 0.017
-      },
-      "turbopack": {
-        "s": 44.88,
-        "cores": 16.52,
-        "sysShare": 0.081
-      },
-      "persistence": {
-        "s": 5.674,
-        "cores": 19.43,
-        "sysShare": 0.778
-      },
-      "outputFiles": 26875
-    },
-    {
-      "binding": "base",
-      "ncpu": 64,
-      "cpus": "0-63",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
-      },
-      "when": "2026-10-07T17:13:05.675Z",
-      "wall": 84.234,
-      "cores": 16.15,
-      "memPeakGB": 13.09,
-      "graph": {
-        "s": 13.989,
-        "cores": 11.21,
-        "sysShare": 0.399
-      },
-      "entrypoints": {
-        "s": 26.733,
-        "cores": 14.82,
-        "sysShare": 0.182
-      },
-      "emit": {
-        "s": 18.726,
-        "cores": 39.67,
-        "sysShare": 0.053
-      },
-      "turbopack": {
-        "s": 46.727,
-        "cores": 24.44,
-        "sysShare": 0.099
-      },
-      "persistence": {
-        "s": 4.846,
-        "cores": 37.07,
-        "sysShare": 0.871
-      },
-      "outputFiles": 26875
-    },
-    {
-      "binding": "base",
-      "ncpu": 96,
-      "cpus": "0-95",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
-      },
-      "when": "2026-10-07T17:14:31.567Z",
-      "wall": 83.564,
-      "cores": 20.41,
-      "memPeakGB": 12.29,
-      "graph": {
-        "s": 15.911,
-        "cores": 11.21,
-        "sysShare": 0.429
-      },
-      "entrypoints": {
-        "s": 28.924,
-        "cores": 15.5,
-        "sysShare": 0.214
-      },
-      "emit": {
-        "s": 19.225,
-        "cores": 51.64,
-        "sysShare": 0.065
-      },
-      "turbopack": {
-        "s": 49.422,
-        "cores": 29.23,
-        "sysShare": 0.112
-      },
-      "persistence": {
-        "s": 4.556,
-        "cores": 49.38,
-        "sysShare": 0.897
-      },
-      "outputFiles": 26875
-    },
-    {
-      "binding": "base",
-      "ncpu": 192,
-      "cpus": "0-191",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
-      },
-      "when": "2026-10-07T17:15:56.825Z",
-      "wall": 123.945,
-      "cores": 13.69,
-      "memPeakGB": 12.75,
-      "graph": {
-        "s": 38.062,
-        "cores": 9.28,
-        "sysShare": 0.449
-      },
-      "entrypoints": {
-        "s": 56.486,
-        "cores": 11.95,
-        "sysShare": 0.304
-      },
-      "emit": {
-        "s": 33.891,
-        "cores": 20.61,
-        "sysShare": 0.258
-      },
-      "turbopack": {
-        "s": 91.807,
-        "cores": 15.01,
-        "sysShare": 0.281
-      },
-      "persistence": {
-        "s": 3.346,
-        "cores": 84.56,
-        "sysShare": 0.904
-      },
-      "outputFiles": 26875
-    },
-    {
-      "binding": "incumbent",
-      "ncpu": 8,
-      "cpus": "0-7",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
-      },
-      "when": "2026-10-07T17:18:10.566Z",
-      "wall": 86.879,
-      "cores": 4.6,
-      "memPeakGB": 13.15,
-      "graph": {
-        "s": 8.261,
-        "cores": 7.02,
-        "sysShare": 0.038
-      },
-      "entrypoints": {
-        "s": 22.943,
-        "cores": 5.72,
-        "sysShare": 0.03
-      },
-      "emit": {
-        "s": 22.131,
-        "cores": 7.48,
-        "sysShare": 0.022
-      },
-      "turbopack": {
-        "s": 46.304,
-        "cores": 6.46,
-        "sysShare": 0.028
-      },
-      "persistence": {
-        "s": 12.148,
-        "cores": 5.56,
-        "sysShare": 0.609
-      },
-      "outputFiles": 26875
-    },
-    {
-      "binding": "incumbent",
+      "binding": "15+22",
       "ncpu": 16,
-      "cpus": "0-15",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 5.26,
+          "cores": 12.67,
+          "sysShare": 0.054
+        },
+        "entrypoints": {
+          "s": 16.591,
+          "cores": 8.97,
+          "sysShare": 0.037
+        },
+        "emit": {
+          "s": 16.675,
+          "cores": 13.39,
+          "sysShare": 0.024
+        },
+        "turbopack": {
+          "s": 34.502,
+          "cores": 10.86,
+          "sysShare": 0.032
+        },
+        "persistence": {
+          "s": 7.559,
+          "cores": 10.08,
+          "sysShare": 0.671
+        }
       },
-      "when": "2026-10-07T17:19:39.057Z",
-      "wall": 65.433,
-      "cores": 7.48,
-      "memPeakGB": 11.62,
-      "graph": {
-        "s": 5.325,
-        "cores": 12.76,
-        "sysShare": 0.052
-      },
-      "entrypoints": {
-        "s": 16.716,
-        "cores": 9.07,
-        "sysShare": 0.038
-      },
-      "emit": {
-        "s": 17.456,
-        "cores": 13.44,
-        "sysShare": 0.021
-      },
-      "turbopack": {
-        "s": 35.421,
-        "cores": 10.97,
-        "sysShare": 0.031
-      },
-      "persistence": {
-        "s": 7.883,
-        "cores": 9.34,
-        "sysShare": 0.65
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T20:19:15.011Z",
+          "wall": 71.765,
+          "cores": 6.82,
+          "memPeakGiB": 11.59,
+          "graph": {
+            "s": 5.237,
+            "at": 0.966,
+            "cores": 12.67,
+            "sysShare": 0.054
+          },
+          "entrypoints": {
+            "s": 16.591,
+            "at": 0.521,
+            "cores": 8.97,
+            "sysShare": 0.041
+          },
+          "emit": {
+            "s": 16.675,
+            "at": 17.171,
+            "cores": 13.39,
+            "sysShare": 0.024
+          },
+          "turbopack": {
+            "s": 34.502,
+            "at": 0.505,
+            "cores": 10.86,
+            "sysShare": 0.033
+          },
+          "persistence": {
+            "s": 7.559,
+            "at": 35.01,
+            "cores": 10.52,
+            "sysShare": 0.676
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "d1b7754ebcf22ee7"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T20:43:47.417Z",
+          "wall": 71.424,
+          "cores": 6.69,
+          "memPeakGiB": 11.57,
+          "graph": {
+            "s": 5.26,
+            "at": 0.969,
+            "cores": 12.64,
+            "sysShare": 0.055
+          },
+          "entrypoints": {
+            "s": 16.458,
+            "at": 0.521,
+            "cores": 8.97,
+            "sysShare": 0.037
+          },
+          "emit": {
+            "s": 16.63,
+            "at": 17.036,
+            "cores": 13.37,
+            "sysShare": 0.025
+          },
+          "turbopack": {
+            "s": 34.32,
+            "at": 0.504,
+            "cores": 10.85,
+            "sysShare": 0.032
+          },
+          "persistence": {
+            "s": 7.335,
+            "at": 34.827,
+            "cores": 9.66,
+            "sysShare": 0.641
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "fa4b1be11b670251"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-15",
+          "env": {},
+          "when": "2026-10-07T21:11:19.239Z",
+          "wall": 74.383,
+          "cores": 7.01,
+          "memPeakGiB": 11.71,
+          "graph": {
+            "s": 5.378,
+            "at": 0.99,
+            "cores": 12.85,
+            "sysShare": 0.048
+          },
+          "entrypoints": {
+            "s": 16.906,
+            "at": 0.517,
+            "cores": 9.12,
+            "sysShare": 0.033
+          },
+          "emit": {
+            "s": 18.456,
+            "at": 17.483,
+            "cores": 13.63,
+            "sysShare": 0.018
+          },
+          "turbopack": {
+            "s": 36.596,
+            "at": 0.501,
+            "cores": 11.16,
+            "sysShare": 0.026
+          },
+          "persistence": {
+            "s": 7.704,
+            "at": 37.101,
+            "cores": 10.08,
+            "sysShare": 0.671
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "60c5ef97133d1687"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
     },
     {
-      "binding": "incumbent",
+      "binding": "base",
+      "ncpu": 24,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 13.578,
+          "cores": 9.49,
+          "sysShare": 0.288
+        },
+        "entrypoints": {
+          "s": 27.867,
+          "cores": 9.77,
+          "sysShare": 0.146
+        },
+        "emit": {
+          "s": 15.376,
+          "cores": 19.06,
+          "sysShare": 0.022
+        },
+        "turbopack": {
+          "s": 44.985,
+          "cores": 12.75,
+          "sysShare": 0.085
+        },
+        "persistence": {
+          "s": 6.72,
+          "cores": 14.12,
+          "sysShare": 0.739
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T20:20:44.696Z",
+          "wall": 73.155,
+          "cores": 9.5,
+          "memPeakGiB": 11.86,
+          "graph": {
+            "s": 14.37,
+            "at": 0.952,
+            "cores": 9.34,
+            "sysShare": 0.303
+          },
+          "entrypoints": {
+            "s": 28.699,
+            "at": 0.52,
+            "cores": 9.66,
+            "sysShare": 0.16
+          },
+          "emit": {
+            "s": 15.376,
+            "at": 29.281,
+            "cores": 19.06,
+            "sysShare": 0.022
+          },
+          "turbopack": {
+            "s": 45.325,
+            "at": 0.497,
+            "cores": 12.64,
+            "sysShare": 0.091
+          },
+          "persistence": {
+            "s": 6.72,
+            "at": 45.824,
+            "cores": 14.12,
+            "sysShare": 0.739
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "456c9dff6c7d0de0"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T20:48:13.111Z",
+          "wall": 74.253,
+          "cores": 9.49,
+          "memPeakGiB": 11.6,
+          "graph": {
+            "s": 13.578,
+            "at": 0.971,
+            "cores": 9.49,
+            "sysShare": 0.288
+          },
+          "entrypoints": {
+            "s": 27.867,
+            "at": 0.521,
+            "cores": 9.77,
+            "sysShare": 0.146
+          },
+          "emit": {
+            "s": 15.88,
+            "at": 28.443,
+            "cores": 19.08,
+            "sysShare": 0.02
+          },
+          "turbopack": {
+            "s": 44.985,
+            "at": 0.498,
+            "cores": 12.84,
+            "sysShare": 0.081
+          },
+          "persistence": {
+            "s": 7.322,
+            "at": 45.485,
+            "cores": 13.6,
+            "sysShare": 0.749
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "dcba15ecbcb549af"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T21:12:51.259Z",
+          "wall": 83.045,
+          "cores": 8.21,
+          "memPeakGiB": 12.13,
+          "graph": {
+            "s": 12.668,
+            "at": 0.967,
+            "cores": 9.62,
+            "sysShare": 0.268
+          },
+          "entrypoints": {
+            "s": 26.861,
+            "at": 0.525,
+            "cores": 9.86,
+            "sysShare": 0.134
+          },
+          "emit": {
+            "s": 14.96,
+            "at": 27.441,
+            "cores": 18.86,
+            "sysShare": 0.036
+          },
+          "turbopack": {
+            "s": 43.067,
+            "at": 0.501,
+            "cores": 12.75,
+            "sysShare": 0.085
+          },
+          "persistence": {
+            "s": 6.073,
+            "at": 43.572,
+            "cores": 15.32,
+            "sysShare": 0.731
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "013fa852c83881ba"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "15+22",
+      "ncpu": 24,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 4.36,
+          "cores": 17.78,
+          "sysShare": 0.058
+        },
+        "entrypoints": {
+          "s": 14.675,
+          "cores": 11.64,
+          "sysShare": 0.04
+        },
+        "emit": {
+          "s": 15.433,
+          "cores": 19.06,
+          "sysShare": 0.021
+        },
+        "turbopack": {
+          "s": 31.344,
+          "cores": 14.92,
+          "sysShare": 0.03
+        },
+        "persistence": {
+          "s": 6.993,
+          "cores": 13.88,
+          "sysShare": 0.738
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T20:22:15.814Z",
+          "wall": 68.929,
+          "cores": 8.71,
+          "memPeakGiB": 11.51,
+          "graph": {
+            "s": 4.33,
+            "at": 0.946,
+            "cores": 17.78,
+            "sysShare": 0.058
+          },
+          "entrypoints": {
+            "s": 14.675,
+            "at": 0.524,
+            "cores": 11.64,
+            "sysShare": 0.04
+          },
+          "emit": {
+            "s": 15.433,
+            "at": 15.259,
+            "cores": 19.06,
+            "sysShare": 0.021
+          },
+          "turbopack": {
+            "s": 31.344,
+            "at": 0.502,
+            "cores": 14.92,
+            "sysShare": 0.03
+          },
+          "persistence": {
+            "s": 6.993,
+            "at": 31.849,
+            "cores": 13.88,
+            "sysShare": 0.738
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "58805d6c0a34ff8e"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T20:46:55.024Z",
+          "wall": 60.381,
+          "cores": 9.76,
+          "memPeakGiB": 11.74,
+          "graph": {
+            "s": 4.36,
+            "at": 0.951,
+            "cores": 17.55,
+            "sysShare": 0.061
+          },
+          "entrypoints": {
+            "s": 14.642,
+            "at": 0.521,
+            "cores": 11.6,
+            "sysShare": 0.042
+          },
+          "emit": {
+            "s": 15.172,
+            "at": 15.223,
+            "cores": 19.01,
+            "sysShare": 0.024
+          },
+          "turbopack": {
+            "s": 31.04,
+            "at": 0.498,
+            "cores": 14.84,
+            "sysShare": 0.033
+          },
+          "persistence": {
+            "s": 7.608,
+            "at": 31.541,
+            "cores": 13.33,
+            "sysShare": 0.748
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "d777c0971700bc93"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-23",
+          "env": {},
+          "when": "2026-10-07T21:14:31.957Z",
+          "wall": 73.71,
+          "cores": 8.94,
+          "memPeakGiB": 11.79,
+          "graph": {
+            "s": 4.706,
+            "at": 0.933,
+            "cores": 18.17,
+            "sysShare": 0.052
+          },
+          "entrypoints": {
+            "s": 15.311,
+            "at": 0.526,
+            "cores": 12.26,
+            "sysShare": 0.036
+          },
+          "emit": {
+            "s": 17.324,
+            "at": 15.898,
+            "cores": 19.55,
+            "sysShare": 0.016
+          },
+          "turbopack": {
+            "s": 33.882,
+            "at": 0.502,
+            "cores": 15.61,
+            "sysShare": 0.025
+          },
+          "persistence": {
+            "s": 6.536,
+            "at": 34.387,
+            "cores": 13.95,
+            "sysShare": 0.727
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "d1617be5c652219e"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "base",
       "ncpu": 32,
-      "cpus": "0-31",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 14.044,
+          "cores": 10.28,
+          "sysShare": 0.357
+        },
+        "entrypoints": {
+          "s": 27.486,
+          "cores": 11.15,
+          "sysShare": 0.177
+        },
+        "emit": {
+          "s": 15.828,
+          "cores": 24.87,
+          "sysShare": 0.024
+        },
+        "turbopack": {
+          "s": 44.309,
+          "cores": 15.76,
+          "sysShare": 0.091
+        },
+        "persistence": {
+          "s": 6.697,
+          "cores": 18.19,
+          "sysShare": 0.799
+        }
       },
-      "when": "2026-10-07T17:20:46.053Z",
-      "wall": 58.848,
-      "cores": 11.87,
-      "memPeakGB": 12.08,
-      "graph": {
-        "s": 4.126,
-        "cores": 22.27,
-        "sysShare": 0.068
-      },
-      "entrypoints": {
-        "s": 14.06,
-        "cores": 14.27,
-        "sysShare": 0.047
-      },
-      "emit": {
-        "s": 14.588,
-        "cores": 24.58,
-        "sysShare": 0.021
-      },
-      "turbopack": {
-        "s": 29.896,
-        "cores": 18.8,
-        "sysShare": 0.032
-      },
-      "persistence": {
-        "s": 7.133,
-        "cores": 15.22,
-        "sysShare": 0.773
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T20:23:42.681Z",
+          "wall": 83.07,
+          "cores": 10.24,
+          "memPeakGiB": 11.81,
+          "graph": {
+            "s": 14.044,
+            "at": 0.972,
+            "cores": 10.28,
+            "sysShare": 0.357
+          },
+          "entrypoints": {
+            "s": 27.486,
+            "at": 0.52,
+            "cores": 11.15,
+            "sysShare": 0.177
+          },
+          "emit": {
+            "s": 15.828,
+            "at": 28.064,
+            "cores": 24.87,
+            "sysShare": 0.022
+          },
+          "turbopack": {
+            "s": 44.566,
+            "at": 0.497,
+            "cores": 15.76,
+            "sysShare": 0.091
+          },
+          "persistence": {
+            "s": 5.628,
+            "at": 45.066,
+            "cores": 19.55,
+            "sysShare": 0.778
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "e0eeefd31c21f8be"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T20:51:12.287Z",
+          "wall": 83.191,
+          "cores": 10.13,
+          "memPeakGiB": 11.69,
+          "graph": {
+            "s": 14.118,
+            "at": 0.959,
+            "cores": 10.06,
+            "sysShare": 0.357
+          },
+          "entrypoints": {
+            "s": 27.487,
+            "at": 0.523,
+            "cores": 10.97,
+            "sysShare": 0.178
+          },
+          "emit": {
+            "s": 15.588,
+            "at": 28.067,
+            "cores": 24.29,
+            "sysShare": 0.032
+          },
+          "turbopack": {
+            "s": 44.309,
+            "at": 0.499,
+            "cores": 15.41,
+            "sysShare": 0.098
+          },
+          "persistence": {
+            "s": 6.697,
+            "at": 44.811,
+            "cores": 18.19,
+            "sysShare": 0.799
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "bf85c1e91ff4adc1"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T21:16:03.297Z",
+          "wall": 72.109,
+          "cores": 11.78,
+          "memPeakGiB": 11.66,
+          "graph": {
+            "s": 13.029,
+            "at": 0.966,
+            "cores": 10.69,
+            "sysShare": 0.355
+          },
+          "entrypoints": {
+            "s": 26.607,
+            "at": 0.518,
+            "cores": 11.39,
+            "sysShare": 0.173
+          },
+          "emit": {
+            "s": 15.837,
+            "at": 27.177,
+            "cores": 24.9,
+            "sysShare": 0.024
+          },
+          "turbopack": {
+            "s": 43.686,
+            "at": 0.494,
+            "cores": 16.02,
+            "sysShare": 0.09
+          },
+          "persistence": {
+            "s": 6.842,
+            "at": 44.183,
+            "cores": 17.86,
+            "sysShare": 0.799
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "18e669a78e42e26b"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
     },
     {
-      "binding": "incumbent",
+      "binding": "15+22",
+      "ncpu": 32,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 4.338,
+          "cores": 22.59,
+          "sysShare": 0.064
+        },
+        "entrypoints": {
+          "s": 14.372,
+          "cores": 14.87,
+          "sysShare": 0.045
+        },
+        "emit": {
+          "s": 15.51,
+          "cores": 25.01,
+          "sysShare": 0.017
+        },
+        "turbopack": {
+          "s": 31.128,
+          "cores": 19.41,
+          "sysShare": 0.029
+        },
+        "persistence": {
+          "s": 6.419,
+          "cores": 18.75,
+          "sysShare": 0.791
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T20:25:23.665Z",
+          "wall": 72.305,
+          "cores": 11.09,
+          "memPeakGiB": 12.84,
+          "graph": {
+            "s": 4.51,
+            "at": 0.965,
+            "cores": 23,
+            "sysShare": 0.059
+          },
+          "entrypoints": {
+            "s": 14.957,
+            "at": 0.526,
+            "cores": 15.2,
+            "sysShare": 0.043
+          },
+          "emit": {
+            "s": 16.335,
+            "at": 15.534,
+            "cores": 25.39,
+            "sysShare": 0.015
+          },
+          "turbopack": {
+            "s": 32.529,
+            "at": 0.502,
+            "cores": 19.82,
+            "sysShare": 0.026
+          },
+          "persistence": {
+            "s": 6.455,
+            "at": 33.033,
+            "cores": 18.36,
+            "sysShare": 0.791
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "830b480057d7c524"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T20:49:45.057Z",
+          "wall": 69.563,
+          "cores": 10.6,
+          "memPeakGiB": 12.72,
+          "graph": {
+            "s": 4.175,
+            "at": 0.961,
+            "cores": 22.42,
+            "sysShare": 0.064
+          },
+          "entrypoints": {
+            "s": 14.184,
+            "at": 0.519,
+            "cores": 14.48,
+            "sysShare": 0.045
+          },
+          "emit": {
+            "s": 15.071,
+            "at": 14.76,
+            "cores": 24.8,
+            "sysShare": 0.018
+          },
+          "turbopack": {
+            "s": 30.487,
+            "at": 0.496,
+            "cores": 19.08,
+            "sysShare": 0.029
+          },
+          "persistence": {
+            "s": 5.845,
+            "at": 30.985,
+            "cores": 19.92,
+            "sysShare": 0.786
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "5447951c2f133849"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-31",
+          "env": {},
+          "when": "2026-10-07T21:17:33.039Z",
+          "wall": 69.122,
+          "cores": 11.02,
+          "memPeakGiB": 11.75,
+          "graph": {
+            "s": 4.338,
+            "at": 0.943,
+            "cores": 22.59,
+            "sysShare": 0.065
+          },
+          "entrypoints": {
+            "s": 14.372,
+            "at": 0.524,
+            "cores": 14.87,
+            "sysShare": 0.045
+          },
+          "emit": {
+            "s": 15.51,
+            "at": 14.957,
+            "cores": 25.01,
+            "sysShare": 0.017
+          },
+          "turbopack": {
+            "s": 31.128,
+            "at": 0.501,
+            "cores": 19.41,
+            "sysShare": 0.029
+          },
+          "persistence": {
+            "s": 6.419,
+            "at": 31.631,
+            "cores": 18.75,
+            "sysShare": 0.791
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "0ba130255f443dc1"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "base",
+      "ncpu": 48,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 13.834,
+          "cores": 11.11,
+          "sysShare": 0.387
+        },
+        "entrypoints": {
+          "s": 26.994,
+          "cores": 13.22,
+          "sysShare": 0.183
+        },
+        "emit": {
+          "s": 18.197,
+          "cores": 31.91,
+          "sysShare": 0.055
+        },
+        "turbopack": {
+          "s": 46.961,
+          "cores": 20.04,
+          "sysShare": 0.107
+        },
+        "persistence": {
+          "s": 5.772,
+          "cores": 28.31,
+          "sysShare": 0.853
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T20:26:53.900Z",
+          "wall": 83.927,
+          "cores": 14.07,
+          "memPeakGiB": 11.86,
+          "graph": {
+            "s": 13.834,
+            "at": 1.034,
+            "cores": 11.13,
+            "sysShare": 0.39
+          },
+          "entrypoints": {
+            "s": 26.994,
+            "at": 0.54,
+            "cores": 13.66,
+            "sysShare": 0.177
+          },
+          "emit": {
+            "s": 18.726,
+            "at": 27.595,
+            "cores": 32.45,
+            "sysShare": 0.05
+          },
+          "turbopack": {
+            "s": 46.98,
+            "at": 0.51,
+            "cores": 20.84,
+            "sysShare": 0.099
+          },
+          "persistence": {
+            "s": 5.772,
+            "at": 47.492,
+            "cores": 28.51,
+            "sysShare": 0.856
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "8889abfaacb1b3b1"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T20:54:18.706Z",
+          "wall": 71.994,
+          "cores": 14.81,
+          "memPeakGiB": 11.89,
+          "graph": {
+            "s": 13.457,
+            "at": 1.004,
+            "cores": 11.11,
+            "sysShare": 0.386
+          },
+          "entrypoints": {
+            "s": 26.125,
+            "at": 0.541,
+            "cores": 13.22,
+            "sysShare": 0.183
+          },
+          "emit": {
+            "s": 16.942,
+            "at": 26.728,
+            "cores": 31.91,
+            "sysShare": 0.057
+          },
+          "turbopack": {
+            "s": 44.329,
+            "at": 0.511,
+            "cores": 20.04,
+            "sysShare": 0.107
+          },
+          "persistence": {
+            "s": 6.04,
+            "at": 44.842,
+            "cores": 25,
+            "sysShare": 0.842
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "2f781bf73078fb16"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T21:18:59.780Z",
+          "wall": 83.059,
+          "cores": 13.58,
+          "memPeakGiB": 11.85,
+          "graph": {
+            "s": 14.697,
+            "at": 0.939,
+            "cores": 10.49,
+            "sysShare": 0.387
+          },
+          "entrypoints": {
+            "s": 27.507,
+            "at": 0.53,
+            "cores": 12.9,
+            "sysShare": 0.19
+          },
+          "emit": {
+            "s": 18.197,
+            "at": 28.1,
+            "cores": 31.48,
+            "sysShare": 0.055
+          },
+          "turbopack": {
+            "s": 46.961,
+            "at": 0.5,
+            "cores": 19.81,
+            "sysShare": 0.107
+          },
+          "persistence": {
+            "s": 5.699,
+            "at": 47.463,
+            "cores": 28.31,
+            "sysShare": 0.853
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "a9cdeec2c661d21d"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "15+22",
+      "ncpu": 48,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 4.087,
+          "cores": 32.23,
+          "sysShare": 0.053
+        },
+        "entrypoints": {
+          "s": 14.107,
+          "cores": 20.35,
+          "sysShare": 0.038
+        },
+        "emit": {
+          "s": 14.903,
+          "cores": 36.13,
+          "sysShare": 0.017
+        },
+        "turbopack": {
+          "s": 30.253,
+          "cores": 27.37,
+          "sysShare": 0.026
+        },
+        "persistence": {
+          "s": 5.891,
+          "cores": 27.43,
+          "sysShare": 0.846
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T20:28:35.796Z",
+          "wall": 69.971,
+          "cores": 14.66,
+          "memPeakGiB": 12.05,
+          "graph": {
+            "s": 4.083,
+            "at": 0.953,
+            "cores": 32,
+            "sysShare": 0.056
+          },
+          "entrypoints": {
+            "s": 14.045,
+            "at": 0.539,
+            "cores": 20.35,
+            "sysShare": 0.041
+          },
+          "emit": {
+            "s": 14.867,
+            "at": 14.645,
+            "cores": 36.13,
+            "sysShare": 0.017
+          },
+          "turbopack": {
+            "s": 30.164,
+            "at": 0.509,
+            "cores": 27.37,
+            "sysShare": 0.026
+          },
+          "persistence": {
+            "s": 5.894,
+            "at": 30.676,
+            "cores": 27.26,
+            "sysShare": 0.846
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "998f7b7c3ea89f17"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T20:52:53.090Z",
+          "wall": 67.99,
+          "cores": 15.1,
+          "memPeakGiB": 13.06,
+          "graph": {
+            "s": 4.087,
+            "at": 1.007,
+            "cores": 32.23,
+            "sysShare": 0.053
+          },
+          "entrypoints": {
+            "s": 14.107,
+            "at": 0.539,
+            "cores": 20.33,
+            "sysShare": 0.038
+          },
+          "emit": {
+            "s": 14.903,
+            "at": 14.705,
+            "cores": 36.01,
+            "sysShare": 0.017
+          },
+          "turbopack": {
+            "s": 30.253,
+            "at": 0.509,
+            "cores": 27.3,
+            "sysShare": 0.026
+          },
+          "persistence": {
+            "s": 5.891,
+            "at": 30.764,
+            "cores": 27.74,
+            "sysShare": 0.848
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "796348b328273a8f"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-47",
+          "env": {},
+          "when": "2026-10-07T21:20:40.494Z",
+          "wall": 72.529,
+          "cores": 15.98,
+          "memPeakGiB": 12.06,
+          "graph": {
+            "s": 4.471,
+            "at": 0.972,
+            "cores": 34.14,
+            "sysShare": 0.047
+          },
+          "entrypoints": {
+            "s": 14.819,
+            "at": 0.545,
+            "cores": 22.26,
+            "sysShare": 0.033
+          },
+          "emit": {
+            "s": 16.698,
+            "at": 15.427,
+            "cores": 37.52,
+            "sysShare": 0.011
+          },
+          "turbopack": {
+            "s": 32.771,
+            "at": 0.515,
+            "cores": 29.27,
+            "sysShare": 0.02
+          },
+          "persistence": {
+            "s": 5.823,
+            "at": 33.288,
+            "cores": 27.43,
+            "sysShare": 0.846
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "7172cace965d4359"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "base",
       "ncpu": 64,
-      "cpus": "0-63",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 14.327,
+          "cores": 11.29,
+          "sysShare": 0.412
+        },
+        "entrypoints": {
+          "s": 27.095,
+          "cores": 14.87,
+          "sysShare": 0.181
+        },
+        "emit": {
+          "s": 19.393,
+          "cores": 39.09,
+          "sysShare": 0.052
+        },
+        "turbopack": {
+          "s": 47.558,
+          "cores": 24.3,
+          "sysShare": 0.098
+        },
+        "persistence": {
+          "s": 5.092,
+          "cores": 35.35,
+          "sysShare": 0.872
+        }
       },
-      "when": "2026-10-07T17:21:46.461Z",
-      "wall": 67.914,
-      "cores": 19.8,
-      "memPeakGB": 13.19,
-      "graph": {
-        "s": 4.213,
-        "cores": 42.42,
-        "sysShare": 0.044
-      },
-      "entrypoints": {
-        "s": 14.45,
-        "cores": 26.88,
-        "sysShare": 0.033
-      },
-      "emit": {
-        "s": 15.634,
-        "cores": 47.6,
-        "sysShare": 0.015
-      },
-      "turbopack": {
-        "s": 31.353,
-        "cores": 36.22,
-        "sysShare": 0.022
-      },
-      "persistence": {
-        "s": 4.634,
-        "cores": 36.85,
-        "sysShare": 0.857
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T20:30:03.742Z",
+          "wall": 83.982,
+          "cores": 16.34,
+          "memPeakGiB": 12.85,
+          "graph": {
+            "s": 14.327,
+            "at": 0.997,
+            "cores": 11.29,
+            "sysShare": 0.412
+          },
+          "entrypoints": {
+            "s": 27.095,
+            "at": 0.544,
+            "cores": 14.87,
+            "sysShare": 0.187
+          },
+          "emit": {
+            "s": 19.136,
+            "at": 27.7,
+            "cores": 39.09,
+            "sysShare": 0.055
+          },
+          "turbopack": {
+            "s": 47.5,
+            "at": 0.513,
+            "cores": 24.3,
+            "sysShare": 0.102
+          },
+          "persistence": {
+            "s": 5.092,
+            "at": 48.015,
+            "cores": 35.49,
+            "sysShare": 0.872
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "e939ce7cbf0ed902"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T20:57:14.930Z",
+          "wall": 83.979,
+          "cores": 17.02,
+          "memPeakGiB": 12.92,
+          "graph": {
+            "s": 14.117,
+            "at": 1.034,
+            "cores": 11.38,
+            "sysShare": 0.412
+          },
+          "entrypoints": {
+            "s": 26.911,
+            "at": 0.541,
+            "cores": 15.4,
+            "sysShare": 0.179
+          },
+          "emit": {
+            "s": 19.393,
+            "at": 27.514,
+            "cores": 40.1,
+            "sysShare": 0.052
+          },
+          "turbopack": {
+            "s": 47.558,
+            "at": 0.51,
+            "cores": 25.12,
+            "sysShare": 0.097
+          },
+          "persistence": {
+            "s": 5.589,
+            "at": 48.07,
+            "cores": 35.35,
+            "sysShare": 0.879
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "7396e03c829233a8"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T21:22:10.698Z",
+          "wall": 85.283,
+          "cores": 16.51,
+          "memPeakGiB": 12.09,
+          "graph": {
+            "s": 15.04,
+            "at": 0.995,
+            "cores": 10.89,
+            "sysShare": 0.411
+          },
+          "entrypoints": {
+            "s": 27.984,
+            "at": 0.541,
+            "cores": 14.81,
+            "sysShare": 0.181
+          },
+          "emit": {
+            "s": 20.248,
+            "at": 28.585,
+            "cores": 38.39,
+            "sysShare": 0.052
+          },
+          "turbopack": {
+            "s": 49.495,
+            "at": 0.51,
+            "cores": 24.14,
+            "sysShare": 0.098
+          },
+          "persistence": {
+            "s": 5.044,
+            "at": 50.007,
+            "cores": 35.08,
+            "sysShare": 0.867
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "dc089802c03dd3ac"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
     },
     {
-      "binding": "incumbent",
+      "binding": "15+22",
+      "ncpu": 64,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 4.054,
+          "cores": 41.93,
+          "sysShare": 0.045
+        },
+        "entrypoints": {
+          "s": 14.168,
+          "cores": 26.33,
+          "sysShare": 0.038
+        },
+        "emit": {
+          "s": 15.372,
+          "cores": 46.82,
+          "sysShare": 0.015
+        },
+        "turbopack": {
+          "s": 30.608,
+          "cores": 35.55,
+          "sysShare": 0.024
+        },
+        "persistence": {
+          "s": 5.349,
+          "cores": 33.94,
+          "sysShare": 0.867
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T20:31:45.665Z",
+          "wall": 65.391,
+          "cores": 18.1,
+          "memPeakGiB": 13.12,
+          "graph": {
+            "s": 4.026,
+            "at": 0.995,
+            "cores": 41.66,
+            "sysShare": 0.045
+          },
+          "entrypoints": {
+            "s": 13.975,
+            "at": 0.537,
+            "cores": 25.88,
+            "sysShare": 0.039
+          },
+          "emit": {
+            "s": 15.372,
+            "at": 14.572,
+            "cores": 39.09,
+            "sysShare": 0.09
+          },
+          "turbopack": {
+            "s": 30.608,
+            "at": 0.508,
+            "cores": 31.56,
+            "sysShare": 0.072
+          },
+          "persistence": {
+            "s": 5.642,
+            "at": 31.118,
+            "cores": 32.29,
+            "sysShare": 0.87
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "8eec7334ba3a366f"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T20:55:48.314Z",
+          "wall": 68.996,
+          "cores": 18.98,
+          "memPeakGiB": 12.18,
+          "graph": {
+            "s": 4.054,
+            "at": 0.96,
+            "cores": 42.04,
+            "sysShare": 0.045
+          },
+          "entrypoints": {
+            "s": 14.168,
+            "at": 0.529,
+            "cores": 26.33,
+            "sysShare": 0.034
+          },
+          "emit": {
+            "s": 15.156,
+            "at": 14.757,
+            "cores": 46.91,
+            "sysShare": 0.015
+          },
+          "turbopack": {
+            "s": 30.58,
+            "at": 0.499,
+            "cores": 35.55,
+            "sysShare": 0.022
+          },
+          "persistence": {
+            "s": 5.133,
+            "at": 31.08,
+            "cores": 35.64,
+            "sysShare": 0.867
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "ad55f06fcdac168f"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-63",
+          "env": {},
+          "when": "2026-10-07T21:23:53.598Z",
+          "wall": 69.084,
+          "cores": 19.26,
+          "memPeakGiB": 13.03,
+          "graph": {
+            "s": 4.186,
+            "at": 0.983,
+            "cores": 41.93,
+            "sysShare": 0.043
+          },
+          "entrypoints": {
+            "s": 14.284,
+            "at": 0.545,
+            "cores": 26.42,
+            "sysShare": 0.038
+          },
+          "emit": {
+            "s": 15.603,
+            "at": 14.889,
+            "cores": 46.82,
+            "sysShare": 0.015
+          },
+          "turbopack": {
+            "s": 31.141,
+            "at": 0.515,
+            "cores": 35.67,
+            "sysShare": 0.024
+          },
+          "persistence": {
+            "s": 5.349,
+            "at": 31.657,
+            "cores": 33.94,
+            "sysShare": 0.865
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "150671bcd58747d0"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "base",
       "ncpu": 96,
-      "cpus": "0-95",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 15.924,
+          "cores": 11.3,
+          "sysShare": 0.437
+        },
+        "entrypoints": {
+          "s": 28.989,
+          "cores": 15.87,
+          "sysShare": 0.21
+        },
+        "emit": {
+          "s": 19.53,
+          "cores": 53.1,
+          "sysShare": 0.055
+        },
+        "turbopack": {
+          "s": 49.79,
+          "cores": 30.15,
+          "sysShare": 0.104
+        },
+        "persistence": {
+          "s": 4.26,
+          "cores": 51.65,
+          "sysShare": 0.891
+        }
       },
-      "when": "2026-10-07T17:22:55.943Z",
-      "wall": 65.091,
-      "cores": 26.65,
-      "memPeakGB": 12.65,
-      "graph": {
-        "s": 3.952,
-        "cores": 59.66,
-        "sysShare": 0.037
-      },
-      "entrypoints": {
-        "s": 14.068,
-        "cores": 36.83,
-        "sysShare": 0.029
-      },
-      "emit": {
-        "s": 15.482,
-        "cores": 63.71,
-        "sysShare": 0.03
-      },
-      "turbopack": {
-        "s": 30.823,
-        "cores": 48.94,
-        "sysShare": 0.031
-      },
-      "persistence": {
-        "s": 3.957,
-        "cores": 47.73,
-        "sysShare": 0.871
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T20:33:09.005Z",
+          "wall": 84.055,
+          "cores": 20.91,
+          "memPeakGiB": 12.18,
+          "graph": {
+            "s": 15.924,
+            "at": 1.049,
+            "cores": 11.3,
+            "sysShare": 0.438
+          },
+          "entrypoints": {
+            "s": 28.989,
+            "at": 0.537,
+            "cores": 15.87,
+            "sysShare": 0.21
+          },
+          "emit": {
+            "s": 19.556,
+            "at": 29.588,
+            "cores": 53.1,
+            "sysShare": 0.055
+          },
+          "turbopack": {
+            "s": 49.79,
+            "at": 0.507,
+            "cores": 30.15,
+            "sysShare": 0.104
+          },
+          "persistence": {
+            "s": 4.179,
+            "at": 50.299,
+            "cores": 52.68,
+            "sysShare": 0.888
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "fed4143a40ecd595"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T21:00:20.139Z",
+          "wall": 84.247,
+          "cores": 20.88,
+          "memPeakGiB": 13.05,
+          "graph": {
+            "s": 15.745,
+            "at": 1.02,
+            "cores": 11.43,
+            "sysShare": 0.437
+          },
+          "entrypoints": {
+            "s": 28.616,
+            "at": 0.547,
+            "cores": 16.1,
+            "sysShare": 0.209
+          },
+          "emit": {
+            "s": 19.43,
+            "at": 29.222,
+            "cores": 53.63,
+            "sysShare": 0.053
+          },
+          "turbopack": {
+            "s": 49.312,
+            "at": 0.516,
+            "cores": 30.53,
+            "sysShare": 0.101
+          },
+          "persistence": {
+            "s": 4.26,
+            "at": 49.83,
+            "cores": 50.62,
+            "sysShare": 0.891
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "c1b6d5f37dc68fc9"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T21:25:20.317Z",
+          "wall": 84.705,
+          "cores": 20.38,
+          "memPeakGiB": 13.25,
+          "graph": {
+            "s": 16.31,
+            "at": 0.944,
+            "cores": 11.13,
+            "sysShare": 0.437
+          },
+          "entrypoints": {
+            "s": 29.192,
+            "at": 0.542,
+            "cores": 15.55,
+            "sysShare": 0.216
+          },
+          "emit": {
+            "s": 19.53,
+            "at": 29.794,
+            "cores": 51.71,
+            "sysShare": 0.059
+          },
+          "turbopack": {
+            "s": 49.981,
+            "at": 0.513,
+            "cores": 29.35,
+            "sysShare": 0.108
+          },
+          "persistence": {
+            "s": 4.316,
+            "at": 50.495,
+            "cores": 51.65,
+            "sysShare": 0.895
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "08dcc2eb30508732"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
     },
     {
-      "binding": "incumbent",
+      "binding": "15+22",
+      "ncpu": 96,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 4.084,
+          "cores": 60.51,
+          "sysShare": 0.036
+        },
+        "entrypoints": {
+          "s": 14.285,
+          "cores": 37.94,
+          "sysShare": 0.029
+        },
+        "emit": {
+          "s": 15.742,
+          "cores": 66.81,
+          "sysShare": 0.021
+        },
+        "turbopack": {
+          "s": 31.288,
+          "cores": 51.02,
+          "sysShare": 0.024
+        },
+        "persistence": {
+          "s": 4.937,
+          "cores": 47.81,
+          "sysShare": 0.891
+        }
+      },
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T20:34:51.023Z",
+          "wall": 64.606,
+          "cores": 27.56,
+          "memPeakGiB": 12.28,
+          "graph": {
+            "s": 3.935,
+            "at": 0.988,
+            "cores": 60.35,
+            "sysShare": 0.037
+          },
+          "entrypoints": {
+            "s": 14.024,
+            "at": 0.542,
+            "cores": 37.18,
+            "sysShare": 0.029
+          },
+          "emit": {
+            "s": 15.22,
+            "at": 14.631,
+            "cores": 65.65,
+            "sysShare": 0.025
+          },
+          "turbopack": {
+            "s": 30.498,
+            "at": 0.512,
+            "cores": 49.97,
+            "sysShare": 0.027
+          },
+          "persistence": {
+            "s": 4.243,
+            "at": 31.011,
+            "cores": 51.86,
+            "sysShare": 0.889
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "22efac6879713d28"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T20:58:56.531Z",
+          "wall": 65.94,
+          "cores": 28.46,
+          "memPeakGiB": 12.25,
+          "graph": {
+            "s": 4.091,
+            "at": 1.038,
+            "cores": 60.51,
+            "sysShare": 0.036
+          },
+          "entrypoints": {
+            "s": 14.321,
+            "at": 0.551,
+            "cores": 37.94,
+            "sysShare": 0.028
+          },
+          "emit": {
+            "s": 15.749,
+            "at": 14.935,
+            "cores": 66.81,
+            "sysShare": 0.021
+          },
+          "turbopack": {
+            "s": 31.326,
+            "at": 0.521,
+            "cores": 51.02,
+            "sysShare": 0.024
+          },
+          "persistence": {
+            "s": 5.077,
+            "at": 31.849,
+            "cores": 47.81,
+            "sysShare": 0.896
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "f5d2ecd6c582b5f9"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-95",
+          "env": {},
+          "when": "2026-10-07T21:27:02.701Z",
+          "wall": 56.594,
+          "cores": 32.84,
+          "memPeakGiB": 12.15,
+          "graph": {
+            "s": 4.084,
+            "at": 1.001,
+            "cores": 61.38,
+            "sysShare": 0.036
+          },
+          "entrypoints": {
+            "s": 14.285,
+            "at": 0.543,
+            "cores": 38.26,
+            "sysShare": 0.03
+          },
+          "emit": {
+            "s": 15.742,
+            "at": 14.89,
+            "cores": 67.15,
+            "sysShare": 0.02
+          },
+          "turbopack": {
+            "s": 31.288,
+            "at": 0.513,
+            "cores": 51.36,
+            "sysShare": 0.024
+          },
+          "persistence": {
+            "s": 4.937,
+            "at": 31.802,
+            "cores": 45.54,
+            "sysShare": 0.891
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "b397669a24ad6760"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "base",
       "ncpu": 192,
-      "cpus": "0-191",
-      "machine": {
-        "arch": "arm64",
-        "cpuModel": "Neoverse-V2",
-        "cores": 192,
-        "memGB": 371,
-        "node": "v22.23.3",
-        "sharedBox": false
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 38.586,
+          "cores": 9.35,
+          "sysShare": 0.458
+        },
+        "entrypoints": {
+          "s": 56.945,
+          "cores": 12.07,
+          "sysShare": 0.317
+        },
+        "emit": {
+          "s": 34.346,
+          "cores": 20.1,
+          "sysShare": 0.271
+        },
+        "turbopack": {
+          "s": 92.797,
+          "cores": 14.92,
+          "sysShare": 0.295
+        },
+        "persistence": {
+          "s": 3.725,
+          "cores": 73.65,
+          "sysShare": 0.901
+        }
       },
-      "when": "2026-10-07T17:24:02.606Z",
-      "wall": 78.08,
-      "cores": 25.21,
-      "memPeakGB": 14.5,
-      "graph": {
-        "s": 5.558,
-        "cores": 80.9,
-        "sysShare": 0.152
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T20:36:13.707Z",
+          "wall": 119.318,
+          "cores": 14.68,
+          "memPeakGiB": 12.71,
+          "graph": {
+            "s": 38.303,
+            "at": 1.087,
+            "cores": 9.36,
+            "sysShare": 0.458
+          },
+          "entrypoints": {
+            "s": 56.562,
+            "at": 0.569,
+            "cores": 11.72,
+            "sysShare": 0.317
+          },
+          "emit": {
+            "s": 33.798,
+            "at": 57.221,
+            "cores": 20.77,
+            "sysShare": 0.264
+          },
+          "turbopack": {
+            "s": 91.781,
+            "at": 0.538,
+            "cores": 14.92,
+            "sysShare": 0.29
+          },
+          "persistence": {
+            "s": 4.77,
+            "at": 92.324,
+            "cores": 73.92,
+            "sysShare": 0.921
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "9f8dba81e99fd31b"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T21:03:37.925Z",
+          "wall": 119.904,
+          "cores": 14.05,
+          "memPeakGiB": 12.8,
+          "graph": {
+            "s": 38.586,
+            "at": 1.029,
+            "cores": 9.23,
+            "sysShare": 0.452
+          },
+          "entrypoints": {
+            "s": 56.945,
+            "at": 0.543,
+            "cores": 12.07,
+            "sysShare": 0.326
+          },
+          "emit": {
+            "s": 34.417,
+            "at": 57.581,
+            "cores": 19.97,
+            "sysShare": 0.271
+          },
+          "turbopack": {
+            "s": 92.797,
+            "at": 0.511,
+            "cores": 14.87,
+            "sysShare": 0.299
+          },
+          "persistence": {
+            "s": 3.725,
+            "at": 93.31,
+            "cores": 73.65,
+            "sysShare": 0.901
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "aaeb653fdd9e751d"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T21:28:16.915Z",
+          "wall": 122.448,
+          "cores": 13.62,
+          "memPeakGiB": 13.05,
+          "graph": {
+            "s": 39.2,
+            "at": 1.185,
+            "cores": 9.35,
+            "sysShare": 0.461
+          },
+          "entrypoints": {
+            "s": 57.237,
+            "at": 0.577,
+            "cores": 12.33,
+            "sysShare": 0.301
+          },
+          "emit": {
+            "s": 34.346,
+            "at": 57.904,
+            "cores": 20.1,
+            "sysShare": 0.289
+          },
+          "turbopack": {
+            "s": 93.001,
+            "at": 0.55,
+            "cores": 15.06,
+            "sysShare": 0.295
+          },
+          "persistence": {
+            "s": 3.632,
+            "at": 93.557,
+            "cores": 64.38,
+            "sysShare": 0.874
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "b0c28687adc02a3d"
+          },
+          "bindingSource": {
+            "head": null,
+            "diffSha256": "e3b0c44298fc1c14",
+            "nodeSha256": "ad85c3c79d0a6bc6"
+          }
+        }
+      ]
+    },
+    {
+      "binding": "15+22",
+      "ncpu": 192,
+      "reps": 3,
+      "median": {
+        "graph": {
+          "s": 5.871,
+          "cores": 74.84,
+          "sysShare": 0.153
+        },
+        "entrypoints": {
+          "s": 18.551,
+          "cores": 54.69,
+          "sysShare": 0.248
+        },
+        "emit": {
+          "s": 24.911,
+          "cores": 32.2,
+          "sysShare": 0.228
+        },
+        "turbopack": {
+          "s": 44.827,
+          "cores": 40.95,
+          "sysShare": 0.241
+        },
+        "persistence": {
+          "s": 3.67,
+          "cores": 74.45,
+          "sysShare": 0.929
+        }
       },
-      "entrypoints": {
-        "s": 18.545,
-        "cores": 54.8,
-        "sysShare": 0.286
-      },
-      "emit": {
-        "s": 25.309,
-        "cores": 26.31,
-        "sysShare": 0.267
-      },
-      "turbopack": {
-        "s": 45.268,
-        "cores": 37.27,
-        "sysShare": 0.279
-      },
-      "persistence": {
-        "s": 3.707,
-        "cores": 65.65,
-        "sysShare": 0.908
-      },
-      "outputFiles": 26875
+      "runs": [
+        {
+          "rep": 0,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T20:38:31.199Z",
+          "wall": 72.925,
+          "cores": 29.73,
+          "memPeakGiB": 14.62,
+          "graph": {
+            "s": 6.055,
+            "at": 1.043,
+            "cores": 71.71,
+            "sysShare": 0.153
+          },
+          "entrypoints": {
+            "s": 19.443,
+            "at": 0.555,
+            "cores": 51.52,
+            "sysShare": 0.337
+          },
+          "emit": {
+            "s": 25.325,
+            "at": 20.108,
+            "cores": 34.96,
+            "sysShare": 0.228
+          },
+          "turbopack": {
+            "s": 46.201,
+            "at": 0.523,
+            "cores": 40.95,
+            "sysShare": 0.286
+          },
+          "persistence": {
+            "s": 3.67,
+            "at": 46.73,
+            "cores": 66.89,
+            "sysShare": 0.9
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "b13255bf17789969"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 1,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T21:02:02.009Z",
+          "wall": 77.994,
+          "cores": 27.67,
+          "memPeakGiB": 14.01,
+          "graph": {
+            "s": 5.775,
+            "at": 1.108,
+            "cores": 79.06,
+            "sysShare": 0.219
+          },
+          "entrypoints": {
+            "s": 18.551,
+            "at": 0.574,
+            "cores": 59.84,
+            "sysShare": 0.248
+          },
+          "emit": {
+            "s": 24.823,
+            "at": 19.249,
+            "cores": 30.06,
+            "sysShare": 0.228
+          },
+          "turbopack": {
+            "s": 44.827,
+            "at": 0.547,
+            "cores": 41.55,
+            "sysShare": 0.241
+          },
+          "persistence": {
+            "s": 3.329,
+            "at": 45.387,
+            "cores": 77.36,
+            "sysShare": 0.929
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "b8debfd7b18995de"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        },
+        {
+          "rep": 2,
+          "cpus": "0-191",
+          "env": {},
+          "when": "2026-10-07T21:30:37.217Z",
+          "wall": 77.719,
+          "cores": 27.44,
+          "memPeakGiB": 13.68,
+          "graph": {
+            "s": 5.871,
+            "at": 1.018,
+            "cores": 74.84,
+            "sysShare": 0.143
+          },
+          "entrypoints": {
+            "s": 18.424,
+            "at": 0.567,
+            "cores": 54.69,
+            "sysShare": 0.171
+          },
+          "emit": {
+            "s": 24.911,
+            "at": 19.095,
+            "cores": 32.2,
+            "sysShare": 0.256
+          },
+          "turbopack": {
+            "s": 44.764,
+            "at": 0.535,
+            "cores": 40.53,
+            "sysShare": 0.209
+          },
+          "persistence": {
+            "s": 3.774,
+            "at": 45.304,
+            "cores": 74.45,
+            "sysShare": 0.931
+          },
+          "output": {
+            "files": 41857,
+            "sha": "939f49aa09028665",
+            "exactSha": "77de93a7e81b2733"
+          },
+          "bindingSource": {
+            "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf",
+            "diffSha256": "b032d66a7371fd6e",
+            "nodeSha256": "fe7853b911f69338"
+          }
+        }
+      ]
     }
   ]
 }

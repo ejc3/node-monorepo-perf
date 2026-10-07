@@ -529,37 +529,52 @@ One command each for the O(repo)-vs-O(closure) thesis:
   `findmnt`; self-contained, cleans up on exit.
 
 ### Turbopack Graph Gym
-One large app instead of many small ones: the shape of vercel/next.js#98043, where a
-single `next build` spends most of its Turbopack compile in the whole-app module graph
-phase, which does not get faster with more cores. Results and method: TURBOPACK-GRAPH.md.
-- `scripts/monolith-gen.mjs` (`make monolith`): one App Router app, default 2,070 routes
-  (pages, route handlers, section layouts) over ~16,000 first-party TS files (feature
-  folders, a UI kit and a util layer behind `export *` barrels, `'use client'` boundaries,
-  zipf cross-feature imports). Deterministic per `--seed`. Standalone (own package.json);
-  `next.config` reads `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`, `MONOLITH_TP_FS_CACHE`.
+One large app instead of many small ones: the shape of vercel/next.js#98043, whose
+Turbopack module graph phase keeps a few cores busy whatever the core count. Results and
+method: TURBOPACK-GRAPH.md. All state lives under `GYM_ROOT` (required: a scratch
+directory; the next.js clone, one cargo target per binding, the apps, run outputs).
+- `scripts/monolith-gen.mjs` (`make monolith`): one standalone App Router app; defaults:
+  2,071 routes (1,709 pages with the root page, 362 route handlers), 192 section layouts,
+  16,068 TypeScript files in feature folders, a UI kit and a util layer behind
+  `export *` barrels, `'use client'` boundaries, zipf cross-feature imports. Deterministic
+  per `--seed`; `monolith.json` records the counts and options. `--clean` deletes only a
+  generated tree. `next.config` reads `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`,
+  `MONOLITH_TP_FS_CACHE`.
 - `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
-  `setup.mjs` (`make gym-setup`) clones next.js at a tag under `GYM_ROOT`, builds the base
-  binding (release, no LTO, 16 codegen units) and a frame-pointer one, generates and
-  installs the `monolith` and 400-route `quick` apps. `bench.mjs` is one cold
-  `next build --experimental-build-mode=compile` in a `systemd-run --scope` pinned to a CPU
-  set (memory on that set's NUMA nodes): phase durations from `.next/trace-build`, cores
-  used per phase from the scope's `cpu.stat`, peak memory, an output fingerprint (the
-  multiset of directory + file size: Turbopack output is not byte-reproducible, the
-  minifier permutes local names), machine fields. `ab.mjs` runs A and B concurrently on a
-  lane pair and swaps lanes every rep; the verdict is the geometric mean over swapped rep
-  pairs (lanes on one box differ by >10%; a fixed lane offset cancels), sign-consistent
-  per swap pair, guard on `run-turbopack`, same fingerprint. `build.mjs` builds a candidate
-  from a next.js worktree; `climb.mjs` (`make gym-climb`) evaluates
-  `bench/turbopack-gym/candidates/*.json` and folds winners into branch `gym/incumbent`;
-  `scaling.mjs` (`make gym-scaling`) sweeps lane sizes holding the whole box; `profile.mjs`
-  records `perf` (on-CPU + `sched_switch`) and prints per-phase `--time` windows;
-  `show.mjs` prints a run's CPU timeline with phases; `depth.mjs` the longest import chain.
-  CPUs are locked one by one (`withCpus`), so concurrent A/Bs never share a core.
-  `--host <name>` runs A/B, scaling, setup and record on a machine from the gitignored
-  `scripts/turbopack-gym/hosts.local.json` (bindings are built here and rsynced). Raw logs
-  go to `bench/raw/turbopack-gym/`; `record.mjs` (`make gym-record`) writes
-  `bench/turbopack-graph-scaling.json` and `bench/turbopack-graph-ab.json`. Needs
-  passwordless sudo (systemd-run, perf), Node 22, pnpm, the next.js rust toolchain.
+  - `setup.mjs` (`make gym-setup`): clone next.js at a tag, build the base binding
+    (release, LTO off, 16 codegen units) and a frame-pointer one, generate and install the
+    `monolith` and 400-route `quick` apps; `--host` sets up the apps and ships the base
+    binding to another machine.
+  - `bench.mjs`: one cold `next build --experimental-build-mode=compile` in a
+    `systemd-run --scope` pinned to a CPU set (memory on its NUMA nodes): phase durations
+    and offsets from `.next/trace-build`, cores and kernel share per phase from the scope's
+    `cpu.stat`, an output fingerprint (normalized contents of every emitted file, plus the
+    exact hash), the app tree hash, the binding's diff and module hashes, machine fields
+    (instance type from EC2 metadata). Fails on a missing phase or thin CPU sampling.
+  - `ab.mjs`: A and B concurrently on a lane pair (equal, disjoint, one NUMA node each),
+    lanes and launch order swapped every rep, bindings snapshotted under the locks; verdict
+    on the geometric mean over reps, sign-consistent per swapped pair, guard on
+    `run-turbopack`, same fingerprint.
+  - `build.mjs` (candidate binding from a next.js worktree; patches applied once, at
+    creation), `climb.mjs` (`make gym-climb`: the candidate queue in
+    `bench/turbopack-gym/candidates/`, winners folded into branch `gym/incumbent`, one climb
+    per machine), `scaling.mjs` (`make gym-scaling`: lane sizes one build at a time holding
+    the box, bindings interleaved), `profile.mjs` (`perf` on-CPU and `sched_switch` on the
+    profiled CPUs, phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs`
+    (longest import chain).
+  - Every run, A/B, build, profile and sweep takes the locks of the CPUs it uses
+    (`withCpus`): a lock is created whole and released by moving it aside, so two of them
+    never share a CPU.
+  - `--host <name>` runs setup, A/B, scaling and record on a machine from the gitignored
+    `scripts/turbopack-gym/hosts.local.json`; bindings are built here and rsynced.
+  - `record.mjs` (`make gym-record`) writes `bench/turbopack-graph-ab.json` and
+    `bench/turbopack-graph-scaling.json`, recomputing every number from the per-run files
+    and verifying each run's binding (against `bench/turbopack-gym/bindings.json`), app
+    tree and machine. `canonical.mjs` (`make gym-canonical`) re-measures both records from
+    the tracked patches; `report.mjs` renders TURBOPACK-GRAPH.md's tables from them
+    (`--check` fails on drift); `selftest.mjs` (`make gym-selftest`) tests the locks, the
+    record verification and the output fingerprint.
+  - Needs passwordless sudo (systemd-run, perf), Node 22, pnpm, the next.js rust toolchain.
 
 ### Developer Experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>`: simulate D devs each
@@ -968,11 +983,13 @@ scale, every row recording the same `versions.pnpm`, and `chart.mjs` enforces bo
 refuses an empty dataset, an un-versioned or differently-versioned row, and a second row
 for a scale label). The Turbopack graph records `turbopack-graph-ab.json` and
 `turbopack-graph-scaling.json` (TURBOPACK-GRAPH.md) are canonical on a dedicated 192-core
-c8g.48xlarge (two NUMA nodes); every row records its `machine` (arch, cpuModel, cores,
-memGB, node, sharedBox) and each record's `bindings` names the candidate patches (with
-hashes) inside every binding it ran. The A/B record ran four lane pairs at once, so its
-absolute times include the other builds on the box and its rows are compared by ratio;
-the scaling record ran one build at a time holding every CPU. `chart.mjs`
+c8g.48xlarge (two NUMA nodes); each record carries one `machine` (arch, cpuModel, cores,
+numaNodes, memGiB, instanceType, node, sharedBox) that `record.mjs` checks every run against,
+the app's shape and tree hash, and the patches (with hashes) inside every binding it ran,
+checked against each run's binding diff hash. The A/B record ran its rows one at a time,
+A and B concurrently on two lanes of one NUMA node; the scaling record ran one build at a
+time holding every CPU. `make gym-canonical` re-measures both; `report.mjs --check`
+verifies TURBOPACK-GRAPH.md's tables against them. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
@@ -1139,6 +1156,9 @@ task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation 
 sweeps),
 [OPTIMIZATIONS.md](OPTIMIZATIONS.md) (incl. §1.2.1 the device layer under fs-bench, `bench/fs-iops-bench.json`),
 [GROUNDING.md](GROUNDING.md) (industry-best-practice sourcing),
+[TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md) (one large app instead of many small ones: Turbopack's
+whole-app module graph phase on the #98043 shape, what bounds it, two patches to it, from
+`bench/turbopack-graph-ab.json` + `bench/turbopack-graph-scaling.json`),
 [OPTIMAL-STACK.md](OPTIMAL-STACK.md) (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
 tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
 real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the
