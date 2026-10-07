@@ -109,8 +109,19 @@ export async function bench({
     NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: "Z3ltLWZpeGVkLWtleS1mb3ItY29tcGFyaXNvbnMhISE=",
     ...env,
   };
+  let bindingSource = { npm: "@next/swc (the installed next version)" };
   if (binding !== "stock") {
     const dir = join(BINDINGS, binding);
+    // provenance: a binding name can be rebuilt from different code (a rebased
+    // candidate), so each run records exactly what it ran
+    const src = join(dir, "source.json");
+    const diff = join(dir, "candidate.diff");
+    bindingSource = {
+      head: existsSync(src) ? JSON.parse(readFileSync(src, "utf8")).head : null,
+      diffSha256: existsSync(diff)
+        ? createHash("sha256").update(readFileSync(diff)).digest("hex").slice(0, 16)
+        : null,
+    };
     if (!existsSync(join(dir, BINDING_FILE))) throw new Error(`no ${BINDING_FILE} in ${dir}`);
     childEnv.NEXT_TEST_NATIVE_DIR = dir;
   }
@@ -206,6 +217,7 @@ export async function bench({
     persistence: phase("turbopack-persistence"),
     output: fingerprint(join(app, distDir)),
     machine: machine(),
+    bindingSource,
   };
   // timeline in 1s buckets of cores used, for plots
   const timeline = [];

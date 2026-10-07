@@ -966,7 +966,13 @@ as top-level `cores` + `preRunLoadAvg1`); none of the five records the instance 
 which the README's Results section states. `results.json` contains one sweep: one row per
 scale, every row recording the same `versions.pnpm`, and `chart.mjs` enforces both (it
 refuses an empty dataset, an un-versioned or differently-versioned row, and a second row
-for a scale label). `chart.mjs`
+for a scale label). The Turbopack graph records `turbopack-graph-ab.json` and
+`turbopack-graph-scaling.json` (TURBOPACK-GRAPH.md) are canonical on a dedicated 192-core
+c8g.48xlarge (two NUMA nodes); every row records its `machine` (arch, cpuModel, cores,
+memGB, node, sharedBox) and each record's `bindings` names the candidate patches (with
+hashes) inside every binding it ran. The A/B record ran four lane pairs at once, so its
+absolute times include the other builds on the box and its rows are compared by ratio;
+the scaling record ran one build at a time holding every CPU. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header

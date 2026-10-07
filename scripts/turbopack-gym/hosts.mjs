@@ -65,7 +65,7 @@ function rsync(h, src, dest, extra = []) {
 
 // Copy the gym code and the named bindings to the host.
 export function sync(h, bindings) {
-  // only what a remote A/B needs: the gym scripts and the app generator
+  // only what a remote run needs: the gym scripts, the app generator, the candidates
   execFileSync("ssh", [...h.ssh, h.target, `mkdir -p ${h.repoDir}/scripts ${h.root}/bindings`], {
     stdio: "inherit",
   });
@@ -74,6 +74,9 @@ export function sync(h, bindings) {
     "hosts.local.json",
   ]);
   rsync(h, `${REPO}/scripts/monolith-gen.mjs`, `${h.repoDir}/scripts/monolith-gen.mjs`);
+  // the candidate patches and the binding map record.mjs embeds
+  execFileSync("ssh", [...h.ssh, h.target, `mkdir -p ${h.repoDir}/bench`], { stdio: "inherit" });
+  rsync(h, `${REPO}/bench/turbopack-gym/`, `${h.repoDir}/bench/turbopack-gym/`);
   for (const b of new Set(bindings)) {
     if (b === "stock") continue;
     rsync(h, `${join(BINDINGS, b)}/`, `${h.root}/bindings/${b}/`);

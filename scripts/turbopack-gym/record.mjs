@@ -16,6 +16,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { APPS, REPO, RESULTS, RUNS, parseArgs, readJsonl } from "./lib.mjs";
 import { host, runRemote, sync } from "./hosts.mjs";
 
@@ -72,6 +73,27 @@ const write = (file, rec) => {
   console.log(`wrote bench/${file}`);
 };
 
+// What each binding name in a record is: vercel/next.js v16.4.0 plus these candidate
+// patches (bench/turbopack-gym/bindings.json, checked by hash at record time).
+function bindingsUsed(names) {
+  const map = JSON.parse(
+    readFileSync(join(REPO, "bench", "turbopack-gym", "bindings.json"), "utf8"),
+  );
+  const out = {};
+  for (const n of new Set(names)) {
+    if (!map[n])
+      throw new Error(`binding "${n}" is not described in bench/turbopack-gym/bindings.json`);
+    out[n] = map[n].map((f) => ({
+      patch: `bench/turbopack-gym/candidates/${f}`,
+      sha256: createHash("sha256")
+        .update(readFileSync(join(REPO, "bench", "turbopack-gym", "candidates", f)))
+        .digest("hex")
+        .slice(0, 16),
+    }));
+  }
+  return out;
+}
+
 const common = {
   generator:
     "scripts/turbopack-gym (bench.mjs: next build --experimental-build-mode=compile, cold, cpuset-pinned scope)",
@@ -84,10 +106,12 @@ if (kind === "scaling") {
   if (!runs.length) throw new Error("no runs labeled scale in runs.jsonl");
   write("turbopack-graph-scaling.json", {
     ...common,
+    bindings: bindingsUsed(runs.map((r) => r.binding)),
     app: appShape("monolith"),
     rows: runs.map((r) => ({
       binding: r.binding,
       ncpu: r.ncpu,
+      cpus: r.cpus,
       machine: needMachine(r, `run ${r.id}`),
       when: r.when,
       ...phases(r),
@@ -126,6 +150,7 @@ if (kind === "scaling") {
   });
   write("turbopack-graph-ab.json", {
     ...common,
+    bindings: bindingsUsed(rows.flatMap((r) => [r.a.binding, r.b.binding])),
     apps: { monolith: appShape("monolith"), quick: appShape("quick") },
     rows,
   });

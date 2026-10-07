@@ -1,0 +1,7 @@
+{
+  "base": [],
+  "11-binding-usage-topo": ["11-binding-usage-topo.patch"],
+  "15-graph-algos-combined": ["15-graph-algos-combined.patch"],
+  "22-only": ["22-sharded-runner-2choice.patch"],
+  "incumbent": ["15-graph-algos-combined.patch", "22-sharded-runner-2choice.patch"]
+}
