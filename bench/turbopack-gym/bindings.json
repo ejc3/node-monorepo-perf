@@ -1,7 +1,10 @@
 {
-  "base": [],
-  "11-binding-usage-topo": ["11-binding-usage-topo.patch"],
-  "15-graph-algos-combined": ["15-graph-algos-combined.patch"],
-  "22-only": ["22-sharded-runner-2choice.patch"],
-  "incumbent": ["15-graph-algos-combined.patch", "22-sharded-runner-2choice.patch"]
+  "base": { "patches": [], "diffSha256": "e3b0c44298fc1c14" },
+  "11": { "patches": ["11-binding-usage-topo.patch"], "diffSha256": "24f8a8aed3dbae1f" },
+  "15": { "patches": ["15-graph-algos-combined.patch"], "diffSha256": "33e69240c6803ec9" },
+  "22": { "patches": ["22-sharded-runner-2choice.patch"], "diffSha256": "f17d498b091b13f2" },
+  "15+22": {
+    "patches": ["15-graph-algos-combined.patch", "22-sharded-runner-2choice.patch"],
+    "diffSha256": "b032d66a7371fd6e"
+  }
 }

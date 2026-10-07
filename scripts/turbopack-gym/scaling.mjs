@@ -1,49 +1,53 @@
 #!/usr/bin/env node
-// Core-scaling sweep: one cold build per lane size, run one at a time while holding
-// every CPU lock of the box (nothing else runs on the box's lanes meanwhile).
-// Lanes start at CPU 0 and stay on one NUMA node until they cannot.
+// Core-scaling sweep: cold builds at several lane sizes, run one at a time while
+// holding every CPU lock of the box (nothing else of the gym runs meanwhile). With
+// several bindings the builds interleave (rep r runs each size with the bindings
+// rotated by r), so no binding always runs first or last. Lanes start at CPU 0: a size
+// larger than a NUMA node spans nodes.
 //
-//   node scripts/turbopack-gym/scaling.mjs                       # 8,16,32,64,all cores
-//   node scripts/turbopack-gym/scaling.mjs --sizes 16,48,96 --reps 2 --binding base
-//   node scripts/turbopack-gym/scaling.mjs --host bigbox
+//   node scripts/turbopack-gym/scaling.mjs --binding base,incumbent --reps 3
+//   node scripts/turbopack-gym/scaling.mjs --sizes 16,48,96 --binding base
+//   node scripts/turbopack-gym/scaling.mjs --host bigbox --binding base,incumbent
 //
-// Runs are appended to runs.jsonl with label "scale" (record.mjs scaling reads them).
+// Each run is appended to runs.jsonl with label "scale" and this sweep's id;
+// record.mjs scaling writes one sweep (the latest, or --sweep <id>).
 
+import { randomBytes } from "node:crypto";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { bench } from "./bench.mjs";
 import { RESULTS, appendJsonl, parseArgs, withCpus } from "./lib.mjs";
-import { host, runRemote, sync } from "./hosts.mjs";
+import { host, runRemote, stripHost, sync } from "./hosts.mjs";
 
 const argv = process.argv.slice(2);
-const a = parseArgs(argv, { sizes: 1, reps: 1, binding: 1, app: 1, host: 1, label: 1 });
+const a = parseArgs(argv, { sizes: 1, reps: 1, binding: 1, app: 1, host: 1 });
+const bindings = (a.binding || "base").split(",");
 
 if (a.host) {
   const h = host(a.host);
-  sync(h, [a.binding || "base"]);
-  const fwd = argv.filter((x, i) => x !== "--host" && argv[i - 1] !== "--host");
-  const { code } = await runRemote(h, "scripts/turbopack-gym/scaling.mjs", fwd);
-  process.exit(code);
+  sync(h, bindings);
+  const { code } = await runRemote(h, "scripts/turbopack-gym/scaling.mjs", stripHost(argv));
+  process.exit(typeof code === "number" ? code : 1);
 }
 
 const n = availableParallelism();
-const sizes = (
-  a.sizes || [8, 16, 32, 64, n].filter((s, i, xs) => s <= n && xs.indexOf(s) === i).join(",")
-)
-  .split(",")
-  .map(Number);
+const sizes = a.sizes
+  ? a.sizes.split(",").map(Number)
+  : [...new Set([8, 16, 24, 32, 48, 64, 96, n].filter((s) => s <= n))];
+if (sizes.some((s) => !Number.isInteger(s) || s < 1 || s > n))
+  throw new Error(`--sizes must be integers in [1, ${n}]`);
 const reps = Number(a.reps || 1);
-// hold every CPU of the box for the whole sweep
+const sweep = `sweep-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
+
 await withCpus(`0-${n - 1}`, async () => {
   for (let r = 0; r < reps; r++) {
     for (const size of sizes) {
-      const rec = await bench({
-        binding: a.binding || "base",
-        cpus: `0-${size - 1}`,
-        label: a.label || "scale",
-        app: a.app,
-      });
-      appendJsonl(join(RESULTS, "runs.jsonl"), rec);
+      const order = bindings.map((_, i) => bindings[(i + r) % bindings.length]);
+      for (const binding of order) {
+        const rec = await bench({ binding, cpus: `0-${size - 1}`, label: "scale", app: a.app });
+        appendJsonl(join(RESULTS, "runs.jsonl"), { ...rec, sweep, rep: r });
+      }
     }
   }
 });
+console.log(JSON.stringify({ sweep, sizes, bindings, reps }));

@@ -31,7 +31,7 @@
 // The app is standalone (its own package.json, not a workspace member). Install it
 // with `pnpm install --ignore-workspace` in --out.
 
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const argv = process.argv.slice(2);
@@ -41,11 +41,11 @@ const opt = (name, def) => {
   if (i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--")) return argv[i + 1];
   return process.env[`MONOLITH_${name.toUpperCase().replace(/-/g, "_")}`] ?? def;
 };
-const intOpt = (name, def, min) => {
+const intOpt = (name, def, min, max = Infinity) => {
   const raw = opt(name, def);
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < min) {
-    console.error(`--${name} must be an integer >= ${min} (got "${raw}")`);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    console.error(`--${name} must be an integer in [${min}, ${max}] (got "${raw}")`);
     process.exit(1);
   }
   return n;
@@ -53,24 +53,31 @@ const intOpt = (name, def, min) => {
 
 const OUT = resolve(opt("out", "monolith"));
 const ROUTES = intOpt("routes", "2070", 1);
-const HANDLER_PCT = intOpt("handler-pct", "19", 0); // share of routes that are route.ts
-const DYNAMIC_PCT = intOpt("dynamic-pct", "30", 0); // share of pages under [id]
+const HANDLER_PCT = intOpt("handler-pct", "19", 0, 100); // share of routes that are route.ts
+const DYNAMIC_PCT = intOpt("dynamic-pct", "30", 0, 100); // share of pages under [id]
 const GROUPS = intOpt("groups", "12", 1); // route groups (gN)
 const SECTIONS = intOpt("sections", "16", 1); // sections per group, one layout each
 const FEATURES = intOpt("features", "420", 1);
 const FEATURE_MODULES = intOpt("feature-modules", "29", 3); // lib + client + server tiers
-const UI = intOpt("ui", "700", 2);
+const UI = intOpt("ui", "700", 3); // the root layout imports C001 and C003
 const UTILS = intOpt("utils", "500", 2);
-const CROSS_PCT = intOpt("cross-pct", "25", 0); // server modules importing another feature
+const CROSS_PCT = intOpt("cross-pct", "25", 0, 100); // server modules importing another feature
 const SEED = intOpt("seed", "98043", 0);
 const NEXT_VERSION = opt("next", "16.4.0");
 const REACT_VERSION = opt("react", "19.2.7");
 
-if (existsSync(OUT) && !flag("clean")) {
-  console.error(`${OUT} exists; pass --clean to replace it`);
-  process.exit(1);
+if (existsSync(OUT)) {
+  if (!flag("clean")) {
+    console.error(`${OUT} exists; pass --clean to replace it`);
+    process.exit(1);
+  }
+  // --clean deletes only a tree this generator wrote (or an empty directory)
+  if (readdirSync(OUT).length && !existsSync(join(OUT, "monolith.json"))) {
+    console.error(`${OUT} is not a generated app (no monolith.json); refusing to delete it`);
+    process.exit(1);
+  }
+  rmSync(OUT, { recursive: true, force: true });
 }
-rmSync(OUT, { recursive: true, force: true });
 
 // mulberry32: small, fast, deterministic across node versions
 let state = SEED >>> 0;
@@ -102,7 +109,9 @@ const feat = (f) => `f${pad(f, wF)}`;
 const mod = (m) => `m${pad(m, wM)}`;
 
 let files = 0;
+let tsFiles = 0;
 function emit(rel, text) {
+  if (/\.tsx?$/.test(rel)) tsFiles++;
   const p = join(OUT, rel);
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, text);
@@ -321,7 +330,7 @@ export default function Home() {
 
 const sectionDir = (g, s) => `app/(g${g})/g${g}s${s}`;
 const layouts = new Set();
-let pages = 0;
+let pages = 1; // app/page.tsx, the root page
 let handlers = 0;
 for (let r = 1; r <= ROUTES; r++) {
   const g = (r % GROUPS) + 1;
@@ -469,10 +478,13 @@ emit(
 );
 emit(".gitignore", "node_modules/\n.next*/\nnext-env.d.ts\n");
 
+// Counts are of the emitted tree: routes = pages (the root page included) + route
+// handlers; files excludes this summary; tsFiles counts .ts/.tsx (next.config.ts too).
 const summary = {
   out: OUT,
   files,
-  routes: ROUTES,
+  tsFiles,
+  routes: pages + handlers,
   pages,
   handlers,
   layouts: layouts.size,
@@ -480,8 +492,17 @@ const summary = {
   featureModules: FEATURE_MODULES,
   ui: UI,
   utils: UTILS,
+  options: {
+    routes: ROUTES,
+    handlerPct: HANDLER_PCT,
+    dynamicPct: DYNAMIC_PCT,
+    groups: GROUPS,
+    sections: SECTIONS,
+    crossPct: CROSS_PCT,
+  },
   seed: SEED,
   next: NEXT_VERSION,
+  react: REACT_VERSION,
 };
 writeFileSync(join(OUT, "monolith.json"), JSON.stringify(summary, null, 2) + "\n");
 console.log(JSON.stringify(summary));

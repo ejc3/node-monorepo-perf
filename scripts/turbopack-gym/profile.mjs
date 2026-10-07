@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Profile one build of a binding with perf: on-CPU samples (where the busy threads
-// are) plus sched_switch events (who goes off-CPU, from where — the waits that keep
-// the graph phase at a few cores). Writes perf.data and folded stacks per run dir.
+// are) and, with --offcpu, sched_switch events (who goes off-CPU, from where). Writes
+// perf.data to a run directory and prints each build phase as a perf --time window.
 //
 //   node scripts/turbopack-gym/profile.mjs --binding base-fp --fp [--offcpu] [--app quick]
 //
@@ -10,7 +10,7 @@
 // --fp for cheap full-rate stacks.
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { bench } from "./bench.mjs";
 import { readdirSync } from "node:fs";
@@ -44,10 +44,9 @@ const a = parseArgs(process.argv.slice(2), {
   freq: 1,
   offcpu: "bool",
 });
-// profiles hold the first lane pair of the pool, like an A/B, and run on its first lane
-const pair = LOCAL_LANES[0];
-await withCpus(pair, async () => {
-  const cpus = a.cpus || pair.split(":")[0];
+// perf records system-wide on the profiled CPUs, so the profile holds their CPU locks
+const cpus = a.cpus || LOCAL_LANES[0].split(":")[0];
+await withCpus(cpus, async () => {
   const freq = a.freq || (a.fp ? "499" : "97");
   const outDir = join(RUNS, `profile-${Date.now().toString(36)}`);
   sh("mkdir", ["-p", outDir]);
@@ -60,7 +59,7 @@ await withCpus(pair, async () => {
       PERF,
       "record",
       "-k",
-      "CLOCK_REALTIME",
+      "CLOCK_MONOTONIC",
       "-o",
       join(outDir, "perf.data"),
       "-C",
@@ -73,17 +72,34 @@ await withCpus(pair, async () => {
     ],
     { stdio: "inherit" },
   );
-  await new Promise((r) => setTimeout(r, 1500));
-  const rec = await bench({
-    binding: a.binding || "base",
-    cpus,
-    app: a.app ? join(APPS, a.app) : undefined,
-    label: "profile",
-    keep: false,
-  });
-  sh("sudo", ["-n", "kill", "-INT", String(perf.pid)]);
-  await new Promise((r) => perf.on("close", r));
-  sh("sudo", ["-n", "chown", "-R", `${process.getuid()}`, outDir]);
+  let perfExit;
+  const perfDone = new Promise((r) =>
+    perf.on("close", (code) => {
+      perfExit = code;
+      r();
+    }),
+  );
+  let rec;
+  try {
+    await new Promise((r) => setTimeout(r, 1500));
+    if (perfExit !== undefined)
+      throw new Error(`perf record exited before the build (${perfExit})`);
+    rec = await bench({
+      binding: a.binding || "base",
+      cpus,
+      app: a.app ? join(APPS, a.app) : undefined,
+      label: "profile",
+      keep: false,
+    });
+  } finally {
+    // stop perf whatever happened to the build: it records every process on these CPUs
+    if (perfExit === undefined) sh("sudo", ["-n", "kill", "-INT", String(perf.pid)]);
+    await perfDone;
+    sh("sudo", ["-n", "chown", "-R", `${process.getuid()}`, outDir]);
+  }
+  const data = join(outDir, "perf.data");
+  if (!existsSync(data) || statSync(data).size < 4096)
+    throw new Error(`perf wrote no samples (exit ${perfExit}); see its output above`);
   // perf timestamps are CLOCK_MONOTONIC seconds (perf refuses CLOCK_REALTIME together with
   // tracepoints such as sched_switch): convert each phase's epoch window by the
   // realtime-minus-monotonic offset and print it as a --time window

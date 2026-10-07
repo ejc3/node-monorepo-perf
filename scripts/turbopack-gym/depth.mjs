@@ -20,6 +20,9 @@ const walk = (d) => {
   }
 };
 for (const top of ["app", "src", "pages"]) if (existsSync(join(app, top))) walk(join(app, top));
+// root-level entries (instrumentation, middleware) sit beside app/
+for (const e of readdirSync(app))
+  if (/^(instrumentation|middleware)\.[tj]sx?$/.test(e)) files.push(join(app, e));
 
 const exts = ["", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx", "/index.js"];
 const resolveSpec = (from, spec) => {

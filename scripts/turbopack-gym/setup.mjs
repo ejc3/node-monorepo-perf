@@ -5,7 +5,8 @@
 //
 //   GYM_ROOT=/scratch/turbopack-gym node scripts/turbopack-gym/setup.mjs
 //   node scripts/turbopack-gym/setup.mjs --tag v16.4.0 --no-fp
-//   node scripts/turbopack-gym/setup.mjs --host bigbox   # apps only, on another machine
+//   node scripts/turbopack-gym/setup.mjs --host bigbox   # apps + the base binding, on another machine
+//                                                         # (run a local setup first: bindings build here)
 //
 // Idempotent: existing pieces are kept. Needs git, the next.js rust toolchain (rustup
 // installs the pinned nightly on first build), Node 22 and pnpm.
@@ -44,6 +45,12 @@ export const APP_SPECS = {
   quick: ["--routes", "400", "--features", "80", "--ui", "200", "--utils", "150"],
 };
 
+// the generator reads MONOLITH_* overrides from the environment: clear them so the
+// apps are always the documented defaults (APP_SPECS)
+const genEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith("MONOLITH_")),
+);
+
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: "inherit", ...opts });
   if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")} failed (${r.status})`);
@@ -54,15 +61,19 @@ function setupApps() {
     const dir = join(APPS, name);
     if (existsSync(join(dir, "node_modules", "next"))) continue;
     ensureDir(APPS);
-    run("node", [
-      join(REPO, "scripts", "monolith-gen.mjs"),
-      "--out",
-      dir,
-      "--next",
-      NEXT_VERSION,
-      ...args,
-      "--clean",
-    ]);
+    run(
+      "node",
+      [
+        join(REPO, "scripts", "monolith-gen.mjs"),
+        "--out",
+        dir,
+        "--next",
+        NEXT_VERSION,
+        ...args,
+        "--clean",
+      ],
+      { env: genEnv },
+    );
     // a real install per app: Turbopack rejects a node_modules symlink that leaves the root
     run("pnpm", ["install", "--ignore-workspace"], { cwd: dir });
   }
@@ -70,13 +81,15 @@ function setupApps() {
 
 if (a.host) {
   const h = host(a.host);
-  sync(h, []);
+  if (!existsSync(join(BINDINGS, "base", BINDING_FILE)))
+    throw new Error("no local base binding: run setup.mjs here first (bindings are built here)");
+  sync(h, ["base"]);
   const { code } = await runRemote(h, "scripts/turbopack-gym/setup.mjs", [
     "--apps-only",
     "--tag",
     TAG,
   ]);
-  process.exit(code);
+  process.exit(typeof code === "number" ? code : 1);
 }
 
 if (a["apps-only"]) {
@@ -96,7 +109,8 @@ if (!has("gym/base")) {
 }
 if (!has("gym/incumbent")) run("git", ["-C", NEXTJS, "branch", "gym/incumbent", "gym/base"]);
 
-if (!existsSync(join(BINDINGS, "base", BINDING_FILE))) console.log(JSON.stringify(build("base")));
+if (!existsSync(join(BINDINGS, "base", BINDING_FILE)))
+  console.log(JSON.stringify(await build("base")));
 if (!existsSync(join(BINDINGS, "incumbent", BINDING_FILE)))
   sh("cp", ["-a", join(BINDINGS, "base"), join(BINDINGS, "incumbent")]);
 

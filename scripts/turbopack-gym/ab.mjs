@@ -1,31 +1,75 @@
 #!/usr/bin/env node
-// Paired A/B: run variant A and variant B at the same time on two equal CPU lanes,
-// swap lanes every rep, and compare per-pair ratios B/A. Running the pair
-// concurrently means both sides see the same box noise (other tenants, memory
-// bandwidth, thermal), so the ratio is far tighter than comparing separate runs.
+// Paired A/B: run variant A and variant B at the same time on two equal CPU lanes of
+// one NUMA node each, swap lanes and launch order every rep, and compare per-pair
+// ratios B/A. Both sides see the same box noise (other builds, memory bandwidth); the
+// two builds also share the node's memory bandwidth and caches, so a ratio measures B
+// next to A, not B alone (scaling.mjs runs builds one at a time).
 //
 //   node scripts/turbopack-gym/ab.mjs --b mypatch                       # vs incumbent, 6 reps
 //   node scripts/turbopack-gym/ab.mjs --a base --b base --b-env TURBO_ENGINE_EVICT_MIN_BYTES=8589934592
 //   node scripts/turbopack-gym/ab.mjs --b mypatch --app quick --reps 2  # smoke on the small app
 //   node scripts/turbopack-gym/ab.mjs --b mypatch --host bigbox         # on another machine (hosts.mjs)
 //
-// Verdict: B wins when the geometric-mean ratio of --metric over lane-swapped rep
-// pairs is below 1 - --threshold, every swap pair agrees in sign, the guard metric (whole Turbopack phase) did not regress by
-// more than --guard, and B's output fingerprint equals A's.
+// Verdict: B wins when the geometric-mean ratio of --metric (default graph) over the reps
+// is below 1 - --threshold (0.04), every lane-swapped rep pair agrees in sign, the
+// --guard-metric (run-turbopack) did not regress by more than --guard (0.02), and B's
+// output fingerprint equals A's. Each A/B runs snapshots of both bindings taken under
+// its CPU locks, so a binding rebuilt meanwhile cannot change between reps.
 
+import { randomBytes } from "node:crypto";
+import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { bench } from "./bench.mjs";
-import { APPS, RESULTS, appendJsonl, median, parseArgs, withCpus } from "./lib.mjs";
-import { LOCAL_LANES, host, runRemote, sync } from "./hosts.mjs";
+import { bench, memoryNodes } from "./bench.mjs";
+import {
+  APPS,
+  BINDINGS,
+  RESULTS,
+  RUNS,
+  appendJsonl,
+  ensureDir,
+  expandCpus,
+  median,
+  parseArgs,
+  sh,
+  withCpus,
+} from "./lib.mjs";
+import { LOCAL_LANES, host, runRemote, stripHost, sync } from "./hosts.mjs";
 
 // lanes: "auto" takes the first pair of this host's pool (GYM_LANE_POOL) whose CPUs
 // are all free, or an explicit "a:b" pair. CPUs are locked individually (lib.withCpus),
 // so overlapping pairs from different pools still exclude each other.
+export function validateLanes(pair) {
+  const [la, lb] = pair.split(":");
+  if (!la || !lb) throw new Error(`lanes must be "a:b" (got "${pair}")`);
+  const [ca, cb] = [expandCpus(la), expandCpus(lb)];
+  if (ca.length !== cb.length)
+    throw new Error(`lanes ${pair} differ in size (${ca.length} vs ${cb.length})`);
+  if (ca.some((c) => cb.includes(c))) throw new Error(`lanes ${pair} overlap`);
+  const ncpu = availableParallelism();
+  if (Math.max(...ca, ...cb) >= ncpu)
+    throw new Error(`lanes ${pair} name CPUs this ${ncpu}-CPU machine lacks`);
+  for (const l of [la, lb])
+    if (memoryNodes(l).includes(","))
+      throw new Error(`lane ${l} spans NUMA nodes ${memoryNodes(l)}`);
+  return [la, lb];
+}
+
 export async function ab(opts) {
   const pool = !opts.lanes || opts.lanes === "auto" ? LOCAL_LANES : [opts.lanes];
+  pool.forEach(validateLanes);
   return withCpus(pool, (pair) => {
-    const [laneA, laneB] = pair.split(":");
-    return abUnlocked({ ...opts, laneA, laneB });
+    const [laneA, laneB] = validateLanes(pair);
+    // snapshot both bindings under the locks: the runs below use these copies
+    const snap = ensureDir(
+      join(RUNS, `ab-${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`),
+    );
+    const dirs = {};
+    for (const name of new Set([opts.a, opts.b])) {
+      if (name === "stock") continue;
+      sh("cp", ["-a", "--reflink=auto", join(BINDINGS, name), join(snap, name)]);
+      dirs[name] = join(snap, name);
+    }
+    return abUnlocked({ ...opts, laneA, laneB, dirs }).finally(() => sh("rm", ["-rf", snap]));
   });
 }
 
@@ -43,16 +87,24 @@ async function abUnlocked({
   threshold = 0.04,
   guard = 0.02,
   label,
+  dirs = {},
 }) {
   const appDir = join(APPS, app);
   if (reps > 1 && reps % 2) reps++; // whole swap pairs only
   const pairs = [];
   for (let i = 0; i < reps; i++) {
     const [la, lb] = i % 2 ? [laneB, laneA] : [laneA, laneB];
-    const [ra, rb] = await Promise.all([
-      bench({ binding: a, env: aEnv, cpus: la, app: appDir, label: `A:${a}` }),
-      bench({ binding: b, env: bEnv, cpus: lb, app: appDir, label: `B:${b}` }),
-    ]);
+    const runA = () =>
+      bench({ binding: a, bindingDir: dirs[a], env: aEnv, cpus: la, app: appDir, label: `A:${a}` });
+    const runB = () =>
+      bench({ binding: b, bindingDir: dirs[b], env: bEnv, cpus: lb, app: appDir, label: `B:${b}` });
+    // alternate which build starts first; wait for both before failing, so the CPU
+    // locks outlive both builds
+    const started = i % 2 ? [runB(), runA()] : [runA(), runB()];
+    const settled = await Promise.allSettled(i % 2 ? [started[1], started[0]] : started);
+    const failed = settled.find((x) => x.status === "rejected");
+    if (failed) throw failed.reason;
+    const [ra, rb] = settled.map((x) => x.value);
     pairs.push({
       a: ra,
       b: rb,
@@ -82,6 +134,10 @@ async function abUnlocked({
     label: label || b,
     a: { binding: a, env: aEnv },
     b: { binding: b, env: bEnv },
+    reps,
+    guardMetric,
+    threshold,
+    guard,
     app,
     host: process.env.GYM_HOST || "local",
     lanes: [laneA, laneB],
@@ -118,6 +174,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     app: 1,
     metric: 1,
     threshold: 1,
+    guard: 1,
+    "guard-metric": 1,
     label: 1,
     host: 1,
   });
@@ -125,17 +183,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // run the same A/B on another host: ship the code and both bindings, then run there
     const h = host(o.host);
     sync(h, [o.a || "incumbent", o.b || o.a || "incumbent"]);
-    const fwd = [];
-    for (let i = 0; i < argv.length; i++) {
-      if (argv[i] === "--host") i++;
-      else if (!argv[i].startsWith("--host=")) fwd.push(argv[i]);
-    }
+    const fwd = stripHost(argv);
     const { code, out } = await runRemote(h, "scripts/turbopack-gym/ab.mjs", fwd);
-    const rec = JSON.parse(out.trim().split("\n").at(-1));
+    let rec;
+    try {
+      rec = JSON.parse(out.trim().split("\n").at(-1));
+    } catch {
+      console.error(`[ab] ${o.host}: no A/B record (exit ${code})`);
+      process.exit(typeof code === "number" && code ? code : 1);
+    }
     rec.host = o.host;
     appendJsonl(join(RESULTS, "ab.jsonl"), rec);
     console.log(JSON.stringify(rec));
-    process.exit(code);
+    process.exit(typeof code === "number" ? code : 1);
   }
   const kv = (l) => Object.fromEntries((l || []).map((s) => s.split(/=(.*)/s).slice(0, 2)));
   const rec = await ab({
@@ -148,6 +208,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     app: o.app || "monolith",
     metric: o.metric || "graph",
     threshold: Number(o.threshold || 0.04),
+    guard: Number(o.guard || 0.02),
+    guardMetric: o["guard-metric"] || "turbopack",
     label: o.label,
   });
   console.log(JSON.stringify(rec));

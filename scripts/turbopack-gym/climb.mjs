@@ -29,6 +29,7 @@ import {
   appendJsonl,
   parseArgs,
   sh,
+  withLock,
 } from "./lib.mjs";
 
 const o = parseArgs(process.argv.slice(2), {
@@ -83,115 +84,129 @@ const reps = Number(o.reps || 6);
 
 const loadIncumbent = () =>
   existsSync(INCUMBENT) ? JSON.parse(readFileSync(INCUMBENT, "utf8")) : { env: {}, accepted: [] };
-let inc = loadIncumbent();
-if (!existsSync(join(BINDINGS, "incumbent"))) build("incumbent", { from: "gym/incumbent" });
+// one climb at a time per machine: it moves gym/incumbent, its binding and its state
+await withLock("climb", climb);
 
-const names = readdirSync(CANDIDATES)
-  .filter((f) => f.endsWith(".json"))
-  .map((f) => f.slice(0, -5))
-  .filter((n) => !o.only || o.only.split(",").includes(n))
-  .sort();
+async function climb() {
+  let inc = loadIncumbent();
+  if (!existsSync(join(BINDINGS, "incumbent"))) await build("incumbent", { from: "gym/incumbent" });
 
-for (const name of names) {
-  const path = join(CANDIDATES, `${name}.json`);
-  const cand = JSON.parse(readFileSync(path, "utf8"));
-  if (cand.result && !o.only) continue;
-  console.error(`\n[climb] ${name}: ${cand.description || ""}`);
+  const names = readdirSync(CANDIDATES)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => f.slice(0, -5))
+    .filter((n) => !o.only || o.only.split(",").includes(n))
+    .sort();
 
-  let binding = "incumbent";
+  for (const name of names) {
+    const path = join(CANDIDATES, `${name}.json`);
+    const cand = JSON.parse(readFileSync(path, "utf8"));
+    if (cand.result && !o.only) continue;
+    console.error(`\n[climb] ${name}: ${cand.description || ""}`);
 
-  if (cand.patch || cand.worktree) {
-    // a worktree made before the incumbent moved must be measured on top of it:
+    let binding = "incumbent";
 
-    // commit its edits and rebase onto gym/incumbent first
+    if (cand.patch || cand.worktree) {
+      // a worktree made before the incumbent moved must be measured on top of it:
+      // commit its edits and rebase onto gym/incumbent first
+      const wt = worktreeFor(name);
+      const created = existsSync(wt);
+      if (created) {
+        if (sh("git", ["-C", wt, "status", "--porcelain"]).trim()) {
+          sh("git", ["-C", wt, "add", "-A"]);
 
-    const wt = worktreeFor(name);
+          sh("git", ["-C", wt, "commit", "-q", "-m", `gym: ${name}\n\n${cand.description || ""}`]);
+        }
 
-    if (existsSync(wt)) {
-      if (sh("git", ["-C", wt, "status", "--porcelain"]).trim()) {
-        sh("git", ["-C", wt, "add", "-A"]);
+        try {
+          sh("git", ["-C", wt, "rebase", "-q", "gym/incumbent"]);
+        } catch (e) {
+          sh("git", ["-C", wt, "rebase", "--abort"]);
 
-        sh("git", ["-C", wt, "commit", "-q", "-m", `gym: ${name}\n\n${cand.description || ""}`]);
+          cand.result = { status: "rebase-conflict", error: String(e.message).slice(0, 500) };
+
+          writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+
+          continue;
+        }
       }
 
       try {
-        sh("git", ["-C", wt, "rebase", "-q", "gym/incumbent"]);
+        await build(name, {
+          from: "gym/incumbent",
+          // a patch is applied once, when its worktree is created
+          patches: cand.patch && !created ? [join(REPO, cand.patch)] : [],
+          jobs: o["build-jobs"],
+        });
+        binding = name;
       } catch (e) {
-        sh("git", ["-C", wt, "rebase", "--abort"]);
-
-        cand.result = { status: "rebase-conflict", error: String(e.message).slice(0, 500) };
-
+        cand.result = { status: "build-failed", error: String(e.message).slice(0, 500) };
         writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
-
         continue;
       }
     }
-
-    try {
-      build(name, {
-        from: "gym/incumbent",
-        patches: cand.patch ? [join(REPO, cand.patch)] : [],
-        jobs: o["build-jobs"],
-      });
-      binding = name;
-    } catch (e) {
-      cand.result = { status: "build-failed", error: String(e.message).slice(0, 500) };
-      writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
-      continue;
-    }
-  }
-  const bEnv = { ...inc.env, ...(cand.env || {}) };
-  const common = {
-    a: "incumbent",
-    aEnv: inc.env,
-    b: binding,
-    bEnv,
-    metric: o.metric || "graph",
-    threshold: Number(o.threshold || 0.04),
-    label: name,
-  };
-  if (o.smoke || cand.patch || cand.worktree) {
-    // cheap gate first: the small app must build with identical output and not regress
-    const s = await ab({ ...common, app: "quick", reps: 1 });
-    if (!s.sameOutput || s.ratio > 1.1) {
-      cand.result = { status: s.sameOutput ? "smoke-slower" : "output-differs", ratio: s.ratio };
-      writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
-      continue;
-    }
-  }
-  const r = await ab({ ...common, app: o.app || "monolith", reps });
-  cand.result = {
-    status: r.win ? "accepted" : "rejected",
-    ratio: r.ratio,
-    guardRatio: r.guardRatio,
-    sameOutput: r.sameOutput,
-    a: r.aMedian,
-    b: r.bMedian,
-    when: r.when,
-  };
-  writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
-  appendJsonl(join(RESULTS, "climb.jsonl"), {
-    name,
-    ...cand.result,
-    description: cand.description,
-  });
-
-  if (r.win) {
-    inc.env = bEnv;
-    if (binding !== "incumbent") {
-      // fold the candidate's code into gym/incumbent and rebuild the incumbent binding
-      const wt = worktreeFor(name);
-      if (sh("git", ["-C", wt, "status", "--porcelain"]).trim()) {
-        sh("git", ["-C", wt, "add", "-A"]);
-        sh("git", ["-C", wt, "commit", "-q", "-m", `gym: ${name}\n\n${cand.description || ""}`]);
+    const bEnv = { ...inc.env, ...(cand.env || {}) };
+    const common = {
+      a: "incumbent",
+      aEnv: inc.env,
+      b: binding,
+      bEnv,
+      metric: o.metric || "graph",
+      threshold: Number(o.threshold || 0.04),
+      label: name,
+    };
+    if (o.smoke || cand.patch || cand.worktree) {
+      // cheap gate first: the small app must build with identical output and not regress
+      const s = await ab({ ...common, app: "quick", reps: 1 }).catch((e) => ({ error: e }));
+      if (s.error) {
+        cand.result = { status: "ab-failed", error: String(s.error.message).slice(0, 500) };
+        writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+        continue;
       }
-      sh("git", ["-C", NEXTJS, "branch", "-f", "gym/incumbent", `gym/cand/${name}`]);
-      if (existsSync(worktreeFor("incumbent")))
-        sh("git", ["-C", worktreeFor("incumbent"), "reset", "-q", "--hard", "gym/incumbent"]);
-      build("incumbent", { from: "gym/incumbent" });
+      if (!s.sameOutput || s.ratio > 1.1) {
+        cand.result = { status: s.sameOutput ? "smoke-slower" : "output-differs", ratio: s.ratio };
+        writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+        continue;
+      }
     }
-    inc.accepted.push({ name, ratio: r.ratio, when: r.when });
-    writeFileSync(INCUMBENT, JSON.stringify(inc, null, 2) + "\n");
-    console.error(`[climb] ACCEPTED ${name}: x${r.ratio}`);
+    const r = await ab({ ...common, app: o.app || "monolith", reps }).catch((e) => ({ error: e }));
+    if (r.error) {
+      cand.result = { status: "ab-failed", error: String(r.error.message).slice(0, 500) };
+      writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+      continue;
+    }
+    cand.result = {
+      status: r.win ? "accepted" : "rejected",
+      ratio: r.ratio,
+      guardRatio: r.guardRatio,
+      sameOutput: r.sameOutput,
+      a: r.aMedian,
+      b: r.bMedian,
+      when: r.when,
+    };
+    writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+    appendJsonl(join(RESULTS, "climb.jsonl"), {
+      name,
+      ...cand.result,
+      description: cand.description,
+    });
+
+    if (r.win) {
+      inc.env = bEnv;
+      if (binding !== "incumbent") {
+        // fold the candidate's code into gym/incumbent and rebuild the incumbent binding
+        const wt = worktreeFor(name);
+        if (sh("git", ["-C", wt, "status", "--porcelain"]).trim()) {
+          sh("git", ["-C", wt, "add", "-A"]);
+          sh("git", ["-C", wt, "commit", "-q", "-m", `gym: ${name}\n\n${cand.description || ""}`]);
+        }
+        sh("git", ["-C", NEXTJS, "branch", "-f", "gym/incumbent", `gym/cand/${name}`]);
+        if (existsSync(worktreeFor("incumbent")))
+          sh("git", ["-C", worktreeFor("incumbent"), "reset", "-q", "--hard", "gym/incumbent"]);
+        await build("incumbent", { from: "gym/incumbent" });
+      }
+      inc.accepted.push({ name, ratio: r.ratio, when: r.when });
+      writeFileSync(INCUMBENT, JSON.stringify(inc, null, 2) + "\n");
+      console.error(`[climb] ACCEPTED ${name}: x${r.ratio}`);
+    }
   }
 }

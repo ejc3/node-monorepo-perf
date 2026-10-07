@@ -1,17 +1,31 @@
 // Shared paths and helpers for the Turbopack graph gym (TURBOPACK-GRAPH.md).
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, appendFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import * as nodeOs from "node:os";
-import { availableParallelism, tmpdir } from "node:os";
+import { availableParallelism } from "node:os";
 const os = () => nodeOs;
 import { join, resolve, dirname } from "node:path";
 
 // The repository root (scripts/turbopack-gym/ -> ../..).
 export const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..", "..");
 // Disposable state: the next.js clone and its worktrees, cargo target dirs (~15 GB
-// each), built bindings, the generated apps, per-run outputs. Point GYM_ROOT at a
-// large scratch disk.
-export const ROOT = process.env.GYM_ROOT || join(tmpdir(), "turbopack-gym");
+// each), built bindings, the generated apps, per-run outputs (~100 GB). Required, so it
+// never lands on a small root disk by default; a reflink-capable filesystem (btrfs,
+// xfs) makes seeding candidate target dirs instant.
+if (!process.env.GYM_ROOT) {
+  console.error("set GYM_ROOT to a scratch directory with ~100 GB free (see TURBOPACK-GRAPH.md)");
+  process.exit(2);
+}
+export const ROOT = resolve(process.env.GYM_ROOT);
 export const NEXTJS = join(ROOT, "next.js");
 // CPU locks are per machine, not per GYM_ROOT: two gym roots on one box share its CPUs.
 export const LOCKS = process.env.GYM_LOCKS || "/tmp/turbopack-gym-locks";
@@ -85,46 +99,79 @@ export function appendJsonl(p, rec) {
   appendFileSync(p, JSON.stringify(rec) + "\n");
 }
 
-// Cross-process exclusive lock (mkdir is atomic). Stale locks whose holder pid is
-// gone are broken. Lets several agents share the bench lanes without overlapping.
-// Given several names, takes whichever is free first and passes its name to fn.
-export async function withLock(names, fn) {
-  const { mkdirSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
-  const list = Array.isArray(names) ? names : [names];
-  // lane-pair names ("lanes-0-31-32-63") are CPU locks now: route them to withCpus
-  const lanePat = /^lanes-(\d+)-(\d+)-(\d+)-(\d+)$/;
-  if (list.every((n) => lanePat.test(n))) {
-    const toPair = (n) => n.replace(lanePat, "$1-$2:$3-$4");
-    return withCpus(list.map(toPair), (pair) => fn(list.find((n) => toPair(n) === pair)));
+// Cross-process locks are directories under LOCKS holding the owner's pid. A lock is
+// created whole (a temp dir with the pid file, renamed into place), so no one ever sees
+// a lock without its owner. A lock whose owner is gone is moved aside and removed only
+// if it still names that dead owner; release removes only a lock this process owns.
+function readPid(dir) {
+  try {
+    return Number(readFileSync(join(dir, "pid"), "utf8"));
+  } catch {
+    return null;
   }
-  const locks = ensureDir(LOCKS);
-  const tryTake = (name) => {
-    const dir = join(locks, name);
+}
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === "EPERM";
+  }
+}
+let lockSeq = 0;
+function acquireLockDir(path) {
+  const tmp = `${path}.tmp-${process.pid}-${lockSeq++}`;
+  mkdirSync(tmp);
+  writeFileSync(join(tmp, "pid"), String(process.pid));
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      mkdirSync(dir);
-      writeFileSync(join(dir, "pid"), String(process.pid));
-      return dir;
+      renameSync(tmp, path); // fails if path exists (a non-empty directory)
+      return true;
     } catch {
+      const owner = readPid(path);
+      if (owner === null || isAlive(owner)) break;
+      const trash = `${path}.stale-${process.pid}-${lockSeq++}`;
       try {
-        process.kill(Number(readFileSync(join(dir, "pid"), "utf8")), 0);
-      } catch (e) {
-        if (e.code === "ESRCH" || e.code === "ENOENT") {
-          rmSync(dir, { recursive: true, force: true });
-          return tryTake(name);
+        renameSync(path, trash);
+      } catch {
+        continue; // someone else moved it
+      }
+      if (readPid(trash) === owner) rmSync(trash, { recursive: true, force: true });
+      else {
+        try {
+          renameSync(trash, path); // moved a live lock by accident: put it back
+        } catch {
+          rmSync(trash, { recursive: true, force: true });
         }
       }
-      return null;
     }
-  };
+  }
+  rmSync(tmp, { recursive: true, force: true });
+  return false;
+}
+function releaseLockDir(path) {
+  if (readPid(path) !== process.pid) return;
+  // move it aside first: emptying it in place would let another process rename its own
+  // lock onto the empty directory (rename may replace an empty directory)
+  const trash = `${path}.released-${process.pid}-${lockSeq++}`;
+  renameSync(path, trash);
+  rmSync(trash, { recursive: true, force: true });
+}
+
+// Exclusive named lock; given several names, takes whichever is free first and
+// passes its name to fn.
+export async function withLock(names, fn) {
+  const list = Array.isArray(names) ? names : [names];
+  const locks = ensureDir(LOCKS);
   let waited = false;
   for (;;) {
     for (const name of list) {
-      const dir = tryTake(name);
-      if (!dir) continue;
+      const dir = join(locks, name);
+      if (!acquireLockDir(dir)) continue;
       try {
         return await fn(name);
       } finally {
-        rmSync(dir, { recursive: true, force: true });
+        releaseLockDir(dir);
       }
     }
     if (!waited) console.error(`[lock] waiting for ${list.join(" | ")}`);
@@ -140,27 +187,56 @@ const third = Math.floor(NCPU / 3);
 export const DEFAULT_LANE_POOL = [`0-${third - 1}:${third}-${2 * third - 1}`];
 export const BUILD_CPUS = process.env.GYM_BUILD_CPUS || `${2 * third}-${NCPU - 1}`;
 
-// What a record needs to say about the machine a run happened on. GYM_SHARED_BOX=1
-// marks a box with other users' processes on it (the repo never draws a ratio between
-// a dedicated-box record and a shared-box one).
+// What a record needs to say about the machine a run happened on. instanceType comes
+// from the EC2 instance metadata service when there is one. sharedBox is a declaration
+// (GYM_SHARED_BOX=1 marks a box with other users' processes on it); the repo never
+// draws a ratio between a dedicated-box record and a shared-box one.
+let machineCache;
 export function machine() {
+  if (machineCache) return machineCache;
   const { cpus, totalmem, arch } = os();
   let cpuModel = (cpus()[0]?.model || "").replace(/^unknown$/, "");
   try {
-    const parts = readFileSync("/proc/cpuinfo", "utf8").match(/^CPU part\s*:\s*(\S+)/m);
-    if (!cpuModel && parts)
+    const part = readFileSync("/proc/cpuinfo", "utf8").match(/^CPU part\s*:\s*(\S+)/m);
+    if (!cpuModel && part)
       cpuModel =
-        { "0xd4f": "Neoverse-V2", "0xd40": "Neoverse-V1", "0xd0c": "Neoverse-N1" }[parts[1]] ||
-        parts[1];
+        { "0xd4f": "Neoverse-V2", "0xd40": "Neoverse-V1", "0xd0c": "Neoverse-N1" }[part[1]] ||
+        part[1];
   } catch {}
-  return {
+  let numaNodes = 1;
+  try {
+    numaNodes =
+      readdirSync("/sys/devices/system/node").filter((d) => /^node\d+$/.test(d)).length || 1;
+  } catch {}
+  let instanceType = null;
+  try {
+    const curl = (args) =>
+      execFileSync("curl", ["-s", "-m", "1", ...args], { encoding: "utf8" }).trim();
+    const token = curl([
+      "-X",
+      "PUT",
+      "-H",
+      "X-aws-ec2-metadata-token-ttl-seconds: 60",
+      "http://169.254.169.254/latest/api/token",
+    ]);
+    instanceType =
+      curl([
+        "-H",
+        `X-aws-ec2-metadata-token: ${token}`,
+        "http://169.254.169.254/latest/meta-data/instance-type",
+      ]) || null;
+  } catch {}
+  machineCache = {
     arch: arch(),
     cpuModel,
     cores: cpus().length,
-    memGB: Math.round(totalmem() / 2 ** 30),
+    numaNodes,
+    memGiB: Math.round(totalmem() / 2 ** 30),
+    instanceType,
     node: process.version,
     sharedBox: process.env.GYM_SHARED_BOX === "1",
   };
+  return machineCache;
 }
 
 // Per-CPU locks: a run holds a lock for every CPU it uses, so any two runs whose CPU
@@ -178,75 +254,25 @@ export function expandCpus(list) {
 }
 
 export async function withCpus(choices, fn) {
-  const require_fs = await import("node:fs");
-  const { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } = require_fs;
-  // GYM_EXTRA_LOCK_DIRS: other lock dirs on this machine (an older gym root's) whose
-  // holders must see our locks and whose locks we must honor.
-  const dirs = [LOCKS, ...(process.env.GYM_EXTRA_LOCK_DIRS || "").split(":").filter(Boolean)].map(
-    ensureDir,
-  );
+  const locks = ensureDir(LOCKS);
   const list = Array.isArray(choices) ? choices : [choices];
-  const alive = (dir) => {
-    try {
-      process.kill(Number(readFileSync(join(dir, "pid"), "utf8")), 0);
-      return true;
-    } catch (e) {
-      return e.code === "EPERM";
-    }
-  };
-  const take = (locks, cpu) => {
-    const dir = join(locks, `cpu-${cpu}`);
-    try {
-      mkdirSync(dir);
-      writeFileSync(join(dir, "pid"), String(process.pid));
-      return dir;
-    } catch {
-      if (!alive(dir)) {
-        rmSync(dir, { recursive: true, force: true });
-        return take(locks, cpu);
-      }
-      return null;
-    }
-  };
-  // a run from before per-CPU locks holds a "lanes-a-b-c-d" lock: treat its CPUs as busy
-  const legacyBusy = () => {
-    const busy = new Set();
-    for (const locks of dirs) {
-      for (const d of readdirSync(locks)) {
-        const m = /^lanes-(\d+)-(\d+)-(\d+)-(\d+)$/.exec(d);
-        if (m && alive(join(locks, d)))
-          for (const c of expandCpus(`${m[1]}-${m[2]},${m[3]}-${m[4]}`)) busy.add(c);
-      }
-    }
-    return busy;
-  };
   let waited = false;
   for (;;) {
-    const legacy = legacyBusy();
     for (const choice of list) {
-      const cpus = expandCpus(choice);
-      if (cpus.some((c) => legacy.has(c))) continue;
       const held = [];
-      let ok = true;
-      for (const cpu of cpus) {
-        for (const locks of dirs) {
-          const dir = take(locks, cpu);
-          if (!dir) {
-            ok = false;
-            break;
-          }
-          held.push(dir);
-        }
-        if (!ok) break;
+      for (const cpu of expandCpus(choice)) {
+        const dir = join(locks, `cpu-${cpu}`);
+        if (!acquireLockDir(dir)) break;
+        held.push(dir);
       }
-      if (ok) {
+      if (held.length === expandCpus(choice).length) {
         try {
           return await fn(choice);
         } finally {
-          for (const d of held) rmSync(d, { recursive: true, force: true });
+          held.forEach(releaseLockDir);
         }
       }
-      for (const d of held) rmSync(d, { recursive: true, force: true });
+      held.forEach(releaseLockDir);
     }
     if (!waited) console.error(`[lock] waiting for CPUs of ${list.join(" | ")}`);
     waited = true;

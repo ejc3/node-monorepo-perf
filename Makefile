@@ -12,7 +12,7 @@ APP ?= @demo/app-00100
 # `make lockfile-bench` can no longer write a record at non-canonical scale points
 SCALES ?= 200:100 1000:200 2000:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith gym-setup gym-scaling gym-climb gym-record clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -124,6 +124,12 @@ gym-scaling: ## Turbopack graph phase vs lane size (8..all cores), one build at 
 
 gym-climb: ## Evaluate queued candidates (bench/turbopack-gym/candidates) against the incumbent
 	node scripts/turbopack-gym/climb.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+gym-canonical: ## Re-measure both Turbopack graph records from the tracked patches (bindings, A/Bs, scaling, record)
+	node scripts/turbopack-gym/canonical.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+gym-selftest: ## Lock and output-fingerprint self-tests for the gym (BUILDS=1 adds the build-based fingerprint test)
+	node scripts/turbopack-gym/selftest.mjs $(if $(BUILDS),--builds,)
 
 gym-record: ## Write bench/turbopack-graph-{scaling,ab}.json from the raw gym logs
 	node scripts/turbopack-gym/record.mjs scaling $(if $(GYM_HOST),--host $(GYM_HOST),)
