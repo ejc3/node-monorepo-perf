@@ -84,15 +84,18 @@ await withCpus(pair, async () => {
   sh("sudo", ["-n", "kill", "-INT", String(perf.pid)]);
   await new Promise((r) => perf.on("close", r));
   sh("sudo", ["-n", "chown", "-R", `${process.getuid()}`, outDir]);
-  // perf timestamps are epoch seconds (-k CLOCK_REALTIME): print each phase as a --time window
+  // perf timestamps are CLOCK_MONOTONIC seconds (perf refuses CLOCK_REALTIME together with
+  // tracepoints such as sched_switch): convert each phase's epoch window by the
+  // realtime-minus-monotonic offset and print it as a --time window
   const { readFileSync } = await import("node:fs");
+  const clockOffset = Date.now() / 1000 - Number(process.hrtime.bigint()) / 1e9;
   const run = JSON.parse(readFileSync(join(RUNS, rec.id, "run.json"), "utf8"));
   const windows = Object.fromEntries(
     run.phases
       .filter((e) => e.duration > 1e5)
       .map((e) => [
         e.name,
-        `${(e.startTime / 1000).toFixed(3)},${(e.startTime / 1000 + e.duration / 1e6).toFixed(3)}`,
+        `${(e.startTime / 1000 - clockOffset).toFixed(3)},${(e.startTime / 1000 - clockOffset + e.duration / 1e6).toFixed(3)}`,
       ]),
   );
   console.log(JSON.stringify({ outDir, run: rec.id, graph: rec.graph, windows }, null, 1));
