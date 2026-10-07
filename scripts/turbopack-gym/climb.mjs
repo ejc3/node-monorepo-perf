@@ -99,7 +99,34 @@ for (const name of names) {
   console.error(`\n[climb] ${name}: ${cand.description || ""}`);
 
   let binding = "incumbent";
+
   if (cand.patch || cand.worktree) {
+    // a worktree made before the incumbent moved must be measured on top of it:
+
+    // commit its edits and rebase onto gym/incumbent first
+
+    const wt = worktreeFor(name);
+
+    if (existsSync(wt)) {
+      if (sh("git", ["-C", wt, "status", "--porcelain"]).trim()) {
+        sh("git", ["-C", wt, "add", "-A"]);
+
+        sh("git", ["-C", wt, "commit", "-q", "-m", `gym: ${name}\n\n${cand.description || ""}`]);
+      }
+
+      try {
+        sh("git", ["-C", wt, "rebase", "-q", "gym/incumbent"]);
+      } catch (e) {
+        sh("git", ["-C", wt, "rebase", "--abort"]);
+
+        cand.result = { status: "rebase-conflict", error: String(e.message).slice(0, 500) };
+
+        writeFileSync(path, JSON.stringify(cand, null, 2) + "\n");
+
+        continue;
+      }
+    }
+
     try {
       build(name, {
         from: "gym/incumbent",

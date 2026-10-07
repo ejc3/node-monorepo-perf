@@ -136,7 +136,7 @@ export async function bench({
   ];
 
   const cg = `/sys/fs/cgroup/system.slice/${unit}.scope`;
-  const samples = []; // [epochMs, usageUsec]
+  const samples = []; // [epochMs, usageUsec, systemUsec]
   const t0 = Date.now();
   const child = spawn("sudo", ["-n", ...args], { cwd: app, stdio: ["ignore", "pipe", "pipe"] });
   const log = [];
@@ -146,7 +146,8 @@ export async function bench({
   const timer = setInterval(() => {
     try {
       const stat = readFileSync(`${cg}/cpu.stat`, "utf8");
-      samples.push([Date.now(), Number(/usage_usec (\d+)/.exec(stat)[1])]);
+      const num = (k) => Number(new RegExp(`${k} (\\d+)`).exec(stat)[1]);
+      samples.push([Date.now(), num("usage_usec"), num("system_usec")]);
       memPeak = Number(readFileSync(`${cg}/memory.peak`, "utf8"));
     } catch {} // scope not created yet, or already gone
   }, SAMPLE_MS);
@@ -158,17 +159,18 @@ export async function bench({
 
   const trace = JSON.parse(readFileSync(join(app, distDir, "trace-build"), "utf8"));
   const ev = Object.fromEntries(trace.map((e) => [e.name, e]));
-  // CPU-seconds used inside [start, end] epoch ms, interpolated between samples
-  const cpuIn = (start, end) => {
+  // CPU-seconds used inside [start, end] epoch ms, interpolated between samples;
+  // col 1 is total (usage_usec), col 2 kernel time (system_usec)
+  const cpuIn = (start, end, col = 1) => {
     const at = (t) => {
       if (!samples.length) return 0;
-      if (t <= samples[0][0]) return samples[0][1];
+      if (t <= samples[0][0]) return samples[0][col];
       for (let i = 1; i < samples.length; i++) {
-        const [ta, ua] = samples[i - 1];
-        const [tb, ub] = samples[i];
+        const [ta, ua] = [samples[i - 1][0], samples[i - 1][col]];
+        const [tb, ub] = [samples[i][0], samples[i][col]];
         if (t <= tb) return ua + ((ub - ua) * (t - ta)) / (tb - ta || 1);
       }
-      return samples.at(-1)[1];
+      return samples.at(-1)[col];
     };
     return (at(end) - at(start)) / 1e6;
   };
@@ -176,8 +178,13 @@ export async function bench({
     const e = ev[name];
     if (!e) return null;
     const s = e.duration / 1e6;
-    const cpu = cpuIn(e.startTime, e.startTime + e.duration / 1000);
-    return { s: +s.toFixed(3), cores: +(cpu / s).toFixed(2) };
+    const [a, b] = [e.startTime, e.startTime + e.duration / 1000];
+    const cpu = cpuIn(a, b);
+    return {
+      s: +s.toFixed(3),
+      cores: +(cpu / s).toFixed(2),
+      sysShare: cpu ? +(cpuIn(a, b, 2) / cpu).toFixed(3) : 0,
+    };
   };
   const totalCpu = samples.length ? samples.at(-1)[1] / 1e6 : 0;
   const rec = {

@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks GraphTraversal::visit polls its FuturesUnordered with read-triggered inline task execution suppressed, so the single traversal future stops running claimed tasks serially and keeps scheduling discovered nodes for all workers",
+  "patch": "bench/turbopack-gym/candidates/32-no-inline-traversal.patch",
+  "base": "vercel/next.js v16.4.0"
+}

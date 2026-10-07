@@ -1,0 +1,5 @@
+{
+  "description": "stacked on 11: factor the DFS post-order rank into ModuleGraphSnapshot::topological_priority and also use it for the compute_merged_modules bitmap fixed point (replacing the BFS-depth priority)",
+  "patch": "bench/turbopack-gym/candidates/13-merged-topo.patch",
+  "base": "vercel/next.js v16.4.0"
+}

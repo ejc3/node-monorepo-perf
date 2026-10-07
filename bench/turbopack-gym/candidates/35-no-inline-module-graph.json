@@ -1,0 +1,5 @@
+{
+  "description": "SingleModuleGraph::new_inner polls its module graph traversal with read-triggered inline task execution suppressed (new turbo_tasks::InlineExecutionSuppressed wrapper), so the single traversal future stops running claimed tasks serially and keeps scheduling discovered modules for all workers; other traversals keep inline execution",
+  "patch": "bench/turbopack-gym/candidates/35-no-inline-module-graph.patch",
+  "base": "vercel/next.js v16.4.0"
+}

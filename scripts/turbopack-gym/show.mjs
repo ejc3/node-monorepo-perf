@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Print one run's per-second CPU timeline with the trace-build phases overlaid.
 //   node scripts/turbopack-gym/show.mjs [run-id]      (default: newest run)
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { RUNS } from "./lib.mjs";
 
 const id =
   process.argv[2] ||
   readdirSync(RUNS)
+    .filter((d) => existsSync(join(RUNS, d, "run.json"))) // finished runs only
     .map((d) => [d, statSync(join(RUNS, d)).mtimeMs])
     .sort((a, b) => b[1] - a[1])[0][0];
 const r = JSON.parse(readFileSync(join(RUNS, id, "run.json"), "utf8"));
