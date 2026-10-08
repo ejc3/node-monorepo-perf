@@ -36,6 +36,29 @@ import {
 import { resolveBinding } from "./bindings.mjs";
 
 const SAMPLE_MS = 100;
+// Samples a scope's cgroup every interval: "<epoch ms> <usage_usec> <system_usec>
+// <memory.peak>" per line, from the scope's appearance until it is gone and stdin closes.
+const SAMPLER = `
+import sys, time, select
+cg, every = sys.argv[1], float(sys.argv[2])
+seen = False
+stdin_open = True
+while True:
+    try:
+        stat = open(cg + "/cpu.stat").read().split()
+        kv = dict(zip(stat[0::2], stat[1::2]))
+        peak = open(cg + "/memory.peak").read().strip()
+        print(int(time.time() * 1000), kv["usage_usec"], kv["system_usec"], peak, flush=True)
+        seen = True
+    except (FileNotFoundError, OSError, KeyError):
+        if seen and not stdin_open:
+            break
+    if stdin_open and select.select([sys.stdin], [], [], 0)[0] and not sys.stdin.read(1):
+        stdin_open = False
+    if not seen and not stdin_open:
+        break
+    time.sleep(every)
+`;
 const BUILD_ID = "gym";
 const sha16 = (data) => createHash("sha256").update(data).digest("hex").slice(0, 16);
 
@@ -223,25 +246,31 @@ export async function bench({
   ];
 
   const cg = `/sys/fs/cgroup/system.slice/${unit}.scope`;
-  const samples = []; // [epochMs, usageUsec, systemUsec]
   const t0 = Date.now();
   liveUnits.add(unit);
   const child = spawn("sudo", ["-n", ...args], { cwd: app, stdio: ["ignore", "pipe", "pipe"] });
   const log = [];
   child.stdout.on("data", (d) => log.push(d));
   child.stderr.on("data", (d) => log.push(d));
-  let memPeak = 0;
-  const timer = setInterval(() => {
-    try {
-      const stat = readFileSync(`${cg}/cpu.stat`, "utf8");
-      const num = (k) => Number(new RegExp(`${k} (\\d+)`).exec(stat)[1]);
-      samples.push([Date.now(), num("usage_usec"), num("system_usec")]);
-      memPeak = Number(readFileSync(`${cg}/memory.peak`, "utf8"));
-    } catch {} // scope not created yet, or already gone (checked below)
-  }, SAMPLE_MS);
+  // the scope's cpu.stat is sampled by its own process, so this process's event loop
+  // (other builds' fingerprints, hashing) cannot delay or thin the samples
+  const sampler = spawn("python3", ["-c", SAMPLER, cg, String(SAMPLE_MS / 1000)], {
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  let sampled = "";
+  sampler.stdout.on("data", (d) => (sampled += d));
+  const samplerDone = new Promise((r) => sampler.on("close", r));
   const code = await new Promise((r) => child.on("close", r));
-  clearInterval(timer);
+  sampler.stdin.end(); // ends the sampler once the scope is gone
+  await samplerDone;
   liveUnits.delete(unit);
+  const samples = []; // [epochMs, usageUsec, systemUsec]
+  let memPeak = 0;
+  for (const line of sampled.trim().split("\n").filter(Boolean)) {
+    const [ms, usage, system, peak] = line.split(" ").map(Number);
+    samples.push([ms, usage, system]);
+    memPeak = Math.max(memPeak, peak);
+  }
   const wall = (Date.now() - t0) / 1000;
   writeFileSync(logPath, Buffer.concat(log));
   const fail = (msg) => {
@@ -249,9 +278,10 @@ export async function bench({
     throw new Error(`${msg}; log: ${logPath}`);
   };
   if (code !== 0) fail(`build failed (exit ${code})`);
-  // CPU accounting must cover the build: a run with too few samples is an error, not 0
-  if (samples.length < Math.max(3, (wall * 1000) / SAMPLE_MS / 2))
-    fail(`cgroup sampling covered ${samples.length} samples over ${wall}s`);
+  // CPU accounting must cover the build: missing or gapped sampling is an error, not 0
+  const maxGap = Math.max(0, ...samples.slice(1).map((x, i) => x[0] - samples[i][0]));
+  if (samples.length < 3 || maxGap > 3000)
+    fail(`cgroup sampling: ${samples.length} samples over ${wall}s, largest gap ${maxGap} ms`);
 
   const trace = JSON.parse(readFileSync(join(app, distDir, "trace-build"), "utf8"));
   const ev = Object.fromEntries(trace.map((e) => [e.name, e]));
@@ -316,6 +346,7 @@ export async function bench({
     JSON.stringify({ ...rec, timeline, phases: trace }, null, 1),
   );
   if (!keep) rmSync(join(app, distDir), { recursive: true, force: true });
+  rec.distDir = keep ? join(app, distDir) : null;
   if (!quiet)
     console.error(
       `[bench] ${label || binding} cpus=${cpus} wall=${rec.wall}s graph=${rec.graph.s}s@${rec.graph.cores}c turbopack=${rec.turbopack.s}s cores=${rec.cores} mem=${rec.memPeakGiB}G out=${rec.output.sha}`,

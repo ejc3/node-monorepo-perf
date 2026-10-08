@@ -531,50 +531,65 @@ One command each for the O(repo)-vs-O(closure) thesis:
 ### Turbopack Graph Gym
 One large app instead of many small ones: the shape of vercel/next.js#98043, whose
 Turbopack module graph phase keeps a few cores busy whatever the core count. Results and
-method: TURBOPACK-GRAPH.md. All state lives under `GYM_ROOT` (required: a scratch
-directory; the next.js clone, one cargo target per binding, the apps, run outputs).
+method: TURBOPACK-GRAPH.md. `GYM_ROOT` (required) is a scratch directory for the next.js
+clone, one cargo target per binding, the binding store, the apps and run outputs; CPU and
+named locks live in `GYM_LOCKS` (default `/tmp/turbopack-gym-locks`, one per machine); raw
+run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` overrides).
 - `scripts/monolith-gen.mjs` (`make monolith`): one standalone App Router app; defaults:
-  2,071 routes (1,709 pages with the root page, 362 route handlers), 192 section layouts,
-  16,068 TypeScript files in feature folders, a UI kit and a util layer behind
-  `export *` barrels, `'use client'` boundaries, zipf cross-feature imports. Deterministic
-  per `--seed`; `monolith.json` records the counts and options. `--clean` deletes only a
-  generated tree. `next.config` reads `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`,
-  `MONOLITH_TP_FS_CACHE`.
+  2,071 routes (`--routes 2070` plus the root page: 1,709 pages, 362 route handlers), 192
+  section layouts, 16,068 TypeScript files in feature folders, a UI kit and a util layer
+  behind `export *` barrels, `'use client'` boundaries, zipf cross-feature imports.
+  Deterministic per `--seed`; `monolith.json` records the counts, options and a generator
+  signature that `--clean` requires before deleting a directory. `next.config` reads
+  `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`, `MONOLITH_TP_FS_CACHE`.
 - `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
-  - `setup.mjs` (`make gym-setup`): clone next.js at a tag, build the base binding
-    (release, LTO off, 16 codegen units) and a frame-pointer one, generate and install the
-    `monolith` and 400-route `quick` apps; `--host` sets up the apps and ships the base
-    binding to another machine.
+  - `setup.mjs` (`make gym-setup`): clone next.js, check `gym/base` is the tag's commit,
+    build the base binding through `build.mjs` and a frame-pointer one, (re)generate and
+    install the `monolith` and 401-route `quick` apps whenever their tree differs from the
+    generator's; `--host` sets up the apps and ships the base binding to another machine.
+  - Bindings (`bindings.mjs`): an immutable store, `bindings/.store/<module hash>/`
+    (module, `candidate.diff` against `gym/base` including untracked files,
+    `source.json`), and `bindings/<name>` a symlink flipped by `rename()`; a run resolves a
+    name once and re-hashes the module against its store id.
   - `bench.mjs`: one cold `next build --experimental-build-mode=compile` in a
     `systemd-run --scope` pinned to a CPU set (memory on its NUMA nodes): phase durations
     and offsets from `.next/trace-build`, cores and kernel share per phase from the scope's
-    `cpu.stat`, an output fingerprint (normalized contents of every emitted file, plus the
-    exact hash), the app tree hash, the binding's diff and module hashes, machine fields
-    (instance type from EC2 metadata). Fails on a missing phase or thin CPU sampling.
-  - `ab.mjs`: A and B concurrently on a lane pair (equal, disjoint, one NUMA node each),
-    lanes and launch order swapped every rep, bindings snapshotted under the locks; verdict
-    on the geometric mean over reps, sign-consistent per swapped pair, guard on
-    `run-turbopack`, same fingerprint.
+    `cpu.stat` (sampled by a separate python3 process; a gap over 3 s fails the run), an
+    output fingerprint (normalized contents of every emitted file, string literals kept,
+    plus the exact hash), the app tree hash with installed next/react/@next/swc versions,
+    binding provenance (source head, diff hash, module hash), machine fields (instance
+    type from EC2 metadata; a hashed boot id kept out of records).
+  - `ab.mjs`: A and B concurrently on a lane pair (two CPU lists, equal, disjoint, online,
+    one NUMA node each); lanes swap every rep and launch order every two reps; both sides
+    are hashed before either launches; verdict on the geometric mean over reps below
+    1 − 0.06, sign-consistent per swapped pair, guard on `run-turbopack`, same fingerprint.
+    Exit 0 win, 1 no win, 2 error.
   - `build.mjs` (candidate binding from a next.js worktree; patches applied once, at
-    creation), `climb.mjs` (`make gym-climb`: the candidate queue in
-    `bench/turbopack-gym/candidates/`, winners folded into branch `gym/incumbent`, one climb
-    per machine), `scaling.mjs` (`make gym-scaling`: lane sizes one build at a time holding
-    the box, bindings interleaved), `profile.mjs` (`perf` on-CPU and `sched_switch` on the
-    profiled CPUs, phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs`
-    (longest import chain).
-  - Every run, A/B, build, profile and sweep takes the locks of the CPUs it uses
-    (`withCpus`): a lock is created whole and released by moving it aside, so two of them
-    never share a CPU.
+    creation; cargo as a killable process group), `climb.mjs` (`make gym-climb`: the
+    candidate queue in `bench/turbopack-gym/candidates/`, winners folded into branch
+    `gym/incumbent`, one climb per machine), `scaling.mjs` (`make gym-scaling`: lane sizes
+    one build at a time holding the box, bindings interleaved, a completion manifest in
+    `sweeps.jsonl`), `profile.mjs` (`perf` on-CPU and `sched_switch` on the profiled CPUs,
+    phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs` (longest import
+    chain).
+  - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
+    (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
+    or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets
+    every `finally` run.
   - `--host <name>` runs setup, A/B, scaling and record on a machine from the gitignored
-    `scripts/turbopack-gym/hosts.local.json`; bindings are built here and rsynced.
-  - `record.mjs` (`make gym-record`) writes `bench/turbopack-graph-ab.json` and
-    `bench/turbopack-graph-scaling.json`, recomputing every number from the per-run files
-    and verifying each run's binding (against `bench/turbopack-gym/bindings.json`), app
-    tree and machine. `canonical.mjs` (`make gym-canonical`) re-measures both records from
-    the tracked patches; `report.mjs` renders TURBOPACK-GRAPH.md's tables from them
-    (`--check` fails on drift); `selftest.mjs` (`make gym-selftest`) tests the locks, the
-    record verification and the output fingerprint.
-  - Needs passwordless sudo (systemd-run, perf), Node 22, pnpm, the next.js rust toolchain.
+    `scripts/turbopack-gym/hosts.local.json`; bindings are built here and shipped as store
+    entries.
+  - `record.mjs` writes `bench/turbopack-graph-ab.json` and
+    `bench/turbopack-graph-scaling.json` for one canonical run (`--tag`), recomputing every
+    number from the per-run files and refusing a run whose binding (head, diff), app tree,
+    machine boot, lanes or uniqueness does not check, or an incomplete sweep.
+    `canonical.mjs` (`make gym-canonical`) re-measures both records from the tracked
+    patches under one tag; `make gym-record TAG=<tag>` re-records one; `report.mjs` renders
+    the Turbopack numbers in TURBOPACK-GRAPH.md, README.md and SUMMARY.md from the records
+    (`--check` fails on drift); `selftest.mjs` (`make gym-selftest`, `BUILDS=1`) tests the
+    locks, record verification, the output fingerprint and interrupt unwinding.
+  - Needs passwordless sudo (systemd-run, perf), Node 22, pnpm, python3, the next.js rust
+    toolchain.
 
 ### Developer Experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>`: simulate D devs each
@@ -983,13 +998,14 @@ scale, every row recording the same `versions.pnpm`, and `chart.mjs` enforces bo
 refuses an empty dataset, an un-versioned or differently-versioned row, and a second row
 for a scale label). The Turbopack graph records `turbopack-graph-ab.json` and
 `turbopack-graph-scaling.json` (TURBOPACK-GRAPH.md) are canonical on a dedicated 192-core
-c8g.48xlarge (two NUMA nodes); each record carries one `machine` (arch, cpuModel, cores,
-numaNodes, memGiB, instanceType, node, sharedBox) that `record.mjs` checks every run against,
-the app's shape and tree hash, and the patches (with hashes) inside every binding it ran,
-checked against each run's binding diff hash. The A/B record ran its rows one at a time,
-A and B concurrently on two lanes of one NUMA node; the scaling record ran one build at a
-time holding every CPU. `make gym-canonical` re-measures both; `report.mjs --check`
-verifies TURBOPACK-GRAPH.md's tables against them. `chart.mjs`
+c8g.48xlarge (two NUMA nodes) and come from one canonical run (`tag`). Each carries one
+`machine` (arch, cpuModel, cores, numaNodes, memGiB, instanceType, node, sharedBox; every
+run is checked to share one machine boot), the app's shape and tree hash, and the patches
+(with hashes) inside every binding, which each run's source head and diff hash are checked
+against. The A/B record ran its rows one at a time, A and B concurrently on two lanes of
+one NUMA node; the scaling record ran one build at a time holding every CPU.
+`make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
+in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header

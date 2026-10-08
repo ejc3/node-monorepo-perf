@@ -100,11 +100,10 @@ Two operations are genuinely O(repo) and cannot be scoped away:
   [ROLLOUT.md](ROLLOUT.md#yarn-as-a-driver).
 - **A whole-repo dist build** scales with package count.
 - **One large app's `next build`** does not split by package. On a 2,071-route app,
-  Turbopack's module graph phase is fastest at 16 cores and slower with more (9.56s at 16,
-  15.92s at 96 cores); two Turbopack patches cut it to 0.353× on a 24-core lane and the
-  Turbopack compile to 0.709× ([TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md),
-  `bench/turbopack-graph-ab.json`, `bench/turbopack-graph-scaling.json`; a 192-core
-  c8g.48xlarge).
+  Turbopack's module graph phase takes <!--v:sc.base.16.graph-->9.56s<!--/v--> at 16 cores and <!--v:sc.base.96.graph-->15.92s<!--/v--> at 96;
+  two Turbopack patches cut it to <!--v:ab.15+22.ratio-->0.353<!--/v-->× on a 24-core lane and the Turbopack compile to
+  <!--v:ab.15+22.guard-->0.709<!--/v-->× ([TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md), `bench/turbopack-graph-ab.json`,
+  `bench/turbopack-graph-scaling.json`; a 192-core c8g.48xlarge).
 
 Whole-repo build and typecheck amortize across a CI fleet via a remote cache: after the first
 runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 9.9s →

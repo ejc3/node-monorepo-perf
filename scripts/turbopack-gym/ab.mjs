@@ -18,11 +18,20 @@
 // to immutable store directories (bindings.mjs), and both sides are prepared (hashed)
 // before either build of a rep launches. Exit: 0 win, 1 no win, 2 error.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { bench, memoryNodes, prepare } from "./bench.mjs";
 import { resolveBinding, verifyResolved } from "./bindings.mjs";
-import { APPS, RESULTS, appendJsonl, expandCpus, median, parseArgs, withCpus } from "./lib.mjs";
+import {
+  APPS,
+  RESULTS,
+  RUNS,
+  appendJsonl,
+  expandCpus,
+  median,
+  parseArgs,
+  withCpus,
+} from "./lib.mjs";
 import { LOCAL_LANES, host, runRemote, stripHost, sync } from "./hosts.mjs";
 
 // lanes: "auto" takes the first pair of this host's pool (GYM_LANE_POOL) whose CPUs
@@ -95,16 +104,31 @@ async function abUnlocked({
       resolved: resolved[name] && verifyResolved(resolved[name]),
     });
     const [pa, pb] = [prep(a), prep(b)];
-    const runA = () => bench({ binding: a, prepared: pa, env: aEnv, cpus: la, label: `A:${a}` });
-    const runB = () => bench({ binding: b, prepared: pb, env: bEnv, cpus: lb, label: `B:${b}` });
+    // outputs are kept until compared: a rep whose fingerprints differ keeps both
+    // (moved into the runs' directories) for inspection
+    const runA = () =>
+      bench({ binding: a, prepared: pa, env: aEnv, cpus: la, label: `A:${a}`, keep: true });
+    const runB = () =>
+      bench({ binding: b, prepared: pb, env: bEnv, cpus: lb, label: `B:${b}`, keep: true });
     // launch order flips every two reps, lanes every rep: first-launched is not tied to a
     // lane. Wait for both before failing, so the CPU locks outlive both builds.
     const bFirst = Math.floor(i / 2) % 2 === 1;
     const started = bFirst ? [runB(), runA()] : [runA(), runB()];
     const settled = await Promise.allSettled(bFirst ? [started[1], started[0]] : started);
     const failed = settled.find((x) => x.status === "rejected");
-    if (failed) throw failed.reason;
+    if (failed) {
+      for (const x of settled)
+        if (x.status === "fulfilled") rmSync(x.value.distDir, { recursive: true, force: true });
+      throw failed.reason;
+    }
     const [ra, rb] = settled.map((x) => x.value);
+    for (const r of [ra, rb]) {
+      if (ra.output.sha === rb.output.sha) rmSync(r.distDir, { recursive: true, force: true });
+      else {
+        renameSync(r.distDir, join(RUNS, r.id, "output"));
+        console.error(`[ab] rep ${i + 1}: outputs differ, kept in ${join(RUNS, r.id, "output")}`);
+      }
+    }
     pairs.push({
       a: ra,
       b: rb,

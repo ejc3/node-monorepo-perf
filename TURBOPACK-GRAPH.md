@@ -1,11 +1,12 @@
 # Turbopack's Whole-App Module Graph on One Large App
 
 On one App Router app at the scale reported in
-[vercel/next.js#98043](https://github.com/vercel/next.js/issues/98043) (2,071 routes,
-16,068 TypeScript files), the module graph phase of `next build` is fastest at 16 cores and slower with more: 9.56s at 16 cores, 13.58s at 24, 15.92s at 96 and 38.59s at 192 (both NUMA nodes), with 9.5–11.3 cores busy from 24 to 96 cores. Two
-patches to Turbopack v16.4.0 shorten the phase to **0.353×** of base on a 24-core lane
-(13.20s → 4.60s) and the Turbopack compile (`run-turbopack`) to **0.709×**, with the same
-output. Sources: `bench/turbopack-graph-ab.json`, `bench/turbopack-graph-scaling.json`.
+[vercel/next.js#98043](https://github.com/vercel/next.js/issues/98043) (the issue reports
+2,070 routes; the generated app has 2,071, with 16,068 TypeScript files), the module graph
+phase of `next build` takes <!--v:sc.base.16.graph-->9.56s<!--/v--> at 16 cores, <!--v:sc.base.24.graph-->13.58s<!--/v--> at 24, <!--v:sc.base.96.graph-->15.92s<!--/v--> at 96 and <!--v:sc.base.192.graph-->38.59s<!--/v--> at 192 (both NUMA nodes), with <!--v:sc.base.24-96.cores-->9.5–11.3<!--/v--> cores busy from 24 to 96 cores. Two patches to Turbopack v16.4.0 shorten the phase to
+**<!--v:ab.15+22.ratio-->0.353<!--/v-->×** of base on a 24-core lane (<!--v:ab.15+22.graphA-->13.20s<!--/v--> → <!--v:ab.15+22.graphB-->4.60s<!--/v-->) and the Turbopack compile
+(`run-turbopack`) to **<!--v:ab.15+22.guard-->0.709<!--/v-->×**, with the same output. Sources:
+`bench/turbopack-graph-ab.json`, `bench/turbopack-graph-scaling.json`.
 
 ## The App
 
@@ -33,30 +34,35 @@ Deterministic per `--seed` (98043).
   set, its memory on that set's NUMA node. Phase durations and start offsets come from
   Next's `.next/trace-build` events (`turbopack-module-graph`, `turbopack-write-entrypoints`,
   `turbopack-emit`, `run-turbopack`, `turbopack-persistence`). Cores per phase are the
-  scope's CPU time over the phase's duration (`cpu.stat`, sampled every 100 ms); `sysShare`
-  is the part of that CPU time spent in the kernel.
+  scope's CPU time over the phase's duration (`cpu.stat`, sampled every 100 ms by a separate
+  process; a run with a sampling gap over 3 s is rejected); `sysShare` is the part of that
+  CPU time spent in the kernel.
 - **Bindings.** Every binding, `base` included, is `next-napi-bindings` built from the
   v16.4.0 tag with `--release`, LTO off and 16 codegen units; a patched binding differs from
-  `base` only by its patches. Each run records the hash of its binding's diff against
-  v16.4.0, and the records list each binding's patches with their hashes.
+  `base` only by its patches. A built binding is stored once under the hash of its native
+  module and never changed; each run records that hash, its source commit and the hash of
+  its diff against v16.4.0, and the records check the commit and diff against the patches
+  they list (`bench/turbopack-gym/bindings.json`).
 - **A/B** (`ab.mjs`): A and B build at the same time on two 24-core lanes of one NUMA node,
-  swapping lanes and launch order every rep, 6 reps; the eight A/Bs ran one after another.
-  The ratio is the geometric mean of B/A over the reps, which cancels a fixed speed
-  difference between the two lanes; `swapRatios` gives each swapped pair. A row wins when
-  the ratio is below 0.96, every swap pair is below 1, `run-turbopack` does not regress by
-  more than 2%, and the output fingerprint matches. The two builds share the node's memory
-  bandwidth and caches, so a ratio measures B built next to A; the scaling record builds
-  one binding at a time.
-- **Same output.** The fingerprint hashes every emitted file except the persistent cache,
-  trace files and `preview-props.json`, after normalizing what varies between builds of one
-  binding: the run's output directory name, `.js`/`.css` file names (chunk names carry
-  per-build hashes), 32+ character hex strings, and one- and two-character identifiers
-  (minified locals). Every file's remaining content is compared. The records also keep each
-  build's exact hash, which differs between the two sides of the A/A row.
+  6 reps; lanes swap every rep and launch order every two reps, so which build starts first
+  does not follow the lane, and both are prepared (hashed) before either starts. The eight
+  A/Bs ran one after another. The ratio is the geometric mean of B/A over the reps, which
+  cancels a fixed speed difference between the two lanes; `swapRatios` gives each swapped
+  pair. A row wins when the ratio is below 0.94, every swap pair is below 1, `run-turbopack`
+  does not regress by more than 2%, and the output fingerprint matches. The two builds share
+  the node's memory bandwidth and caches, so a ratio measures B built next to A; the scaling
+  record builds one binding at a time.
+- **Same output.** The fingerprint hashes every emitted file except the top-level cache and
+  trace files and `server/preview-props.json`, after normalizing what varies between builds
+  of one binding: the run's output directory name, `.js`/`.css` file names (chunk names
+  carry per-build hashes), 32+ character hex strings, and one- and two-character
+  identifiers outside string literals (minified locals). Every file's remaining content,
+  strings included, is compared. The records also keep each build's exact hash, which
+  differs between the two sides of the A/A row.
 - **Scaling** (`scaling.mjs`): one build at a time holding every CPU of the box, base and
   15 + 22 interleaved with the order rotating each rep, 3 reps per point; lanes start at CPU
   0, so sizes up to 96 sit on NUMA node 0 and 192 spans both nodes.
-- **Machine.** A dedicated c8g.48xlarge: 192 Neoverse-V2 vCPUs in two NUMA nodes, 371 GiB, Node 22.23.3 (the records' `machine` fields).
+- **Machine.** <!--v:machine-->a dedicated c8g.48xlarge: 192 Neoverse-V2 vCPUs in 2 NUMA nodes, 371 GiB, Node 22.23.3<!--/v--> (the records' `machine` fields).
 
 ## Results
 
@@ -81,30 +87,33 @@ Deterministic per `--seed` (98043).
   (`turbopack/crates/turbo-tasks/src/priority_runner.rs`) keeps every scheduled task in one
   mutex-guarded queue. Scheduling a task, a reader claiming one to run inline, and a worker
   taking its next task all take that lock. Fewer workers make the phase shorter: capping
-  turbo-tasks at 16 worker threads on a 24-core lane gives 0.764× with fewer cores busy, and
-  leaves `run-turbopack` at 0.989×. Patch 22 splits the queue into shards (the worker count
+  turbo-tasks at 16 worker threads on a 24-core lane gives <!--v:ab.workers-16.ratio-->0.764<!--/v-->× with
+  <!--v:ab.workers-16.coresB-->7.7<!--/v--> instead of <!--v:ab.workers-16.coresA-->9.6<!--/v--> cores busy, and leaves `run-turbopack` at
+  <!--v:ab.workers-16.guard-->0.989<!--/v-->×. Patch 22 splits the queue into shards (the worker count
   over four, rounded up to a power of two, at most 64; one shard below eight workers). A
   task with a claim key goes to the shard its key hashes to and others rotate over the
   shards; a worker takes the higher-priority head of two non-empty shards, trying the
-  second shard's lock without waiting for it: 0.677×.
-- **A whole-graph fixed point visited breadth-first.** `compute_binding_usage_info`
+  second shard's lock without waiting for it: <!--v:ab.22.ratio-->0.677<!--/v-->×.
+- **A whole-graph fixed point in discovery order.** `compute_binding_usage_info`
   (`turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs`) is called twice
-  in the phase, for the base graph and the full graph
-  (`crates/next-api/src/project.rs`, `whole_app_module_graph_operation`), and walks the graph
-  in one sequential loop. Visiting breadth-first, it processes a module that re-exports a
-  large barrel again each time a newly visited importer adds a used export, and each pass
-  copies the barrel's export set along every `export *` edge. Patch 11 visits modules by
-  their DFS post-order index, so each module comes after its importers as far as cycles
-  allow; the fixed point it reaches does not depend on the visit order: 0.683×. Patch 15
-  adds three things to 11: the same order for the merged-modules fixed point
-  (`merged_modules.rs`), the ordering computed once on the graph snapshot (`mod.rs`), and
-  merged-module bitmaps interned to small ids instead of hashed: 0.673× on the graph phase,
-  0.800× on `run-turbopack`.
-- **Together.** 15 + 22 reach 0.353×; the product of their separate ratios is 0.455.
-- **Not the bound.** An 8 GiB eviction floor gives 1.020× (not a win). Turning off the
-  persistent build cache gives 1.060× on the graph phase and 0.816× on `run-turbopack`; its
-  output fingerprint differs from base because Next serializes the setting into the build
-  output (`required-server-files.json`).
+  in the phase, for the base graph and the full graph (`crates/next-api/src/project.rs`,
+  `whole_app_module_graph_operation`), and walks the graph in one sequential loop
+  (`traverse_edges_fixed_point_with_priority` in `module_graph/mod.rs`). Every module has
+  the same priority there, and its max-heap breaks the tie by discovery index, so the most
+  recently discovered module is taken first (the code comment next to it describes the
+  reverse, breadth-first order). In an order that is not topological, a module that
+  re-exports a large barrel is processed again each time a newly visited importer adds a
+  used export, and each pass copies the barrel's export set along every `export *` edge.
+  Patch 11 gives each module its DFS post-order index as priority, so each module comes
+  after its importers as far as cycles allow; the fixed point it reaches does not depend on
+  the visit order: <!--v:ab.11.ratio-->0.683<!--/v-->×. Patch 15 adds three things to 11: the same order for the
+  merged-modules fixed point (`merged_modules.rs`), the ordering computed once on the graph
+  snapshot (`mod.rs`), and merged-module bitmaps interned to small ids instead of hashed:
+  <!--v:ab.15.ratio-->0.673<!--/v-->× on the graph phase, <!--v:ab.15.guard-->0.800<!--/v-->× on `run-turbopack`.
+- **Together.** 15 + 22 reach <!--v:ab.15+22.ratio-->0.353<!--/v-->×; the product of their separate ratios is <!--v:prod.15.22-->0.455<!--/v-->.
+- **Not the bound.** An 8 GiB eviction floor gives <!--v:ab.evict-8g.ratio-->1.020<!--/v-->×. Turning off the persistent build
+  cache gives <!--v:ab.no-fs-cache.ratio-->1.060<!--/v-->× on the graph phase and <!--v:ab.no-fs-cache.guard-->0.816<!--/v-->× on `run-turbopack`; a changed build
+  setting changes the build's output, so its fingerprint differs from base.
 
 ## Scaling
 
@@ -123,16 +132,19 @@ Deterministic per `--seed` (98043).
 Medians over 3 interleaved runs per point.
 <!-- /turbopack-graph:scaling -->
 
-- **Base is fastest at 16 cores.** From 24 to 96 cores the phase takes 13.58–15.92s,
-  cores busy stay at 9.5–11.3, and the kernel's share of the phase's CPU time rises from
-  28.8% to 43.7% (6.8% at 16 cores). Across both NUMA nodes it takes 38.59s.
-- **15 + 22 holds at 4.05–4.36s from 24 to 96 cores** while cores busy rise from 17.8 to
-  60.5 and the kernel share stays at 3.6–6.4%. It is 0.26× base at 96 cores
-  (15.92s → 4.08s) and 0.15× at 192 (38.59s → 5.87s). At 24 cores, built alone, it is
-  0.32× base (13.58s → 4.36s); the A/B, with the two builds side by side, measures 0.353×.
-- **The rest of the compile now bounds it.** With 15 + 22, `run-turbopack` holds at
-  30.25–31.34s from 24 to 96 cores, of which `turbopack-write-entrypoints` (it contains the
-  graph phase) is 14.11–14.68s.
+- **Base.** The phase takes <!--v:sc.base.16.graph-->9.56s<!--/v--> at 16 cores and <!--v:sc.base.24-96.graph-->13.58–15.92s<!--/v--> from 24 to
+  96 cores, where cores busy stay at <!--v:sc.base.24-96.cores-->9.5–11.3<!--/v--> and the kernel's share of the
+  phase's CPU time is <!--v:sc.base.24-96.sys-->28.8–43.7%<!--/v--> (<!--v:sc.base.16.sys-->6.8%<!--/v--> at 16 cores). Across both NUMA
+  nodes it takes <!--v:sc.base.192.graph-->38.59s<!--/v-->.
+- **15 + 22** takes <!--v:sc.15+22.24-96.graph-->4.05–4.36s<!--/v--> from 24 to 96 cores while cores busy rise over
+  <!--v:sc.15+22.24-96.cores-->17.8–60.5<!--/v--> and the kernel share stays at <!--v:sc.15+22.24-96.sys-->3.6–6.4%<!--/v-->. It is
+  <!--v:ratio.sc.base.15+22.96.graph-->0.26<!--/v-->× base at 96 cores (<!--v:sc.base.96.graph-->15.92s<!--/v--> → <!--v:sc.15+22.96.graph-->4.08s<!--/v-->) and
+  <!--v:ratio.sc.base.15+22.192.graph-->0.15<!--/v-->× at 192 (<!--v:sc.base.192.graph-->38.59s<!--/v--> → <!--v:sc.15+22.192.graph-->5.87s<!--/v-->). At 24 cores, built
+  alone, it is <!--v:ratio.sc.base.15+22.24.graph-->0.32<!--/v-->× base (<!--v:sc.base.24.graph-->13.58s<!--/v--> → <!--v:sc.15+22.24.graph-->4.36s<!--/v-->); the A/B, with the two
+  builds side by side, measures <!--v:ab.15+22.ratio-->0.353<!--/v-->×.
+- **The rest of the compile.** With 15 + 22, `run-turbopack` takes <!--v:sc.15+22.24-96.tp-->30.25–31.34s<!--/v--> from
+  24 to 96 cores, of which `turbopack-write-entrypoints` (it contains the graph phase) is
+  <!--v:sc.15+22.24-96.entry-->14.11–14.68s<!--/v-->.
 
 ## Open Items
 

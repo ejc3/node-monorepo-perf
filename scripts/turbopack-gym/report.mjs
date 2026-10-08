@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-// Render TURBOPACK-GRAPH.md's tables from the records, between marker comments:
+// Render the Turbopack graph numbers in the docs from the records: TURBOPACK-GRAPH.md's
+// tables between marker comments
 //   <!-- turbopack-graph:ab --> ... <!-- /turbopack-graph:ab -->
 //   <!-- turbopack-graph:scaling --> ... <!-- /turbopack-graph:scaling -->
+// and every inline value <!--v:KEY-->...<!--/v--> in TURBOPACK-GRAPH.md, README.md and
+// SUMMARY.md (keys below).
 //
-//   node scripts/turbopack-gym/report.mjs           # rewrite the tables in place
-//   node scripts/turbopack-gym/report.mjs --check   # exit 1 if they differ from the records
+//   node scripts/turbopack-gym/report.mjs           # rewrite them in place
+//   node scripts/turbopack-gym/report.mjs --check   # exit 1 if any differs from the records
 //
 // Needs no GYM_ROOT: it reads only bench/turbopack-graph-*.json.
 
@@ -77,6 +80,86 @@ function scalingTable() {
   return lines.join("\n");
 }
 
+// Inline values: <!--v:KEY-->text<!--/v--> is rewritten to the record's value for KEY.
+//   ab.<label>.ratio|guard            A/B ratios (3 decimals)
+//   ab.<label>.graphA|graphB|tpA|tpB  medians over reps (seconds, 2 decimals)
+//   ab.<label>.coresA|coresB          median cores in the graph phase (1 decimal)
+//   prod.<label1>.<label2>            product of two rows' ratios (3 decimals)
+//   sc.<binding>.<cores>.<graph|cores|sys|tp|entry>          one scaling point (median)
+//   sc.<binding>.<lo>-<hi>.<graph|cores|sys|tp|entry>        range over points lo..hi
+//   ratio.sc.<b1>.<b2>.<cores>.graph  scaling graph ratio b2/b1 at a size (2 decimals)
+//   machine                           instance, CPUs, NUMA nodes, memory, node
+function value(key) {
+  const k = key.split(".");
+  const row = (l) => ab.rows.find((r) => r.label === l) || fail(`no A/B row ${l}`);
+  const fail = (m) => {
+    throw new Error(`${key}: ${m}`);
+  };
+  const point = (b, n) =>
+    sc.points.find((p) => p.binding === b && p.ncpu === n) || fail(`no point ${b}@${n}`);
+  const field = (p, f) =>
+    ({
+      graph: p.median.graph.s,
+      cores: p.median.graph.cores,
+      sys: p.median.graph.sysShare,
+      tp: p.median.turbopack.s,
+      entry: p.median.entrypoints.s,
+    })[f] ?? fail(`field ${f}`);
+  const fmt = (f, x) => (f === "sys" ? pct(x) : f === "cores" ? c1(x) : s2(x));
+  if (k[0] === "machine") {
+    const m = ab.machine;
+    return `a dedicated ${m.instanceType}: ${m.cores} ${m.cpuModel} vCPUs in ${m.numaNodes} NUMA nodes, ${m.memGiB} GiB, Node ${m.node.replace(/^v/, "")}`;
+  }
+  if (k[0] === "prod") return x3(row(k[1]).ratio * row(k[2]).ratio);
+  if (k[0] === "ab") {
+    const label = k.slice(1, -1).join(".");
+    const r = row(label);
+    const f = k.at(-1);
+    const m = (side, g) => med(r.reps.map((p) => g(p[side])));
+    return (
+      {
+        ratio: () => x3(r.ratio),
+        guard: () => x3(r.guardRatio),
+        graphA: () => s2(m("a", (x) => x.graph.s)),
+        graphB: () => s2(m("b", (x) => x.graph.s)),
+        tpA: () => s2(m("a", (x) => x.turbopack.s)),
+        tpB: () => s2(m("b", (x) => x.turbopack.s)),
+        coresA: () => c1(m("a", (x) => x.graph.cores)),
+        coresB: () => c1(m("b", (x) => x.graph.cores)),
+      }[f]?.() ?? fail(`field ${f}`)
+    );
+  }
+  if (k[0] === "ratio" && k[1] === "sc") {
+    const [b1, b2, n] = [k[2], k[3], Number(k[4])];
+    return (field(point(b2, n), "graph") / field(point(b1, n), "graph")).toFixed(2);
+  }
+  if (k[0] === "sc") {
+    const f = k.at(-1);
+    const b = k.slice(1, -2).join(".");
+    const span = k.at(-2);
+    if (span.includes("-")) {
+      const [lo, hi] = span.split("-").map(Number);
+      const xs = sc.points
+        .filter((p) => p.binding === b && p.ncpu >= lo && p.ncpu <= hi)
+        .map((p) => field(p, f));
+      if (!xs.length) fail("empty range");
+      const [mn, mx] = [Math.min(...xs), Math.max(...xs)];
+      return f === "sys"
+        ? `${pct(mn).slice(0, -1)}–${pct(mx)}`
+        : f === "cores"
+          ? `${c1(mn)}–${c1(mx)}`
+          : `${mn.toFixed(2)}–${s2(mx)}`;
+    }
+    return fmt(f, field(point(b, Number(span)), f));
+  }
+  fail("unknown key");
+}
+const inline = (doc) =>
+  doc.replace(
+    /<!--v:([^>]+?)-->[\s\S]*?<!--\/v-->/g,
+    (_, key) => `<!--v:${key}-->${value(key)}<!--/v-->`,
+  );
+
 const section = (doc, name, body) => {
   const re = new RegExp(
     `(<!-- turbopack-graph:${name} -->)[\\s\\S]*?(<!-- /turbopack-graph:${name} -->)`,
@@ -84,19 +167,29 @@ const section = (doc, name, body) => {
   if (!re.test(doc)) throw new Error(`TURBOPACK-GRAPH.md has no turbopack-graph:${name} markers`);
   return doc.replace(re, `$1\n${body}\n$2`);
 };
-const render = (doc) => section(section(doc, "ab", abTable()), "scaling", scalingTable());
+const render = (doc) => inline(section(section(doc, "ab", abTable()), "scaling", scalingTable()));
 
-const doc = readFileSync(DOC, "utf8");
-const out = render(doc);
-if (process.argv.includes("--check")) {
-  if (out !== doc) {
-    console.error(
-      "TURBOPACK-GRAPH.md tables differ from the records: run scripts/turbopack-gym/report.mjs",
-    );
-    process.exit(1);
-  }
-  console.log("TURBOPACK-GRAPH.md tables match the records");
-} else {
-  writeFileSync(DOC, out);
-  console.log("rendered TURBOPACK-GRAPH.md tables");
+// TURBOPACK-GRAPH.md gets tables and inline values; README.md and SUMMARY.md inline
+// values only
+const files = [
+  [DOC, render],
+  [join(REPO, "README.md"), inline],
+  [join(REPO, "SUMMARY.md"), inline],
+];
+let stale = 0;
+for (const [file, fn] of files) {
+  const doc = readFileSync(file, "utf8");
+  const out = fn(doc);
+  if (process.argv.includes("--check")) {
+    if (out !== doc) {
+      console.error(
+        `${file.split("/").at(-1)} differs from the records: run scripts/turbopack-gym/report.mjs`,
+      );
+      stale++;
+    }
+  } else if (out !== doc) writeFileSync(file, out);
 }
+if (process.argv.includes("--check")) {
+  if (stale) process.exit(1);
+  console.log("Turbopack graph numbers in the docs match the records");
+} else console.log("rendered the Turbopack graph numbers from the records");
