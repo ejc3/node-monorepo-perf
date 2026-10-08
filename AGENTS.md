@@ -561,8 +561,8 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
 - `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
   - `setup.mjs` (`make gym-setup`): clone next.js, check `gym/base` is the tag's commit,
     build the base binding through `build.mjs` and a frame-pointer one, (re)generate and
-    install the `monolith` and 401-route `quick` apps whenever their tree differs from the
-    generator's; `--host` sets up the apps and ships the base binding to another machine.
+    install the `monolith` and 401-route `quick` apps and their vizdash counterparts
+    `vizdash` and `vizdash-quick` whenever their tree differs from the generator's; `--host` sets up the apps and ships the base binding to another machine.
   - Bindings (`bindings.mjs`): an immutable store, `bindings/.store/<module hash>/`
     (module, `candidate.diff` against `gym/base` including untracked files,
     `source.json`), and `bindings/<name>` a symlink flipped by `rename()`; a run resolves a
