@@ -22,7 +22,7 @@ import { APPS, REPO, RESULTS, RUNS, median, parseArgs, readJsonl } from "./lib.m
 import { host, runRemote, stripHost, sync } from "./hosts.mjs";
 
 const argv = process.argv.slice(2);
-const a = parseArgs(argv, { labels: 1, host: 1, sweep: 1, out: 1 });
+const a = parseArgs(argv, { labels: 1, host: 1, sweep: 1, out: 1, tag: 1 });
 const kind = a._[0];
 const OUT = { scaling: "turbopack-graph-scaling.json", ab: "turbopack-graph-ab.json" }[kind];
 if (!OUT) {
@@ -78,6 +78,11 @@ function verify(run) {
     throw new Error(
       `run ${run.id}: binding "${run.binding}" is not in bench/turbopack-gym/bindings.json`,
     );
+  if (run.bindingSource?.head !== entry.head)
+    throw new Error(
+      `run ${run.id}: binding ${run.binding} built from ${run.bindingSource?.head}, bindings.json says ${entry.head}`,
+    );
+  if (!run.bindingSource?.nodeSha256) throw new Error(`run ${run.id}: no native module hash`);
   if (run.bindingSource?.diffSha256 !== entry.diffSha256)
     throw new Error(
       `run ${run.id}: binding ${run.binding} ran diff ${run.bindingSource?.diffSha256}, bindings.json says ${entry.diffSha256}`,
@@ -86,7 +91,7 @@ function verify(run) {
     throw new Error(
       `run ${run.id}: app tree ${run.appHash} is not this host's ${run.app} (${app(run.app).hash})`,
     );
-  if (!run.machine) throw new Error(`run ${run.id} has no machine fields`);
+  if (!run.machine?.boot) throw new Error(`run ${run.id} has no machine fields`);
   const { buildNode, ...m } = run.machine;
   recordMachine ??= run.machine;
   const { buildNode: _, ...rm } = recordMachine;
@@ -129,6 +134,10 @@ const common = {
   bindingBuild:
     "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
 };
+const publicMachine = () => {
+  const { boot, ...m } = recordMachine; // the boot hash stays in the raw logs
+  return m;
+};
 const write = (rec) => {
   const path = a.out || join(REPO, "bench", OUT); // --out: elsewhere (selftest)
   writeFileSync(path, JSON.stringify(rec, null, 2) + "\n");
@@ -138,18 +147,33 @@ const gmean = (xs) => Math.exp(xs.reduce((s, x) => s + Math.log(x), 0) / xs.leng
 const r4 = (x) => +x.toFixed(4);
 
 if (kind === "scaling") {
-  const all = readJsonl(join(RESULTS, "runs.jsonl")).filter((r) => r.label === "scale" && r.sweep);
-  if (!all.length) throw new Error("no scaling sweep in runs.jsonl (scaling.mjs)");
-  const sweep = a.sweep || all.at(-1).sweep;
-  const runs = all.filter((r) => r.sweep === sweep).map((r) => ({ ...loadRun(r.id), rep: r.rep }));
+  const sweeps = readJsonl(join(RESULTS, "sweeps.jsonl")).filter(
+    (m) => (!a.sweep || m.sweep === a.sweep) && (!a.tag || m.tag === a.tag),
+  );
+  if (!sweeps.length)
+    throw new Error("no completed sweep matches (scaling.mjs writes sweeps.jsonl at the end)");
+  const manifest = sweeps.at(-1);
+  const sweep = manifest.sweep;
+  const runs = readJsonl(join(RESULTS, "runs.jsonl"))
+    .filter((r) => r.sweep === sweep)
+    .map((r) => ({ ...loadRun(r.id), rep: r.rep }));
+  // the full matrix, exactly once each
   const seen = new Set();
   for (const r of runs) {
     verify(r);
     const key = `${r.binding}\t${r.ncpu}\t${r.rep}`;
     if (seen.has(key)) throw new Error(`sweep ${sweep} has two runs of ${key}`);
+    if (r.cpus !== `0-${r.ncpu - 1}` || r.app !== manifest.app)
+      throw new Error(`run ${r.id} is not part of sweep ${sweep}'s plan`);
     seen.add(key);
   }
-  if (new Set(runs.map((r) => r.app)).size !== 1) throw new Error(`sweep ${sweep} mixes apps`);
+  for (const b of manifest.bindings)
+    for (const n of manifest.sizes)
+      for (let rep = 0; rep < manifest.reps; rep++)
+        if (!seen.has(`${b}\t${n}\t${rep}`))
+          throw new Error(`sweep ${sweep} lacks ${b} at ${n} cores, rep ${rep}`);
+  if (seen.size !== manifest.bindings.length * manifest.sizes.length * manifest.reps)
+    throw new Error(`sweep ${sweep} has runs outside its plan`);
   // per (binding, cores): every rep, and medians over reps
   const groups = new Map();
   for (const r of runs) {
@@ -175,8 +199,9 @@ if (kind === "scaling") {
   write({
     ...common,
     sweep,
+    tag: manifest.tag,
     app: { name: runs[0].app, appHash: runs[0].appHash, ...app(runs[0].app).shape },
-    machine: recordMachine,
+    machine: publicMachine(),
     bindings: bindingsUsed(runs.map((r) => r.binding)),
     points,
   });
@@ -185,6 +210,7 @@ if (kind === "scaling") {
   const latest = new Map();
   for (const r of readJsonl(join(RESULTS, "ab.jsonl"))) {
     if (want && !want.has(r.label)) continue;
+    if (a.tag && r.tag !== a.tag) continue;
     const prev = latest.get(r.label);
     if (prev && (prev.host || "local") !== (r.host || "local"))
       throw new Error(
@@ -195,8 +221,14 @@ if (kind === "scaling") {
   if (want) for (const l of want) if (!latest.has(l)) throw new Error(`no A/B labeled ${l}`);
   const rows = [...latest.values()].map((log) => {
     const { metric = "graph", guardMetric = "turbopack", threshold = 0.04, guard = 0.02 } = log;
-    const reps = log.runs.map(([ia, ib]) => {
+    const ids = log.runs.flat();
+    if (new Set(ids).size !== ids.length) throw new Error(`A/B ${log.label} repeats a run`);
+    const reps = log.runs.map(([ia, ib], i) => {
       const [ra, rb] = [loadRun(ia), loadRun(ib)];
+      // lanes swap every rep: A runs on lane 0 in even reps, lane 1 in odd reps
+      const [la, lb] = i % 2 ? [log.lanes[1], log.lanes[0]] : log.lanes;
+      if (ra.cpus !== la || rb.cpus !== lb)
+        throw new Error(`A/B ${log.label}: rep ${i} ran on ${ra.cpus}/${rb.cpus}, not ${la}/${lb}`);
       for (const [r, side] of [
         [ra, log.a],
         [rb, log.b],
@@ -257,7 +289,7 @@ if (kind === "scaling") {
   );
   write({
     ...common,
-    machine: recordMachine,
+    machine: publicMachine(),
     apps,
     bindings: bindingsUsed(rows.flatMap((r) => [r.a.binding, r.b.binding])),
     rows,

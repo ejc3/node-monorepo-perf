@@ -9,12 +9,13 @@
 // must contain --from if one is given. Builds next-napi-bindings with --release, LTO off
 // and 16 codegen units (the same settings for every binding the gym compares), cargo
 // pinned to GYM_BUILD_CPUS under their CPU locks. A new target dir is seeded from the
-// base target (a reflink copy where the filesystem supports it). The binding, its
-// diff against gym/base and source.json land in $GYM_ROOT/bindings/<name>/, swapped in
-// whole.
+// base target (a reflink copy where the filesystem supports it). The module, its diff
+// against gym/base (untracked files included) and source.json become an immutable store
+// entry that $GYM_ROOT/bindings/<name> is flipped to (bindings.mjs).
 
-import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { copyFileSync, existsSync, writeFileSync } from "node:fs";
+import { installBinding } from "./bindings.mjs";
 import { join, resolve } from "node:path";
 import {
   BINDINGS,
@@ -26,6 +27,8 @@ import {
   WORKTREES,
   ensureDir,
   parseArgs,
+  checkAborted,
+  onAbort,
   sh,
   withCpus,
 } from "./lib.mjs";
@@ -74,24 +77,10 @@ export async function build(name, { from, patches = [], jobs } = {}) {
   }
   const log = join(ensureDir(join(ROOT, "logs")), `build-${name}.log`);
   const t0 = Date.now();
-  await withCpus(BUILD_CPUS, async () => {
-    const r = spawnSync(
-      "bash",
-      [
-        "-c",
-        `taskset -c ${BUILD_CPUS} cargo build -p next-napi-bindings --release --features ${FEATURES} ${jobs ? `-j ${jobs}` : ""} > ${log} 2>&1`,
-      ],
-      {
-        cwd: wt,
-        env: { ...process.env, ...CARGO_ENV, CARGO_TARGET_DIR: target },
-        stdio: "inherit",
-      },
-    );
-    if (r.status !== 0) throw new Error(`cargo build failed for ${name}; see ${log}`);
-  });
-  // assemble the new binding directory beside the old one, then swap it in
-  const out = join(BINDINGS, name);
-  const tmp = ensureDir(`${out}.tmp-${process.pid}`);
+  await cargoBuild({ cwd: wt, target, log, jobs });
+  // the diff covers new (untracked) files too: mark them intent-to-add first
+  sh("git", ["-C", wt, "add", "-A", "-N"]);
+  const tmp = ensureDir(join(BINDINGS, `.build-${name}-${process.pid}`));
   copyFileSync(join(target, "release", "libnext_napi_bindings.so"), join(tmp, BINDING_FILE));
   writeFileSync(join(tmp, "candidate.diff"), sh("git", ["-C", wt, "diff", "gym/base"]));
   writeFileSync(
@@ -109,11 +98,38 @@ export async function build(name, { from, patches = [], jobs } = {}) {
       1,
     ),
   );
-  const old = `${out}.old-${process.pid}`;
-  if (existsSync(out)) renameSync(out, old);
-  renameSync(tmp, out);
-  rmSync(old, { recursive: true, force: true });
-  return { name, seconds: (Date.now() - t0) / 1000, binding: out };
+  const id = installBinding(name, tmp); // immutable store entry + atomic name flip
+  return { name, id, seconds: (Date.now() - t0) / 1000 };
+}
+
+// cargo build of next-napi-bindings pinned to GYM_BUILD_CPUS under their CPU locks, as
+// a killable process group: on SIGINT/SIGTERM (lib.onAbort) the whole build stops, so
+// no cargo outlives the locks.
+export async function cargoBuild({ cwd, target, log, jobs, env = {} }) {
+  await withCpus(BUILD_CPUS, async () => {
+    const child = spawn(
+      "bash",
+      [
+        "-c",
+        `exec taskset -c ${BUILD_CPUS} cargo build -p next-napi-bindings --release --features ${FEATURES} ${jobs ? `-j ${jobs}` : ""} > ${log} 2>&1`,
+      ],
+      {
+        cwd,
+        env: { ...process.env, ...CARGO_ENV, CARGO_TARGET_DIR: target, ...env },
+        stdio: "ignore",
+        detached: true,
+      },
+    );
+    const off = onAbort(() => {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {}
+    });
+    const code = await new Promise((r) => child.on("close", r));
+    off();
+    checkAborted();
+    if (code !== 0) throw new Error(`cargo build failed (${code}); see ${log}`);
+  });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

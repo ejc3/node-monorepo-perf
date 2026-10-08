@@ -9,8 +9,9 @@
 //   node scripts/turbopack-gym/scaling.mjs --sizes 16,48,96 --binding base
 //   node scripts/turbopack-gym/scaling.mjs --host bigbox --binding base,incumbent
 //
-// Each run is appended to runs.jsonl with label "scale" and this sweep's id;
-// record.mjs scaling writes one sweep (the latest, or --sweep <id>).
+// Each run is appended to runs.jsonl with label "scale" and this sweep's id, and a
+// completed sweep to sweeps.jsonl; record.mjs scaling writes one completed sweep (the
+// latest, or --sweep <id> / --tag <tag>).
 
 import { randomBytes } from "node:crypto";
 import { availableParallelism } from "node:os";
@@ -20,7 +21,7 @@ import { RESULTS, appendJsonl, parseArgs, withCpus } from "./lib.mjs";
 import { host, runRemote, stripHost, sync } from "./hosts.mjs";
 
 const argv = process.argv.slice(2);
-const a = parseArgs(argv, { sizes: 1, reps: 1, binding: 1, app: 1, host: 1 });
+const a = parseArgs(argv, { sizes: 1, reps: 1, binding: 1, app: 1, host: 1, tag: 1 });
 const bindings = (a.binding || "base").split(",");
 
 if (a.host) {
@@ -49,5 +50,15 @@ await withCpus(`0-${n - 1}`, async () => {
       }
     }
   }
+});
+// a sweep counts only once it is complete (record.mjs requires this manifest)
+appendJsonl(join(RESULTS, "sweeps.jsonl"), {
+  sweep,
+  tag: a.tag || null,
+  sizes,
+  bindings,
+  reps,
+  app: a.app || "monolith",
+  completed: new Date().toISOString(),
 });
 console.log(JSON.stringify({ sweep, sizes, bindings, reps }));

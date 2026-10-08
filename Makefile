@@ -109,8 +109,8 @@ lib-rev-bench: ## rev a universal lib: workspace-dep vs npm-dep cost, tsc vs tsg
 tsgo-scale-table-bench: ## whole-program tsgo cold typecheck across the README scales -> bench/tsgo-scale-table.json
 	node scripts/tsgo-scale-table-bench.mjs
 
-# Turbopack whole-app module graph gym (TURBOPACK-GRAPH.md). State lives under GYM_ROOT
-# (default: the OS temp dir); point it at a large scratch disk. GYM_HOST runs the
+# Turbopack whole-app module graph gym (TURBOPACK-GRAPH.md). GYM_ROOT (required) is a
+# scratch directory for the next.js clone, cargo targets, bindings, apps and run outputs. GYM_HOST runs the
 # A/B and scaling steps on a machine defined in scripts/turbopack-gym/hosts.local.json.
 GYM_HOST ?=
 monolith: ## Generate the one-large-app shape of vercel/next.js#98043 into ./monolith
@@ -131,9 +131,8 @@ gym-canonical: ## Re-measure both Turbopack graph records from the tracked patch
 gym-selftest: ## Lock and output-fingerprint self-tests for the gym (BUILDS=1 adds the build-based fingerprint test)
 	node scripts/turbopack-gym/selftest.mjs $(if $(BUILDS),--builds,)
 
-gym-record: ## Write bench/turbopack-graph-{scaling,ab}.json from the raw gym logs
-	node scripts/turbopack-gym/record.mjs scaling $(if $(GYM_HOST),--host $(GYM_HOST),)
-	node scripts/turbopack-gym/record.mjs ab $(if $(GYM_HOST),--host $(GYM_HOST),)
+gym-record: ## Write bench/turbopack-graph-{ab,scaling}.json from one canonical run's raw logs (TAG=<canonical tag>)
+	node scripts/turbopack-gym/canonical.mjs --only record --tag $(TAG) $(if $(GYM_HOST),--host $(GYM_HOST),)
 
 clean: ## Reset worktree: restore patched tracked files, wipe generated tree + bench scratch (add KILL=1 to stop strays)
 	node scripts/clean-state.mjs --wipe $(if $(KILL),--kill,)

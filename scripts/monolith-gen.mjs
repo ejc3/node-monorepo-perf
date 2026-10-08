@@ -8,8 +8,9 @@
 //   node scripts/monolith-gen.mjs --out /tmp/monolith --clean
 //   node scripts/monolith-gen.mjs --out /tmp/monolith --routes 500 --features 100
 //
-// Defaults reproduce the app described in vercel/next.js#98043: 2,070 routes
-// (~81% pages, ~19% route handlers), ~16,000 first-party TS files.
+// Defaults approximate the app described in vercel/next.js#98043 (2,070 routes,
+// ~16,000 first-party TS files): --routes 2070 emits that many routes (~81% pages,
+// ~19% route handlers) plus the root page, 2,071 in all, over 16,068 TS files.
 //
 // The tree:
 //   app/layout.tsx                         root layout, client providers from @/ui
@@ -31,14 +32,20 @@
 // The app is standalone (its own package.json, not a workspace member). Install it
 // with `pnpm install --ignore-workspace` in --out.
 
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
 const opt = (name, def) => {
   const i = argv.indexOf(`--${name}`);
-  if (i !== -1 && argv[i + 1] && !argv[i + 1].startsWith("--")) return argv[i + 1];
+  if (i !== -1) {
+    if (!argv[i + 1] || argv[i + 1].startsWith("--")) {
+      console.error(`--${name} needs a value`);
+      process.exit(1);
+    }
+    return argv[i + 1];
+  }
   return process.env[`MONOLITH_${name.toUpperCase().replace(/-/g, "_")}`] ?? def;
 };
 const intOpt = (name, def, min, max = Infinity) => {
@@ -52,6 +59,8 @@ const intOpt = (name, def, min, max = Infinity) => {
 };
 
 const OUT = resolve(opt("out", "monolith"));
+// written into monolith.json; --clean deletes only a directory carrying it
+const GENERATOR = "node-monorepo-perf scripts/monolith-gen.mjs";
 const ROUTES = intOpt("routes", "2070", 1);
 const HANDLER_PCT = intOpt("handler-pct", "19", 0, 100); // share of routes that are route.ts
 const DYNAMIC_PCT = intOpt("dynamic-pct", "30", 0, 100); // share of pages under [id]
@@ -72,8 +81,17 @@ if (existsSync(OUT)) {
     process.exit(1);
   }
   // --clean deletes only a tree this generator wrote (or an empty directory)
-  if (readdirSync(OUT).length && !existsSync(join(OUT, "monolith.json"))) {
-    console.error(`${OUT} is not a generated app (no monolith.json); refusing to delete it`);
+  const isGenerated = () => {
+    try {
+      return JSON.parse(readFileSync(join(OUT, "monolith.json"), "utf8")).generator === GENERATOR;
+    } catch {
+      return false;
+    }
+  };
+  if (readdirSync(OUT).length && !isGenerated()) {
+    console.error(
+      `${OUT} is not a generated app (no monolith.json with this generator's signature); refusing to delete it`,
+    );
     process.exit(1);
   }
   rmSync(OUT, { recursive: true, force: true });
@@ -481,6 +499,7 @@ emit(".gitignore", "node_modules/\n.next*/\nnext-env.d.ts\n");
 // Counts are of the emitted tree: routes = pages (the root page included) + route
 // handlers; files excludes this summary; tsFiles counts .ts/.tsx (next.config.ts too).
 const summary = {
+  generator: GENERATOR,
   out: OUT,
   files,
   tsFiles,

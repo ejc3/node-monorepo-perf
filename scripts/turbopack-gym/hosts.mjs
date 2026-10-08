@@ -18,7 +18,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { BINDINGS, DEFAULT_LANE_POOL, REPO } from "./lib.mjs";
+import { DEFAULT_LANE_POOL, REPO } from "./lib.mjs";
+import { remoteFlipCommand, resolveBinding } from "./bindings.mjs";
 
 export const LOCAL_LANES = process.env.GYM_LANE_POOL
   ? process.env.GYM_LANE_POOL.split(",")
@@ -84,9 +85,17 @@ export function sync(h, bindings) {
   // the candidate patches and the binding map record.mjs embeds
   execFileSync("ssh", [...h.ssh, h.target, `mkdir -p '${h.repoDir}/bench'`], { stdio: "inherit" });
   rsync(h, `${REPO}/bench/turbopack-gym/`, `${h.repoDir}/bench/turbopack-gym/`);
+  // bindings: copy the immutable store entry, then flip the remote name to it
   for (const b of new Set(bindings)) {
     if (b === "stock") continue;
-    rsync(h, `${join(BINDINGS, b)}/`, `${h.root}/bindings/${b}/`);
+    const { id, dir } = resolveBinding(b);
+    execFileSync("ssh", [...h.ssh, h.target, `mkdir -p '${h.root}/bindings/.store'`], {
+      stdio: "inherit",
+    });
+    rsync(h, `${dir}/`, `${h.root}/bindings/.store/${id}/`);
+    execFileSync("ssh", [...h.ssh, h.target, remoteFlipCommand(h.root, b, id)], {
+      stdio: "inherit",
+    });
   }
 }
 

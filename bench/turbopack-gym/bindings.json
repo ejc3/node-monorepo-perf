@@ -1,10 +1,36 @@
 {
-  "base": { "patches": [], "diffSha256": "e3b0c44298fc1c14" },
-  "11": { "patches": ["11-binding-usage-topo.patch"], "diffSha256": "24f8a8aed3dbae1f" },
-  "15": { "patches": ["15-graph-algos-combined.patch"], "diffSha256": "33e69240c6803ec9" },
-  "22": { "patches": ["22-sharded-runner-2choice.patch"], "diffSha256": "f17d498b091b13f2" },
+  "base": {
+    "patches": [],
+    "diffSha256": "e3b0c44298fc1c14",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "11": {
+    "patches": [
+      "11-binding-usage-topo.patch"
+    ],
+    "diffSha256": "24f8a8aed3dbae1f",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15": {
+    "patches": [
+      "15-graph-algos-combined.patch"
+    ],
+    "diffSha256": "33e69240c6803ec9",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "22": {
+    "patches": [
+      "22-sharded-runner-2choice.patch"
+    ],
+    "diffSha256": "f17d498b091b13f2",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
   "15+22": {
-    "patches": ["15-graph-algos-combined.patch", "22-sharded-runner-2choice.patch"],
-    "diffSha256": "b032d66a7371fd6e"
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch"
+    ],
+    "diffSha256": "b032d66a7371fd6e",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

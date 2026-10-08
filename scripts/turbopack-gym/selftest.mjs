@@ -5,16 +5,25 @@
 //   node scripts/turbopack-gym/selftest.mjs --builds   # + output fingerprint on the quick app
 //
 // locks:   24 processes x 3 rounds contend for overlapping CPU sets; no two holds of a
-//          shared CPU may overlap in time and every hold must complete. A lock left by
-//          a dead process is reclaimed; a live owner's lock is respected.
+//          shared CPU may overlap in time and every hold must complete. CPUs held by a
+//          live process stay taken; a holder killed with SIGKILL frees them.
 // record:  record.mjs publishes a consistent synthetic A/B and refuses a tampered
 //          verdict, a run of other binding code, and a run of another app tree.
-// builds:  two builds of the quick app with the base binding have the same normalized
-//          fingerprint; a copy of the app with one numeric constant changed (same
-//          length) does not.
+// builds:  8 builds of the quick app with the base binding (4 lanes x 2 rounds, under
+//          CPU locks) have one normalized fingerprint; a copy of the app with one
+//          numeric constant changed (same length) does not. A run sent SIGTERM
+//          mid-build stops its build scope, exits non-zero and frees its CPUs.
 
-import { spawn, spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APPS, parseArgs } from "./lib.mjs";
@@ -80,29 +89,38 @@ check(overlaps === 0, `no overlapping holds of a shared CPU (${overlaps})`);
 
 process.env.GYM_LOCKS = env.GYM_LOCKS;
 const lib = await import(`${LIB}?selftest`);
-for (const [cpu, pid] of [
-  [5, 999999999],
-  [6, 1],
-]) {
-  const dir = join(env.GYM_LOCKS, `cpu-${cpu}`);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "pid"), String(pid));
-}
-let reclaimed = false;
-await lib.withCpus("5-5", async () => (reclaimed = true));
-check(reclaimed, "a lock whose owner is gone is reclaimed");
+// a holder process keeps CPUs 5-6; while it lives they stay taken, once it is killed
+// (SIGKILL: no cleanup runs) the kernel drops its locks
+const holder = spawn(
+  "node",
+  [
+    "--input-type=module",
+    "-e",
+    `const l = await import(${JSON.stringify(LIB)}); await l.withCpus("5-6", async () => { console.log("HELD"); await new Promise(() => {}); });`,
+  ],
+  { env, stdio: ["ignore", "pipe", "inherit"] },
+);
+await new Promise((r) => holder.stdout.on("data", (d) => String(d).includes("HELD") && r()));
 let stole = false;
 await Promise.race([
   lib.withCpus("6-6", async () => (stole = true)),
   new Promise((r) => setTimeout(r, 3000)),
 ]);
-check(!stole, "a lock whose owner is alive is respected");
+check(!stole, "a CPU held by a live process is not taken");
+holder.kill("SIGKILL");
+await new Promise((r) => holder.on("close", r));
+let reclaimed = false;
+await Promise.race([
+  lib.withCpus("5-6", async () => (reclaimed = true)),
+  new Promise((r) => setTimeout(r, 5000)),
+]);
+check(reclaimed, "a killed holder's CPUs are free again");
 rmSync(scratch, { recursive: true, force: true });
 
 // --- record verification ------------------------------------------------------------
 // record.mjs on synthetic runs: a consistent A/B publishes; a log whose verdict
-// disagrees with its reps, a run of other binding code, and a run of another app tree
-// are each refused.
+// disagrees with its reps, a repeated run, a rep on the wrong lane, a run of other
+// binding code, and a run of another app tree are each refused.
 {
   const { appTreeHash } = await import("./bench.mjs");
   const root = mkdtempSync(join(tmpdir(), "gym-selftest-record-"));
@@ -127,7 +145,11 @@ rmSync(scratch, { recursive: true, force: true });
     node: "v0",
     sharedBox: false,
     buildNode: "v0",
+    boot: "b",
   };
+  const baseHead = JSON.parse(
+    readFileSync(new URL("../../bench/turbopack-gym/bindings.json", import.meta.url), "utf8"),
+  ).base.head;
   const phase = (s) => ({ s, at: 0, cores: 1, sysShare: 0 });
   const run = (id, graph, over = {}) => ({
     id,
@@ -149,13 +171,19 @@ rmSync(scratch, { recursive: true, force: true });
     persistence: null,
     output: { files: 1, sha: "s", exactSha: "e" },
     machine,
-    bindingSource: { head: null, diffSha256: "e3b0c44298fc1c14", nodeSha256: "n" },
+    bindingSource: { head: baseHead, diffSha256: "e3b0c44298fc1c14", nodeSha256: "n" },
     ...over,
   });
   const attempt = (logOver, runOver = {}) => {
     rmSync(join(root, "runs"), { recursive: true, force: true });
     mkdirSync(join(root, "results"), { recursive: true });
-    const runs = [run("r1", 10), run("r2", 8, runOver), run("r3", 10), run("r4", 8)];
+    // lanes swap every rep: rep 0 A on 0-0, B on 1-1; rep 1 the other way round
+    const runs = [
+      run("r1", 10),
+      run("r2", 8, { cpus: "1-1", ...runOver }),
+      run("r3", 10, { cpus: "1-1" }),
+      run("r4", 8),
+    ];
     for (const r of runs) {
       mkdirSync(join(root, "runs", r.id), { recursive: true });
       writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
@@ -206,7 +234,21 @@ rmSync(scratch, { recursive: true, force: true });
     "record refuses a log whose ratio disagrees with its reps",
   );
   check(
-    attempt({ win: true }, { bindingSource: { diffSha256: "0000000000000000" } }) !== 0,
+    attempt({
+      win: true,
+      runs: [
+        ["r1", "r2"],
+        ["r1", "r2"],
+      ],
+    }) !== 0,
+    "record refuses an A/B that repeats a run",
+  );
+  check(attempt({ win: true }, { cpus: "0-0" }) !== 0, "record refuses a rep on the wrong lane");
+  check(
+    attempt(
+      { win: true },
+      { bindingSource: { head: baseHead, diffSha256: "0000000000000000", nodeSha256: "n" } },
+    ) !== 0,
     "record refuses a run of other binding code",
   );
   check(
@@ -218,44 +260,102 @@ rmSync(scratch, { recursive: true, force: true });
 
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
+  // under the CPU locks of the 64 CPUs it builds on, like any other gym run
   const { bench } = await import("./bench.mjs");
   const quick = join(APPS, "quick");
-  const [x, y] = await Promise.all([
-    bench({ binding: "base", cpus: "0-15", app: quick, label: "selftest-a" }),
-    bench({ binding: "base", cpus: "16-31", app: quick, label: "selftest-b" }),
-  ]);
-  check(x.output.sha === y.output.sha, `same binding, same normalized output (${x.output.sha})`);
-  const copy = join(APPS, "quick-selftest");
-  rmSync(copy, { recursive: true, force: true });
-  cpSync(quick, copy, {
-    recursive: true,
-    verbatimSymlinks: true,
-    filter: (p) => !p.includes("/.next"),
-  });
-  const f = join(copy, "src", "features", "f40", "m05.ts");
-  const src = readFileSync(f, "utf8");
-  // same length, so a size-only comparison cannot see it
-  writeFileSync(
-    f,
-    src.replace(
-      /let acc = (\d+);/,
-      (_, d) => `let acc = ${(d[0] === "9" ? "1" : "9").repeat(d.length)};`,
-    ),
-  );
-  try {
-    const z = await bench({
-      binding: "base",
-      cpus: "0-15",
-      app: copy,
-      label: "selftest-perturbed",
-    });
+  const lanes = ["0-15", "16-31", "32-47", "48-63"];
+  await lib.withCpus("0-63", async () => {
+    const shas = new Set();
+    let first;
+    for (let round = 0; round < 2; round++) {
+      const runs = await Promise.all(
+        lanes.map((cpus, i) =>
+          bench({ binding: "base", cpus, app: quick, label: `selftest-${round}${i}`, quiet: true }),
+        ),
+      );
+      for (const r of runs) shas.add(r.output.sha);
+      first ??= runs[0];
+    }
     check(
-      src !== readFileSync(f, "utf8") && z.output.sha !== x.output.sha,
-      "one changed constant changes the normalized output",
+      shas.size === 1,
+      `8 builds of one binding, one normalized output (${[...shas].join(" ")})`,
     );
-  } finally {
+    const copy = join(APPS, "quick-selftest");
     rmSync(copy, { recursive: true, force: true });
+    cpSync(quick, copy, {
+      recursive: true,
+      verbatimSymlinks: true,
+      filter: (p) => !p.includes("/.next"),
+    });
+    const f = join(copy, "src", "features", "f40", "m05.ts");
+    const src = readFileSync(f, "utf8");
+    // same length, so a size-only comparison cannot see it
+    writeFileSync(
+      f,
+      src.replace(
+        /let acc = (\d+);/,
+        (_, d) => `let acc = ${(d[0] === "9" ? "1" : "9").repeat(d.length)};`,
+      ),
+    );
+    try {
+      const z = await bench({
+        binding: "base",
+        cpus: "0-15",
+        app: copy,
+        label: "selftest-perturbed",
+        quiet: true,
+      });
+      check(
+        src !== readFileSync(f, "utf8") && z.output.sha !== first.output.sha,
+        "one changed constant changes the normalized output",
+      );
+    } finally {
+      rmSync(copy, { recursive: true, force: true });
+    }
+  });
+}
+
+if (a.builds) {
+  const quick = join(APPS, "quick");
+  // SIGTERM mid-build: the build's scope is stopped, the process unwinds (exit non-zero)
+  // and its CPU locks are released
+  const scopes = () =>
+    execFileSync("systemctl", ["list-units", "--type=scope", "--no-legend", "gym-*"], {
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter(Boolean).length;
+  const before = scopes();
+  const marker = join(tmpdir(), `gym-selftest-finally-${process.pid}`);
+  rmSync(marker, { force: true });
+  const victim = spawn(
+    "node",
+    [
+      "--input-type=module",
+      "-e",
+      `const l = await import(${JSON.stringify(LIB)}); const b = await import(${JSON.stringify(new URL("./bench.mjs", import.meta.url).pathname)}); await l.withCpus("0-15", async () => { try { await b.bench({ binding: "base", cpus: "0-15", app: ${JSON.stringify(quick)}, quiet: true }); } finally { (await import("node:fs")).writeFileSync(${JSON.stringify(marker)}, "finally ran"); } });`,
+    ],
+    { stdio: ["ignore", "ignore", "ignore"] },
+  );
+  for (let i = 0; i < 100 && scopes() <= before; i++) await new Promise((r) => setTimeout(r, 200));
+  check(scopes() > before, "the interrupted build was running in its scope");
+  victim.kill("SIGTERM");
+  const code = await new Promise((r) => victim.on("close", r));
+  check(code !== 0, `an interrupted run exits non-zero (${code})`);
+  let left = scopes();
+  for (let i = 0; i < 50 && left > before; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    left = scopes();
   }
+  check(left <= before, "no build scope outlives the interrupted run");
+  check(existsSync(marker), "the interrupted run's finally blocks ran");
+  rmSync(marker, { force: true });
+  let freed = false;
+  await Promise.race([
+    lib.withCpus("0-15", async () => (freed = true)),
+    new Promise((r) => setTimeout(r, 5000)),
+  ]);
+  check(freed, "the interrupted run's CPUs are free again");
 }
 
 process.exit(failed ? 1 : 0);

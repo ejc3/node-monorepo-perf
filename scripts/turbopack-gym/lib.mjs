@@ -1,13 +1,11 @@
 // Shared paths and helpers for the Turbopack graph gym (TURBOPACK-GRAPH.md).
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import {
   appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
-  renameSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import * as nodeOs from "node:os";
@@ -99,63 +97,70 @@ export function appendJsonl(p, rec) {
   appendFileSync(p, JSON.stringify(rec) + "\n");
 }
 
-// Cross-process locks are directories under LOCKS holding the owner's pid. A lock is
-// created whole (a temp dir with the pid file, renamed into place), so no one ever sees
-// a lock without its owner. A lock whose owner is gone is moved aside and removed only
-// if it still names that dead owner; release removes only a lock this process owns.
-function readPid(dir) {
-  try {
-    return Number(readFileSync(join(dir, "pid"), "utf8"));
-  } catch {
-    return null;
-  }
+// Cross-process locks are fcntl locks on files under LOCKS, held by a small python3
+// helper that blocks on its stdin: when the owner releases, exits or is killed, the
+// helper's stdin closes, it exits, and the kernel drops its locks. There is no lock a
+// dead owner leaves behind, so nothing ever has to decide that a lock is stale. The
+// helper takes all of a choice's locks or none.
+const LOCK_HELPER = `
+import fcntl, os, sys
+fds = []
+for p in sys.argv[1:]:
+    fd = os.open(p, os.O_RDWR | os.O_CREAT, 0o666)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("BUSY", flush=True)
+        sys.exit(0)
+    fds.append(fd)
+print("OK", flush=True)
+sys.stdin.read()
+`;
+
+// Try to take every lock file in `paths` at once; resolves to a release function, or
+// null if any is held.
+function tryLockFiles(paths) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("python3", ["-c", LOCK_HELPER, ...paths], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    let out = "";
+    child.on("error", reject);
+    child.stdout.on("data", (d) => {
+      out += d;
+      if (!out.includes("\n")) return;
+      if (out.startsWith("OK")) {
+        const exited = new Promise((r) => child.on("close", r));
+        resolve(async () => {
+          child.stdin.end();
+          await exited;
+        });
+      } else resolve(null);
+    });
+    child.on("close", (code) => {
+      if (!out.includes("\n")) reject(new Error(`lock helper exited ${code} without an answer`));
+    });
+  });
 }
-function isAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (e) {
-    return e.code === "EPERM";
-  }
-}
-let lockSeq = 0;
-function acquireLockDir(path) {
-  const tmp = `${path}.tmp-${process.pid}-${lockSeq++}`;
-  mkdirSync(tmp);
-  writeFileSync(join(tmp, "pid"), String(process.pid));
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      renameSync(tmp, path); // fails if path exists (a non-empty directory)
-      return true;
-    } catch {
-      const owner = readPid(path);
-      if (owner === null || isAlive(owner)) break;
-      const trash = `${path}.stale-${process.pid}-${lockSeq++}`;
+
+// Wait for the first choice whose locks are all free, run fn(choice) holding them.
+async function withLockFiles(choices, pathsOf, fn, what) {
+  let waited = false;
+  for (;;) {
+    for (const choice of choices) {
+      checkAborted();
+      const release = await tryLockFiles(pathsOf(choice));
+      if (!release) continue;
       try {
-        renameSync(path, trash);
-      } catch {
-        continue; // someone else moved it
-      }
-      if (readPid(trash) === owner) rmSync(trash, { recursive: true, force: true });
-      else {
-        try {
-          renameSync(trash, path); // moved a live lock by accident: put it back
-        } catch {
-          rmSync(trash, { recursive: true, force: true });
-        }
+        return await fn(choice);
+      } finally {
+        await release();
       }
     }
+    if (!waited) console.error(`[lock] waiting for ${what(choices)}`);
+    waited = true;
+    await new Promise((r) => setTimeout(r, 2000));
   }
-  rmSync(tmp, { recursive: true, force: true });
-  return false;
-}
-function releaseLockDir(path) {
-  if (readPid(path) !== process.pid) return;
-  // move it aside first: emptying it in place would let another process rename its own
-  // lock onto the empty directory (rename may replace an empty directory)
-  const trash = `${path}.released-${process.pid}-${lockSeq++}`;
-  renameSync(path, trash);
-  rmSync(trash, { recursive: true, force: true });
 }
 
 // Exclusive named lock; given several names, takes whichever is free first and
@@ -163,21 +168,37 @@ function releaseLockDir(path) {
 export async function withLock(names, fn) {
   const list = Array.isArray(names) ? names : [names];
   const locks = ensureDir(LOCKS);
-  let waited = false;
-  for (;;) {
-    for (const name of list) {
-      const dir = join(locks, name);
-      if (!acquireLockDir(dir)) continue;
+  return withLockFiles(
+    list,
+    (n) => [join(locks, `${n}.lock`)],
+    fn,
+    (l) => l.join(" | "),
+  );
+}
+
+// SIGINT/SIGTERM: mark the process aborted (lock waits throw, abort hooks stop
+// in-flight builds) so every caller's finally runs; a second signal exits at once.
+const abortHooks = new Set();
+let aborted = null;
+export function onAbort(hook) {
+  abortHooks.add(hook);
+  return () => abortHooks.delete(hook);
+}
+export function checkAborted() {
+  if (aborted) throw new Error(`aborted by ${aborted}`);
+}
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    if (aborted) process.exit(sig === "SIGINT" ? 130 : 143);
+    aborted = sig;
+    process.exitCode = sig === "SIGINT" ? 130 : 143;
+    console.error(`[gym] ${sig}: stopping in-flight work`);
+    for (const h of abortHooks) {
       try {
-        return await fn(name);
-      } finally {
-        releaseLockDir(dir);
-      }
+        h();
+      } catch {}
     }
-    if (!waited) console.error(`[lock] waiting for ${list.join(" | ")}`);
-    waited = true;
-    await new Promise((r) => setTimeout(r, 2000));
-  }
+  });
 }
 
 // Default split of this machine: the first two thirds of the CPUs are one lane pair
@@ -235,13 +256,22 @@ export function machine() {
     instanceType,
     node: process.version,
     sharedBox: process.env.GYM_SHARED_BOX === "1",
+    // raw logs only (record.mjs checks it and does not publish it): one boot of one machine
+    boot: (() => {
+      try {
+        return execFileSync("sha256sum", ["/proc/sys/kernel/random/boot_id"], {
+          encoding: "utf8",
+        }).slice(0, 16);
+      } catch {
+        return null;
+      }
+    })(),
   };
   return machineCache;
 }
 
 // Per-CPU locks: a run holds a lock for every CPU it uses, so any two runs whose CPU
-// sets overlap exclude each other, whatever lanes they were given. Locks are taken in
-// ascending CPU order and all released if one is busy (no deadlock, no partial hold).
+// sets overlap exclude each other, whatever lanes they were given.
 export function expandCpus(list) {
   return [
     ...new Set(
@@ -256,26 +286,10 @@ export function expandCpus(list) {
 export async function withCpus(choices, fn) {
   const locks = ensureDir(LOCKS);
   const list = Array.isArray(choices) ? choices : [choices];
-  let waited = false;
-  for (;;) {
-    for (const choice of list) {
-      const held = [];
-      for (const cpu of expandCpus(choice)) {
-        const dir = join(locks, `cpu-${cpu}`);
-        if (!acquireLockDir(dir)) break;
-        held.push(dir);
-      }
-      if (held.length === expandCpus(choice).length) {
-        try {
-          return await fn(choice);
-        } finally {
-          held.forEach(releaseLockDir);
-        }
-      }
-      held.forEach(releaseLockDir);
-    }
-    if (!waited) console.error(`[lock] waiting for CPUs of ${list.join(" | ")}`);
-    waited = true;
-    await new Promise((r) => setTimeout(r, 2000));
-  }
+  return withLockFiles(
+    list,
+    (c) => expandCpus(c).map((cpu) => join(locks, `cpu-${cpu}.lock`)),
+    fn,
+    (l) => `CPUs of ${l.join(" | ")}`,
+  );
 }

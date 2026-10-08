@@ -17,22 +17,23 @@
 // --out:     JSONL file to append to (default runs.jsonl in the results dir).
 
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import {
   APPS,
-  BINDINGS,
-  BINDING_FILE,
   RESULTS,
   RUNS,
   appendJsonl,
   cpuCount,
+  checkAborted,
   ensureDir,
   machine,
+  onAbort,
   parseArgs,
   withCpus,
 } from "./lib.mjs";
+import { resolveBinding } from "./bindings.mjs";
 
 const SAMPLE_MS = 100;
 const BUILD_ID = "gym";
@@ -40,23 +41,26 @@ const sha16 = (data) => createHash("sha256").update(data).digest("hex").slice(0,
 
 // Fingerprint of a build's output, so a candidate that skips or changes work shows up
 // as different output rather than a speedup. Every emitted file counts except the
-// persistent cache, trace files and preview-props.json (per-build random keys).
-// `exactSha` hashes paths and bytes as written. Turbopack's output is not byte-identical
-// across builds of one binding (the two sides of an A/A differ in exactSha), so `sha`
-// hashes a normalized form of every path and content: the per-run distDir name, script
-// and stylesheet file names (.js/.css and their .map: chunk names carry per-build
-// hashes), 32+ character hex strings (file hashes in .nft.json, preview keys in
-// prerender-manifest), and one- and two-character identifiers (minified locals) are
-// replaced. Files then match as a multiset per directory, and every file's remaining
-// content is compared.
-const SKIP = /^(cache|trace|trace-build|trace-turbopack|preview-props\.json)$/;
+// top-level persistent cache and trace files and server/preview-props.json (per-build
+// random keys). `exactSha` hashes paths and bytes as written. Turbopack's output is not
+// byte-identical across builds of one binding (the two sides of an A/A differ in
+// exactSha), so `sha` hashes a normalized form of every path and content: the per-run
+// distDir name, script and stylesheet file names (.js/.css and their .map: chunk names
+// carry per-build hashes), and 32+ character hex strings (file hashes in .nft.json,
+// preview keys) are replaced everywhere; one- and two-character identifiers (minified
+// locals) are replaced outside string literals. Files then match as a multiset per
+// directory, and every file's remaining content, strings included, is compared.
+const SKIP_TOP = new Set(["cache", "trace", "trace-build", "trace-turbopack"]);
+const SKIP_PATHS = new Set(["server/preview-props.json"]);
 export function normalizer(dist) {
+  const strOrIdent =
+    /("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|(?<![\w$])[A-Za-z_$][\w$]?(?![\w$])/g;
   return (text) =>
     text
       .replaceAll(dist, "<dist>")
       .replace(/[\w.\-]+\.(?:js|css)(?:\.map)?\b/g, "#file")
       .replace(/\b[0-9a-f]{32,}\b/g, "#h")
-      .replace(/(?<![\w$])[A-Za-z_$][\w$]?(?![\w$])/g, "_");
+      .replace(strOrIdent, (m, str) => str ?? "_");
 }
 
 // path -> [exact hash, normalized path, normalized hash] for every fingerprinted file
@@ -65,8 +69,8 @@ export function outputFiles(distDir) {
   const files = [];
   const walk = (dir, rel) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (SKIP.test(e.name)) continue;
       const r = rel ? `${rel}/${e.name}` : e.name;
+      if ((!rel && SKIP_TOP.has(e.name)) || SKIP_PATHS.has(r)) continue;
       if (e.isDirectory()) walk(join(dir, e.name), r);
       else {
         const buf = readFileSync(join(dir, e.name));
@@ -98,12 +102,10 @@ export function fingerprint(distDir) {
   };
 }
 
-// Content hash of the app's generated tree (sources, manifests, configs; not
-// node_modules or build output), cached per app directory and generation.
-const appHashes = new Map();
+// Content hash of what a build of the app compiles: its generated tree (sources,
+// manifests, configs; not node_modules or build output) and the installed versions of
+// next, react, react-dom and @next/swc. Computed for every run.
 export function appTreeHash(app) {
-  const key = `${app}\t${statSync(join(app, "monolith.json")).mtimeMs}`;
-  if (appHashes.has(key)) return appHashes.get(key);
   const entries = [];
   const walk = (dir, rel) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -114,27 +116,17 @@ export function appTreeHash(app) {
     }
   };
   walk(app, "");
-  const h = sha16(entries.sort().join("\n"));
-  appHashes.set(key, h);
-  return h;
-}
-
-// What a binding directory holds: its source head, the hash of its diff against
-// gym/base (candidate.diff; none for base), and the hash of the native module itself.
-const nodeHashes = new Map();
-export function bindingSource(dir) {
-  const node = join(dir, BINDING_FILE);
-  if (!existsSync(node)) throw new Error(`no ${BINDING_FILE} in ${dir}`);
-  const st = statSync(node);
-  const key = `${node}\t${st.mtimeMs}\t${st.size}`;
-  if (!nodeHashes.has(key)) nodeHashes.set(key, sha16(readFileSync(node)));
-  const src = join(dir, "source.json");
-  const diff = join(dir, "candidate.diff");
-  return {
-    head: existsSync(src) ? JSON.parse(readFileSync(src, "utf8")).head : null,
-    diffSha256: sha16(existsSync(diff) ? readFileSync(diff) : Buffer.alloc(0)),
-    nodeSha256: nodeHashes.get(key),
-  };
+  for (const pkg of ["next", "react", "react-dom"]) {
+    const p = join(app, "node_modules", pkg, "package.json");
+    entries.push(
+      `installed:${pkg}\t${existsSync(p) ? JSON.parse(readFileSync(p, "utf8")).version : "-"}`,
+    );
+  }
+  const pnpmDir = join(app, "node_modules", ".pnpm");
+  if (existsSync(pnpmDir))
+    for (const d of readdirSync(pnpmDir).filter((d) => d.startsWith("@next+swc")))
+      entries.push(`installed:${d}`);
+  return sha16(entries.sort().join("\n"));
 }
 
 // NUMA nodes whose CPUs intersect a cpu list, so a lane's memory stays local to it
@@ -157,24 +149,31 @@ export function memoryNodes(cpus) {
 }
 
 // A build runs in its own systemd scope, which outlives this process if it is killed:
-// stop the scopes of builds in flight on SIGINT/SIGTERM.
+// on SIGINT/SIGTERM (lib.onAbort) stop the scopes of builds in flight, which ends their
+// `next build`, so bench throws and every caller's finally runs.
 const liveUnits = new Set();
-for (const sig of ["SIGINT", "SIGTERM"]) {
-  process.once(sig, () => {
-    for (const u of liveUnits) {
-      try {
-        execFileSync("sudo", ["-n", "systemctl", "stop", `${u}.scope`], { stdio: "ignore" });
-      } catch {}
-    }
-    process.exit(130);
-  });
+onAbort(() => {
+  for (const u of liveUnits) {
+    try {
+      execFileSync("sudo", ["-n", "systemctl", "stop", `${u}.scope`], { stdio: "ignore" });
+    } catch {}
+  }
+});
+
+// Everything a run needs before it starts (hashing a binding and the app takes time
+// that must not fall between the launches of an A/B's two builds).
+export function prepare({ binding = "base", app: appArg }) {
+  const app = !appArg ? join(APPS, "monolith") : appArg.includes("/") ? appArg : join(APPS, appArg);
+  const resolved = binding === "stock" ? null : resolveBinding(binding);
+  const buildNode = execFileSync("node", ["--version"], { encoding: "utf8" }).trim();
+  return { app, resolved, appHash: appTreeHash(app), buildNode };
 }
 
-// bindingDir: run this directory's binding (an A/B passes a per-run snapshot) while
-// recording it under `binding`.
+// prepared: prepare()'s result for this binding and app (an A/B prepares both sides
+// before launching either); computed here when absent.
 export async function bench({
   binding = "base",
-  bindingDir,
+  prepared,
   cpus,
   app: appArg,
   env = {},
@@ -182,7 +181,8 @@ export async function bench({
   keep = false,
   quiet = false,
 }) {
-  const app = !appArg ? join(APPS, "monolith") : appArg.includes("/") ? appArg : join(APPS, appArg);
+  checkAborted();
+  const { app, resolved, appHash, buildNode } = prepared || prepare({ binding, app: appArg });
   const id = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
   const distDir = `.next-gym-${id}`;
   const unit = `gym-${id}`;
@@ -199,14 +199,8 @@ export async function bench({
     NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: "Z3ltLWZpeGVkLWtleS1mb3ItY29tcGFyaXNvbnMhISE=",
     ...env,
   };
-  let source = { npm: "@next/swc (the installed next version)" };
-  if (binding !== "stock") {
-    const dir = bindingDir || join(BINDINGS, binding);
-    source = bindingSource(dir);
-    childEnv.NEXT_TEST_NATIVE_DIR = dir;
-  }
-  const buildNode = execFileSync("node", ["--version"], { env: childEnv, encoding: "utf8" }).trim();
-  const appHash = appTreeHash(app);
+  const source = resolved ? resolved.source : { npm: "@next/swc (the installed next version)" };
+  if (resolved) childEnv.NEXT_TEST_NATIVE_DIR = resolved.dir;
   const envArgs = Object.entries(childEnv).map(([k, v]) => `${k}=${v}`);
   const args = [
     "systemd-run",
