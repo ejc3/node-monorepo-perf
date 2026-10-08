@@ -555,8 +555,9 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     `systemd-run --scope` pinned to a CPU set (memory on its NUMA nodes): phase durations
     and offsets from `.next/trace-build`, cores and kernel share per phase from the scope's
     `cpu.stat` (sampled by a separate python3 process; a gap over 3 s fails the run), an
-    output fingerprint (normalized contents of every emitted file, string literals kept,
-    plus the exact hash), the app tree hash with installed next/react/@next/swc versions,
+    output fingerprint (normalized contents of every emitted file; one- and two-character
+    words are normalized everywhere, so a change confined to them is not detected; plus the
+    exact hash), the app tree hash with installed next/react/@next/swc versions,
     binding provenance (source head, diff hash, module hash), machine fields (instance
     type from EC2 metadata; a hashed boot id kept out of records).
   - `ab.mjs`: A and B concurrently on a lane pair (two CPU lists, equal, disjoint, online,

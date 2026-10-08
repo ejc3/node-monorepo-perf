@@ -55,10 +55,11 @@ Deterministic per `--seed` (98043).
 - **Same output.** The fingerprint hashes every emitted file except the top-level cache and
   trace files and `server/preview-props.json`, after normalizing what varies between builds
   of one binding: the run's output directory name, `.js`/`.css` file names (chunk names
-  carry per-build hashes), 32+ character hex strings, and one- and two-character
-  identifiers outside string literals (minified locals). Every file's remaining content,
-  strings included, is compared. The records also keep each build's exact hash, which
-  differs between the two sides of the A/A row.
+  carry per-build hashes), 32+ character hex strings, and one- and two-character words
+  (minified locals, which the minifier renames between builds). Every file's remaining
+  content is compared; a change that only swaps one- or two-character words, even inside a
+  string, is not detected. The records also keep each build's exact hash, which differs
+  between the two sides of the A/A row.
 - **Scaling** (`scaling.mjs`): one build at a time holding every CPU of the box, base and
   15 + 22 interleaved with the order rotating each rep, 3 reps per point; lanes start at CPU
   0, so sizes up to 96 sit on NUMA node 0 and 192 spans both nodes.

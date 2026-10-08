@@ -70,20 +70,28 @@ const sha16 = (data) => createHash("sha256").update(data).digest("hex").slice(0,
 // exactSha), so `sha` hashes a normalized form of every path and content: the per-run
 // distDir name, script and stylesheet file names (.js/.css and their .map: chunk names
 // carry per-build hashes), and 32+ character hex strings (file hashes in .nft.json,
-// preview keys) are replaced everywhere; one- and two-character identifiers (minified
-// locals) are replaced outside string literals. Files then match as a multiset per
-// directory, and every file's remaining content, strings included, is compared.
+// preview keys) and one- and two-character words (minified locals) are replaced
+// everywhere. Files then match as a multiset per directory, and every file's remaining
+// content is compared (see normalizeIdentifiers for what that cannot see).
 const SKIP_TOP = new Set(["cache", "trace", "trace-build", "trace-turbopack"]);
 const SKIP_PATHS = new Set(["server/preview-props.json"]);
+// One- and two-character words (minified locals) become "_" everywhere, string contents
+// included: telling code from string text in minified output needs a parser (quotes in
+// regex literals and template literals defeat a scanner), and the minifier renames
+// locals differently between builds. A change that only swaps one- or two-character
+// words is therefore not detected; longer strings, numbers and structure are.
+export function normalizeIdentifiers(text) {
+  return text.replace(/(?<![\w$])[A-Za-z_$][\w$]?(?![\w$])/g, "_");
+}
+
 export function normalizer(dist) {
-  const strOrIdent =
-    /("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|(?<![\w$])[A-Za-z_$][\w$]?(?![\w$])/g;
   return (text) =>
-    text
-      .replaceAll(dist, "<dist>")
-      .replace(/[\w.\-]+\.(?:js|css)(?:\.map)?\b/g, "#file")
-      .replace(/\b[0-9a-f]{32,}\b/g, "#h")
-      .replace(strOrIdent, (m, str) => str ?? "_");
+    normalizeIdentifiers(
+      text
+        .replaceAll(dist, "<dist>")
+        .replace(/[\w.\-]+\.(?:js|css)(?:\.map)?\b/g, "#file")
+        .replace(/\b[0-9a-f]{32,}\b/g, "#h"),
+    );
 }
 
 // path -> [exact hash, normalized path, normalized hash] for every fingerprinted file
