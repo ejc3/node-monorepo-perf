@@ -69,7 +69,8 @@ export function timeseries(
 
   const bucketList = columns[0]?.buckets ?? [];
   const rows: SeriesRow[] = bucketList.map((b, i) => {
-    const row: SeriesRow = { date: b.key };
+    // a range's first and last week or month can be partial; insights compare per day
+    const row: SeriesRow = { date: b.key, __days: b.days };
     for (const c of columns) {
       row[c.s.key] = c.values[i];
       if (c.prev) row[`${c.s.key}__prev`] = c.prev[i] ?? 0;

@@ -556,8 +556,12 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   export route handler (26%). Defaults: 1,430 dashboards, 2,069 routes (1,706 pages, 363
   route handlers), 16,525 TypeScript files; `--dashboards 228` gives 401 routes.
   Dependencies are pinned exactly (`PINS` in the generator) and installed from
-  `vizdash/pnpm-lock.yaml` with `--frozen-lockfile`: change both together. Its
-  `monolith.json` adds the dependency versions; `next.config` reads the same `MONOLITH_*`.
+  `vizdash/pnpm-lock.yaml` with `--frozen-lockfile`: change both together (`--next` only
+  accepts the pinned release). Its `monolith.json` adds the dependency versions;
+  `next.config` reads the same `MONOLITH_*`. `scripts/vizdash-selftest.mjs --app <installed
+  app>` checks the generator (determinism, refusals, dimension retargeting) and the app's
+  data engine, insights and search page (loaded through a transpiling loader), and
+  pins its browser-only fixes at the source.
 - `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
   - `setup.mjs` (`make gym-setup`): clone next.js, check `gym/base` is the tag's commit,
     build the base binding through `build.mjs` and a frame-pointer one, (re)generate and

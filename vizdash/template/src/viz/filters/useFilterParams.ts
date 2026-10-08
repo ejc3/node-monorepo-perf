@@ -16,7 +16,6 @@ export function useFilterParams() {
         if (v === null || v === "") next.delete(k);
         else next.set(k, v);
       }
-      next.delete("page");
       const qs = next.toString();
       startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
     },

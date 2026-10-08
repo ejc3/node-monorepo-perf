@@ -12,8 +12,12 @@ export function useCsvDownload(filename: string) {
       const a = document.createElement("a");
       a.href = url;
       a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+      // attached for browsers that ignore clicks on detached anchors; the URL outlives the
+      // click because some browsers start the download asynchronously
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
     [filename],
   );

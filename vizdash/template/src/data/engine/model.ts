@@ -6,6 +6,7 @@ import { clamp } from "lodash-es";
 import {
   buckets,
   daysOf,
+  isoDay,
   rangeInterval,
   weekdayFactor,
   yearPhase,
@@ -34,8 +35,9 @@ export function sliceLevel(ctx: QueryContext): number {
   for (const [dim, value] of Object.entries(ctx.scope ?? {})) level *= sliceShare(dim, value);
   if (ctx.filters.segment) level *= sliceShare("segment", ctx.filters.segment);
   if (ctx.filters.region) level *= sliceShare("region", ctx.filters.region);
-  // a scope is a small slice of a large business; keep its sums in a readable range
-  return Object.keys(ctx.scope ?? {}).length ? Math.max(level * 4, 0.02) : level;
+  // a scope is a small slice of a large business; keep its sums in a readable range,
+  // and below the whole business's
+  return Object.keys(ctx.scope ?? {}).length ? Math.min(Math.max(level * 4, 0.02), 0.9) : level;
 }
 
 export function streamKey(ctx: QueryContext, ...parts: (string | number)[]): (string | number)[] {
@@ -53,7 +55,8 @@ export function dailyValues(
   stream: string,
   weight = 1,
 ): number[] {
-  const r = rng(...streamKey(ctx, metric.key, stream, iv.start.getTime()));
+  // seeded by the calendar day, not the instant: the same on hosts in any time zone
+  const r = rng(...streamKey(ctx, metric.key, stream, isoDay(iv.start)));
   const phase = (hashString(metric.key) % 360) / 360;
   const level = metric.agg === "sum" ? sliceLevel(ctx) * weight : 1;
   // averages differ a little between slices (not in proportion to their size), the same

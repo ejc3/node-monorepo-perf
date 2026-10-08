@@ -34,5 +34,11 @@ export function daily(ctx: QueryContext, metric: MetricDef, days = 365): DailyPo
 /** The metric over the range against a target of `factor` x the previous range. */
 export function goal(ctx: QueryContext, metric: MetricDef, factor: number): GoalResult {
   const [k] = kpis(ctx, [metric]);
-  return { value: k.value, target: k.previous * factor, unit: metric.unit, label: metric.label };
+  return {
+    value: k.value,
+    target: k.previous * factor,
+    unit: metric.unit,
+    label: metric.label,
+    good: metric.good,
+  };
 }

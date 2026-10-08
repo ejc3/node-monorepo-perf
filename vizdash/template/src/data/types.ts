@@ -59,9 +59,6 @@ export interface Filters {
   segment: string | null;
   region: string | null;
   compare: boolean;
-  q: string;
-  page: number;
-  sort: string | null;
 }
 
 /** A dashboard's fixed slice of the data (e.g. region = EMEA, segment = Enterprise). */
@@ -102,7 +99,9 @@ export interface BreakdownRow {
 export interface BreakdownResult {
   rows: BreakdownRow[];
   unit: Unit;
+  /** sum: the total of every value (rows plus "Other"); avg: the overall average */
   total: number;
+  agg: "sum" | "avg";
 }
 
 export interface MatrixResult {
@@ -216,4 +215,5 @@ export interface GoalResult {
   target: number;
   unit: Unit;
   label: string;
+  good: Direction;
 }

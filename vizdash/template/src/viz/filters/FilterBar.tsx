@@ -1,6 +1,8 @@
 "use client";
 
 import { ListFilter, LoaderCircle } from "lucide-react";
+import { RANGES } from "@/data/calendar";
+import { effectiveGrain } from "@/data/filters";
 import type { Grain, RangeKey } from "@/data/types";
 import { CompareToggle } from "./CompareToggle";
 import { DimensionSelect } from "./DimensionSelect";
@@ -30,7 +32,16 @@ export function FilterBar({
   grain?: boolean;
 }) {
   const { get, set, pending } = useFilterParams();
-  const range = (get("range") as RangeKey | null) ?? defaultRange;
+  // what the server rendered: an unknown range falls back to the default there too
+  const asked = get("range");
+  const range = asked && Object.hasOwn(RANGES, asked) ? (asked as RangeKey) : defaultRange;
+  // a grain the server overrode (daily over a year) is not shown as selected
+  const askedGrain = get("grain");
+  const valid = askedGrain === "day" || askedGrain === "week" || askedGrain === "month";
+  const shownGrain =
+    valid && effectiveGrain(range, askedGrain as Grain) === askedGrain
+      ? (askedGrain as Grain)
+      : null;
   return (
     <div className="filter-bar">
       <ListFilter size={15} className="muted" />
@@ -39,9 +50,7 @@ export function FilterBar({
         options={ranges}
         onChange={(v) => set({ range: v === defaultRange ? null : v })}
       />
-      {grain ? (
-        <GrainSelect value={get("grain") as Grain | null} onChange={(g) => set({ grain: g })} />
-      ) : null}
+      {grain ? <GrainSelect value={shownGrain} onChange={(g) => set({ grain: g })} /> : null}
       {dimensions.map((d) => (
         <DimensionSelect
           key={d.param}

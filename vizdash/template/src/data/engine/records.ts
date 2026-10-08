@@ -10,7 +10,8 @@ import type {
   RecordRow,
   ScatterResult,
 } from "../types";
-import { jitterRate, sliceLevel, streamKey } from "./model";
+import { differenceInCalendarDays } from "date-fns";
+import { intervalOf, jitterRate, sliceLevel, streamKey } from "./model";
 
 /** Rows of an entity table (accounts, campaigns, services...) with per-row metrics. */
 export function records(
@@ -25,7 +26,10 @@ export function records(
     .map(([k, v]) => `${k}=${v}`)
     .join(",");
   const who = rng(ctx.seed, scope, "records-id", entity.key);
-  const r = rng(...streamKey(ctx, "records", entity.key));
+  // values cover the selected range: totals scale with its length
+  const iv = intervalOf(ctx);
+  const days = differenceInCalendarDays(iv.end, iv.start) + 1;
+  const r = rng(...streamKey(ctx, "records", entity.key, ctx.filters.range));
   const level = sliceLevel(ctx);
   const rows = Array.from({ length: n }, (_, i): RecordRow => {
     const id = `${entity.key}-${(i + 1).toString(36)}${who.int(10, 99)}`;
@@ -37,7 +41,7 @@ export function records(
         if (m.unit === "percent") return [m.key, jitterRate(m.base, r.normal(0, 0.8))];
         const v =
           m.agg === "sum"
-            ? (m.base * 30 * level * size) / Math.sqrt(n)
+            ? (m.base * days * level * size) / Math.sqrt(n)
             : m.base * Math.max(0.2, 1 + r.normal(0, 0.18));
         return [m.key, v];
       }),

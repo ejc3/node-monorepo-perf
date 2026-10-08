@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Group } from "@visx/group";
 import { Sankey, sankeyJustify } from "@visx/sankey";
 import { Text } from "@visx/text";
@@ -12,7 +11,10 @@ import { Responsive } from "./Responsive";
 type N = { name: string; stage: number };
 type L = { value: number };
 
-/** Flow between consecutive stages; hovering a link highlights it. */
+/**
+ * Flow between consecutive stages; hovering a link highlights it. The highlight is CSS
+ * (.sankey:hover), not React state, so hovering never reruns the layout.
+ */
 export function SankeyChart({
   data,
   height = CHART_HEIGHT.lg,
@@ -20,7 +22,6 @@ export function SankeyChart({
   data: FlowResult;
   height?: number;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
   const root = {
     nodes: data.nodes.map((n) => ({ ...n })),
     links: data.links.map((l) => ({ ...l })),
@@ -28,7 +29,7 @@ export function SankeyChart({
   return (
     <Responsive height={height}>
       {(width) => (
-        <svg width={width} height={height}>
+        <svg width={width} height={height} className="sankey">
           <Sankey<N, L>
             root={root}
             size={[width - 8, height - 8]}
@@ -47,10 +48,8 @@ export function SankeyChart({
                       d={createPath(link) ?? ""}
                       stroke={seriesColor(src.index ?? 0)}
                       strokeWidth={Math.max(1, link.width ?? 1)}
-                      strokeOpacity={hover === null ? 0.32 : hover === i ? 0.7 : 0.12}
+                      className="sankey__link"
                       fill="none"
-                      onPointerEnter={() => setHover(i)}
-                      onPointerLeave={() => setHover(null)}
                     >
                       <title>{formatMetric(link.value, data.unit)}</title>
                     </path>

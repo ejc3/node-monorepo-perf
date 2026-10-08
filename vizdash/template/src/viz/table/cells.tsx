@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import type { Direction, Unit } from "@/data/types";
 import { Sparkline } from "../charts/Sparkline";
@@ -77,10 +78,20 @@ export function TrendCell({
   );
 }
 
+// the dashboard filters a drill-down page reads; the link carries the current ones
+const KEPT = ["range", "grain", "segment", "region", "compare"];
+
 export function LinkCell({ href, label, sub }: { href: string; label: string; sub?: string }) {
+  const params = useSearchParams();
+  const kept = new URLSearchParams();
+  for (const k of KEPT) {
+    const v = params.get(k);
+    if (v !== null) kept.set(k, v);
+  }
+  const qs = kept.toString();
   return (
     <span className="link-cell">
-      <Link href={href} prefetch={false}>
+      <Link href={qs ? `${href}?${qs}` : href} prefetch={false}>
         {label}
       </Link>
       {sub ? <span className="muted">{sub}</span> : null}

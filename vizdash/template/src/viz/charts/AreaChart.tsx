@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   Area,
   AreaChart as RAreaChart,
@@ -30,7 +31,10 @@ export function AreaChart({
 }) {
   const { hidden, toggle } = useSeriesToggle();
   const tick = { fill: AXIS, fontSize: FONT.tick };
-  const id = (i: number) => `area-fill-${i}`;
+  // gradient ids are document-wide: prefix them per chart so two area charts on one page
+  // do not share (and overwrite) each other's fills
+  const uid = useId().replace(/:/g, "");
+  const id = (i: number) => `area-fill-${uid}-${i}`;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RAreaChart

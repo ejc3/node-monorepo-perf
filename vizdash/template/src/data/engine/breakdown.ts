@@ -36,9 +36,24 @@ export function breakdown(
     opts.sort === "natural"
       ? orderBy(rows, ["natural"], ["asc"])
       : orderBy(rows, ["value"], ["desc"]);
+  const top = opts.top ?? sorted.length;
+  const shown = sorted.slice(0, top).map(({ natural: _, ...row }) => row);
+  // totals of the values left out are one "Other" row, so shares add up to 100%
+  if (metric.agg === "sum" && top < sorted.length) {
+    const rest = sorted.slice(top);
+    const value = sumBy(rest, "value");
+    shown.push({
+      key: "other",
+      label: `Other (${rest.length})`,
+      value,
+      share: value / sum,
+      delta: sumBy(rest, (r) => r.value * r.delta) / (value || 1),
+    });
+  }
   return {
-    rows: sorted.slice(0, opts.top ?? sorted.length).map(({ natural: _, ...row }) => row),
+    rows: shown,
     unit: metric.unit,
     total: metric.agg === "sum" ? sum : total,
+    agg: metric.agg,
   };
 }

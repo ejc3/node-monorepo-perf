@@ -18,7 +18,7 @@
 //   histogram  per-item distribution of one metric
 //   box        per-item distribution of one metric by a dimension
 //   scatter    entities placed by two metrics, colored by a dimension
-//   gauge      one metric against a target (target = factor x typical value)
+//   gauge      one metric against a target (target = factor x the previous period's value)
 //   calendar   one metric per day over the last year
 //   radar      several metrics compared across a dimension's values
 

@@ -26,7 +26,7 @@ export function BreakdownWidget({
       span={span}
       footer={
         <span>
-          {data.rows.length} groups · total{" "}
+          {data.rows.length} groups · {data.agg === "sum" ? "total" : "overall"}{" "}
           <strong>{formatMetric(data.total, data.unit, { compact: true })}</strong>
         </span>
       }

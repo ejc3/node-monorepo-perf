@@ -61,7 +61,11 @@ export function DonutChart({
             fill="currentColor"
             opacity={0.65}
           >
-            {focus ? `${focus.label} · ${formatPercent(focus.share)}` : "Total"}
+            {focus
+              ? `${focus.label} · ${formatPercent(focus.share)}`
+              : data.agg === "sum"
+                ? "Total"
+                : "Overall"}
           </Text>
         </Group>
       </svg>

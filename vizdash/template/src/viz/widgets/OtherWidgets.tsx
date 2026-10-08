@@ -1,6 +1,7 @@
 import type {
   CohortRow,
   DailyPoint,
+  Direction,
   DistributionResult,
   FunnelStep,
   GroupedDistribution,
@@ -122,11 +123,12 @@ export function GaugeWidget({
   target,
   unit,
   label,
+  good,
   span = 3,
-}: Base & { value: number; target: number; unit: Unit; label: string }) {
+}: Base & { value: number; target: number; unit: Unit; label: string; good?: Direction }) {
   return (
     <Widget title={title} subtitle={subtitle} span={span}>
-      <Gauge value={value} target={target} unit={unit} label={label} />
+      <Gauge value={value} target={target} unit={unit} label={label} good={good} />
     </Widget>
   );
 }

@@ -12,6 +12,13 @@ export interface Insight {
 const tone = (change: number, good: Direction): Insight["tone"] =>
   Math.abs(change) < 0.01 ? "neutral" : change > 0 === (good === "up") ? "good" : "bad";
 
+// Bucket values comparable across buckets: totals per day (a range's first and last
+// week or month can be partial), averages as they are.
+function rate(ts: TimeseriesResult, row: TimeseriesResult["rows"][number], key: string): number {
+  const v = Number(row[key]);
+  return ts.agg === "sum" ? v / (Number(row.__days) || 1) : v;
+}
+
 /** First vs last bucket of the first series. */
 export function trendInsight(
   label: string,
@@ -20,8 +27,8 @@ export function trendInsight(
 ): Insight | null {
   const key = ts.series[0]?.key;
   if (!key || ts.rows.length < 2) return null;
-  const first = Number(ts.rows[0][key]);
-  const last = Number(ts.rows[ts.rows.length - 1][key]);
+  const first = rate(ts, ts.rows[0], key);
+  const last = rate(ts, ts.rows[ts.rows.length - 1], key);
   if (!first) return null;
   const change = last / first - 1;
   return {
@@ -34,14 +41,15 @@ export function trendInsight(
 export function spikeInsight(label: string, ts: TimeseriesResult): Insight | null {
   const key = ts.series[0]?.key;
   if (!key) return null;
-  const vals = ts.rows.map((r) => Number(r[key]));
+  const at = (r: TimeseriesResult["rows"][number]) => rate(ts, r, key);
+  const vals = ts.rows.map(at);
   const m = mean(vals) ?? 0;
   const sd = deviation(vals) ?? 0;
   if (!sd) return null;
-  const hi = greatest(ts.rows, (a, b) => Number(a[key]) - Number(b[key]))!;
-  const lo = least(ts.rows, (a, b) => Number(a[key]) - Number(b[key]))!;
-  const pick = Math.abs(Number(hi[key]) - m) >= Math.abs(Number(lo[key]) - m) ? hi : lo;
-  const z = (Number(pick[key]) - m) / sd;
+  const hi = greatest(ts.rows, (a, b) => at(a) - at(b))!;
+  const lo = least(ts.rows, (a, b) => at(a) - at(b))!;
+  const pick = Math.abs(at(hi) - m) >= Math.abs(at(lo) - m) ? hi : lo;
+  const z = (at(pick) - m) / sd;
   if (Math.abs(z) < 2) return null;
   return {
     tone: "neutral",
@@ -49,12 +57,16 @@ export function spikeInsight(label: string, ts: TimeseriesResult): Insight | nul
   };
 }
 
+const named = (b: BreakdownResult) => b.rows.filter((r) => r.key !== "other");
+
 export function leaderInsight(label: string, b: BreakdownResult): Insight | null {
-  const top = maxBy(b.rows, "value");
+  const top = maxBy(named(b), "value");
   if (!top) return null;
+  // a share of the total only means something for totals, not for averages or rates
+  const share = b.agg === "sum" ? ` (${formatPercent(top.share)} of total)` : "";
   return {
     tone: "neutral",
-    text: `${top.label} leads ${label} with ${formatMetric(top.value, b.unit, { compact: true })} (${formatPercent(top.share)} of total).`,
+    text: `${top.label} leads ${label} with ${formatMetric(top.value, b.unit, { compact: true })}${share}.`,
   };
 }
 
@@ -63,8 +75,8 @@ export function moverInsight(
   b: BreakdownResult,
   good: Direction = "up",
 ): Insight | null {
-  const up = maxBy(b.rows, "delta");
-  const down = minBy(b.rows, "delta");
+  const up = maxBy(named(b), "delta");
+  const down = minBy(named(b), "delta");
   if (!up || !down) return null;
   const big = Math.abs(up.delta) >= Math.abs(down.delta) ? up : down;
   return {

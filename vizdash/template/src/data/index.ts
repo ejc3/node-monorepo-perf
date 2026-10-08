@@ -3,7 +3,7 @@ export * from "./engine";
 export { rng, hashString } from "./rng";
 export type { Rng } from "./rng";
 export { ANCHOR, RANGES, rangeInterval, previousInterval, buckets } from "./calendar";
-export { parseFilters, filtersKey, DEFAULT_FILTERS } from "./filters";
+export { parseFilters, filtersKey, effectiveGrain, DEFAULT_FILTERS } from "./filters";
 export type { SearchParams } from "./filters";
 export {
   defineMetric,

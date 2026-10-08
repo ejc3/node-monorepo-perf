@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { Unit } from "@/data/types";
+import type { Direction, Unit } from "@/data/types";
 import { formatMetric } from "../format";
 import { BAD, CHART_HEIGHT, GOOD, GRID, SERIES } from "../theme";
 import { EChart, type EChartsOption } from "./EChart";
@@ -12,16 +12,21 @@ export function Gauge({
   target,
   unit,
   label,
+  good = "up",
   height = CHART_HEIGHT.md - 40,
 }: {
   value: number;
   target: number;
   unit: Unit;
   label: string;
+  /** "down": the target is a ceiling (a budget), not a goal to reach */
+  good?: Direction;
   height?: number;
 }) {
   const option = useMemo<EChartsOption>(() => {
     const max = Math.max(target * 1.25, value * 1.05);
+    const met = good === "up" ? value >= target : value <= target;
+    const color = met ? GOOD : good === "down" ? BAD : SERIES[0];
     return {
       series: [
         {
@@ -35,7 +40,7 @@ export function Gauge({
           progress: {
             show: true,
             width: 14,
-            itemStyle: { color: value >= target ? GOOD : SERIES[0] },
+            itemStyle: { color },
           },
           axisLine: { lineStyle: { width: 14, color: [[1, GRID]] } },
           axisTick: { show: false },
@@ -82,6 +87,6 @@ export function Gauge({
         },
       ],
     };
-  }, [value, target, unit, label]);
+  }, [value, target, unit, label, good]);
   return <EChart option={option} height={height} />;
 }

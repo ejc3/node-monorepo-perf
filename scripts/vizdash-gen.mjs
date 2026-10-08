@@ -80,7 +80,20 @@ const DRILL_PCT = intOpt("drilldown-pct", 14, 0, 100);
 const EXPORT_PCT = intOpt("export-pct", 26, 0, 100);
 const RELATED_PCT = intOpt("related-pct", 20, 0, 100);
 const SEED = intOpt("seed", 98043, 0);
-const NEXT_VERSION = opt("next", "16.4.0");
+// The lockfile resolves this exact next; another release needs PINS and the lockfile
+// changed together, so --next only accepts the pinned version (and fails loudly).
+const NEXT_PINNED = "16.4.0";
+const NEXT_VERSION = opt("next", NEXT_PINNED);
+if (NEXT_VERSION !== NEXT_PINNED) {
+  console.error(
+    `vizdash pins next ${NEXT_PINNED} in PINS and vizdash/pnpm-lock.yaml; to build next ${NEXT_VERSION}, change PINS and regenerate the lockfile`,
+  );
+  process.exit(1);
+}
+if (!existsSync(LOCKFILE)) {
+  console.error(`${LOCKFILE} is missing: the app installs with --frozen-lockfile from it`);
+  process.exit(1);
+}
 const REACT_VERSION = "19.2.7";
 
 // Exact versions of everything the app imports. The committed lockfile resolves these;
@@ -158,7 +171,8 @@ if (existsSync(OUT)) {
     );
     process.exit(1);
   }
-  rmSync(OUT, { recursive: true, force: true });
+  // a signed tree is replaced; an empty directory is written into as it is
+  if (isGenerated()) rmSync(OUT, { recursive: true, force: true });
 }
 
 // ---- deterministic randomness (mulberry32 over an FNV-1a hash of the parts) ----------
@@ -484,7 +498,7 @@ function emitWidget(d, w, key, span, r) {
     case "gauge":
       return {
         load: `goal(ctx, ${m(w.metric)}, ${w.target})`,
-        jsx: `<GaugeWidget ${base} value={data.${key}.value} target={data.${key}.target} unit={data.${key}.unit} label={data.${key}.label} span={${span}} />`,
+        jsx: `<GaugeWidget ${base} subtitle=${str(`Target: ${w.target}× the previous period`)} value={data.${key}.value} target={data.${key}.target} unit={data.${key}.unit} label={data.${key}.label} good={data.${key}.good} span={${span}} />`,
         uses: ["GaugeWidget"],
         insights: [],
       };
@@ -555,8 +569,11 @@ function emitDashboard(d, index, related) {
         if (name) out.title = out.title.replace(name, lc(to));
         return alt;
       };
-      if (field === "stages" && out.stages) out.stages = out.stages.map(swap);
-      else if (out[field]) out[field] = swap(out[field]);
+      // stages are swapped one at a time, so a later swap sees the earlier one as used
+      if (field === "stages" && out.stages) {
+        out.stages = [...out.stages];
+        for (let i = 0; i < out.stages.length; i++) out.stages[i] = swap(out.stages[i]);
+      } else if (out[field]) out[field] = swap(out[field]);
     }
     return widgetDims(out).some((k) => k === null) ? null : out;
   };
@@ -1288,11 +1305,9 @@ emit(
     2,
   ) + "\n",
 );
-emit(".gitignore", "node_modules/\n.next*/\nnext-env.d.ts\n");
-if (existsSync(LOCKFILE)) {
-  copyFileSync(LOCKFILE, join(OUT, "pnpm-lock.yaml"));
-  files++;
-}
+emit(".gitignore", "node_modules/\n.next*/\nnext-env.d.ts\n*.tsbuildinfo\n");
+copyFileSync(LOCKFILE, join(OUT, "pnpm-lock.yaml"));
+files++;
 
 const areaPages = AREAS.length;
 const archPages = archetypes.length;
@@ -1322,7 +1337,6 @@ const summary = {
   next: NEXT_VERSION,
   react: REACT_VERSION,
   dependencies: PINS.dependencies,
-  lockfile: existsSync(LOCKFILE),
 };
 writeFileSync(join(OUT, "monolith.json"), JSON.stringify(summary, null, 2) + "\n");
 console.log(JSON.stringify(summary));
