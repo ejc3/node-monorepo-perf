@@ -9,3 +9,6 @@ bench/
 # Parser-sensitive: scripts/rewrite-protocols.mjs reads this catalog with a
 # crude line-based regex, so don't let Prettier reflow it.
 pnpm-workspace.yaml
+
+# Written by pnpm (vizdash's committed lockfile); reformatting it is churn.
+vizdash/pnpm-lock.yaml

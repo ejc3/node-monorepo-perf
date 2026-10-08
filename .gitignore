@@ -8,6 +8,8 @@ next-env.d.ts
 
 # Lockfile is a function of the generated scale — regenerate with `pnpm gen`.
 pnpm-lock.yaml
+# ...except the vizdash app's: its dependencies are fixed, installed --frozen-lockfile
+!/vizdash/pnpm-lock.yaml
 # Generated workspace members — regenerate with `pnpm gen`.
 /apps/
 /packages/
@@ -66,3 +68,5 @@ bench/fleet-flow-bench.partial.json
 scripts/turbopack-gym/hosts.local.json
 # make monolith output (scripts/monolith-gen.mjs)
 /monolith/
+# make vizdash output (scripts/vizdash-gen.mjs)
+/vizdash-app/
