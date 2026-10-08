@@ -1005,7 +1005,11 @@ run is checked to share one machine boot), the app's shape and tree hash, and th
 against. The A/B record ran its rows one at a time, A and B concurrently on two lanes of
 one NUMA node; the scaling record ran one build at a time holding every CPU.
 `make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
-in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them. `chart.mjs`
+in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them.
+`bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
+records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
+integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
+lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
