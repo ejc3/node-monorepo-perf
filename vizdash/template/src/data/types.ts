@@ -94,6 +94,8 @@ export interface BreakdownRow {
   value: number;
   share: number;
   delta: number;
+  /** the values left out of a top-N breakdown, summed (not a dimension value) */
+  remainder?: boolean;
 }
 
 export interface BreakdownResult {

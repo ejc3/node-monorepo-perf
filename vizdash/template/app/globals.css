@@ -1012,7 +1012,7 @@ h3 {
   transition: stroke-opacity 0.12s;
 }
 
-.sankey:hover .sankey__link {
+.sankey:has(.sankey__link:hover) .sankey__link {
   stroke-opacity: 0.12;
 }
 

@@ -57,7 +57,7 @@ export function spikeInsight(label: string, ts: TimeseriesResult): Insight | nul
   };
 }
 
-const named = (b: BreakdownResult) => b.rows.filter((r) => r.key !== "other");
+const named = (b: BreakdownResult) => b.rows.filter((r) => !r.remainder);
 
 export function leaderInsight(label: string, b: BreakdownResult): Insight | null {
   const top = maxBy(named(b), "value");

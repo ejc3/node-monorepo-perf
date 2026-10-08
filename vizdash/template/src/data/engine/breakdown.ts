@@ -1,6 +1,12 @@
 import { orderBy, sumBy } from "lodash-es";
 import { rng } from "../rng";
-import type { BreakdownResult, DimensionDef, MetricDef, QueryContext } from "../types";
+import type {
+  BreakdownResult,
+  BreakdownRow,
+  DimensionDef,
+  MetricDef,
+  QueryContext,
+} from "../types";
 import { aggregate, dailyValues, intervalOf, jitterRate, streamKey } from "./model";
 
 /** The metric over the selected range, split by the values of one dimension. */
@@ -37,17 +43,19 @@ export function breakdown(
       ? orderBy(rows, ["natural"], ["asc"])
       : orderBy(rows, ["value"], ["desc"]);
   const top = opts.top ?? sorted.length;
-  const shown = sorted.slice(0, top).map(({ natural: _, ...row }) => row);
+  const shown: BreakdownRow[] = sorted.slice(0, top).map(({ natural: _, ...row }) => row);
   // totals of the values left out are one "Other" row, so shares add up to 100%
   if (metric.agg === "sum" && top < sorted.length) {
     const rest = sorted.slice(top);
     const value = sumBy(rest, "value");
     shown.push({
-      key: "other",
+      // a key no dimension value slugs to (a real "Other" value has key "other")
+      key: "__rest",
       label: `Other (${rest.length})`,
       value,
       share: value / sum,
       delta: sumBy(rest, (r) => r.value * r.delta) / (value || 1),
+      remainder: true,
     });
   }
   return {
