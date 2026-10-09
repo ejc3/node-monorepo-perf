@@ -152,7 +152,10 @@ Medians over 3 interleaved runs per point.
 - After the graph phase, `compute_chunk_group_info` and the merged-modules reconciliation run
   as sequential loops inside `turbopack-write-entrypoints`. Chunk-group ids are assigned in
   visit order and feed the output's ordering, so a reorder there has to keep that order.
-- The patches are against v16.4.0.
+- The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a
+  Turbopack integration subset, `next dev`), their PR drafts, and the heap tie-break in
+  `traverse_edges_fixed_point_with_priority`:
+  [bench/turbopack-gym/upstream-readiness.md](bench/turbopack-gym/upstream-readiness.md).
 
 ## Reproduce
 

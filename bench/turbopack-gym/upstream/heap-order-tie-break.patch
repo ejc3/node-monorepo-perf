@@ -1,0 +1,82 @@
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/mod.rs b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+index d86b14f1ca..0a105ee5b8 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/mod.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+@@ -1545,8 +1545,9 @@ impl ModuleGraphSnapshot {
+                 self.priority
+                     .cmp(&other.priority)
+                     // Use visit_order, so when there are ties we prioritize earlier discovered
+-                    // nodes, reverting to a BFS in the the case where all priorities are equal
+-                    .then(self.visit_order.cmp(&other.visit_order))
++                    // nodes, reverting to a BFS in the case where all priorities are equal.
++                    // Reversed because the BinaryHeap pops the greatest element first.
++                    .then(other.visit_order.cmp(&self.visit_order))
+             }
+         }
+ 
+@@ -2391,10 +2392,64 @@ pub mod tests {
+                         (None, rcstr!("a.js")),
+                         (Some(rcstr!("a.js")), rcstr!("c.js")),
+                         (Some(rcstr!("a.js")), rcstr!("b.js")),
++                        (Some(rcstr!("c.js")), rcstr!("f.js")),
++                        (Some(rcstr!("c.js")), rcstr!("e.js")),
+                         (Some(rcstr!("b.js")), rcstr!("e.js")),
+                         (Some(rcstr!("b.js")), rcstr!("d.js")),
++                    ],
++                    visits
++                );
++
++                Ok(())
++            },
++        )
++        .await;
++    }
++
++    /// With equal priorities, a node discovered earlier is visited before one discovered later,
++    /// also when the later one is deeper: the traversal is breadth-first, not depth-first.
++    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++    async fn test_traverse_edges_fixed_point_no_priority_is_bfs_deep() {
++        run_graph_test(
++            vec![rcstr!("a.js")],
++            {
++                let mut deps = FxHashMap::default();
++                //        a
++                //      b   c
++                //      d   f
++                //      e
++                deps.insert(rcstr!("a.js"), vec![rcstr!("b.js"), rcstr!("c.js")]);
++                deps.insert(rcstr!("b.js"), vec![rcstr!("d.js")]);
++                deps.insert(rcstr!("c.js"), vec![rcstr!("f.js")]);
++                deps.insert(rcstr!("d.js"), vec![rcstr!("e.js")]);
++                deps
++            },
++            |graph, entry_modules, module_to_name| {
++                let mut visits = Vec::new();
++
++                graph.traverse_edges_fixed_point_with_priority(
++                    entry_modules.into_iter().map(|m| (m, 0)),
++                    &mut (),
++                    |parent, target, _, _| {
++                        visits.push((
++                            parent.map(|(node, _, _)| module_to_name.get(&node).unwrap().clone()),
++                            module_to_name.get(&target).unwrap().clone(),
++                        ));
++                        Ok(GraphTraversalAction::Continue)
++                    },
++                    |_, _| Ok(0),
++                )?;
++
++                // `c` is discovered before `b` (neighbors are iterated in reverse), so `c`'s
++                // edge comes first, and `d`'s edge (depth 2) comes after both depth 1 nodes.
++                assert_eq!(
++                    vec![
++                        (None, rcstr!("a.js")),
++                        (Some(rcstr!("a.js")), rcstr!("c.js")),
++                        (Some(rcstr!("a.js")), rcstr!("b.js")),
+                         (Some(rcstr!("c.js")), rcstr!("f.js")),
+-                        (Some(rcstr!("c.js")), rcstr!("e.js")),
++                        (Some(rcstr!("b.js")), rcstr!("d.js")),
++                        (Some(rcstr!("d.js")), rcstr!("e.js")),
+                     ],
+                     visits
+                 );
