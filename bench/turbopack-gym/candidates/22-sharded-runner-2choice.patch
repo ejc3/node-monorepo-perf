@@ -1,0 +1,677 @@
+diff --git a/turbopack/crates/turbo-tasks/src/priority_runner.rs b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+index d6f1237f36..8a9f76d179 100644
+--- a/turbopack/crates/turbo-tasks/src/priority_runner.rs
++++ b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+@@ -1,13 +1,15 @@
+ use std::{
++    cell::Cell,
+     collections::BinaryHeap,
+     fmt::Debug,
+     future::Future,
+-    hash::Hash,
++    hash::{BuildHasher, Hash},
++    ops::Deref,
+     pin::Pin,
+     ptr::drop_in_place,
+     sync::{
+         Arc,
+-        atomic::{AtomicUsize, Ordering},
++        atomic::{AtomicU64, AtomicUsize, Ordering},
+     },
+     task::{Context, Poll},
+     time::{Duration, Instant},
+@@ -15,7 +17,7 @@ use std::{
+ 
+ use parking_lot::Mutex;
+ use pin_project_lite::pin_project;
+-use rustc_hash::FxHashMap;
++use rustc_hash::{FxBuildHasher, FxHashMap};
+ 
+ pub trait Executor<C, T, P>: Send + Sync {
+     type Future: Future<Output = ()> + Send;
+@@ -77,7 +79,7 @@ impl<P: Ord> PartialOrd for HeapItem<P> {
+     }
+ }
+ 
+-/// The queue of items that are not scheduled yet.
++/// One shard of the queue of items that are not scheduled yet.
+ ///
+ /// Items are ordered by priority in a [`BinaryHeap`], but they are stored out-of-line in `slots` so
+ /// that a single item can be removed by key without disturbing the heap (a binary heap has no
+@@ -97,6 +99,10 @@ struct Queue<P, T: Claimable> {
+     free_slots: Vec<usize>,
+     /// Slot index of the claimable item for each key.
+     claimable: FxHashMap<T::Key, usize>,
++    /// Number of queued items that are neither popped nor claimed. When it drops to zero, every
++    /// remaining heap entry is a tombstone and the whole queue is reset, so `len == 0` implies an
++    /// empty heap.
++    len: usize,
+     /// How many items were ever pushed. Diagnostics only, see [`PriorityRunner::total_queued`].
+     #[cfg(feature = "inline_execution_stats")]
+     pushes: u64,
+@@ -109,15 +115,15 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+             slots: Vec::new(),
+             free_slots: Vec::new(),
+             claimable: FxHashMap::default(),
++            len: 0,
+             #[cfg(feature = "inline_execution_stats")]
+             pushes: 0,
+         }
+     }
+ 
+-    /// Whether there is any heap entry left. This can be `true` while all remaining entries are
+-    /// tombstones of claimed items; popping is what cleans those up.
++    /// Whether there is no item left that can be popped.
+     fn is_empty(&self) -> bool {
+-        self.heap.is_empty()
++        self.len == 0
+     }
+ 
+     fn push(&mut self, priority: P, task: T) {
+@@ -143,10 +149,14 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+             priority: heap_priority,
+             slot,
+         });
++        self.len += 1;
+     }
+ 
+     /// Pops the highest priority item, skipping tombstones of claimed items.
+     fn pop(&mut self) -> Option<(P, T)> {
++        if self.len == 0 {
++            return None;
++        }
+         while let Some(HeapItem { slot, .. }) = self.heap.pop() {
+             let entry = self.slots[slot].take();
+             self.free_slots.push(slot);
+@@ -158,12 +168,29 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+                         self.claimable.remove(&key);
+                     }
+                 }
+-                self.shrink_amortized();
++                self.len -= 1;
++                if self.len == 0 {
++                    self.reset();
++                } else {
++                    self.shrink_amortized();
++                }
+                 return Some((priority, task));
+             }
+         }
+-        self.shrink_amortized();
+-        None
++        unreachable!("a queue with live items has a heap entry for each of them");
++    }
++
++    /// The priority of the item [`Queue::pop`] would return. Drops tombstones from the top of the
++    /// heap to find it. Must only be called on a non-empty queue.
++    fn peek_priority(&mut self) -> &P {
++        while let Some(top) = self.heap.peek() {
++            if self.slots[top.slot].is_some() {
++                break;
++            }
++            let HeapItem { slot, .. } = self.heap.pop().unwrap();
++            self.free_slots.push(slot);
++        }
++        &self.heap.peek().expect("peek_priority on an empty queue").priority
+     }
+ 
+     /// Removes the queued item with the given key, if it is still queued and claimable.
+@@ -171,7 +198,23 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+         let slot = self.claimable.remove(key)?;
+         // The slot is intentionally not recycled here: its heap entry is still around as a
+         // tombstone and must not start pointing at a different item.
+-        self.slots.get_mut(slot).and_then(|slot| slot.take())
++        let entry = self.slots.get_mut(slot).and_then(|slot| slot.take());
++        if entry.is_some() {
++            self.len -= 1;
++            if self.len == 0 {
++                self.reset();
++            }
++        }
++        entry
++    }
++
++    /// Drops all tombstones once no live item is left. Nothing references any slot anymore.
++    fn reset(&mut self) {
++        debug_assert!(self.claimable.is_empty());
++        self.heap.clear();
++        self.slots.clear();
++        self.free_slots.clear();
++        self.shrink_amortized();
+     }
+ 
+     /// Amortized shrinking of the queue, but with a lower threshold to avoid
+@@ -191,6 +234,55 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+     }
+ }
+ 
++/// Aligns a value to its own cache lines so that neighbouring shards don't false-share.
++#[repr(align(128))]
++struct CachePadded<T>(T);
++
++impl<T> Deref for CachePadded<T> {
++    type Target = T;
++
++    fn deref(&self) -> &T {
++        &self.0
++    }
++}
++
++/// The queue is split into at most this many shards, so that the set of non-empty shards fits
++/// into one [`AtomicU64`].
++const MAX_SHARDS: usize = 64;
++
++/// How many shards the queue is split into for a given number of workers.
++///
++/// A single queue behind a single lock is touched by every schedule, every claim and every time a
++/// worker picks up its next task. With dozens of workers that lock becomes the bottleneck:
++/// workers spend more time parked on it than executing tasks. Sharding the queue spreads those
++/// operations over independent locks. With few workers a single shard is contended little, and it
++/// keeps the priority order exact.
++fn shard_count(target_workers: usize) -> usize {
++    if target_workers < 8 {
++        1
++    } else {
++        (target_workers / 4).next_power_of_two().min(MAX_SHARDS)
++    }
++}
++
++thread_local! {
++    /// Per-thread rotating start index, so that threads popping from (or pushing unkeyed items
++    /// into) the sharded queue spread over the shards instead of all hitting the first one.
++    static SHARD_CURSOR: Cell<usize> = const { Cell::new(usize::MAX) };
++}
++
++fn next_shard_cursor() -> usize {
++    SHARD_CURSOR.with(|cursor| {
++        let mut value = cursor.get();
++        if value == usize::MAX {
++            // Seed each thread differently.
++            value = FxBuildHasher.hash_one(std::thread::current().id()) as usize >> 1;
++        }
++        cursor.set(value.wrapping_add(1));
++        value
++    })
++}
++
+ pub struct PriorityRunner<
+     C: Send + Sync + 'static,
+     T: Claimable + Send + 'static,
+@@ -201,10 +293,18 @@ pub struct PriorityRunner<
+     /// The target number of workers to spawn.
+     target_workers: usize,
+     /// The queue of tasks to execute. These tasks are not scheduled yet.
+-    queue: Mutex<Queue<P, T>>,
++    ///
++    /// An item lives in the shard its claim key hashes to, so that [`claim`](Self::claim) only
++    /// needs to look at one shard. The priority order is exact within a shard; across shards a
++    /// worker takes the top item of the first non-empty shard it finds.
++    shards: Box<[CachePadded<Mutex<Queue<P, T>>>]>,
++    /// Bit `i` is set while shard `i` has queued items. Only changed while holding that shard's
++    /// lock. Lets workers find work without locking empty shards, and is what decides whether the
++    /// queue is empty.
++    non_empty_shards: CachePadded<AtomicU64>,
+     /// The number of active workers currently polling tasks.
+     /// Workers that responded with Poll::Pending are not counted until they are polled again.
+-    active_workers: AtomicUsize,
++    active_workers: CachePadded<AtomicUsize>,
+     phantom: std::marker::PhantomData<C>,
+ }
+ 
+@@ -223,11 +323,19 @@ impl<
+     }
+ 
+     fn with_target_workers(executor: E, target_workers: usize) -> Self {
++        Self::with_target_workers_and_shards(executor, target_workers, shard_count(target_workers))
++    }
++
++    fn with_target_workers_and_shards(executor: E, target_workers: usize, shards: usize) -> Self {
++        assert!(shards.is_power_of_two() && shards <= MAX_SHARDS);
+         Self {
+             executor,
+             target_workers,
+-            queue: Mutex::new(Queue::new()),
+-            active_workers: AtomicUsize::new(0),
++            shards: (0..shards)
++                .map(|_| CachePadded(Mutex::new(Queue::new())))
++                .collect(),
++            non_empty_shards: CachePadded(AtomicU64::new(0)),
++            active_workers: CachePadded(AtomicUsize::new(0)),
+             phantom: std::marker::PhantomData,
+         }
+     }
+@@ -237,38 +345,112 @@ impl<
+     /// the queue.
+     #[cfg(feature = "inline_execution_stats")]
+     pub fn total_queued(&self) -> u64 {
+-        self.queue.lock().pushes
++        self.shards.iter().map(|shard| shard.lock().pushes).sum()
+     }
+ 
+-    pub fn schedule(self: &Arc<Self>, execute_context: &Arc<C>, task: T, priority: P) {
+-        let mut queue = self.queue.lock();
+-        if !queue.is_empty() {
+-            // If there is already work in the queue, we don't have any
+-            // free capacity so we can just push the task to the queue.
+-            // It will be picked up by existing workers.
+-            //
+-            // A worker only stops when it finds the queue empty, so a non-empty queue always has a
+-            // worker that will drain it. [`claim`](Self::claim) does take work out of the queue
+-            // without being a worker, but that only ever makes the queue shorter.
+-            queue.push(priority, task);
+-            return;
++    fn shard_for_key(&self, key: &T::Key) -> usize {
++        // Mix the hash again so that the shard index does not depend on how the hasher finishes.
++        let hash = FxBuildHasher.hash_one(key).wrapping_mul(0x9e37_79b9_7f4a_7c15);
++        (hash >> 40) as usize & (self.shards.len() - 1)
++    }
++
++    fn queue_is_empty(&self) -> bool {
++        self.non_empty_shards.load(Ordering::SeqCst) == 0
++    }
++
++    /// Pushes an item into its shard.
++    fn push(&self, priority: P, task: T) {
++        let index = match task.claim_key() {
++            Some(key) => self.shard_for_key(&key),
++            None => next_shard_cursor() & (self.shards.len() - 1),
++        };
++        let mut queue = self.shards[index].lock();
++        let was_empty = queue.is_empty();
++        queue.push(priority, task);
++        if was_empty {
++            self.non_empty_shards
++                .fetch_or(1 << index, Ordering::SeqCst);
+         }
+-        // The queue is empty, so we might have free capacity to spawn a new worker.
+-        let active_workers = self.active_workers.fetch_add(1, Ordering::Relaxed);
+-        if active_workers < self.target_workers {
+-            // We have free capacity, spawn a new worker to execute this task immediately.
+-            drop(queue);
++    }
+ 
+-            let future = self.executor.execute(execute_context, task, priority);
+-            WorkerFuture::spawn(future, execute_context.clone(), self.clone());
+-        } else {
+-            // No free capacity, push the task to the queue.
+-            queue.push(priority, task);
+-            drop(queue);
++    /// Pops a top item, or returns `None` when the whole queue is empty.
++    ///
++    /// With multiple shards this is a relaxed priority queue: it compares the top items of two
++    /// non-empty shards (the first one from a rotating start, and the next one after it) and takes
++    /// the higher priority one. The second shard is only looked at when its lock is free, so a
++    /// pop never waits for two locks.
++    fn pop(&self) -> Option<(P, T)> {
++        let shard_count = self.shards.len();
++        let index_mask = shard_count - 1;
++        loop {
++            let mask = self.non_empty_shards.load(Ordering::SeqCst);
++            if mask == 0 {
++                return None;
++            }
++            if shard_count == 1 {
++                let mut queue = self.shards[0].lock();
++                let item = queue.pop();
++                if item.is_some() && queue.is_empty() {
++                    self.non_empty_shards.fetch_and(!1, Ordering::SeqCst);
++                }
++                match item {
++                    Some(item) => return Some(item),
++                    None => continue,
++                }
++            }
++            // Start at a rotating offset so that workers spread over the non-empty shards.
++            let start = (next_shard_cursor() & index_mask) as u32;
++            let rotated = mask.rotate_right(start);
++            let first = (start + rotated.trailing_zeros()) as usize & index_mask;
++            let rest = rotated & (rotated - 1);
++            let second =
++                (rest != 0).then(|| (start + rest.trailing_zeros()) as usize & index_mask);
++
++            let mut first_queue = self.shards[first].lock();
++            if first_queue.is_empty() {
++                // Another thread emptied this shard after we read the mask; look again.
++                continue;
++            }
++            if let Some(second) = second
++                && let Some(mut second_queue) = self.shards[second].try_lock()
++                && !second_queue.is_empty()
++                && second_queue.peek_priority() > first_queue.peek_priority()
++            {
++                drop(first_queue);
++                let item = second_queue.pop();
++                if second_queue.is_empty() {
++                    self.non_empty_shards
++                        .fetch_and(!(1 << second), Ordering::SeqCst);
++                }
++                return item;
++            }
++            let item = first_queue.pop();
++            if first_queue.is_empty() {
++                self.non_empty_shards
++                    .fetch_and(!(1 << first), Ordering::SeqCst);
++            }
++            return item;
++        }
++    }
+ 
+-            // Undo the added active worker since we didn't spawn a new worker.
+-            self.decrease_active_workers(execute_context);
++    pub fn schedule(self: &Arc<Self>, execute_context: &Arc<C>, task: T, priority: P) {
++        if self.queue_is_empty() {
++            // The queue is empty, so we might have free capacity to execute this task on a new
++            // worker right away, without queuing it.
++            let active_workers = self.active_workers.fetch_add(1, Ordering::SeqCst);
++            if active_workers < self.target_workers {
++                let future = self.executor.execute(execute_context, task, priority);
++                WorkerFuture::spawn(future, execute_context.clone(), self.clone());
++                return;
++            }
++            // Undo the added active worker since we didn't spawn a new worker. The check below
++            // covers the case that this made room for one.
++            self.active_workers.fetch_sub(1, Ordering::SeqCst);
+         }
++        // There is already work queued or no free capacity: queue the task. Existing workers pick
++        // it up when they finish their current task.
++        self.push(priority, task);
++        self.spawn_worker_for_queued_work(execute_context);
+     }
+ 
+     /// Takes the queued task with the given key out of the queue and returns its execution future,
+@@ -278,61 +460,71 @@ impl<
+     /// The caller takes over the responsibility to drive the returned future to completion; the
+     /// task left the queue, so no worker will do it.
+     pub fn claim(&self, execute_context: &Arc<C>, key: &T::Key) -> Option<E::Future> {
+-        let (priority, task) = self.queue.lock().claim(key)?;
++        let index = self.shard_for_key(key);
++        let (priority, task) = {
++            let mut queue = self.shards[index].lock();
++            let item = queue.claim(key)?;
++            if queue.is_empty() {
++                self.non_empty_shards
++                    .fetch_and(!(1 << index), Ordering::SeqCst);
++            }
++            item
++        };
+         Some(self.executor.execute(execute_context, task, priority))
+     }
+ 
+-    /// Tries to decrease the active worker count by 1.
+-    /// If there is work available in the queue, a new worker is spawned instead.
+-    fn reuse_or_decrease_active_workers(self: &Arc<Self>, execute_context: &Arc<C>) {
+-        let active_workers = self.active_workers.load(Ordering::Relaxed) - 1;
+-        if active_workers >= self.target_workers
+-            || !self.spawn_worker_if_work_available(execute_context, true)
++    /// Spawns a worker for queued work if there is queued work and capacity for another worker.
++    ///
++    /// Must be called after every push and after every decrement of `active_workers`. Both sides
++    /// first write (push / decrement) and then read the other value (active count / queue
++    /// emptiness) with `SeqCst`, so at least one of them sees the other's write. That's what
++    /// guarantees that queued work never sits in the queue without a worker to execute it.
++    fn spawn_worker_for_queued_work(self: &Arc<Self>, execute_context: &Arc<C>) {
++        while self.active_workers.load(Ordering::SeqCst) < self.target_workers
++            && !self.queue_is_empty()
+         {
+-            // Undo the added active worker since we didn't spawn a new worker.
+-            // Beware the race condition here:
+-            // If the active workers became lower in the meantime we might have free
+-            // capacity now, so we try to spawn a new worker if
+-            // there is work available.
+-            self.decrease_active_workers(execute_context);
++            if self.active_workers.fetch_add(1, Ordering::SeqCst) >= self.target_workers {
++                // Lost a race for the last free capacity; the winner takes care of the work.
++                self.active_workers.fetch_sub(1, Ordering::SeqCst);
++                continue;
++            }
++            if let Some((priority, task)) = self.pop() {
++                let future = self.executor.execute(execute_context, task, priority);
++                WorkerFuture::spawn(future, execute_context.clone(), self.clone());
++                return;
++            }
++            // The queue was drained by someone else in the meantime.
++            self.active_workers.fetch_sub(1, Ordering::SeqCst);
+         }
+     }
+ 
++    /// Ends one active worker.
++    fn decrease_active_workers(self: &Arc<Self>, execute_context: &Arc<C>) {
++        self.active_workers.fetch_sub(1, Ordering::SeqCst);
++        // If the active workers became lower we might have free capacity now, so we try to spawn
++        // a new worker if there is work available.
++        self.spawn_worker_for_queued_work(execute_context);
++    }
++
+     /// Tries to decrease the active worker count by 1.
+     /// If there is work available in the queue, a new worker is spawned instead.
+-    fn decrease_active_workers(self: &Arc<Self>, execute_context: &Arc<C>) {
+-        // If the active workers became lower we might have free
+-        // capacity now, so we try to spawn a new worker if
+-        // there is work available.
+-        let active_workers = self.active_workers.fetch_sub(1, Ordering::Relaxed) - 1;
+-        if active_workers < self.target_workers {
+-            self.spawn_worker_if_work_available(execute_context, false);
++    fn reuse_or_decrease_active_workers(self: &Arc<Self>, execute_context: &Arc<C>) {
++        let active_workers = self.active_workers.load(Ordering::Relaxed) - 1;
++        if active_workers < self.target_workers
++            && let Some((priority, task)) = self.pop()
++        {
++            // Hand the active worker count over to a new worker for the queued task.
++            let future = self.executor.execute(execute_context, task, priority);
++            WorkerFuture::spawn(future, execute_context.clone(), self.clone());
++            return;
+         }
++        self.decrease_active_workers(execute_context);
+     }
+ 
+     fn pop_future_from_worker(&self, execute_context: &Arc<C>) -> Option<E::Future> {
+-        let popped = self.queue.lock().pop();
++        let popped = self.pop();
+         popped.map(|(priority, task)| self.executor.execute(execute_context, task, priority))
+     }
+-
+-    fn spawn_worker_if_work_available(
+-        self: &Arc<Self>,
+-        execute_context: &Arc<C>,
+-        unused_active_count: bool,
+-    ) -> bool {
+-        let popped = self.queue.lock().pop();
+-        if let Some((priority, task)) = popped {
+-            let new_future = self.executor.execute(execute_context, task, priority);
+-
+-            if !unused_active_count {
+-                self.active_workers.fetch_add(1, Ordering::Relaxed);
+-            }
+-            WorkerFuture::spawn(new_future, execute_context.clone(), self.clone());
+-            true
+-        } else {
+-            false
+-        }
+-    }
+ }
+ 
+ #[derive(Debug)]
+@@ -400,7 +592,7 @@ impl<
+         if matches!(this.state, WorkerState::PendingFuture) {
+             // When the worker is not active (it previously returned Poll::Pending),
+             // we need to mark it as active again since it is being polled now.
+-            this.runner.active_workers.fetch_add(1, Ordering::Relaxed);
++            this.runner.active_workers.fetch_add(1, Ordering::SeqCst);
+             *this.state = WorkerState::UnfinishedFuture;
+         }
+         let last_yield = Instant::now();
+@@ -666,7 +858,7 @@ mod tests {
+             // Claim one of them each round, so tombstones are part of the cycle.
+             assert!(runner.claim(&executed, &3).is_some());
+             drain(&runner, &executed);
+-            let queue = runner.queue.lock();
++            let queue = runner.shards[0].lock();
+             assert!(queue.is_empty());
+             assert!(
+                 queue.slots.len() <= 8,
+@@ -680,6 +872,165 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn test_shard_count() {
++        assert_eq!(shard_count(0), 1);
++        assert_eq!(shard_count(4), 1);
++        assert_eq!(shard_count(8), 2);
++        assert_eq!(shard_count(32), 8);
++        assert_eq!(shard_count(96), 32);
++        assert_eq!(shard_count(10_000), MAX_SHARDS);
++    }
++
++    /// A multi-shard queue still executes every item exactly once, claims find items in any shard,
++    /// and every shard is reset once drained.
++    #[test]
++    fn test_sharded_claim_and_drain() {
++        let runner: TestRunner<u32> = Arc::new(PriorityRunner::with_target_workers_and_shards(
++            RecordingExecutor,
++            0,
++            8,
++        ));
++        let executed: Executions<u32> = Arc::new(Mutex::new(Vec::new()));
++        for round in 0..3 {
++            for task in 0..1000 {
++                runner.schedule(&executed, task, task % 5);
++            }
++            for task in (0..1000).step_by(7) {
++                assert!(runner.claim(&executed, &task).is_some(), "round {round} task {task}");
++            }
++            let mut all = drain(&runner, &executed);
++            all.sort_unstable();
++            assert_eq!(all, (0..1000).collect::<Vec<_>>());
++            assert_eq!(runner.non_empty_shards.load(Ordering::SeqCst), 0);
++            for shard in runner.shards.iter() {
++                let queue = shard.lock();
++                assert!(queue.is_empty());
++                assert!(queue.heap.is_empty() && queue.slots.is_empty());
++                assert!(queue.claimable.is_empty());
++            }
++        }
++    }
++
++    /// Within one shard the priority order is exact, also with tombstones from claims.
++    #[test]
++    fn test_sharded_priority_order_within_shard() {
++        let (runner, executed) = queueing_runner::<u32>();
++        assert_eq!(runner.shards.len(), 1);
++        for task in 0..50 {
++            runner.schedule(&executed, task, task);
++        }
++        for task in (0..50).step_by(3) {
++            assert!(runner.claim(&executed, &task).is_some());
++        }
++        executed.lock().clear();
++        let order = drain(&runner, &executed);
++        let mut expected: Vec<u32> = (0..50).filter(|t| t % 3 != 0).collect();
++        expected.reverse();
++        assert_eq!(order, expected);
++    }
++
++    /// With two shards, every pop compares both shards, so the priority order is exact again.
++    #[test]
++    fn test_two_shards_pop_compares_both() {
++        let runner: TestRunner<u32> = Arc::new(PriorityRunner::with_target_workers_and_shards(
++            RecordingExecutor,
++            0,
++            2,
++        ));
++        let executed: Executions<u32> = Arc::new(Mutex::new(Vec::new()));
++        for task in 0..200 {
++            runner.schedule(&executed, task, task);
++        }
++        let order = drain(&runner, &executed);
++        let expected: Vec<u32> = (0..200).rev().collect();
++        assert_eq!(order, expected);
++    }
++
++    /// Many threads schedule and claim concurrently on a sharded runner with real workers. Every
++    /// task must run exactly once and none may be left in the queue without a worker.
++    #[cfg(not(miri))]
++    #[test]
++    fn test_sharded_concurrent_schedule_claim_no_lost_work() {
++        use std::sync::atomic::AtomicU32;
++
++        const THREADS: u32 = 8;
++        const PER_THREAD: u32 = 5_000;
++
++        struct Ctx {
++            runs: Vec<AtomicU32>,
++            done: AtomicU32,
++        }
++
++        struct ExecutorImpl;
++
++        impl Executor<Ctx, u32, u32> for ExecutorImpl {
++            type Future = Pin<Box<dyn Future<Output = ()> + Send>>;
++
++            fn execute(&self, ctx: &Arc<Ctx>, task: u32, _priority: u32) -> Self::Future {
++                let ctx = ctx.clone();
++                Box::pin(async move {
++                    if task % 3 == 0 {
++                        tokio::task::yield_now().await;
++                    }
++                    ctx.runs[task as usize].fetch_add(1, Ordering::SeqCst);
++                    ctx.done.fetch_add(1, Ordering::SeqCst);
++                })
++            }
++        }
++
++        let rt = tokio::runtime::Builder::new_multi_thread()
++            .worker_threads(4)
++            .disable_lifo_slot()
++            .enable_all()
++            .build()
++            .unwrap();
++        let total = THREADS * PER_THREAD;
++        let ctx = Arc::new(Ctx {
++            runs: (0..total).map(|_| AtomicU32::new(0)).collect(),
++            done: AtomicU32::new(0),
++        });
++        let runner = Arc::new(PriorityRunner::with_target_workers_and_shards(
++            ExecutorImpl,
++            16,
++            4,
++        ));
++        let handle = rt.handle().clone();
++        let threads: Vec<_> = (0..THREADS)
++            .map(|t| {
++                let runner = runner.clone();
++                let ctx = ctx.clone();
++                let handle = handle.clone();
++                std::thread::spawn(move || {
++                    let _guard = handle.enter();
++                    for i in 0..PER_THREAD {
++                        let task = t * PER_THREAD + i;
++                        runner.schedule(&ctx, task, i % 7);
++                        if i % 4 == 0
++                            && let Some(future) = runner.claim(&ctx, &task)
++                        {
++                            handle.block_on(future);
++                        }
++                    }
++                })
++            })
++            .collect();
++        for thread in threads {
++            thread.join().unwrap();
++        }
++        let start = Instant::now();
++        while ctx.done.load(Ordering::SeqCst) < total {
++            assert!(
++                start.elapsed() < Duration::from_secs(30),
++                "lost work: {} of {total} done",
++                ctx.done.load(Ordering::SeqCst)
++            );
++            sleep(Duration::from_millis(5));
++        }
++        assert!(ctx.runs.iter().all(|r| r.load(Ordering::SeqCst) == 1));
++        assert_eq!(runner.non_empty_shards.load(Ordering::SeqCst), 0);
++    }
++
+     /// Every push into the queue is counted, so a test can assert that a task was executed without
+     /// ever being queued.
+     #[cfg(feature = "inline_execution_stats")]

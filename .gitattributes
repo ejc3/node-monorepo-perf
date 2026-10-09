@@ -1,0 +1,2 @@
+# candidate patches reproduce source exactly, trailing whitespace included
+bench/turbopack-gym/candidates/*.patch -whitespace

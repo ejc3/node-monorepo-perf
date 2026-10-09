@@ -528,6 +528,90 @@ One command each for the O(repo)-vs-O(closure) thesis:
   → `bench/fs-iops-bench.json`, folded into OPTIMIZATIONS.md §1.2.1. Requires `fio` +
   `findmnt`; self-contained, cleans up on exit.
 
+### Turbopack Graph Gym
+One large app instead of many small ones: the shape of vercel/next.js#98043, whose
+Turbopack module graph phase keeps a few cores busy whatever the core count. Results and
+method: TURBOPACK-GRAPH.md. `GYM_ROOT` (required) is a scratch directory for the next.js
+clone, one cargo target per binding, the binding store, the apps and run outputs; CPU and
+named locks live in `GYM_LOCKS` (default `/tmp/turbopack-gym-locks`, one per machine); raw
+run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` overrides).
+- `scripts/monolith-gen.mjs` (`make monolith`): one standalone App Router app; defaults:
+  2,071 routes (`--routes 2070` plus the root page: 1,709 pages, 362 route handlers), 192
+  section layouts, 16,068 TypeScript files in feature folders, a UI kit and a util layer
+  behind `export *` barrels, `'use client'` boundaries, zipf cross-feature imports.
+  Deterministic per `--seed`; `monolith.json` records the counts, options and a generator
+  signature that `--clean` requires before deleting a directory. `next.config` reads
+  `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`, `MONOLITH_TP_FS_CACHE`.
+- `scripts/vizdash-gen.mjs` (`make vizdash`): the same scale as a data-visualization app
+  whose code is hand-written and whose graph includes real npm packages. `vizdash/template/`
+  holds the app shell, a seeded query engine (`src/data`: series, breakdowns, matrices,
+  flows, cohorts, distributions and entity rows, deterministic per dashboard, scope and
+  zod-parsed URL filters) and a viz library (`src/viz`: charts on recharts, visx, d3 and
+  ECharts, TanStack Table tables, KPI cards, a URL filter bar, widgets, insights) behind
+  barrels. `vizdash/catalog.mjs` defines 9 product areas, each with its metrics,
+  dimensions, entities and 7 dashboard archetypes; the generator instantiates every
+  archetype once per scope (e.g. region x segment) as a feature folder of 10 modules
+  (`spec`, `queries`, `insights`, `Kpis`, `Charts`, `'use client'` `columns`/`Table`/
+  `Filters`, `Dashboard`, `index`) plus its page, a drill-down page (14%) and a CSV/JSON
+  export route handler (26%). Defaults: 1,430 dashboards, 2,069 routes (1,706 pages, 363
+  route handlers), 16,525 TypeScript files; `--dashboards 228` gives 401 routes.
+  Dependencies are pinned exactly (`PINS` in the generator) and installed from
+  `vizdash/pnpm-lock.yaml` with `--frozen-lockfile`: change both together (`--next` only
+  accepts the pinned release). Its `monolith.json` adds the dependency versions;
+  `next.config` reads the same `MONOLITH_*`. `scripts/vizdash-selftest.mjs --app <installed
+  app>` checks the generator (determinism, refusals, dimension retargeting) and the app's
+  data engine, insights and search page (loaded through a transpiling loader), and
+  pins its browser-only fixes at the source.
+- `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
+  - `setup.mjs` (`make gym-setup`): clone next.js, check `gym/base` is the tag's commit,
+    build the base binding through `build.mjs` and a frame-pointer one, (re)generate and
+    install the `monolith` and 401-route `quick` apps and their vizdash counterparts
+    `vizdash` and `vizdash-quick` whenever their tree differs from the generator's; `--host` sets up the apps and ships the base binding to another machine.
+  - Bindings (`bindings.mjs`): an immutable store, `bindings/.store/<module hash>/`
+    (module, `candidate.diff` against `gym/base` including untracked files,
+    `source.json`), and `bindings/<name>` a symlink flipped by `rename()`; a run resolves a
+    name once and re-hashes the module against its store id.
+  - `bench.mjs`: one cold `next build --experimental-build-mode=compile` in a
+    `systemd-run --scope` pinned to a CPU set (memory on its NUMA nodes): phase durations
+    and offsets from `.next/trace-build`, cores and kernel share per phase from the scope's
+    `cpu.stat` (sampled by a separate python3 process; a gap over 3 s fails the run), an
+    output fingerprint (normalized contents of every emitted file; one- and two-character
+    words are normalized everywhere, so a change confined to them is not detected; plus the
+    exact hash), the app tree hash with installed next/react/@next/swc versions,
+    binding provenance (source head, diff hash, module hash), machine fields (instance
+    type from EC2 metadata; a hashed boot id kept out of records).
+  - `ab.mjs`: A and B concurrently on a lane pair (two CPU lists, equal, disjoint, online,
+    one NUMA node each); lanes swap every rep and launch order every two reps; both sides
+    are hashed before either launches; verdict on the geometric mean over reps below
+    1 − 0.06, sign-consistent per swapped pair, guard on `run-turbopack`, same fingerprint.
+    Exit 0 win, 1 no win, 2 error.
+  - `build.mjs` (candidate binding from a next.js worktree; patches applied once, at
+    creation; cargo as a killable process group), `climb.mjs` (`make gym-climb`: the
+    candidate queue in `bench/turbopack-gym/candidates/`, winners folded into branch
+    `gym/incumbent`, one climb per machine), `scaling.mjs` (`make gym-scaling`: lane sizes
+    one build at a time holding the box, bindings interleaved, a completion manifest in
+    `sweeps.jsonl`), `profile.mjs` (`perf` on-CPU and `sched_switch` on the profiled CPUs,
+    phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs` (longest import
+    chain).
+  - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
+    (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
+    or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets
+    every `finally` run.
+  - `--host <name>` runs setup, A/B, scaling and record on a machine from the gitignored
+    `scripts/turbopack-gym/hosts.local.json`; bindings are built here and shipped as store
+    entries.
+  - `record.mjs` writes `bench/turbopack-graph-ab.json` and
+    `bench/turbopack-graph-scaling.json` for one canonical run (`--tag`), recomputing every
+    number from the per-run files and refusing a run whose binding (head, diff), app tree,
+    machine boot, lanes or uniqueness does not check, or an incomplete sweep.
+    `canonical.mjs` (`make gym-canonical`) re-measures both records from the tracked
+    patches under one tag; `make gym-record TAG=<tag>` re-records one; `report.mjs` renders
+    the Turbopack numbers in TURBOPACK-GRAPH.md, README.md and SUMMARY.md from the records
+    (`--check` fails on drift); `selftest.mjs` (`make gym-selftest`, `BUILDS=1`) tests the
+    locks, record verification, the output fingerprint and interrupt unwinding.
+  - Needs passwordless sudo (systemd-run, perf), Node 22, pnpm, python3, the next.js rust
+    toolchain.
+
 ### Developer Experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>`: simulate D devs each
   owning a feature area (two apps + one lib): onboarding, typecheck-on-save,
@@ -933,7 +1017,22 @@ as top-level `cores` + `preRunLoadAvg1`); none of the five records the instance 
 which the README's Results section states. `results.json` contains one sweep: one row per
 scale, every row recording the same `versions.pnpm`, and `chart.mjs` enforces both (it
 refuses an empty dataset, an un-versioned or differently-versioned row, and a second row
-for a scale label). `chart.mjs`
+for a scale label). The Turbopack graph records `turbopack-graph-ab.json` and
+`turbopack-graph-scaling.json` (TURBOPACK-GRAPH.md) are canonical on a dedicated 192-core
+c8g.48xlarge (two NUMA nodes) and come from one canonical run (`tag`). Each carries one
+`machine` (arch, cpuModel, cores, numaNodes, memGiB, instanceType, node, sharedBox; every
+run is checked to share one machine boot), the app's shape and tree hash, and the patches
+(with hashes) inside every binding, which each run's source head and diff hash are checked
+against. The A/B record ran its rows one at a time, A and B concurrently on two lanes of
+one NUMA node; the scaling record ran one build at a time holding every CPU.
+`bench/turbopack-graph-vizdash.json` (the vizdash app, TURBOPACK-GRAPH.md) ran on a shared
+96-core box (`sharedBox: true`; other users' processes ran on it) and is compared only
+within itself. `make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
+in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them.
+`bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
+records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
+integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
+lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
@@ -1100,6 +1199,9 @@ task/scale, fleet amortization, and the leaf-vs-foundation partial-invalidation 
 sweeps),
 [OPTIMIZATIONS.md](OPTIMIZATIONS.md) (incl. §1.2.1 the device layer under fs-bench, `bench/fs-iops-bench.json`),
 [GROUNDING.md](GROUNDING.md) (industry-best-practice sourcing),
+[TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md) (one large app instead of many small ones: Turbopack's
+whole-app module graph phase on the #98043 shape, what bounds it, two patches to it, from
+`bench/turbopack-graph-ab.json` + `bench/turbopack-graph-scaling.json`),
 [OPTIMAL-STACK.md](OPTIMAL-STACK.md) (the bun + tsgo + oxlint + turbo gate at 4,000:400, with the
 tsgo-vs-tsc parity vet on real types, the app + lib developer O(closure) inner loops, a
 real-app vet running the stack on vercel/commerce + shadcn/taxonomy, and the

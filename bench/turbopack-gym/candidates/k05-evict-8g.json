@@ -1,0 +1,15 @@
+{
+  "description": "issue hypothesis: raise TURBO_ENGINE_EVICT_MIN_BYTES to 8 GiB so no eviction during construction",
+  "env": {
+    "TURBO_ENGINE_EVICT_MIN_BYTES": "8589934592"
+  },
+  "result": {
+    "status": "rejected",
+    "ratio": 0.9951,
+    "guardRatio": 0.9998,
+    "sameOutput": true,
+    "a": 9.632,
+    "b": 9.573,
+    "when": "2026-10-07T14:17:50.427Z"
+  }
+}
