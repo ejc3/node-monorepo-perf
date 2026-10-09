@@ -32,5 +32,15 @@
     ],
     "diffSha256": "b032d66a7371fd6e",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "41+42": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch"
+    ],
+    "diffSha256": "a45c166a364e8379",
+    "head": "434e708c431daef149dc8dcad76a1e2384744ca4"
   }
 }

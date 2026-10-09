@@ -1025,7 +1025,9 @@ run is checked to share one machine boot), the app's shape and tree hash, and th
 (with hashes) inside every binding, which each run's source head and diff hash are checked
 against. The A/B record ran its rows one at a time, A and B concurrently on two lanes of
 one NUMA node; the scaling record ran one build at a time holding every CPU.
-`make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
+`bench/turbopack-graph-vizdash.json` (the vizdash app, TURBOPACK-GRAPH.md) ran on a shared
+96-core box (`sharedBox: true`; other users' processes ran on it) and is compared only
+within itself. `make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
 in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them.
 `bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack

@@ -11,13 +11,16 @@
 //
 // Needs no GYM_ROOT: it reads only bench/turbopack-graph-*.json.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..", "..");
 const DOC = join(REPO, "TURBOPACK-GRAPH.md");
 const ab = JSON.parse(readFileSync(join(REPO, "bench", "turbopack-graph-ab.json"), "utf8"));
 const sc = JSON.parse(readFileSync(join(REPO, "bench", "turbopack-graph-scaling.json"), "utf8"));
+// optional: the A/B record on the vizdash app (vz.* keys)
+const VZ = join(REPO, "bench", "turbopack-graph-vizdash.json");
+const vz = existsSync(VZ) ? JSON.parse(readFileSync(VZ, "utf8")) : null;
 
 const med = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -84,6 +87,7 @@ function scalingTable() {
 //   ab.<label>.ratio|guard            A/B ratios (3 decimals)
 //   ab.<label>.graphA|graphB|tpA|tpB  medians over reps (seconds, 2 decimals)
 //   ab.<label>.coresA|coresB          median cores in the graph phase (1 decimal)
+//   vz.<label>.<field>                the same fields from bench/turbopack-graph-vizdash.json
 //   prod.<label1>.<label2>            product of two rows' ratios (3 decimals)
 //   sc.<binding>.<cores>.<graph|cores|sys|tp|entry>          one scaling point (median)
 //   sc.<binding>.<lo>-<hi>.<graph|cores|sys|tp|entry>        range over points lo..hi
@@ -91,7 +95,8 @@ function scalingTable() {
 //   machine                           instance, CPUs, NUMA nodes, memory, node
 function value(key) {
   const k = key.split(".");
-  const row = (l) => ab.rows.find((r) => r.label === l) || fail(`no A/B row ${l}`);
+  const rec = k[0] === "vz" ? vz || fail("no bench/turbopack-graph-vizdash.json") : ab;
+  const row = (l) => rec.rows.find((r) => r.label === l) || fail(`no A/B row ${l}`);
   const fail = (m) => {
     throw new Error(`${key}: ${m}`);
   };
@@ -111,7 +116,7 @@ function value(key) {
     return `a dedicated ${m.instanceType}: ${m.cores} ${m.cpuModel} vCPUs in ${m.numaNodes} NUMA nodes, ${m.memGiB} GiB, Node ${m.node.replace(/^v/, "")}`;
   }
   if (k[0] === "prod") return x3(row(k[1]).ratio * row(k[2]).ratio);
-  if (k[0] === "ab") {
+  if (k[0] === "ab" || k[0] === "vz") {
     const label = k.slice(1, -1).join(".");
     const r = row(label);
     const f = k.at(-1);

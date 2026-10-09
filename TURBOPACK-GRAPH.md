@@ -147,11 +147,28 @@ Medians over 3 interleaved runs per point.
   24 to 96 cores, of which `turbopack-write-entrypoints` (it contains the graph phase) is
   <!--v:sc.15+22.24-96.entry-->14.24–15.36s<!--/v-->.
 
+## A Realistic App: vizdash
+
+`scripts/vizdash-gen.mjs` generates a hand-written data-visualization app (screenshots in
+`bench/turbopack-gym/vizdash/`): a shared visualization library (charts, KPI cards,
+tables, filters) built on recharts, echarts, visx, d3 modules, TanStack Table, date-fns and
+lodash-es, under 2,069 routes of dashboards across product areas, 16,525 TypeScript files.
+Its record, `bench/turbopack-graph-vizdash.json`, ran on a shared 96-core box (other
+users' processes ran on it), so its rows compare by ratio within the record only.
+
+- **15 + 22:** graph phase <!--v:vz.viz-15+22.ratio-->0.555<!--/v-->× (<!--v:vz.viz-15+22.graphA-->12.82s<!--/v--> → <!--v:vz.viz-15+22.graphB-->7.05s<!--/v-->),
+  `run-turbopack` <!--v:vz.viz-15+22.guard-->0.738<!--/v-->×, same output.
+- **41 and 42 on top of 15 + 22** (`bench/turbopack-gym/next-limit.md`): `run-turbopack`
+  <!--v:vz.viz-41+42.guard-->1.000<!--/v-->×. The serial passes they shorten on the monolith are not on this app's
+  critical path.
+- **All four:** graph phase <!--v:vz.viz-full.ratio-->0.571<!--/v-->×, `run-turbopack` <!--v:vz.viz-full.guard-->0.742<!--/v-->×.
+
 ## Open Items
 
 - After the graph phase, `compute_chunk_group_info` and the merged-modules reconciliation run
-  as sequential loops inside `turbopack-write-entrypoints`. Chunk-group ids are assigned in
-  visit order and feed the output's ordering, so a reorder there has to keep that order.
+  as sequential loops inside `turbopack-write-entrypoints`. Candidates 41 and 42
+  (`bench/turbopack-gym/next-limit.md`) shorten them on the monolith with the same output
+  and do not change vizdash's compile.
 - The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a
   Turbopack integration subset, `next dev`), their PR drafts, and the heap tie-break in
   `traverse_edges_fixed_point_with_priority`:
