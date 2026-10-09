@@ -1,0 +1,5 @@
+{
+  "description": "compute_merged_modules reconciliation: find the intra-group references a split makes cross before/common/after from the common and after parts only (their references and referrers), reading where the other end is from its occurrences, now keyed (chunk group, list) -> entry, or its settled position once popped; a reference out of common is one occurrence-set intersection per split, and already exposed modules are skipped. No hash sets of the whole before/common/after lists per occurrence; the lists and the exposed set are the same",
+  "patch": "bench/turbopack-gym/candidates/42-merged-local-exposure.patch",
+  "base": "vercel/next.js v16.4.0 + 15-graph-algos-combined + 22-sharded-runner-2choice"
+}
