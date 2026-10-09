@@ -12,7 +12,7 @@ APP ?= @demo/app-00100
 # `make lockfile-bench` can no longer write a record at non-canonical scale points
 SCALES ?= 200:100 1000:200 2000:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith vizdash gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -115,6 +115,9 @@ tsgo-scale-table-bench: ## whole-program tsgo cold typecheck across the README s
 GYM_HOST ?=
 monolith: ## Generate the one-large-app shape of vercel/next.js#98043 into ./monolith
 	node scripts/monolith-gen.mjs --out monolith --clean
+
+vizdash: ## Generate the same scale as a data-visualization app with npm dependencies into ./vizdash-app
+	node scripts/vizdash-gen.mjs --out vizdash-app --clean
 
 gym-setup: ## Clone next.js, build the base binding, generate + install the gym apps (GYM_ROOT)
 	node scripts/turbopack-gym/setup.mjs $(if $(GYM_HOST),--host $(GYM_HOST),)

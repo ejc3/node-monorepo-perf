@@ -42,12 +42,17 @@ const a = parseArgs(process.argv.slice(2), {
 const TAG = a.tag || "v16.4.0";
 const NEXT_VERSION = TAG.replace(/^v/, "");
 
-// The two apps every A/B runs: the full #98043 shape (2,071 routes), and a 401-route app
-// for smoke runs.
+// The apps: the full #98043 shape (2,071 routes) and a 401-route app for smoke runs,
+// both from monolith-gen.mjs (an args list); and the same two sizes (2,069 and 401
+// routes) of a hand-written data-visualization app with npm dependencies, from
+// vizdash-gen.mjs (installed from its committed lockfile).
 export const APP_SPECS = {
   monolith: [],
   quick: ["--routes", "400", "--features", "80", "--ui", "200", "--utils", "150"],
+  vizdash: { gen: "vizdash-gen.mjs", args: [], frozen: true },
+  "vizdash-quick": { gen: "vizdash-gen.mjs", args: ["--dashboards", "228"], frozen: true },
 };
+const specOf = (s) => (Array.isArray(s) ? { gen: "monolith-gen.mjs", args: s, frozen: false } : s);
 
 // the generator reads MONOLITH_* overrides from the environment: clear them so the
 // apps are always APP_SPECS
@@ -82,18 +87,10 @@ function treeHash(dir) {
   return createHash("sha256").update(entries.sort().join("\n")).digest("hex");
 }
 
-const generate = (dir, args) =>
+const generate = (dir, { gen, args }) =>
   run(
     "node",
-    [
-      join(REPO, "scripts", "monolith-gen.mjs"),
-      "--out",
-      dir,
-      "--next",
-      NEXT_VERSION,
-      ...args,
-      "--clean",
-    ],
+    [join(REPO, "scripts", gen), "--out", dir, "--next", NEXT_VERSION, ...args, "--clean"],
     {
       env: genEnv,
       stdio: ["ignore", "ignore", "inherit"],
@@ -102,11 +99,12 @@ const generate = (dir, args) =>
 
 function setupApps() {
   ensureDir(APPS);
-  for (const [name, args] of Object.entries(APP_SPECS)) {
+  for (const [name, raw] of Object.entries(APP_SPECS)) {
+    const spec = specOf(raw);
     const dir = join(APPS, name);
     const fresh = mkdtempSync(join(tmpdir(), "gym-app-"));
     try {
-      generate(join(fresh, name), args);
+      generate(join(fresh, name), spec);
       const installed = existsSync(join(dir, "node_modules", "next"));
       if (
         installed &&
@@ -116,9 +114,15 @@ function setupApps() {
         continue;
       console.error(`[setup] (re)generating ${name}`);
       rmSync(dir, { recursive: true, force: true }); // our own app dir (may predate --clean's marker)
-      generate(dir, args);
+      generate(dir, spec);
       // a real install per app: Turbopack rejects a node_modules symlink that leaves the root
-      run("pnpm", ["install", "--ignore-workspace"], { cwd: dir });
+      run(
+        "pnpm",
+        ["install", "--ignore-workspace", ...(spec.frozen ? ["--frozen-lockfile"] : [])],
+        {
+          cwd: dir,
+        },
+      );
     } finally {
       rmSync(fresh, { recursive: true, force: true });
     }

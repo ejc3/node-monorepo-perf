@@ -82,6 +82,8 @@ export function sync(h, bindings) {
     "hosts.local.json",
   ]);
   rsync(h, `${REPO}/scripts/monolith-gen.mjs`, `${h.repoDir}/scripts/monolith-gen.mjs`);
+  rsync(h, `${REPO}/scripts/vizdash-gen.mjs`, `${h.repoDir}/scripts/vizdash-gen.mjs`);
+  rsync(h, `${REPO}/vizdash/`, `${h.repoDir}/vizdash/`);
   // the candidate patches and the binding map record.mjs embeds
   execFileSync("ssh", [...h.ssh, h.target, `mkdir -p '${h.repoDir}/bench'`], { stdio: "inherit" });
   rsync(h, `${REPO}/bench/turbopack-gym/`, `${h.repoDir}/bench/turbopack-gym/`);

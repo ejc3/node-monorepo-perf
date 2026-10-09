@@ -542,11 +542,31 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   Deterministic per `--seed`; `monolith.json` records the counts, options and a generator
   signature that `--clean` requires before deleting a directory. `next.config` reads
   `MONOLITH_DIST_DIR`, `MONOLITH_BUILD_ID`, `MONOLITH_TP_FS_CACHE`.
+- `scripts/vizdash-gen.mjs` (`make vizdash`): the same scale as a data-visualization app
+  whose code is hand-written and whose graph includes real npm packages. `vizdash/template/`
+  holds the app shell, a seeded query engine (`src/data`: series, breakdowns, matrices,
+  flows, cohorts, distributions and entity rows, deterministic per dashboard, scope and
+  zod-parsed URL filters) and a viz library (`src/viz`: charts on recharts, visx, d3 and
+  ECharts, TanStack Table tables, KPI cards, a URL filter bar, widgets, insights) behind
+  barrels. `vizdash/catalog.mjs` defines 9 product areas, each with its metrics,
+  dimensions, entities and 7 dashboard archetypes; the generator instantiates every
+  archetype once per scope (e.g. region x segment) as a feature folder of 10 modules
+  (`spec`, `queries`, `insights`, `Kpis`, `Charts`, `'use client'` `columns`/`Table`/
+  `Filters`, `Dashboard`, `index`) plus its page, a drill-down page (14%) and a CSV/JSON
+  export route handler (26%). Defaults: 1,430 dashboards, 2,069 routes (1,706 pages, 363
+  route handlers), 16,525 TypeScript files; `--dashboards 228` gives 401 routes.
+  Dependencies are pinned exactly (`PINS` in the generator) and installed from
+  `vizdash/pnpm-lock.yaml` with `--frozen-lockfile`: change both together (`--next` only
+  accepts the pinned release). Its `monolith.json` adds the dependency versions;
+  `next.config` reads the same `MONOLITH_*`. `scripts/vizdash-selftest.mjs --app <installed
+  app>` checks the generator (determinism, refusals, dimension retargeting) and the app's
+  data engine, insights and search page (loaded through a transpiling loader), and
+  pins its browser-only fixes at the source.
 - `scripts/turbopack-gym/`: patch Turbopack, build the native binding, measure.
   - `setup.mjs` (`make gym-setup`): clone next.js, check `gym/base` is the tag's commit,
     build the base binding through `build.mjs` and a frame-pointer one, (re)generate and
-    install the `monolith` and 401-route `quick` apps whenever their tree differs from the
-    generator's; `--host` sets up the apps and ships the base binding to another machine.
+    install the `monolith` and 401-route `quick` apps and their vizdash counterparts
+    `vizdash` and `vizdash-quick` whenever their tree differs from the generator's; `--host` sets up the apps and ships the base binding to another machine.
   - Bindings (`bindings.mjs`): an immutable store, `bindings/.store/<module hash>/`
     (module, `candidate.diff` against `gym/base` including untracked files,
     `source.json`), and `bindings/<name>` a symlink flipped by `rename()`; a run resolves a
