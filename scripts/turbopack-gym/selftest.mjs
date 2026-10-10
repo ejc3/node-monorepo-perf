@@ -9,6 +9,9 @@
 //          live process stay taken; a holder killed with SIGKILL frees them.
 // record:  record.mjs publishes a consistent synthetic A/B and refuses a tampered
 //          verdict, a run of other binding code, and a run of another app tree.
+// drift:   drift.mjs's edits land in N distinct modules, an interrupted sweep's journal
+//          restores the tree (bytes and timestamps), and an edited tree is refused;
+//          drift.mjs record refuses a run whose log line does not fit it or its plan.
 // builds:  8 builds of the quick app with the base binding (4 lanes x 2 rounds, under
 //          CPU locks) have one normalized fingerprint; a copy of the app with one
 //          numeric constant changed (same length) does not. A run sent SIGTERM
@@ -20,8 +23,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -256,6 +261,382 @@ rmSync(scratch, { recursive: true, force: true });
     "record refuses a run of another app tree",
   );
   rmSync(root, { recursive: true, force: true });
+}
+
+// --- drift edits ------------------------------------------------------------------
+// drift.mjs edits an app's source between builds: the edits land where it says, an
+// interrupted sweep's journal restores the tree byte for byte (timestamps too), and an
+// edited tree is refused as a starting point.
+{
+  const { ROOT } = await import(LIB);
+  const drift = await import(new URL("./drift.mjs", import.meta.url).pathname);
+  const { appTreeHash } = await import(new URL("./bench.mjs", import.meta.url).pathname);
+  const base = mkdtempSync(join(ROOT, "tmp-selftest-drift-"));
+  const appName = `selftest-drift-${process.pid}`;
+  const app = join(base, appName);
+  try {
+    execFileSync(
+      "node",
+      [
+        new URL("../monolith-gen.mjs", import.meta.url).pathname,
+        "--out",
+        app,
+        "--routes",
+        "30",
+        "--features",
+        "12",
+        "--ui",
+        "10",
+        "--utils",
+        "20",
+      ],
+      { stdio: "ignore" },
+    );
+    const pristine = appTreeHash(app);
+    const n = 30; // more than the 12 features: the picks wrap to other module slots
+    const targets = drift.editTargets(app, n);
+    const mtimes = () => targets.map((t) => String(statSync(t.path, { bigint: true }).mtimeNs));
+    const before = mtimes();
+    check(new Set(targets.map((t) => t.path)).size === n, "drift picks N distinct modules");
+    drift.applyEdits(app, appName, targets, "import");
+    const texts = targets.map((t) => readFileSync(t.path, "utf8"));
+    check(
+      texts.every((x) => x.includes('-drift"') && x.split("_drift_fn }").length === 2),
+      "each picked module gets the label mark and one new import",
+    );
+    check(appTreeHash(app) !== pristine, "the edits change the tree hash");
+    let refused = false;
+    try {
+      drift.checkPristine(app);
+    } catch {
+      refused = true;
+    }
+    check(refused, "an edited tree is refused as a starting point");
+    // the sweep was interrupted here: the next one restores from the journal
+    check(drift.restoreJournal(appName) === n, "the journal restores every edited file");
+    check(appTreeHash(app) === pristine, "the restored tree hashes as before the edits");
+    check(
+      JSON.stringify(mtimes()) === JSON.stringify(before),
+      "restored files keep their nanosecond timestamps",
+    );
+    check(drift.restoreJournal(appName) === 0, "a restored journal is gone");
+    drift.checkPristine(app);
+    // 14 modules per feature: the pick order's stride of 7 revisits slots, so N picks over
+    // the 12 features cannot all differ; drift must refuse rather than edit fewer than N
+    const app14 = join(base, "m14");
+    execFileSync(
+      "node",
+      [
+        new URL("../monolith-gen.mjs", import.meta.url).pathname,
+        "--out",
+        app14,
+        "--routes",
+        "30",
+        "--features",
+        "12",
+        "--feature-modules",
+        "14",
+        "--ui",
+        "10",
+        "--utils",
+        "20",
+      ],
+      { stdio: "ignore" },
+    );
+    let short = null;
+    try {
+      short = drift.editTargets(app14, 12 * 14);
+    } catch {}
+    check(
+      short === null || new Set(short.map((t) => t.path)).size === short.length,
+      "drift refuses a pick order that repeats a module",
+    );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+    rmSync(join(ROOT, "drift", appName), { recursive: true, force: true });
+  }
+}
+
+// --- drift record verification ------------------------------------------------------
+// drift.mjs record on a synthetic sweep (one binding, warm/cold/off at N = 0 and 1): the
+// consistent sweep publishes; a log whose mode, cache size, tree or plan position does
+// not fit its run is refused. A one-patch binding whose patch is not its diff is refused.
+{
+  const { appTreeHash } = await import("./bench.mjs");
+  const { publishedBinding } = await import(LIB);
+  const root = mkdtempSync(join(tmpdir(), "gym-selftest-drift-record-"));
+  const appDir = join(root, "apps", "drift-t");
+  mkdirSync(join(appDir, "app"), { recursive: true });
+  writeFileSync(join(appDir, "monolith.json"), JSON.stringify({ out: "x", files: 1 }));
+  writeFileSync(join(appDir, "app", "page.tsx"), "export default () => null;\n");
+  const pristine = appTreeHash(appDir);
+  const map = JSON.parse(
+    readFileSync(new URL("../../bench/turbopack-gym/bindings.json", import.meta.url), "utf8"),
+  );
+  const machine = { arch: "arm64", cpuModel: "test", cores: 2, sharedBox: false, boot: "b" };
+  const phase = (s, at) => ({ s, at, cores: 1 });
+  const attempt = (tamper = () => {}) => {
+    rmSync(join(root, "runs"), { recursive: true, force: true });
+    rmSync(join(root, "results"), { recursive: true, force: true });
+    mkdirSync(join(root, "results"), { recursive: true });
+    const lines = [{ id: "seed", rep: -1, n: 0, mode: "seed", cacheBefore: 0, cacheAfter: 9 }];
+    for (const n of [0, 1])
+      for (const mode of ["warm", "cold", "off"])
+        lines.push({
+          id: `${mode}${n}`,
+          rep: 0,
+          n,
+          mode,
+          cacheBefore: mode === "warm" ? 9 : 0,
+          cacheAfter: mode === "off" ? 0 : 9,
+        });
+    const runs = {};
+    for (const l of lines) {
+      Object.assign(l, { sweep: "drift-t", binding: "base", appHash: l.n ? "edited" : pristine });
+      runs[l.id] = {
+        id: l.id,
+        binding: "base",
+        cpus: "0-0",
+        appHash: l.appHash,
+        env: {
+          TURBO_ENGINE_IGNORE_DIRTY: "1",
+          ...(l.mode === "off" && { MONOLITH_TP_FS_CACHE: "0" }),
+        },
+        machine,
+        bindingSource: { head: map.base.head, diffSha256: map.base.diffSha256 },
+        wall: 10,
+        cores: 1,
+        memPeakGiB: 1,
+        graph: phase(2, 3),
+        entrypoints: phase(1, 5),
+        emit: phase(2, 6),
+        turbopack: phase(6, 2),
+        persistence: null,
+        compaction: null,
+        timeline: [1, 1, 1, 4, 4, 4, 4, 4, 1, 1],
+        output: { sha: l.n ? "o1" : "o0" },
+      };
+    }
+    tamper(lines, runs);
+    for (const r of Object.values(runs)) {
+      mkdirSync(join(root, "runs", r.id), { recursive: true });
+      writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
+    }
+    writeFileSync(
+      join(root, "results", "drift.jsonl"),
+      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    );
+    const plan = {
+      sweep: "drift-t",
+      tag: null,
+      edit: "import",
+      app: "drift-t",
+      bindings: ["base"],
+      modes: ["warm", "cold", "off"],
+      points: [0, 1],
+      reps: 1,
+      cpus: "0-0",
+      seeds: { base: "o0" },
+      pristine,
+      mismatches: [],
+    };
+    writeFileSync(join(root, "results", "drift-sweeps.jsonl"), JSON.stringify(plan) + "\n");
+    const r = spawnSync(
+      "node",
+      [
+        process.env.GYM_SELFTEST_DRIFT || new URL("./drift.mjs", import.meta.url).pathname,
+        "record",
+        "--out",
+        join(root, "out.json"),
+      ],
+      {
+        env: { ...process.env, GYM_ROOT: root, GYM_RESULTS: join(root, "results") },
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
+    if (process.env.GYM_SELFTEST_VERBOSE) process.stderr.write(r.stderr);
+    return r.status;
+  };
+  const line = (lines, id) => lines.find((l) => l.id === id);
+  check(attempt() === 0, "drift record publishes a consistent sweep");
+  check(
+    attempt((_, runs) => delete runs.off1.env.MONOLITH_TP_FS_CACHE) !== 0,
+    "drift record refuses an off run built with the cache on",
+  );
+  check(
+    attempt((lines) => (line(lines, "warm1").cacheBefore = 0)) !== 0,
+    "drift record refuses a warm run that started with no cache",
+  );
+  check(
+    attempt((lines) => (line(lines, "cold1").cacheBefore = 9)) !== 0,
+    "drift record refuses a cold run that started with a cache",
+  );
+  check(
+    attempt((lines) => (line(lines, "cold1").appHash = "other")) !== 0,
+    "drift record refuses a log line whose tree is not its run's",
+  );
+  check(
+    attempt((lines, runs) => (line(lines, "off1").appHash = runs.off1.appHash = "edited2")) !== 0,
+    "drift record refuses two trees for one N",
+  );
+  check(
+    attempt((lines) => (line(lines, "off1").rep = 1)) !== 0,
+    "drift record refuses a run outside its plan",
+  );
+  check(
+    attempt((_, runs) => (runs.warm1.output.sha = "o2")) !== 0,
+    "drift record refuses a warm output that is not the cold one",
+  );
+  const one = Object.entries(map).find(([, v]) => v.patches.length === 1);
+  let refused = false;
+  try {
+    publishedBinding({ x: { ...one[1], diffSha256: "0000000000000000" } }, "x");
+  } catch {
+    refused = true;
+  }
+  check(
+    refused && publishedBinding(map, one[0]).patches.length === 1,
+    "a record refuses a one-patch binding whose patch is not its diff",
+  );
+  rmSync(root, { recursive: true, force: true });
+}
+
+// --- remote records -----------------------------------------------------------------
+// record.mjs --host --out: the remote run writes the --out file's name under the host's
+// gitignored bench/raw/remote/ (never over a record in the host's checkout, whatever --out
+// names) and that file comes back to --out, never over the default record.
+{
+  const { remoteRecord } = await import("./hosts.mjs");
+  const r = remoteRecord(
+    ["ab", "--labels", "x", "--host", "h", "--out", "bench/turbopack-graph-52.json"],
+    { repoDir: "/remote/repo" },
+    "bench/turbopack-graph-52.json",
+    "turbopack-graph-ab.json",
+  );
+  check(
+    r.remote === "/remote/repo/bench/raw/remote/turbopack-graph-52.json" &&
+      r.local.endsWith("/bench/turbopack-graph-52.json") &&
+      JSON.stringify(r.args) === JSON.stringify(["ab", "--labels", "x", "--out", r.remote]),
+    "record --host --out copies the named record back to --out",
+  );
+  const canon = remoteRecord(
+    ["ab", "--host=h", "--out=x/turbopack-graph-scaling.json"],
+    { repoDir: "/remote/repo" },
+    "x/turbopack-graph-scaling.json",
+    "turbopack-graph-ab.json",
+  );
+  check(
+    canon.remote === "/remote/repo/bench/raw/remote/turbopack-graph-scaling.json" &&
+      JSON.stringify(canon.args) === JSON.stringify(["ab", "--out", canon.remote]),
+    "record --host --out never writes over a record in the host's checkout",
+  );
+}
+
+// --- published records -------------------------------------------------------------
+// No record under bench/ carries a kernel address (a perf symbol that did not resolve
+// gives one; it shows this boot's kernel layout).
+{
+  const bench = new URL("../../bench/", import.meta.url).pathname;
+  const files = [bench, join(bench, "turbopack-gym")].flatMap((d) =>
+    readdirSync(d)
+      .filter((f) => f.endsWith(".json") || f.endsWith(".md"))
+      .map((f) => join(d, f)),
+  );
+  const hits = files.filter((f) => /0xffff[0-9a-f]{12}/.test(readFileSync(f, "utf8")));
+  check(!hits.length, `no published record holds a kernel address (${hits.join(" ")})`);
+}
+
+// --- report keys ------------------------------------------------------------------
+// report.mjs in a scratch repo holding the canonical records, a TURBOPACK-GRAPH.md with
+// `keys`, and any extra files; returns the run and the rendered doc.
+function reportWith(keys, extra = {}, args = []) {
+  const dir = mkdtempSync(join(tmpdir(), "gym-report-"));
+  try {
+    const here = new URL(".", import.meta.url).pathname;
+    const repo = join(here, "..", "..");
+    mkdirSync(join(dir, "scripts", "turbopack-gym"), { recursive: true });
+    mkdirSync(join(dir, "bench", "turbopack-gym"), { recursive: true });
+    cpSync(join(here, "report.mjs"), join(dir, "scripts", "turbopack-gym", "report.mjs"));
+    for (const f of ["turbopack-graph-ab.json", "turbopack-graph-scaling.json"])
+      cpSync(join(repo, "bench", f), join(dir, "bench", f));
+    writeFileSync(
+      join(dir, "TURBOPACK-GRAPH.md"),
+      "<!-- turbopack-graph:ab --><!-- /turbopack-graph:ab -->\n" +
+        "<!-- turbopack-graph:scaling --><!-- /turbopack-graph:scaling -->\n" +
+        keys.map((k) => `<!--v:${k}-->?<!--/v-->`).join("\n") +
+        "\n",
+    );
+    for (const f of ["README.md", "SUMMARY.md", "bench/turbopack-gym/cache-drift.md"])
+      writeFileSync(join(dir, f), "");
+    for (const [f, body] of Object.entries(extra)) writeFileSync(join(dir, f), body);
+    const r = spawnSync("node", [join(dir, "scripts", "turbopack-gym", "report.mjs"), ...args], {
+      encoding: "utf8",
+    });
+    return { ...r, doc: readFileSync(join(dir, "TURBOPACK-GRAPH.md"), "utf8") };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+// report.mjs names a missing optional record in its error (a doc key that needs it).
+{
+  const r = reportWith(["oc.mono-52.ratio"], {}, ["--check"]);
+  check(
+    r.status !== 0 && r.stderr.includes("no bench/turbopack-graph-52.json"),
+    "report.mjs names a missing optional record",
+  );
+}
+// cr.* keys: the median over a cache-read set's reps, a ratio of two medians, and an
+// error naming a set the record does not have.
+{
+  const b = (binding, mode, turbopack) => ({ n: 0, binding, mode, wall: 20, turbopack });
+  const probes = JSON.stringify({
+    s: { builds: [b("base", "mmap", 10), b("base", "mmap", 14), b("x", "mmap", 4)] },
+  });
+  const extra = { "bench/turbopack-gym/cache-read-probes.json": probes };
+  const ok = reportWith(["cr.s.base.mmap.0.turbopack", "cr.s.base.mmap.0.over.x.mmap"], extra);
+  check(
+    ok.status === 0 &&
+      ok.doc.includes("<!--v:cr.s.base.mmap.0.turbopack-->12.0s<!--/v-->") &&
+      ok.doc.includes("<!--v:cr.s.base.mmap.0.over.x.mmap-->3.0<!--/v-->"),
+    "report.mjs renders cache-read medians and ratios",
+  );
+  const missing = reportWith(["cr.t.base.mmap.0.turbopack"], extra);
+  check(
+    missing.status !== 0 && missing.stderr.includes("no set t in cache-read-probes.json"),
+    "report.mjs names a missing cache-read set",
+  );
+  // a top-level entry that is not a set of builds, and a build without the field
+  const notSet = reportWith(["cr.method.base.mmap.0.turbopack"], {
+    "bench/turbopack-gym/cache-read-probes.json": JSON.stringify({ method: { builds: "x" } }),
+  });
+  check(
+    notSet.status !== 0 && notSet.stderr.includes("no set method in cache-read-probes.json"),
+    "report.mjs refuses a cache-read entry that is not a set",
+  );
+  const noField = reportWith(["cr.s.base.mmap.0.wall"], {
+    "bench/turbopack-gym/cache-read-probes.json": JSON.stringify({
+      s: { builds: [{ n: 0, binding: "base", mode: "mmap", turbopack: 1 }] },
+    }),
+  });
+  check(
+    noField.status !== 0 && noField.stderr.includes("cr.s.base.mmap.0.wall: no wall"),
+    "report.mjs refuses a cache-read build without the field",
+  );
+  // pageCache sets name the page cache (cold|hot) where other sets name the access mode
+  const pc = reportWith(["cr.p.base.hot.0.turbopack"], {
+    "bench/turbopack-gym/cache-read-probes.json": JSON.stringify({
+      p: {
+        builds: [
+          { n: 0, binding: "base", mode: "mmap", pageCache: "cold", turbopack: 30 },
+          { n: 0, binding: "base", mode: "mmap", pageCache: "hot", turbopack: 4 },
+        ],
+      },
+    }),
+  });
+  check(
+    pc.status === 0 && pc.doc.includes("<!--v:cr.p.base.hot.0.turbopack-->4.0s<!--/v-->"),
+    "report.mjs reads a pageCache set by its page cache",
+  );
 }
 
 // --- output fingerprint ------------------------------------------------------------

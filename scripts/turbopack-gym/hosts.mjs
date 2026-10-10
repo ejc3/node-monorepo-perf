@@ -17,7 +17,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { DEFAULT_LANE_POOL, REPO } from "./lib.mjs";
 import { remoteFlipCommand, resolveBinding } from "./bindings.mjs";
 
@@ -135,4 +135,24 @@ export function stripHost(argv) {
     else if (!argv[i].startsWith("--host=")) out.push(argv[i]);
   }
   return out;
+}
+
+// A record written on a host: the remote run writes it under the host's gitignored
+// bench/raw/remote/ with the local file's name (never over a record in the host's
+// checkout, whatever --out names), and that file is what comes back. Returns the remote
+// argv (without --host and with --out pointing there) and both paths.
+export function remoteRecord(argv, h, out, defaultName) {
+  const name = basename(out || defaultName);
+  const remote = `${h.repoDir}/bench/raw/remote/${name}`;
+  const args = [];
+  const rest = stripHost(argv);
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "--out") i++;
+    else if (!rest[i].startsWith("--out=")) args.push(rest[i]);
+  }
+  return {
+    args: [...args, "--out", remote],
+    remote,
+    local: out ? resolve(out) : join(REPO, "bench", defaultName),
+  };
 }

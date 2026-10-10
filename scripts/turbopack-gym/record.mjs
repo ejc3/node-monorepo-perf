@@ -14,12 +14,20 @@
 // label (default: every label in the log).
 
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { appTreeHash } from "./bench.mjs";
-import { APPS, REPO, RESULTS, RUNS, median, parseArgs, readJsonl } from "./lib.mjs";
-import { host, runRemote, stripHost, sync } from "./hosts.mjs";
+import {
+  APPS,
+  REPO,
+  RESULTS,
+  RUNS,
+  median,
+  parseArgs,
+  publishedBinding,
+  readJsonl,
+} from "./lib.mjs";
+import { host, remoteRecord, runRemote, sync } from "./hosts.mjs";
 
 const argv = process.argv.slice(2);
 const a = parseArgs(argv, { labels: 1, host: 1, sweep: 1, out: 1, tag: 1 });
@@ -34,20 +42,14 @@ if (!OUT) {
 if (a.host) {
   const h = host(a.host);
   sync(h, []);
-  const { code } = await runRemote(h, "scripts/turbopack-gym/record.mjs", stripHost(argv));
+  const r = remoteRecord(argv, h, a.out, OUT);
+  const { code } = await runRemote(h, "scripts/turbopack-gym/record.mjs", r.args);
   if (code !== 0) process.exit(typeof code === "number" ? code : 1);
-  execFileSync(
-    "scp",
-    [...h.ssh, `${h.target}:${h.repoDir}/bench/${OUT}`, join(REPO, "bench", OUT)],
-    {
-      stdio: "inherit",
-    },
-  );
-  console.log(`copied bench/${OUT} from ${a.host}`);
+  execFileSync("scp", [...h.ssh, `${h.target}:${r.remote}`, r.local], { stdio: "inherit" });
+  console.log(`copied ${r.local} from ${a.host}`);
   process.exit(0);
 }
 
-const sha16 = (buf) => createHash("sha256").update(buf).digest("hex").slice(0, 16);
 const BINDING_MAP = JSON.parse(
   readFileSync(join(REPO, "bench", "turbopack-gym", "bindings.json"), "utf8"),
 );
@@ -114,18 +116,7 @@ const publish = (r) => ({
 });
 
 function bindingsUsed(names) {
-  return Object.fromEntries(
-    [...new Set(names)].map((n) => [
-      n,
-      {
-        diffSha256: BINDING_MAP[n].diffSha256,
-        patches: BINDING_MAP[n].patches.map((f) => ({
-          patch: `bench/turbopack-gym/candidates/${f}`,
-          sha256: sha16(readFileSync(join(REPO, "bench", "turbopack-gym", "candidates", f))),
-        })),
-      },
-    ]),
-  );
+  return Object.fromEntries([...new Set(names)].map((n) => [n, publishedBinding(BINDING_MAP, n)]));
 }
 
 const common = {
@@ -139,7 +130,8 @@ const publicMachine = () => {
   return m;
 };
 const write = (rec) => {
-  const path = a.out || join(REPO, "bench", OUT); // --out: elsewhere (selftest)
+  const path = a.out || join(REPO, "bench", OUT); // --out: elsewhere (selftest, --host)
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(rec, null, 2) + "\n");
   console.log(`wrote ${path}`);
 };

@@ -201,7 +201,10 @@ export function prepare({ binding = "base", app: appArg }) {
 }
 
 // prepared: prepare()'s result for this binding and app (an A/B prepares both sides
-// before launching either); computed here when absent.
+// before launching either); computed here when absent. distDir: a fixed output
+// directory name (".next…", inside the app) that the caller owns, e.g. one holding a
+// restored persistent cache (drift.mjs); default a fresh one per run. optional: trace
+// events that may be absent (a build from a warm cache skips the spans of cached work).
 export async function bench({
   binding = "base",
   prepared,
@@ -211,11 +214,15 @@ export async function bench({
   label = "",
   keep = false,
   quiet = false,
+  distDir: fixedDistDir,
+  optional = [],
 }) {
   checkAborted();
   const { app, resolved, appHash, buildNode } = prepared || prepare({ binding, app: appArg });
   const id = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
-  const distDir = `.next-gym-${id}`;
+  if (fixedDistDir !== undefined && !/^\.next[\w.+-]*$/.test(fixedDistDir))
+    throw new Error(`distDir must be a .next… name inside the app (got ${fixedDistDir})`);
+  const distDir = fixedDistDir ?? `.next-gym-${id}`;
   const unit = `gym-${id}`;
   const runDir = ensureDir(join(RUNS, id));
   const logPath = join(runDir, "build.log");
@@ -310,7 +317,7 @@ export async function bench({
   const phase = (name, required) => {
     const e = ev[name];
     if (!e) {
-      if (required) fail(`trace-build has no ${name} event`);
+      if (required && !optional.includes(name)) fail(`trace-build has no ${name} event`);
       return null;
     }
     const s = e.duration / 1e6;
@@ -342,6 +349,7 @@ export async function bench({
     emit: phase("turbopack-emit", true),
     turbopack: phase("run-turbopack", true),
     persistence: phase("turbopack-persistence", false),
+    compaction: phase("turbopack-compaction", false),
     output: fingerprint(join(app, distDir)),
     machine: { ...machine(), buildNode },
     bindingSource: source,
@@ -357,7 +365,7 @@ export async function bench({
   rec.distDir = keep ? join(app, distDir) : null;
   if (!quiet)
     console.error(
-      `[bench] ${label || binding} cpus=${cpus} wall=${rec.wall}s graph=${rec.graph.s}s@${rec.graph.cores}c turbopack=${rec.turbopack.s}s cores=${rec.cores} mem=${rec.memPeakGiB}G out=${rec.output.sha}`,
+      `[bench] ${label || binding} cpus=${cpus} wall=${rec.wall}s graph=${rec.graph ? `${rec.graph.s}s@${rec.graph.cores}c` : "-"} turbopack=${rec.turbopack.s}s cores=${rec.cores} mem=${rec.memPeakGiB}G out=${rec.output.sha}`,
     );
   return rec;
 }

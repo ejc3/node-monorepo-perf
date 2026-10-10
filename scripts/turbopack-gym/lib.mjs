@@ -1,5 +1,6 @@
 // Shared paths and helpers for the Turbopack graph gym (TURBOPACK-GRAPH.md).
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -35,6 +36,25 @@ export const RUNS = join(ROOT, "runs");
 // Raw run/A-B logs (gitignored); records of record are written to bench/ by record.mjs.
 export const RESULTS = process.env.GYM_RESULTS || join(REPO, "bench", "raw", "turbopack-gym");
 export const CANDIDATES = join(REPO, "bench", "turbopack-gym", "candidates");
+
+// How a record names a binding: bindings.json's diff hash and each patch file's hash. A
+// one-patch binding's diff is that patch, so a record refuses the two disagreeing (a patch
+// file edited after the binding was built, or bindings.json not updated after a rebuild).
+export function publishedBinding(map, name) {
+  const { diffSha256, patches } = map[name];
+  const files = patches.map((f) => ({
+    patch: `bench/turbopack-gym/candidates/${f}`,
+    sha256: createHash("sha256")
+      .update(readFileSync(join(CANDIDATES, f)))
+      .digest("hex")
+      .slice(0, 16),
+  }));
+  if (files.length === 1 && files[0].sha256 !== diffSha256)
+    throw new Error(
+      `binding ${name}: ${files[0].patch} hashes ${files[0].sha256}, bindings.json's diff is ${diffSha256}`,
+    );
+  return { diffSha256, patches: files };
+}
 export const INCUMBENT = join(RESULTS, "incumbent.json");
 export const BINDING_FILE = `next-swc.${process.arch === "arm64" ? "linux-arm64-gnu" : "linux-x64-gnu"}.node`;
 

@@ -3,8 +3,8 @@
 // tables between marker comments
 //   <!-- turbopack-graph:ab --> ... <!-- /turbopack-graph:ab -->
 //   <!-- turbopack-graph:scaling --> ... <!-- /turbopack-graph:scaling -->
-// and every inline value <!--v:KEY-->...<!--/v--> in TURBOPACK-GRAPH.md, README.md and
-// SUMMARY.md (keys below).
+// and every inline value <!--v:KEY-->...<!--/v--> in TURBOPACK-GRAPH.md, README.md,
+// SUMMARY.md and bench/turbopack-gym/cache-drift.md (keys below).
 //
 //   node scripts/turbopack-gym/report.mjs           # rewrite them in place
 //   node scripts/turbopack-gym/report.mjs --check   # exit 1 if any differs from the records
@@ -18,9 +18,26 @@ const REPO = resolve(dirname(new URL(import.meta.url).pathname), "..", "..");
 const DOC = join(REPO, "TURBOPACK-GRAPH.md");
 const ab = JSON.parse(readFileSync(join(REPO, "bench", "turbopack-graph-ab.json"), "utf8"));
 const sc = JSON.parse(readFileSync(join(REPO, "bench", "turbopack-graph-scaling.json"), "utf8"));
-// optional: the A/B record on the vizdash app (vz.* keys)
-const VZ = join(REPO, "bench", "turbopack-graph-vizdash.json");
-const vz = existsSync(VZ) ? JSON.parse(readFileSync(VZ, "utf8")) : null;
+// optional A/B records with the same fields as ab.*, by key prefix: the vizdash app (vz.*)
+// and the operation-counter A/Bs (oc.*)
+const AB_RECORDS = { vz: "turbopack-graph-vizdash.json", oc: "turbopack-graph-52.json" };
+const abRecords = Object.fromEntries(
+  Object.entries(AB_RECORDS)
+    .map(([k, f]) => [k, join(REPO, "bench", f)])
+    .filter(([, f]) => existsSync(f))
+    .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
+);
+// optional: the persistent-cache drift records (dr.* keys), by name
+const DRIFT = { main: "turbopack-graph-drift.json" };
+const drift = Object.fromEntries(
+  Object.entries(DRIFT)
+    .map(([k, f]) => [k, join(REPO, "bench", f)])
+    .filter(([, f]) => existsSync(f))
+    .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
+);
+// optional: the warm-start cache-read probes (cr.* keys)
+const CACHE_READ = join(REPO, "bench", "turbopack-gym", "cache-read-probes.json");
+const cacheRead = existsSync(CACHE_READ) ? JSON.parse(readFileSync(CACHE_READ, "utf8")) : null;
 
 const med = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -87,19 +104,28 @@ function scalingTable() {
 //   ab.<label>.ratio|guard            A/B ratios (3 decimals)
 //   ab.<label>.graphA|graphB|tpA|tpB  medians over reps (seconds, 2 decimals)
 //   ab.<label>.coresA|coresB          median cores in the graph phase (1 decimal)
-//   vz.<label>.<field>                the same fields from bench/turbopack-graph-vizdash.json
+//   vz.<label>.<field>, oc.<label>.<field>  the same fields from an optional A/B record
+//                                     (AB_RECORDS)
 //   prod.<label1>.<label2>            product of two rows' ratios (3 decimals)
 //   sc.<binding>.<cores>.<graph|cores|sys|tp|entry>          one scaling point (median)
 //   sc.<binding>.<lo>-<hi>.<graph|cores|sys|tp|entry>        range over points lo..hi
 //   ratio.sc.<b1>.<b2>.<cores>.graph  scaling graph ratio b2/b1 at a size (2 decimals)
 //   machine                           instance, CPUs, NUMA nodes, memory, node
+//   dr.<rec>.<edit>.<binding>.<N>.<mode>.<wall|turbopack|preEmit>
+//                                     drift median (seconds, 1 decimal); rec names a drift
+//                                     record (DRIFT), mode warm|cold|off
+//   dr.<rec>.<edit>.<binding>.<N>.<mode>.over.<mode2>  ratio of the two modes' wall medians
+//   cr.<set>.<binding>.<mode>.<N>.<turbopack|wall>  cache-read probe median over its reps
+//                                     (seconds, 1 decimal); set names a cache-read-probes.json
+//                                     set (pageCache: mode is the page cache, cold|hot)
+//   cr.<set>.<binding>.<mode>.<N>.over.<binding2>.<mode2>  ratio of turbopack medians (1 decimal)
 function value(key) {
   const k = key.split(".");
-  const rec = k[0] === "vz" ? vz || fail("no bench/turbopack-graph-vizdash.json") : ab;
-  const row = (l) => rec.rows.find((r) => r.label === l) || fail(`no A/B row ${l}`);
   const fail = (m) => {
     throw new Error(`${key}: ${m}`);
   };
+  const rec = k[0] in AB_RECORDS ? abRecords[k[0]] || fail(`no bench/${AB_RECORDS[k[0]]}`) : ab;
+  const row = (l) => rec.rows.find((r) => r.label === l) || fail(`no A/B row ${l}`);
   const point = (b, n) =>
     sc.points.find((p) => p.binding === b && p.ncpu === n) || fail(`no point ${b}@${n}`);
   const field = (p, f) =>
@@ -116,7 +142,32 @@ function value(key) {
     return `a dedicated ${m.instanceType}: ${m.cores} ${m.cpuModel} vCPUs in ${m.numaNodes} NUMA nodes, ${m.memGiB} GiB, Node ${m.node.replace(/^v/, "")}`;
   }
   if (k[0] === "prod") return x3(row(k[1]).ratio * row(k[2]).ratio);
-  if (k[0] === "ab" || k[0] === "vz") {
+  if (k[0] === "cr") {
+    const set = cacheRead && Object.hasOwn(cacheRead, k[1]) ? cacheRead[k[1]] : null;
+    if (!Array.isArray(set?.builds)) fail(`no set ${k[1]} in cache-read-probes.json`);
+    const pick = (b, mode, n, f) => {
+      const xs = set.builds
+        .filter((r) => r.binding === b && (r.pageCache ?? r.mode) === mode && r.n === Number(n))
+        .map((r) => r[f]);
+      if (!xs.length) fail(`no ${b} ${mode} N=${n} builds in ${k[1]}`);
+      if (xs.some((x) => typeof x !== "number")) fail(`no ${f} in every such build`);
+      return med(xs);
+    };
+    if (k[5] === "over")
+      return (pick(k[2], k[3], k[4], "turbopack") / pick(k[6], k[7], k[4], "turbopack")).toFixed(1);
+    if (!["turbopack", "wall"].includes(k[5])) fail(`field ${k[5]}`);
+    return `${pick(k[2], k[3], k[4], k[5]).toFixed(1)}s`;
+  }
+  if (k[0] === "dr") {
+    const rec = drift[k[1]] || fail(`no drift record ${k[1]}`);
+    const ser = rec.series.find((x) => x.edit === k[2]) || fail(`no ${k[2]} series`);
+    const pt = ser.points.find((p) => p.n === Number(k[4])) || fail(`no point N=${k[4]}`);
+    const at = (mode, f) =>
+      pt[k[3]]?.[mode]?.median?.[f] ?? fail(`no ${k[3]} ${mode} ${f} at N=${k[4]}`);
+    if (k[6] === "over") return (at(k[5], "wall") / at(k[7], "wall")).toFixed(2);
+    return `${at(k[5], k[6]).toFixed(1)}s`;
+  }
+  if (k[0] === "ab" || k[0] in AB_RECORDS) {
     const label = k.slice(1, -1).join(".");
     const r = row(label);
     const f = k.at(-1);
@@ -174,12 +225,12 @@ const section = (doc, name, body) => {
 };
 const render = (doc) => inline(section(section(doc, "ab", abTable()), "scaling", scalingTable()));
 
-// TURBOPACK-GRAPH.md gets tables and inline values; README.md and SUMMARY.md inline
-// values only
+// TURBOPACK-GRAPH.md gets tables and inline values; the other docs inline values only
 const files = [
   [DOC, render],
   [join(REPO, "README.md"), inline],
   [join(REPO, "SUMMARY.md"), inline],
+  [join(REPO, "bench", "turbopack-gym", "cache-drift.md"), inline],
 ];
 let stale = 0;
 for (const [file, fn] of files) {
