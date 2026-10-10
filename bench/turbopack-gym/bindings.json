@@ -1,9 +1,4 @@
 {
-  "base": {
-    "patches": [],
-    "diffSha256": "e3b0c44298fc1c14",
-    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
-  },
   "11": {
     "patches": [
       "11-binding-usage-topo.patch"
@@ -25,6 +20,11 @@
     "diffSha256": "f17d498b091b13f2",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   },
+  "base": {
+    "patches": [],
+    "diffSha256": "e3b0c44298fc1c14",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
   "15+22": {
     "patches": [
       "15-graph-algos-combined.patch",
@@ -42,5 +42,56 @@
     ],
     "diffSha256": "a45c166a364e8379",
     "head": "434e708c431daef149dc8dcad76a1e2384744ca4"
+  },
+  "51-sst-willneed": {
+    "patches": [
+      "51-sst-willneed.patch"
+    ],
+    "diffSha256": "055f8ce30be595af",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "52-striped-op-count": {
+    "patches": [
+      "52-striped-op-count.patch"
+    ],
+    "diffSha256": "d405c81dd8debce5",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+52": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "52-striped-op-count.patch"
+    ],
+    "diffSha256": "cbfde2eb26fe9c00",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "p52-no-op-guard": {
+    "patches": [
+      "p52-no-op-guard.patch"
+    ],
+    "diffSha256": "9fc7a5697bc22a4b",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "53-sst-block-willneed": {
+    "patches": [
+      "53-sst-block-willneed.patch"
+    ],
+    "diffSha256": "a0816644061a8440",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "54-sst-meta-willneed": {
+    "patches": [
+      "54-sst-meta-willneed.patch"
+    ],
+    "diffSha256": "f73b416c7ae0d971",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "55-sst-mmap-normal-advice": {
+    "patches": [
+      "55-sst-mmap-normal-advice.patch"
+    ],
+    "diffSha256": "18a77ebeed78e759",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

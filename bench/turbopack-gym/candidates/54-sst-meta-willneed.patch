@@ -1,0 +1,100 @@
+diff --git a/turbopack/crates/turbo-persistence/src/meta_file.rs b/turbopack/crates/turbo-persistence/src/meta_file.rs
+index 4e4a8a9989..6650dd2d97 100644
+--- a/turbopack/crates/turbo-persistence/src/meta_file.rs
++++ b/turbopack/crates/turbo-persistence/src/meta_file.rs
+@@ -347,8 +347,15 @@ impl MetaFile {
+                 let mmap = unsafe { MmapOptions::new().map(file.file()) }
+                     .context("Failed to mmap meta file")?;
+                 #[cfg(unix)]
+-                mmap.advise(memmap2::Advice::Random)
+-                    .context("Failed to advise mmap")?;
++                {
++                    mmap.advise(memmap2::Advice::Random)
++                        .context("Failed to advise mmap")?;
++                    // Every lookup probes the filters in this file, and with `Random` advice
++                    // each probe of a page not yet cached is its own read. Start reading the
++                    // whole file in the background now, as `AccessMode::File` reads it whole.
++                    // Only a hint: it does not block and the pages stay reclaimable.
++                    let _ = mmap.advise(memmap2::Advice::WillNeed);
++                }
+                 advise_mmap_for_persistence(&mmap)?;
+                 MetaFileBacking::Mmap(mmap)
+             }
+diff --git a/turbopack/crates/turbo-persistence/src/static_sorted_file.rs b/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
+index 7c3f16168a..ec74b6b301 100644
+--- a/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
++++ b/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
+@@ -820,6 +820,10 @@ fn get_or_read_block<'l>(
+     let _ = verified_blocks;
+     #[cfg(feature = "mmap")]
+     let mmap_block = if let StaticSortedFileBacking::Mmap(mmap) = backing {
++        // A block not yet verified in this process has not been read through this mapping.
++        if !is_verified(verified_blocks, block_index) {
++            prefetch_block(mmap, meta, block_index);
++        }
+         let (uncompressed_length, checksum, block_data) =
+             get_raw_block_slice(mmap, meta, block_index).with_context(|| {
+                 format!(
+@@ -952,6 +956,39 @@ fn get_raw_block_slice<'a>(
+     Ok((uncompressed_length, checksum, block))
+ }
+ 
++/// Starts reading a block's whole byte range into the page cache before its first access.
++///
++/// SST mappings carry `Random` advice, so without this every page of a block that is not
++/// cached faults in on its own, one read at a time, as the header read, CRC check and
++/// decompression walk it. Blocks average 16 KiB (keys) to 132 KiB (values), and a warm
++/// start's lookups depend on each other, so those reads queue one behind another.
++/// `WillNeed` submits the range as one read and does not wait for it; the first access then
++/// waits for that read only. Errors are ignored: this is only a hint.
++#[cfg(feature = "mmap")]
++fn prefetch_block(mmap: &Mmap, meta: &StaticSortedFileMetaData, block_index: u16) {
++    #[cfg(unix)]
++    {
++        let offset = meta.block_offsets_start(mmap.len()) + block_index as usize * 4;
++        let start = if block_index == 0 {
++            Some(0)
++        } else {
++            mmap.get(offset - 4..offset)
++                .map(|b| be::read_u32(b) as usize)
++        };
++        let end = mmap
++            .get(offset..offset + 4)
++            .map(|b| be::read_u32(b) as usize);
++        if let (Some(start), Some(end)) = (start, end)
++            && start < end
++            && end <= mmap.len()
++        {
++            let _ = mmap.advise_range(memmap2::Advice::WillNeed, start, end - start);
++        }
++    }
++    #[cfg(not(unix))]
++    let _ = (mmap, meta, block_index);
++}
++
+ /// Reads a raw block from either backing. Mmap data remains borrowed; file data is owned.
+ fn get_raw_block<'a>(
+     backing: &'a StaticSortedFileBacking,
+@@ -961,6 +998,8 @@ fn get_raw_block<'a>(
+     match backing {
+         #[cfg(feature = "mmap")]
+         StaticSortedFileBacking::Mmap(mmap) => {
++            // Callers read these blocks once (the index block) or bypass the block cache.
++            prefetch_block(mmap, meta, block_index);
+             let (uncompressed_length, checksum, block) =
+                 get_raw_block_slice(mmap, meta, block_index)?;
+             Ok((uncompressed_length, checksum, Cow::Borrowed(block)))
+@@ -1054,6 +1093,13 @@ fn verify_checksum(
+ /// since the check is deterministic and idempotent. Verification failures are
+ /// *not* recorded in the bitmap, so a corrupted block will be re-checked (and
+ /// fail again) on every access.
++#[cfg(feature = "mmap")]
++fn is_verified(verified_blocks: &[AtomicU64], block_index: u16) -> bool {
++    let word_idx = block_index as usize / u64::BITS as usize;
++    let bit = 1u64 << (block_index as usize % u64::BITS as usize);
++    verified_blocks[word_idx].load(AtomicOrdering::Relaxed) & bit != 0
++}
++
+ #[cfg_attr(not(feature = "mmap"), allow(dead_code))]
+ fn verify_checksum_once(
+     meta: &StaticSortedFileMetaData,

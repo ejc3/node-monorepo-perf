@@ -1,0 +1,19 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+index 282cca967e..29a19ab01f 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+@@ -397,10 +397,10 @@ impl TurboTasksBackend {
+     }
+ 
+     pub(crate) fn start_operation(&self) -> Option<OperationGuard<'_>> {
+-        if !self.should_persist() {
+-            return None;
+-        }
+-        Some(self.snapshot_coord.begin_operation())
++        // PROBE (not a fix): no operation accounting, to measure what the shared counter costs.
++        // Wrong whenever a snapshot runs while operations are active.
++        let _ = SnapshotCoordinator::begin_operation;
++        None
+     }
+ 
+     fn should_persist(&self) -> bool {

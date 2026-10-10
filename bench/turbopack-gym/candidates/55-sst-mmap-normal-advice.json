@@ -1,0 +1,5 @@
+{
+  "description": "turbo-persistence StaticSortedFile::open (mmap mode): drop the Random madvise on the SST mapping (keep Sequential on the block-offset table), so a fault on a page not in the page cache gets the kernel's default readahead, as a pread of the same file does in AccessMode::File, instead of one 4 KiB read per page; a warm start reads most of every SST through lookups that depend on each other",
+  "patch": "bench/turbopack-gym/candidates/55-sst-mmap-normal-advice.patch",
+  "base": "vercel/next.js v16.4.0"
+}

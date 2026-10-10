@@ -1,0 +1,5 @@
+{
+  "description": "PROBE, not a candidate: TurboTasksBackend::start_operation returns no guard, so no operation is counted; wrong whenever a snapshot runs while operations are active (a build can snapshot when it goes idle and when it stops). Measures about what removing the count saves",
+  "patch": "bench/turbopack-gym/candidates/p52-no-op-guard.patch",
+  "base": "vercel/next.js v16.4.0"
+}

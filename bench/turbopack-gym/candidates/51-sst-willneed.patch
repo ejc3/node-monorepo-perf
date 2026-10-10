@@ -1,0 +1,17 @@
+diff --git a/turbopack/crates/turbo-persistence/src/static_sorted_file.rs b/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
+index 7c3f16168a..4b9d2cea33 100644
+--- a/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
++++ b/turbopack/crates/turbo-persistence/src/static_sorted_file.rs
+@@ -469,6 +469,12 @@ impl StaticSortedFile {
+                     let offset = meta.block_offsets_start(mmap.len());
+                     let _ =
+                         mmap.advise_range(memmap2::Advice::Sequential, offset, mmap.len() - offset);
++                    // An SST is opened on its first lookup. With `Random` advice every later
++                    // lookup faults its block in one page at a time, and lookups that depend
++                    // on each other (restoring a task graph) wait on those reads in turn
++                    // while the page cache is cold. Start reading the whole file in the
++                    // background now; this does not block, and the pages stay reclaimable.
++                    let _ = mmap.advise(memmap2::Advice::WillNeed);
+                 }
+                 advise_mmap_for_persistence(&mmap)?;
+                 StaticSortedFileBacking::Mmap(Arc::new(mmap))
