@@ -1,0 +1,1176 @@
+{
+  "description": "Warm next build probes of where a warm start waits: the restored persistent cache read through mmap with MADV_RANDOM, against the page cache already holding it, TURBO_PERSISTENCE_MMAP=0 (pread), and candidates 53, 54 and 55. Single builds per case and rep, not paired A/Bs, except coldAB.",
+  "method": {
+    "app": "drift-monolith (the monolith app copied; the same tree the drift sweeps edit)",
+    "builds": "one at a time on CPUs 0-23 of a dedicated 192-core box (no other gym work); TURBO_ENGINE_IGNORE_DIRTY=1",
+    "seed": "the unchanged tree built cold with base (pageCache: base-fp) into .next-drift, then that directory reflink-copied as the snapshot",
+    "warm": "the snapshot reflink-copied into .next-drift (new inodes: none of the cache in the page cache), trace files removed, then a build; N label edits applied first (drift.mjs editTargets/applyEdits), tree restored after",
+    "modes": {
+      "mmap": "default access mode (SST files mmapped)",
+      "pread": "TURBO_PERSISTENCE_MMAP=0",
+      "hot": "mmap, after every cache file was read once (cat), so the cache is in the page cache"
+    },
+    "check": "a no-edit warm build that emits a turbopack-module-graph span did not use the cache; such a run is refused (added after the version mismatch noted under invalid)",
+    "disk": "btrfs raid0 over the instance's local NVMe drives",
+    "bindings": "base and 53/54/55 as in bench/turbopack-gym/bindings.json; base-fp and 53-sst-block-willneed-fp are the same sources built with -Cforce-frame-pointers=yes for perf call graphs (not in bindings.json). Builds in pageCache, accessMode and the run55b hot rows come from the probe logs, which print no run ids; the other sets carry their run ids"
+  },
+  "machines": {
+    "A": {
+      "instanceType": "c8gd.48xlarge",
+      "cores": 192,
+      "sharedBox": false
+    },
+    "B": {
+      "instanceType": "c8gd.48xlarge",
+      "cores": 192,
+      "sharedBox": false
+    },
+    "C": {
+      "instanceType": "m8gd.48xlarge",
+      "cores": 192,
+      "sharedBox": false
+    },
+    "D": {
+      "instanceType": "c8gd.48xlarge",
+      "cores": 192,
+      "sharedBox": false
+    }
+  },
+  "pageCache": {
+    "machine": "A",
+    "seed": {
+      "wall": 73.704,
+      "turbopack": 44.029,
+      "output": "c2910d158727711d"
+    },
+    "builds": [
+      {
+        "n": 0,
+        "binding": "base-fp",
+        "mode": "mmap",
+        "wall": 50.677,
+        "turbopack": 38.689,
+        "output": "c2910d158727711d",
+        "pageCache": "cold"
+      },
+      {
+        "n": 1,
+        "binding": "base-fp",
+        "mode": "mmap",
+        "wall": 39.161,
+        "turbopack": 27.013,
+        "output": "4146e47b1456fc58",
+        "pageCache": "cold"
+      },
+      {
+        "n": 0,
+        "binding": "base-fp",
+        "mode": "mmap",
+        "wall": 16.337,
+        "turbopack": 4.372,
+        "output": "c2910d158727711d",
+        "pageCache": "hot"
+      },
+      {
+        "n": 1,
+        "binding": "base-fp",
+        "mode": "mmap",
+        "wall": 25.849,
+        "turbopack": 5.031,
+        "output": "4146e47b1456fc58",
+        "pageCache": "hot"
+      }
+    ],
+    "diskReadDuringWarmBuild": {
+      "n0": {
+        "totalReadMiB": 902,
+        "readMiBPerSecond": [
+          3,
+          0,
+          0,
+          16,
+          16,
+          19,
+          20,
+          26,
+          23,
+          21,
+          16,
+          16,
+          17,
+          16,
+          16,
+          16,
+          17,
+          16,
+          16,
+          16,
+          16,
+          15,
+          17,
+          17,
+          17,
+          17,
+          17,
+          17,
+          16,
+          17,
+          15,
+          16,
+          13,
+          13,
+          13,
+          13,
+          13,
+          13,
+          12,
+          12,
+          1,
+          72,
+          53,
+          83,
+          22,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          16,
+          2,
+          2,
+          44,
+          0
+        ],
+        "blockedProcesses": [
+          1,
+          0,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "n1": {
+        "totalReadMiB": 839,
+        "readMiBPerSecond": [
+          3,
+          0,
+          0,
+          16,
+          16,
+          19,
+          20,
+          26,
+          23,
+          21,
+          16,
+          16,
+          17,
+          16,
+          16,
+          16,
+          17,
+          16,
+          16,
+          16,
+          26,
+          25,
+          54,
+          219,
+          22,
+          12,
+          10,
+          10,
+          3,
+          0,
+          65,
+          47,
+          36,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ],
+        "blockedProcesses": [
+          0,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          2,
+          1,
+          6,
+          1,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "profileN0Cold": {
+      "what": "perf sched_switch + cpu-clock (999 Hz) + major-faults, frame pointers, CPUs 0-23, base-fp; per second s of run-turbopack: busy cores, major-fault samples (rate-limited by the sample frequency, so a floor), seconds threads spent in uninterruptible sleep. Every second up to s=15, then every third second (the analysis kept only those rows; the perf data went with the instance)",
+      "perSecond": [
+        {
+          "s": 0,
+          "cores": 0.1,
+          "majorFaultSamples": 978,
+          "dStateS": 0.26
+        },
+        {
+          "s": 1,
+          "cores": 0,
+          "majorFaultSamples": 959,
+          "dStateS": 0.09
+        },
+        {
+          "s": 2,
+          "cores": 0.1,
+          "majorFaultSamples": 967,
+          "dStateS": 0.14
+        },
+        {
+          "s": 3,
+          "cores": 0,
+          "majorFaultSamples": 942,
+          "dStateS": 0.2
+        },
+        {
+          "s": 4,
+          "cores": 0.1,
+          "majorFaultSamples": 935,
+          "dStateS": 0.23
+        },
+        {
+          "s": 5,
+          "cores": 0.1,
+          "majorFaultSamples": 974,
+          "dStateS": 0.19
+        },
+        {
+          "s": 6,
+          "cores": 0.1,
+          "majorFaultSamples": 930,
+          "dStateS": 0.19
+        },
+        {
+          "s": 7,
+          "cores": 0,
+          "majorFaultSamples": 1003,
+          "dStateS": 0.09
+        },
+        {
+          "s": 8,
+          "cores": 0.1,
+          "majorFaultSamples": 1000,
+          "dStateS": 0.1
+        },
+        {
+          "s": 9,
+          "cores": 0,
+          "majorFaultSamples": 1014,
+          "dStateS": 0.13
+        },
+        {
+          "s": 10,
+          "cores": 0.1,
+          "majorFaultSamples": 1010,
+          "dStateS": 0.13
+        },
+        {
+          "s": 11,
+          "cores": 0.1,
+          "majorFaultSamples": 1016,
+          "dStateS": 0.13
+        },
+        {
+          "s": 12,
+          "cores": 0.1,
+          "majorFaultSamples": 1008,
+          "dStateS": 0.13
+        },
+        {
+          "s": 13,
+          "cores": 0.1,
+          "majorFaultSamples": 996,
+          "dStateS": 0.14
+        },
+        {
+          "s": 14,
+          "cores": 0.1,
+          "majorFaultSamples": 1001,
+          "dStateS": 0.1
+        },
+        {
+          "s": 15,
+          "cores": 0.1,
+          "majorFaultSamples": 1016,
+          "dStateS": 0.11
+        },
+        {
+          "s": 17,
+          "cores": 0.4,
+          "majorFaultSamples": 952,
+          "dStateS": 0.31
+        },
+        {
+          "s": 20,
+          "cores": 0.1,
+          "majorFaultSamples": 1017,
+          "dStateS": 0.21
+        },
+        {
+          "s": 23,
+          "cores": 0.1,
+          "majorFaultSamples": 991,
+          "dStateS": 0.18
+        },
+        {
+          "s": 26,
+          "cores": 0.1,
+          "majorFaultSamples": 990,
+          "dStateS": 0.2
+        },
+        {
+          "s": 29,
+          "cores": 0.2,
+          "majorFaultSamples": 961,
+          "dStateS": 0.19
+        },
+        {
+          "s": 32,
+          "cores": 0.2,
+          "majorFaultSamples": 1041,
+          "dStateS": 1.23
+        },
+        {
+          "s": 35,
+          "cores": 0.3,
+          "majorFaultSamples": 1044,
+          "dStateS": 1.23
+        },
+        {
+          "s": 38,
+          "cores": 2.5,
+          "majorFaultSamples": 0,
+          "dStateS": 1.17
+        }
+      ],
+      "topMajorFaultStacks": [
+        "crc32fast::specialized::aarch64::calculate <- turbo_persistence::static_sorted_file::get_or_read_block <- StaticSortedFile::handle_key_match <- lookup_block_inner <- lookup_variable_key_block <- StaticSortedFile::lookup",
+        "turbo_persistence::static_sorted_file::get_raw_block_slice <- get_or_read_block <- StaticSortedFile::handle_key_match <- lookup_block_inner <- lookup_variable_key_block <- StaticSortedFile::lookup",
+        "crc32fast::specialized::aarch64::calculate <- get_or_read_block <- StaticSortedFile::lookup <- MetaFile::batch_lookup_entry <- TurboPersistence::batch_get <- TurboBackingStorage::batch_lookup_data"
+      ]
+    }
+  },
+  "accessMode": {
+    "machine": "B",
+    "seed": {
+      "wall": 75.299,
+      "turbopack": 46.057,
+      "output": "c2910d158727711d"
+    },
+    "builds": [
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 49.677,
+        "turbopack": 37.919,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.541,
+        "turbopack": 8.505,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 44.968,
+        "turbopack": 26.315,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.84,
+        "turbopack": 8.795,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 50.07,
+        "turbopack": 38.614,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 37.458,
+        "turbopack": 17.717,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 26.648,
+        "turbopack": 8.765,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 39.26,
+        "turbopack": 27.266,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 34.362,
+        "turbopack": 13.553,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.942,
+        "turbopack": 8.679,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 49.974,
+        "turbopack": 38.552,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 37.159,
+        "turbopack": 17.527,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 23.144,
+        "turbopack": 8.82,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 47.27,
+        "turbopack": 27.06,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 25.347,
+        "turbopack": 13.762,
+        "output": "4146e47b1456fc58"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 22.144,
+        "turbopack": 8.789,
+        "output": "4146e47b1456fc58"
+      }
+    ]
+  },
+  "candidatesC": {
+    "machine": "C",
+    "builds": [
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 34.45,
+        "turbopack": 13.175,
+        "output": "c2910d158727711d",
+        "run": "mv2koffc-5558f3"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 30.355,
+        "turbopack": 11.36,
+        "output": "c2910d158727711d",
+        "run": "mv2kpluk-b637b3"
+      },
+      {
+        "n": 0,
+        "binding": "54-sst-meta-willneed",
+        "mode": "mmap",
+        "wall": 30.758,
+        "turbopack": 11.456,
+        "output": "c2910d158727711d",
+        "run": "mv2kqp3b-43adcf"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 18.645,
+        "turbopack": 6.707,
+        "output": "c2910d158727711d",
+        "run": "mv2krsn3-bc5e16"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.456,
+        "turbopack": 10.978,
+        "output": "4146e47b1456fc58",
+        "run": "mv2ksnjg-2ae393"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 21.848,
+        "turbopack": 9.502,
+        "output": "4146e47b1456fc58",
+        "run": "mv2ktt7q-8d5f31"
+      },
+      {
+        "n": 1,
+        "binding": "54-sst-meta-willneed",
+        "mode": "mmap",
+        "wall": 21.643,
+        "turbopack": 9.419,
+        "output": "4146e47b1456fc58",
+        "run": "mv2kuq0c-fb96d0"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 28.062,
+        "turbopack": 7.18,
+        "output": "4146e47b1456fc58",
+        "run": "mv2kvmmi-4351a5"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.051,
+        "turbopack": 12.843,
+        "output": "c2910d158727711d",
+        "run": "mv2kwo5p-7506fb"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 31.27,
+        "turbopack": 11.435,
+        "output": "c2910d158727711d",
+        "run": "mv2kxtid-dfe143"
+      },
+      {
+        "n": 0,
+        "binding": "54-sst-meta-willneed",
+        "mode": "mmap",
+        "wall": 31.249,
+        "turbopack": 11.304,
+        "output": "c2910d158727711d",
+        "run": "mv2kyxhr-986a86"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 18.739,
+        "turbopack": 6.686,
+        "output": "c2910d158727711d",
+        "run": "mv2l01gn-6aa634"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.753,
+        "turbopack": 11.313,
+        "output": "4146e47b1456fc58",
+        "run": "mv2l0vqj-f237a9"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 30.75,
+        "turbopack": 9.45,
+        "output": "4146e47b1456fc58",
+        "run": "mv2l21md-24d212"
+      },
+      {
+        "n": 1,
+        "binding": "54-sst-meta-willneed",
+        "mode": "mmap",
+        "wall": 21.842,
+        "turbopack": 9.357,
+        "output": "4146e47b1456fc58",
+        "run": "mv2l354s-8a8446"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 18.936,
+        "turbopack": 6.869,
+        "output": "4146e47b1456fc58",
+        "run": "mv2l41qj-921f7f"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 35.56,
+        "turbopack": 13.023,
+        "output": "c2910d158727711d",
+        "run": "mv2lwuh3-9991eb"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 31.054,
+        "turbopack": 11.388,
+        "output": "c2910d158727711d",
+        "run": "mv2ly1ul-c94d92"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 16.038,
+        "turbopack": 4.593,
+        "output": "c2910d158727711d",
+        "run": "mv2lz5nz-8aa15b"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 18.446,
+        "turbopack": 6.665,
+        "output": "c2910d158727711d",
+        "run": "mv2lzxsk-575dd5"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.254,
+        "turbopack": 10.915,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m0rul-2762c7"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 21.341,
+        "turbopack": 9.458,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m1xd2-43aca6"
+      },
+      {
+        "n": 1,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 16.938,
+        "turbopack": 4.926,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m2tna-941c85"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 19.238,
+        "turbopack": 7.035,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m3mk2-e4fba2"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.653,
+        "turbopack": 12.931,
+        "output": "c2910d158727711d",
+        "run": "mv2m4h9m-31523d"
+      },
+      {
+        "n": 0,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 31.05,
+        "turbopack": 11.352,
+        "output": "c2910d158727711d",
+        "run": "mv2m5n3e-9108a8"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 22.455,
+        "turbopack": 4.595,
+        "output": "c2910d158727711d",
+        "run": "mv2m6qwu-f9e58f"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 18.738,
+        "turbopack": 6.669,
+        "output": "c2910d158727711d",
+        "run": "mv2m7o28-f940cb"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 33.353,
+        "turbopack": 10.949,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m8icc-57dffd"
+      },
+      {
+        "n": 1,
+        "binding": "53-sst-block-willneed",
+        "mode": "mmap",
+        "wall": 24.746,
+        "turbopack": 9.565,
+        "output": "4146e47b1456fc58",
+        "run": "mv2m9nxk-29ba32"
+      },
+      {
+        "n": 1,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 25.954,
+        "turbopack": 5.286,
+        "output": "4146e47b1456fc58",
+        "run": "mv2mamyq-95d385"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 19.441,
+        "turbopack": 7.035,
+        "output": "4146e47b1456fc58",
+        "run": "mv2mbmy8-527029"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "hot",
+        "wall": 25.345,
+        "turbopack": 4.136,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "hot",
+        "wall": 16.039,
+        "turbopack": 4.092,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "hot",
+        "wall": 16.238,
+        "turbopack": 4.367,
+        "output": "c2910d158727711d"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "hot",
+        "wall": 16.339,
+        "turbopack": 4.356,
+        "output": "c2910d158727711d"
+      }
+    ]
+  },
+  "candidatesD": {
+    "machine": "D",
+    "builds": [
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 34.965,
+        "turbopack": 13.078,
+        "output": "c2910d158727711d",
+        "run": "mv2swo1h-f9c712"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 24.745,
+        "turbopack": 4.703,
+        "output": "c2910d158727711d",
+        "run": "mv2sxvqq-57b917"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.36,
+        "turbopack": 6.764,
+        "output": "c2910d158727711d",
+        "run": "mv2syvmz-894acf"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 34.168,
+        "turbopack": 11.395,
+        "output": "4146e47b1456fc58",
+        "run": "mv2szs7b-8f6c51"
+      },
+      {
+        "n": 1,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 18.342,
+        "turbopack": 5.296,
+        "output": "4146e47b1456fc58",
+        "run": "mv2t107e-4ea326"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.445,
+        "turbopack": 7.137,
+        "output": "4146e47b1456fc58",
+        "run": "mv2t1vbk-2c5965"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 34.761,
+        "turbopack": 13.151,
+        "output": "c2910d158727711d",
+        "run": "mv2t2rrp-0ad1ed"
+      },
+      {
+        "n": 0,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 16.137,
+        "turbopack": 4.692,
+        "output": "c2910d158727711d",
+        "run": "mv2t3zni-9bce23"
+      },
+      {
+        "n": 0,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 20.565,
+        "turbopack": 7.121,
+        "output": "c2910d158727711d",
+        "run": "mv2t4t2f-ac1b60"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "mmap",
+        "wall": 34.257,
+        "turbopack": 11.187,
+        "output": "4146e47b1456fc58",
+        "run": "mv2t5p6e-ebb70d"
+      },
+      {
+        "n": 1,
+        "binding": "55-sst-mmap-normal-advice",
+        "mode": "mmap",
+        "wall": 18.54,
+        "turbopack": 5.344,
+        "output": "4146e47b1456fc58",
+        "run": "mv2t6wxa-8f3e9b"
+      },
+      {
+        "n": 1,
+        "binding": "base",
+        "mode": "pread",
+        "wall": 29.755,
+        "turbopack": 7.27,
+        "output": "4146e47b1456fc58",
+        "run": "mv2t7rlm-b647c3"
+      }
+    ]
+  },
+  "profilesC": {
+    "machine": "C",
+    "what": "no-edit warm build from a cold page cache, frame-pointer bindings; seconds tokio workers spent in uninterruptible sleep in run-turbopack, summed over threads, by kernel wait site",
+    "byBuild": {
+      "53-sst-block-willneed-fp mmap": [
+        {
+          "seconds": 10.7,
+          "switches": 2134,
+          "at": "filemap_fault <- __do_fault"
+        }
+      ],
+      "base-fp pread": [
+        {
+          "seconds": 1,
+          "switches": 218,
+          "at": "down_read <- btrfs_tree_read_lock_nested"
+        },
+        {
+          "seconds": 0.9,
+          "switches": 563,
+          "at": "filemap_update_page <- filemap_get_pages"
+        },
+        {
+          "seconds": 0.8,
+          "switches": 223,
+          "at": "down_read <- open_last_lookups"
+        }
+      ]
+    }
+  },
+  "coldAB": {
+    "machine": "D",
+    "what": "ab.mjs --a base --b 55-sst-mmap-normal-advice --app monolith --reps 6 --metric turbopack: cold builds (fresh output directory, cache on), paired on lanes 0-23 and 24-47",
+    "reps": 6,
+    "ratioTurbopack": 1.0038,
+    "swapRatios": [
+      1.0354,
+      0.9766,
+      1.0004
+    ],
+    "medianTurbopack": {
+      "base": 45.267,
+      "55-sst-mmap-normal-advice": 45.034
+    },
+    "sameOutput": true,
+    "runs": [
+      [
+        "mv2ta7yb-67fad3",
+        "mv2ta7yr-655565"
+      ],
+      [
+        "mv2tcv8e-2dccae",
+        "mv2tcv8x-d44517"
+      ],
+      [
+        "mv2tfhv8-586ae6",
+        "mv2tfhuk-6524c0"
+      ],
+      [
+        "mv2ti3v8-d0d6fa",
+        "mv2ti3un-49ffd7"
+      ],
+      [
+        "mv2tkn98-6b430c",
+        "mv2tkn9s-ca46ac"
+      ],
+      [
+        "mv2tn82v-9e7af2",
+        "mv2tn83h-dc4857"
+      ]
+    ]
+  },
+  "invalid": {
+    "what": "A first run of 54 was against a seed built by base while 54's binding carried a different embedded version (built from a commit on its branch), so its warm builds found no cache and ran cold (about 45 s of run-turbopack). Discarded; 54 was rebuilt on gym/base and measured again (candidatesC)."
+  }
+}

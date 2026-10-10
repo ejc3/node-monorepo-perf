@@ -593,6 +593,23 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     `sweeps.jsonl`), `profile.mjs` (`perf` on-CPU and `sched_switch` on the profiled CPUs,
     phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs` (longest import
     chain).
+  - `drift.mjs`: the persistent build cache against source drift (the second observation
+    of #98043). Edits its own app copy (`--app`, never `monolith`/`quick`; generate one
+    under `$GYM_ROOT/apps` and `pnpm install --ignore-workspace` it), journaled so an
+    interrupted sweep restores the tree. Per binding, the pristine tree is built cold into
+    the fixed distDir `.next-drift` and that directory snapshotted (reflink); then per N in
+    `--points`, N feature modules are edited (`--edit label`: one string literal each;
+    `import`: that plus one new import edge each) and every binding builds **warm** (the
+    snapshot restored), **cold** (fresh distDir, cache on) and **off** (cache off), rotated
+    per point, one build at a time under the CPU locks. Every build sets
+    `TURBO_ENGINE_IGNORE_DIRTY=1`: a patched binding is built from a dirty next.js tree,
+    and Turbopack otherwise writes such a build's cache to a directory it deletes on the
+    next build (no warm build ever). Checks: warm output = cold output per binding, equal
+    outputs across bindings, an edit changes the output, the unchanged tree's warm build
+    skips the module graph, no build logs the cache as disabled. Raw runs in
+    `drift.jsonl`, completed sweeps in `drift-sweeps.jsonl`; `drift.mjs record` writes
+    `bench/turbopack-graph-drift.json` (the latest sweep per edit, or `--sweep a,b`).
+    Write-up: `bench/turbopack-gym/cache-drift.md`.
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
     or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets
@@ -1025,10 +1042,23 @@ run is checked to share one machine boot), the app's shape and tree hash, and th
 (with hashes) inside every binding, which each run's source head and diff hash are checked
 against. The A/B record ran its rows one at a time, A and B concurrently on two lanes of
 one NUMA node; the scaling record ran one build at a time holding every CPU.
-`bench/turbopack-graph-vizdash.json` (the vizdash app, TURBOPACK-GRAPH.md) ran on a shared
-96-core box (`sharedBox: true`; other users' processes ran on it) and is compared only
-within itself. `make gym-canonical` re-measures both; `report.mjs --check` verifies the Turbopack numbers
-in TURBOPACK-GRAPH.md, README.md and SUMMARY.md against them.
+`bench/turbopack-graph-vizdash.json` (the vizdash app, TURBOPACK-GRAPH.md) and
+`bench/turbopack-graph-52.json` (candidate 52's A/Bs, `record.mjs ab --labels`) ran on a
+dedicated 192-core c8g.48xlarge, one A/B at a time on lanes of 24 CPUs, written there with
+`record.mjs ab --host <name> --out <file>`. `bench/turbopack-graph-drift.json` (the
+persistent cache against changed files, base and candidate 55, `drift.mjs record`, run on
+the host) ran on a dedicated 192-core c8gd.48xlarge whose gym root is btrfs on its local
+NVMe disks (`drift.mjs` needs reflink copies). `bench/turbopack-gym/cache-read-probes.json`
+holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
+from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
+record; the same build's time differed between them, so its sets compare only within
+themselves); `cache-drift-probes.json` holds the operation-counter probes.
+bench/turbopack-gym/cache-drift.md explains them.
+Apart from the upstream-readiness heap tie-break A/Bs below, which ran earlier on a shared
+box, nothing measured on a shared box is published: other users' processes there move the
+numbers. `make gym-canonical` re-measures the canonical two; `report.mjs --check` verifies
+the Turbopack numbers in TURBOPACK-GRAPH.md, README.md, SUMMARY.md and
+bench/turbopack-gym/cache-drift.md against the records.
 `bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
 integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core

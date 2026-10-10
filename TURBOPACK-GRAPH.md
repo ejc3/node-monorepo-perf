@@ -153,15 +153,96 @@ Medians over 3 interleaved runs per point.
 `bench/turbopack-gym/vizdash/`): a shared visualization library (charts, KPI cards,
 tables, filters) built on recharts, echarts, visx, d3 modules, TanStack Table, date-fns and
 lodash-es, under 2,069 routes of dashboards across product areas, 16,525 TypeScript files.
-Its record, `bench/turbopack-graph-vizdash.json`, ran on a shared 96-core box (other
-users' processes ran on it), so its rows compare by ratio within the record only.
+Its record, `bench/turbopack-graph-vizdash.json`, ran on a dedicated 192-core c8g.48xlarge
+with nothing else running (one A/B at a time, lanes of 24 CPUs on one NUMA node).
 
-- **15 + 22:** graph phase <!--v:vz.viz-15+22.ratio-->0.555<!--/v-->× (<!--v:vz.viz-15+22.graphA-->12.82s<!--/v--> → <!--v:vz.viz-15+22.graphB-->7.05s<!--/v-->),
-  `run-turbopack` <!--v:vz.viz-15+22.guard-->0.738<!--/v-->×, same output.
+- **15 + 22:** graph phase <!--v:vz.viz-15+22.ratio-->0.475<!--/v-->× (<!--v:vz.viz-15+22.graphA-->15.89s<!--/v--> → <!--v:vz.viz-15+22.graphB-->7.49s<!--/v-->),
+  `run-turbopack` <!--v:vz.viz-15+22.guard-->0.686<!--/v-->×, same output.
 - **41 and 42 on top of 15 + 22** (`bench/turbopack-gym/next-limit.md`): `run-turbopack`
-  <!--v:vz.viz-41+42.guard-->1.000<!--/v-->×. The serial passes they shorten on the monolith are not on this app's
+  <!--v:vz.viz-41+42.guard-->0.993<!--/v-->×. The serial passes they shorten on the monolith are not on this app's
   critical path.
-- **All four:** graph phase <!--v:vz.viz-full.ratio-->0.571<!--/v-->×, `run-turbopack` <!--v:vz.viz-full.guard-->0.742<!--/v-->×.
+- **All four:** graph phase <!--v:vz.viz-full.ratio-->0.447<!--/v-->×, `run-turbopack` <!--v:vz.viz-full.guard-->0.662<!--/v-->×.
+
+## The Persistent Cache Against Changed Files
+
+The second observation in #98043: a build that restores Turbopack's persistent cache from an
+earlier build gets slower as more files change, until it is slower than a cold build.
+`scripts/turbopack-gym/drift.mjs` measures it on a copy of the monolith. It builds the
+unchanged tree once into a fixed output directory and keeps that directory with its cache.
+Then, for N changed feature modules, it builds the edited tree three ways: **warm** (that
+directory and cache restored as a new copy, so none of it is in the page cache, as after a
+CI cache restore), **cold** (a fresh directory; the cache starts empty and is written) and
+**off** (the persistent cache turned off). Each N is restored before the next. Warm and cold
+builds of one tree give the same output; a cache-off build's output differs from theirs, as
+any changed build setting's does, and is the same across reps. An edit changes the output.
+Method, profiles and candidates: [bench/turbopack-gym/cache-drift.md](bench/turbopack-gym/cache-drift.md).
+
+The record, `bench/turbopack-graph-drift.json`, ran on a dedicated 192-core c8gd.48xlarge (24
+CPUs per build, one build at a time, 2 reps; the gym root on btrfs over its local NVMe).
+Wall times (`run-turbopack` in the cache-read table below):
+
+| changed modules | edit | warm, base | warm, 55 | cold, base | off, base |
+|---|---|---|---|---|---|
+| 0 | none | <!--v:dr.main.label.base.0.warm.wall-->31.8s<!--/v--> | <!--v:dr.main.label.55-sst-mmap-normal-advice.0.warm.wall-->17.5s<!--/v--> | <!--v:dr.main.label.base.0.cold.wall-->74.3s<!--/v--> | <!--v:dr.main.label.base.0.off.wall-->66.9s<!--/v--> |
+| 1,000 | a string literal | <!--v:dr.main.label.base.1000.warm.wall-->46.1s<!--/v--> | <!--v:dr.main.label.55-sst-mmap-normal-advice.1000.warm.wall-->44.4s<!--/v--> | <!--v:dr.main.label.base.1000.cold.wall-->73.9s<!--/v--> | <!--v:dr.main.label.base.1000.off.wall-->89.0s<!--/v--> |
+| 1 | a new import | <!--v:dr.main.import.base.1.warm.wall-->58.8s<!--/v--> | <!--v:dr.main.import.55-sst-mmap-normal-advice.1.warm.wall-->53.2s<!--/v--> | <!--v:dr.main.import.base.1.cold.wall-->78.2s<!--/v--> | <!--v:dr.main.import.base.1.off.wall-->68.6s<!--/v--> |
+| 10 | a new import | <!--v:dr.main.import.base.10.warm.wall-->77.7s<!--/v--> | <!--v:dr.main.import.55-sst-mmap-normal-advice.10.warm.wall-->74.2s<!--/v--> | <!--v:dr.main.import.base.10.cold.wall-->74.2s<!--/v--> | <!--v:dr.main.import.base.10.off.wall-->65.9s<!--/v--> |
+| 1,000 | a new import | <!--v:dr.main.import.base.1000.warm.wall-->112.2s<!--/v--> | <!--v:dr.main.import.55-sst-mmap-normal-advice.1000.warm.wall-->106.3s<!--/v--> | <!--v:dr.main.import.base.1000.cold.wall-->72.5s<!--/v--> | <!--v:dr.main.import.base.1000.off.wall-->68.7s<!--/v--> |
+
+- **What the edit changes matters more than how many files.** After a string changes in
+  1,000 modules, base's warm build takes <!--v:dr.main.label.base.1000.warm.over.cold-->0.62<!--/v-->× a cold build's time. One new import adds
+  about 26s to the warm build (`run-turbopack` <!--v:dr.main.import.base.0.warm.turbopack-->13.3s<!--/v--> → <!--v:dr.main.import.base.1.warm.turbopack-->39.6s<!--/v-->); ten make it slower than a cold
+  build. A new edge changes the whole-app module graph, and the analyses over it run again on
+  task state read back from the cache.
+- **55 shortens every warm build** (next paragraph), but with new imports it removes 3 to 6s
+  of a much longer build: at 10 new imports base's warm build takes <!--v:dr.main.import.base.10.warm.wall-->77.7s<!--/v--> and 55's
+  <!--v:dr.main.import.55-sst-mmap-normal-advice.10.warm.wall-->74.2s<!--/v-->, against <!--v:dr.main.import.base.10.cold.wall-->74.2s<!--/v--> cold; 55's warm build passes its cold one from 100 on.
+- Having the cache on costs a cold build's `run-turbopack` time against a cache-off one at
+  every N (writing the cache, and the operation counter below); the `no-fs-cache` A/B above
+  shows the same. One cache-off build at 1,000 changed strings ran 33s longer than its
+  other rep, almost all of it after `run-turbopack` (not explained), which lifts that median.
+
+**A warm start reads its cache one page at a time.** The SST files of the cache are mmapped
+with `MADV_RANDOM`, which turns the kernel's read-ahead off, so each 4 KiB page of a block
+that is not in the page cache is its own read, and the lookups that restore tasks depend on
+each other, so those reads queue. On one instance the unchanged tree's warm build (with `base-fp`, base built with frame
+pointers) spends
+<!--v:cr.pageCache.base-fp.cold.0.turbopack-->38.7s<!--/v--> in `run-turbopack`, and <!--v:cr.pageCache.base-fp.hot.0.turbopack-->4.4s<!--/v--> once the page cache holds the cache files, same output
+(`bench/turbopack-gym/cache-read-probes.json`). Candidate 55 drops that advice (one line),
+so faults get the default read-ahead, as `TURBO_PERSISTENCE_MMAP=0`'s `pread` reads already
+do. Warm builds with the cache not in the page cache, `run-turbopack`, same output:
+
+| instance | change | base | 55 | base, `pread` |
+|---|---|---|---|---|
+| C | none | <!--v:cr.candidatesC.base.mmap.0.turbopack-->13.0s<!--/v--> | <!--v:cr.candidatesC.55-sst-mmap-normal-advice.mmap.0.turbopack-->4.6s<!--/v--> | <!--v:cr.candidatesC.base.pread.0.turbopack-->6.7s<!--/v--> |
+| C | 1 string | <!--v:cr.candidatesC.base.mmap.1.turbopack-->11.0s<!--/v--> | <!--v:cr.candidatesC.55-sst-mmap-normal-advice.mmap.1.turbopack-->5.1s<!--/v--> | <!--v:cr.candidatesC.base.pread.1.turbopack-->7.0s<!--/v--> |
+| D | none | <!--v:cr.candidatesD.base.mmap.0.turbopack-->13.1s<!--/v--> | <!--v:cr.candidatesD.55-sst-mmap-normal-advice.mmap.0.turbopack-->4.7s<!--/v--> | <!--v:cr.candidatesD.base.pread.0.turbopack-->6.9s<!--/v--> |
+| D | 1 string | <!--v:cr.candidatesD.base.mmap.1.turbopack-->11.3s<!--/v--> | <!--v:cr.candidatesD.55-sst-mmap-normal-advice.mmap.1.turbopack-->5.3s<!--/v--> | <!--v:cr.candidatesD.base.pread.1.turbopack-->7.2s<!--/v--> |
+
+On two other instances of the same type (A and B; `base-fp` and base) the same build took <!--v:cr.pageCache.base-fp.cold.0.turbopack-->38.7s<!--/v--> and <!--v:cr.accessMode.base.mmap.0.turbopack-->38.6s<!--/v--> where it took 13s on these; why the instances differ was not measured.
+With the page cache already holding the cache, 55 changes nothing; cold builds do not read
+the cache (A/B of cold builds: `run-turbopack` ×1.004, same output). Candidates 53 (read a
+block's whole range before its first access) and 54 (53 plus the meta files) help less than
+55: a warm start reads most of every SST, and read-ahead also fetches the blocks that follow.
+
+## A Counter Every Operation Writes
+
+In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of
+worker samples in a cold monolith build with base (`cache-drift-probes.json`,
+`operationCounterLeaf`). It is `SnapshotCoordinator::in_progress_operations`, one counter
+that every backend operation increments and decrements while the persistent cache is on, so
+every worker writes one cache line. A probe that skips the count (not correct: only a
+measurement) shows about what removing it saves: `run-turbopack` <!--v:oc.mono-p52.guard-->0.953<!--/v-->×, graph phase
+<!--v:oc.mono-p52.ratio-->0.988<!--/v-->×. Candidate 52 counts operations in per-thread stripes, with the snapshot flags in a
+separate word (bench/turbopack-gym/cache-drift.md); the atomic leaves the profile (0.21% of
+samples). Its A/Bs are cold builds (`bench/turbopack-graph-52.json`, a dedicated 192-core
+c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
+
+- base → 52 on the monolith: `run-turbopack` <!--v:oc.mono-52.guard-->0.962<!--/v-->×, but the graph phase <!--v:oc.mono-52.ratio-->1.057<!--/v-->×, where the
+  probe gives <!--v:oc.mono-p52.ratio-->0.988<!--/v-->×. What costs 52's graph phase is not known yet: no leaf in the profile
+  accounts for it.
+- base → 52 on vizdash: `run-turbopack` <!--v:oc.viz-52.guard-->1.016<!--/v-->×, no gain.
+- 15 + 22 → 15 + 22 + 52 on the monolith: `run-turbopack` <!--v:oc.mono-15+22+52.guard-->0.922<!--/v-->× (<!--v:oc.mono-15+22+52.tpA-->32.47s<!--/v--> → <!--v:oc.mono-15+22+52.tpB-->29.77s<!--/v-->).
 
 ## Open Items
 
@@ -169,6 +250,15 @@ users' processes ran on it), so its rows compare by ratio within the record only
   as sequential loops inside `turbopack-write-entrypoints`. Candidates 41 and 42
   (`bench/turbopack-gym/next-limit.md`) shorten them on the monolith with the same output
   and do not change vizdash's compile.
+- 55 and 52 are not in the canonical run. Candidate 52's graph phase is slower than base's
+  on the monolith while the probe's is not, and 52 does not help vizdash: it is not ready to
+  propose alone.
+- A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
+  or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
+- New imports rerun the whole-app analyses on restored task state; not re-profiled on a
+  dedicated box yet.
+- `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
+  has no restore command of its own.
 - The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a
   Turbopack integration subset, `next dev`), their PR drafts, and the heap tie-break in
   `traverse_edges_fixed_point_with_priority`:
