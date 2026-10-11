@@ -1622,6 +1622,21 @@ run_case "a CHANGES_REQUESTED review with an empty body covers the head" \
 run_case "a review that placed an inline finding but wrote no summary covers the head" \
   "$(wrap11 "[$(rev reviewer COMMENTED 2026-01-02T00:40:00Z deadbeef '' "$INLINE_FINDING")]")" \
   0 "CLEAR"
+# A DISMISSED review is a review withdrawn: GitHub flips its state and leaves the body and
+# the inline comments in place, so a body or comment alone proves nothing. Only a submitted
+# state (APPROVED, CHANGES_REQUESTED, COMMENTED) can cover the head.
+run_case "a DISMISSED review with a non-empty body on the head is not coverage" \
+  "$(wrap5 deadbeef "[$(rev reviewer DISMISSED 2026-01-02T00:50:00Z deadbeef 'Looks fine to me.'),$(rev me COMMENTED 2026-01-02T01:00:00Z deadbeef 'NOT-A-DEFECT: nothing to fix')]")" \
+  1 "UNREVIEWED HEAD"
+run_case "a COMMENTED review with a non-empty body on the head covers it" \
+  "$(wrap5 deadbeef "[$(rev reviewer COMMENTED 2026-01-02T00:50:00Z deadbeef 'Looks fine to me.'),$(rev me COMMENTED 2026-01-02T01:00:00Z deadbeef 'NOT-A-DEFECT: nothing to fix')]")" \
+  0 "CLEAR"
+run_case "a DISMISSED review that placed an inline finding is not coverage" \
+  "$(wrap11 "[$(rev reviewer DISMISSED 2026-01-02T00:40:00Z deadbeef '' "$INLINE_FINDING")]")" \
+  1 "UNREVIEWED HEAD"
+run_case "a PENDING review with a non-empty body on the head is not coverage" \
+  "$(wrap5 deadbeef "[$(rev reviewer PENDING 2026-01-02T00:50:00Z deadbeef 'Looks fine to me.'),$(rev me COMMENTED 2026-01-02T01:00:00Z deadbeef 'NOT-A-DEFECT: nothing to fix')]")" \
+  1 "UNREVIEWED HEAD"
 # A review object this gate cannot read must block, not be waved past as coverage and not
 # be silently dropped from the count.
 run_case "a review on the head with a non-string state exits 2" \
@@ -1930,6 +1945,11 @@ run_env_case "a user account with a listed bot's login is not that bot" \
 run_env_case "an empty reply container from a required bot is not its review" \
   "$REQ" "$(wrapQ "$CODEX_RV,$(rv coderabbitai Bot deadbeef '""' COMMENTED '{"totalCount":1,"nodes":[{"replyTo":{"id":"x"}}]}'),$ANS")" 1 \
   "MISSING HEAD REVIEW  coderabbitai"
+run_env_case "a DISMISSED review with a non-empty body from a required bot is not its review" \
+  "$REQ" "$(wrapQ "$CODEX_RV,$(rv coderabbitai Bot deadbeef '"**Actionable comments posted: 1**"' DISMISSED),$ANS")" 1 \
+  "MISSING HEAD REVIEW  coderabbitai"
+run_env_case "a COMMENTED review with a non-empty body from a required bot is its review" \
+  "$REQ" "$(wrapQ "$CODEX_RV,$(rv coderabbitai Bot deadbeef '"**Actionable comments posted: 1**"' COMMENTED),$ANS")" 0 "CLEAR"
 run_env_case "a required bot's review of an older commit is not a review of the head" \
   "$REQ" "$(wrapQ "$CODEX_RV,$(rv coderabbitai Bot 0ldc0mm1t '"**Actionable comments posted: 1**"'),$ANS")" 1 \
   "MISSING HEAD REVIEW  coderabbitai"

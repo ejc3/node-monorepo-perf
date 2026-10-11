@@ -1409,10 +1409,19 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
   # Emptiness is judged on the object, not on who wrote it. Authorship has decided nothing
   # in this gate since the claimable rule was rewritten, and a human's reply container is
   # as empty as a bot's: #897 carried two of each.
-  covering_jq='def covers:
-      (((.body // "") | type) == "string" and ((.body // "") | test("[^[:space:]]")))
-      or (((.state // "") | type) == "string" and ((.state // "") | IN("APPROVED", "CHANGES_REQUESTED")))
-      or (any(.comments.nodes[]?; has("replyTo") and .replyTo == null));'
+  #
+  # All three signals are gated on the review having been SUBMITTED. GitHub sets a withdrawn
+  # review's state to DISMISSED and leaves its body and inline comments in place, so a
+  # signal read from the object alone counts a review its reviewer (or a maintainer) took
+  # back. PENDING is a draft only its author can see. Neither is a review of the head, so
+  # the state test comes first and no body, state or comment can override it.
+  covering_jq='def submitted:
+      ((.state // "") | type) == "string" and ((.state // "") | IN("APPROVED", "CHANGES_REQUESTED", "COMMENTED"));
+    def covers:
+      submitted and (
+        (((.body // "") | type) == "string" and ((.body // "") | test("[^[:space:]]")))
+        or ((.state // "") | IN("APPROVED", "CHANGES_REQUESTED"))
+        or (any(.comments.nodes[]?; has("replyTo") and .replyTo == null)));'
   headreviews=$(jq -c --arg h "$headoid" --arg me "$prauthor" \
              '[ .[] | select((.commit.oid // "") == $h) | select(.author.login != $me) ]' \
              <<<"$reviews") || {
@@ -1439,7 +1448,7 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
   # An ABSENT connection is a different thing and declines rather than blocking: it is the
   # shape of every fixture captured before this gate read review comments, and no evidence
   # is not evidence of a review.
-  truncated=$(jq -r "$covering_jq"'[ .[] | select(covers | not) | select(has("comments"))
+  truncated=$(jq -r "$covering_jq"'[ .[] | select(submitted) | select(covers | not) | select(has("comments"))
     | select((((.comments.totalCount | type) == "number")
               and (.comments.totalCount == (.comments.nodes | length))) | not) ] | length' \
     <<<"$headreviews") || {
