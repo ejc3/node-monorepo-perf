@@ -19,6 +19,7 @@ import {
   headerBand,
   writeDocBlock,
   logDomain,
+  logScale,
   MIN_BOX_TEXT,
 } from "./_chartstyle.mjs";
 import { auditSvg } from "./_svg-audit.mjs";
@@ -234,6 +235,13 @@ test("log domains derive from the data: every point inside, 1-3 bounds labelled"
     assert.equal(ticks[ticks.length - 1], domain[1], "the ceiling is a labelled tick");
   }
   assert.throws(() => logDomain([0, 10]), /positive/);
+  // a single row on a stop must not collapse the domain (zero span → NaN coordinates)
+  for (const one of [[300], [1000], [300, 300], [746255]]) {
+    const { domain } = logDomain(one);
+    assert.ok(domain[0] < one[0] && one[0] < domain[1], `singleton ${one} → [${domain}]`);
+    const at = logScale(domain[0], domain[1], 0, 100)(one[0]);
+    assert.ok(Number.isFinite(at), `singleton ${one} maps to ${at}`);
+  }
 });
 
 // Every committed chart, in both themes: text at or above the floor (11px inside a

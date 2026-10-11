@@ -602,8 +602,16 @@ export const logDomain = (values) => {
   const lo = Math.min(...vs);
   const hi = Math.max(...vs);
   const stops = logStops(lo, hi);
-  const d0 = Math.max(...stops.filter((s) => s <= lo));
-  const d1 = Math.min(...stops.filter((s) => s >= hi));
+  let d0 = Math.max(...stops.filter((s) => s <= lo));
+  let d1 = Math.min(...stops.filter((s) => s >= hi));
+  // a single value sitting on a stop (one benchmark row at 300 packages) would give a
+  // zero-span domain and NaN coordinates: widen to the neighbouring stops
+  if (d0 === d1) {
+    const wide = logStops(lo / 10, hi * 10);
+    d0 = Math.max(...wide.filter((s) => s < lo));
+    d1 = Math.min(...wide.filter((s) => s > hi));
+    return { domain: [d0, d1], ticks: wide.filter((s) => s >= d0 && s <= d1) };
+  }
   return { domain: [d0, d1], ticks: stops.filter((s) => s >= d0 && s <= d1) };
 };
 export const linScale = (d0, d1, r0, r1) => (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
