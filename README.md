@@ -138,6 +138,86 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8�
 
 > High-resolution PNG of the chart above: [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
 
+<!-- chart-data:tool-comparison -->
+<details>
+<summary>The chart's numbers as tables (fastest in bold)</summary>
+
+**Install the workspace: bun, pnpm 12, yarn 4**
+
+|  | bun | pnpm 12 isolated | pnpm 12 hoisted | yarn 4 node-modules | yarn 4 PnP |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold · 200 apps · 2,649 dep edges | **0.28s** | 0.43s (×1.6) | 0.46s (×1.7) | 3.2s (×11) | 1.7s (×6.0) |
+| Cold · 1,000 apps · 11,898 dep edges | 2.9s (×3.1) | 2.1s (×2.2) | **0.96s** | 4.3s (×4.4) | 2.3s (×2.4) |
+| Cold · 2,000 apps · 23,350 dep edges | 8.6s (×3.4) | 6.8s (×2.7) | **2.5s** | 5.6s (×2.2) | 3.2s (×1.3) |
+| Warm · 200 apps · 2,649 dep edges | 0.27s (×1.1) | **0.25s** | 0.26s (+3%) | 2.8s (×11) | 1.4s (×5.5) |
+| Warm · 1,000 apps · 11,898 dep edges | 2.8s (×4.8) | 2.5s (×4.3) | **0.59s** | 3.9s (×6.7) | 2.1s (×3.6) |
+| Warm · 2,000 apps · 23,350 dep edges | 8.8s (×8.3) | 7.3s (×6.8) | **1.1s** | 5.4s (×5.0) | 2.9s (×2.7) |
+| Cold store + no lockfile · 200 apps | **1.3s** | — (not measured) | 2.2s (×1.7) | 9.2s (×6.9) | 7.8s (×5.8) |
+
+Source: [`bench/install-bench.json`](bench/install-bench.json)
+
+**CI-runner install: frozen, from the committed lockfile (1,000 apps)**
+
+|  | bun | pnpm 12 | yarn 4 node-modules | yarn 4 PnP | npm 10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fresh runner (empty caches, network) | **0.93s** | 1.0s (×1.1) | 6.5s (×7.0) | 4.5s (×4.9) | 10.4s (×11) |
+| Cache restored | **0.42s** | 0.50s (×1.2) | 4.2s (×9.9) | 2.2s (×5.3) | 9.7s (×23) |
+
+Source: [`bench/container-install-bench.json`](bench/container-install-bench.json)
+
+**pnpm 12 (Rust) vs pnpm 10 (JS): 1,000 apps / 200 libs**
+
+|  | pnpm 12 | tip of main | pnpm 10 |
+| --- | ---: | ---: | ---: |
+| cold resolve (no lockfile) | 0.93s (+1%) | **0.92s** | 307s (×336) |
+| warm (lockfile + store) | 0.52s (+0.2%) | **0.52s** | 5.1s (×9.7) |
+| frozen (CI) | **0.49s** | 0.49s (+0.2%) | 4.9s (×10) |
+| truly cold (empty store) | **1.1s** | 1.1s (+0.4%) | 7.0s (×6.5) |
+
+Source: [`bench/pnpm12-bench.json`](bench/pnpm12-bench.json)
+
+**Typecheck: tsgo vs tsc**
+
+|  | tsgo | tsc |
+| --- | ---: | ---: |
+| 3,000-module program | **0.26s** | 3.1s (×12) |
+| type-heavy 4,000:400 (3,200 lib modules) | **1.9s** | 16.9s (×8.8) |
+
+Source: [`bench/typecheck-bench.json`, `bench/typecheck-parity-bench.json`](bench/typecheck-bench.json)
+
+**Production build: Vite vs Next**
+
+|  | Vite | Next |
+| --- | ---: | ---: |
+| 40 apps / 24 libs | **4.7s** | 15.1s (×3.2) |
+
+Source: [`bench/build-bench.json`](bench/build-bench.json)
+
+**pnpm 12 install situations: pnpm 12.8.1, 1,000 apps, 41,227-line lockfile**
+
+|  | pnpm 12 |
+| --- | ---: |
+| frozen install (warm store) | 2.8s (×2.8) |
+| frozen install (cold store) | 2.8s (×2.8) |
+| add one dependency | **1.0s** |
+| catalog bump (shared dep) | 1.3s (×1.3) |
+| cold resolve (no lockfile) | 2.9s (×2.9) |
+
+Source: [`bench/install-modes-bench.json`](bench/install-modes-bench.json)
+
+**Lint: oxlint vs ESLint (800 files)**
+
+|  | oxlint | ESLint |
+| --- | ---: | ---: |
+| syntactic (530 vs 598 rules) | **0.19s** | 9.6s (×51) |
+| syntactic, ESLint --cache | **0.19s** | 1.6s (×8.3) |
+| type-aware | **0.39s** | 3.6s (×9.2) |
+
+Source: [`bench/lint-bench.json`](bench/lint-bench.json)
+
+</details>
+<!-- /chart-data:tool-comparison -->
+
 The chart below uses the same heat-table style for a different question: how tsgo, tsc, and Flow behave as one TypeScript program grows to a million modules (full analysis in [TYPECHECKERS.md](TYPECHECKERS.md)):
 
 ![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)

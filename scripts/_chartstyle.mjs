@@ -11,7 +11,7 @@
 // Also home to assertComparable, the guard every two-record figure calls before
 // it draws the records as one contrast.
 
-import { writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -70,6 +70,8 @@ rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
 rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
 rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
 rect[fill="#e4b9a6"]{fill:#7a4630}
+text[fill="#1a7f45"]{fill:#5cc48c}
+text[fill="#b0382f"]{fill:#f0847b}
 }</style>`;
 
 export const esc = (s) =>
@@ -81,7 +83,7 @@ export const esc = (s) =>
 // transparent SVG with dark text is unreadable on GitHub dark.
 export const svgDoc = (w, h, aria, body) =>
   [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(aria)}" font-family="${FONT}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(aria)}" font-family="${FONT}" style="font-variant-numeric:tabular-nums">`,
     DARK_STYLE,
     `<rect width="${w}" height="${h}" fill="${BG}"/>`,
     ...body,
@@ -150,11 +152,6 @@ export const footer = (w, y, sources, pad = 16) => [
   txt(pad, y, `data: ${sources}`, { size: 10, fill: MUTED }),
 ];
 
-// rounded tinted section frame (heat charts and infographics group each
-// comparison inside one)
-export const sectionFrame = (x, y, w, h, tint = "blue") =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${TINT[tint][0]}" stroke="${TINT[tint][1]}" stroke-width="1.2"/>`;
-
 // --- the heat ramp ---------------------------------------------------------------
 // Anchored at MULTIPLES of the row's fastest and interpolated in log-multiple
 // space, so ×12 is the same color in every chart. Green is deliberately narrow:
@@ -211,95 +208,170 @@ export const nearTiePct = (mult) => {
   return `+${p.toFixed(p < 1 ? 1 : 0)}% vs fastest`;
 };
 
-// the ramp legend band every heat chart shows (extra chart-specific states are
-// appended by the caller)
-export const rampLegendItems = () => [
-  { c: rgbCss(rampRGB(1)), t: "fastest" },
-  { c: rgbCss(rampRGB(2)), t: "×2 slower" },
-  { c: rgbCss(rampRGB(10)), t: "×10" },
-  { c: rgbCss(rampRGB(100)), t: "×100+" },
-  { c: GRID, t: "— not measured" },
-];
-export const legendRow = (x, y, items) => {
-  const parts = [];
-  let lx = x;
-  for (const it of items) {
-    parts.push(`<rect x="${lx}" y="${y - 10}" width="14" height="14" rx="4" fill="${it.c}"/>`);
-    lx += 19;
-    parts.push(txt(lx, y + 1, it.t, { size: 11, fill: MUTED }));
-    lx += approxW(it.t, 11) + 16;
-  }
-  return { parts, endX: lx };
+// --- type scale ----------------------------------------------------------------------
+// One scale for every generator (px in SVG user units). Charts are drawn at a width
+// that GitHub shows at roughly 1:1 on a desktop column (≤ 880), so these are the
+// sizes a reader sees.
+export const TYPE = {
+  title: 17, // chart title
+  lede: 12, // the one line under the title
+  section: 13.5, // section heading in a stacked chart
+  head: 11.5, // column header
+  label: 11.5, // row label / box label
+  value: 13, // a cell's headline number
+  sub: 10.5, // a cell's second line
+  note: 10, // per-section note, legend, axis
 };
 
-// --- heat-table pieces -------------------------------------------------------------
-// One cell: a rounded block (2px surface gap to its neighbors) with centered
-// headline/sub/(detail) lines in the ink picked against its fill.
-export const heatCell = (x, y, w, h, fill, ink, main, sub, detail) => {
+// a positive / negative verdict colour for TEXT (not fills): readable on white and,
+// via the dark block, on GitHub dark
+export const GOOD = "#1a7f45";
+export const BAD = "#b0382f";
+
+// --- heat-table pieces (v2) ----------------------------------------------------------
+// A cell is a quiet tint, not a saturated button: the ramp colour at CELL_ALPHA
+// opacity, so the same fill reads as a pale tint on white and a dark tint on GitHub
+// dark, and the text is always plain ink. The headline is the measured value; the
+// second line is its standing (fastest / +N% / ×N). A 3px stripe at the left edge
+// carries the full-strength ramp colour so the ranking still scans at a glance.
+export const CELL_ALPHA = 0.2;
+// rgba() rather than fill-opacity: ImageMagick's internal SVG renderer (what `convert`
+// uses here and in CI) ignores fill-opacity and opacity but honours an rgba() fill
+export const tintCss = ([r, g, b], a = CELL_ALPHA) => `rgba(${r},${g},${b},${a})`;
+const CELL_GAP = 2;
+export const heatCell = (x, y, w, h, rgb, main, sub, { detail, subFill } = {}) => {
+  const ix = x + CELL_GAP / 2;
+  const iy = y + CELL_GAP / 2;
+  const iw = w - CELL_GAP;
+  const ih = h - CELL_GAP;
   const cx = x + w / 2;
   const cy = y + h / 2;
-  // auto-fit: a long headline shrinks instead of running past the cell edge
-  const mainSize = Math.min(15.5, +((w - 14) / (String(main).length * 0.58)).toFixed(1));
+  const fill = rgbCss(rgb);
+  const mainSize = Math.min(TYPE.value, +((iw - 14) / (String(main).length * 0.6)).toFixed(1));
   const parts = [
-    `<rect x="${x + 1.5}" y="${y + 1.5}" width="${w - 3}" height="${h - 3}" rx="5" fill="${fill}"/>`,
-    txt(cx, cy + (detail ? -7 : -3), main, {
+    `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="3" fill="${tintCss(rgb)}"/>`,
+    `<rect x="${ix}" y="${iy}" width="3" height="${ih}" rx="1.5" fill="${fill}"/>`,
+    txt(cx, cy + (detail ? -6 : sub ? -1 : 4.5), main, {
       size: mainSize,
-      fill: ink,
-      weight: "700",
+      weight: "650",
       anchor: "middle",
     }),
   ];
   if (sub)
     parts.push(
-      txt(cx, cy + (detail ? 8 : 15), sub, {
-        size: 11.5,
-        fill: ink,
-        weight: "600",
+      txt(cx, cy + (detail ? 8 : 13), sub, {
+        size: TYPE.sub,
+        fill: subFill || MUTED,
+        weight: subFill ? "600" : "",
         anchor: "middle",
       }),
     );
   if (detail)
-    parts.push(
-      `<text x="${cx}" y="${cy + 20}" font-size="9.5" fill="${ink}" opacity="0.85" text-anchor="middle">${esc(detail)}</text>`,
-    );
+    parts.push(txt(cx, cy + 20, detail, { size: TYPE.note - 1, fill: MUTED, anchor: "middle" }));
   return parts;
 };
+// a measured cell: value headline + standing sub-line from its multiple of the best
+export const rankedCell = (x, y, w, h, mult, valueText, { detail } = {}) => {
+  if (isFastest(mult))
+    return heatCell(x, y, w, h, rampRGB(1), valueText, "fastest", { detail, subFill: GOOD });
+  if (isNearTie(mult))
+    return heatCell(
+      x,
+      y,
+      w,
+      h,
+      rampRGB(1),
+      valueText,
+      nearTiePct(mult).replace(" vs fastest", ""),
+      {
+        detail,
+      },
+    );
+  return heatCell(x, y, w, h, rampRGB(mult), valueText, fmtMult(mult), { detail });
+};
+// a status cell (crash, wedge, timeout): status words, never a number posing as one
+export const statusCell = (x, y, w, h, main, sub) =>
+  heatCell(x, y, w, h, RAMP[RAMP.length - 1][1], main, sub, { subFill: BAD });
 // "—" cell for an intentionally-unmeasured value (never a failure disguised)
 export const naCell = (x, y, w, h, why) => {
   const cx = x + w / 2;
   const cy = y + h / 2;
   const parts = [
-    `<rect x="${x + 1.5}" y="${y + 1.5}" width="${w - 3}" height="${h - 3}" rx="5" fill="${GRID}"/>`,
-    txt(cx, cy + (why ? -2 : 5), "—", { size: 15, fill: MUTED, anchor: "middle" }),
+    `<rect x="${x + CELL_GAP / 2}" y="${y + CELL_GAP / 2}" width="${w - CELL_GAP}" height="${h - CELL_GAP}" rx="3" fill="none" stroke="${GRID}"/>`,
+    txt(cx, cy + (why ? -1 : 4.5), "—", { size: TYPE.value, fill: MUTED, anchor: "middle" }),
   ];
-  if (why) parts.push(txt(cx, cy + 15, why, { size: 9.5, fill: MUTED, anchor: "middle" }));
+  if (why)
+    parts.push(txt(cx, cy + 13, why, { size: TYPE.note - 0.5, fill: MUTED, anchor: "middle" }));
   return parts;
 };
-// column header on the section frame: centered label lines, optional sub line,
-// and the tool-identity chip (the stable TOOL_COLORS hue) as an underline
+// column header: label lines (bold), optional muted sub line, and the tool's stable
+// hue as a small dot left of the first line (identity without decoration)
 export const colHeader = (x, y, w, h, label, { sub, chip } = {}) => {
   const parts = [];
   const lines = String(label).split("\n");
-  const block = lines.length * 14 + (sub ? 11 : 0); // text block height
-  const ly = y + Math.max(14, (h - 10 - block) / 2 + 11); // centered above the chip strip
-  lines.forEach((ln, k) =>
-    parts.push(txt(x + w / 2, ly + k * 14, ln, { size: 12.5, weight: "700", anchor: "middle" })),
-  );
+  const lh = 13.5;
+  const block = lines.length * lh + (sub ? 12 : 0);
+  const ly = y + h - block + 6; // bottom-aligned on the header band
+  if (chip && !TOOL_COLORS[chip]) throw new Error(`no stable tool color for "${chip}"`);
+  lines.forEach((ln, k) => {
+    parts.push(
+      txt(x + w / 2 + (chip && k === 0 ? 5 : 0), ly + k * lh, ln, {
+        size: TYPE.head,
+        weight: "650",
+        anchor: "middle",
+      }),
+    );
+    if (chip && k === 0)
+      parts.push(
+        `<circle cx="${(x + w / 2 - approxW(ln, TYPE.head, true) / 2 - 2).toFixed(1)}" cy="${ly - 4}" r="3.5" fill="${TOOL_COLORS[chip]}"/>`,
+      );
+  });
   if (sub)
     parts.push(
-      txt(x + w / 2, ly + (lines.length - 1) * 14 + 12, sub, {
-        size: 9,
+      txt(x + w / 2, ly + (lines.length - 1) * lh + 12, sub, {
+        size: TYPE.note - 0.5,
         fill: MUTED,
         anchor: "middle",
       }),
     );
-  if (chip) {
-    if (!TOOL_COLORS[chip]) throw new Error(`no stable tool color for "${chip}"`);
-    parts.push(
-      `<rect x="${x + w / 2 - 14}" y="${y + h - 7}" width="28" height="4" rx="2" fill="${TOOL_COLORS[chip]}"/>`,
-    );
-  }
   return parts;
+};
+// section heading for a stacked chart: title + optional muted lede, then a hairline.
+// Returns the parts and the y where the section body starts.
+export const sectionHead = (x, y, w, title, lede) => {
+  const parts = [txt(x, y, title, { size: TYPE.section, weight: "650" })];
+  let by = y;
+  if (lede) {
+    by += 16;
+    parts.push(txt(x, by, lede, { size: TYPE.note + 0.5, fill: MUTED }));
+  }
+  by += 9;
+  parts.push(`<line x1="${x}" y1="${by}" x2="${x + w}" y2="${by}" stroke="${GRID}"/>`);
+  return { parts, bodyY: by };
+};
+// the ramp key: the four anchors as tinted chips with their stripe, plus extra states
+export const rampLegend = (x, y, extra = []) => {
+  const items = [
+    { rgb: rampRGB(1), t: "fastest" },
+    { rgb: rampRGB(2), t: "×2" },
+    { rgb: rampRGB(10), t: "×10" },
+    { rgb: rampRGB(100), t: "×100+ slower" },
+    ...extra,
+  ];
+  const parts = [];
+  let lx = x;
+  for (const it of items) {
+    if (it.rgb) {
+      parts.push(
+        `<rect x="${lx}" y="${y - 9}" width="20" height="12" rx="2" fill="${tintCss(it.rgb)}"/>`,
+        `<rect x="${lx}" y="${y - 9}" width="3" height="12" rx="1.5" fill="${rgbCss(it.rgb)}"/>`,
+      );
+      lx += 25;
+    }
+    parts.push(txt(lx, y + 1, it.t, { size: TYPE.note, fill: MUTED }));
+    lx += approxW(it.t, TYPE.note) + 14;
+  }
+  return { parts, endX: lx };
 };
 
 // --- text measurement / wrapping --------------------------------------------------
@@ -396,4 +468,44 @@ export function emitChart(name, svg, { strict = false } = {}) {
     return;
   }
   console.log(`wrote ${pngPath} — 300 DPI raster of the SVG`);
+}
+
+// --- the mobile alternative: a generated markdown block in the doc --------------------
+// A chart scaled to a phone is unreadable, and GitHub's mobile views ignore width media
+// queries, so every chart also writes its numbers as markdown into the doc that embeds
+// it, between a pair of markers:
+//
+//   <!-- chart-data:<id> -->
+//   ...generated...
+//   <!-- /chart-data:<id> -->
+//
+// The block is a function of the same bench JSON as the SVG, so charts.yml byte-gates
+// it with the SVGs. A doc without the markers throws: a chart cannot silently lose
+// its text alternative.
+export const mdCell = (s) => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+export const mdTable = (head, rows, align) => {
+  const al = align || head.map((_, i) => (i === 0 ? "l" : "r"));
+  return [
+    `| ${head.map(mdCell).join(" | ")} |`,
+    `| ${al.map((a) => (a === "r" ? "---:" : a === "c" ? ":---:" : "---")).join(" | ")} |`,
+    ...rows.map((r) => `| ${r.map(mdCell).join(" | ")} |`),
+  ].join("\n");
+};
+// <details> wrapper so the block costs one line on desktop and opens on demand
+export const mdDetails = (summary, body) =>
+  `<details>\n<summary>${esc(summary)}</summary>\n\n${body}\n\n</details>`;
+export function writeDocBlock(docPath, id, markdown) {
+  const open = `<!-- chart-data:${id} -->`;
+  const close = `<!-- /chart-data:${id} -->`;
+  const doc = readFileSync(docPath, "utf8");
+  const a = doc.indexOf(open);
+  const b = doc.indexOf(close);
+  if (a < 0 || b < a)
+    throw new Error(
+      `${docPath}: missing the ${open} … ${close} markers for the chart's text alternative`,
+    );
+  if (doc.indexOf(open, a + 1) >= 0) throw new Error(`${docPath}: ${open} appears twice`);
+  const next = doc.slice(0, a + open.length) + "\n" + markdown + "\n" + doc.slice(b);
+  if (next !== doc) writeFileSync(docPath, next);
+  console.log(`wrote ${docPath} (${id} text alternative)`);
 }
