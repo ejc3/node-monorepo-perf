@@ -54,37 +54,61 @@ const darkRules = (svg) => {
   return rules;
 };
 
-// effective paint of `attr` (fill/stroke) on an element in a theme
+// effective paint of `attr` (fill/stroke) on an element in a theme, with its alpha folded
+// from the colour, the element's `<attr>-opacity`, its own `opacity`, and every ancestor
+// group's `opacity`. The dark rules' `<attr>-opacity` replaces the attribute, as in CSS.
 const paint = (el, attr, theme, rules) => {
   const raw = el.a[attr];
   if (!raw) return null;
   let c = parseColor(raw);
+  let op = el.a[`${attr}-opacity`];
   if (theme === "dark") {
     const r = rules.get(`${el.tag}|${attr}|${raw}`);
     if (r && r[attr]) c = parseColor(r[attr]);
-    if (c && r && r[`${attr}-opacity`]) c = { ...c, a: c.a * +r[`${attr}-opacity`] };
+    if (r && r[`${attr}-opacity`]) op = r[`${attr}-opacity`];
   }
-  return c;
+  if (!c) return null;
+  const a = c.a * (op === undefined ? 1 : +op) * (el.opacity ?? 1);
+  return { ...c, a: Math.min(1, Math.max(0, a)) };
 };
+
+const GRID = "#e4e8ec";
+const sameRgb = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.5);
 
 export function auditSvg(svg, { minText, minBoxText }) {
   const W = +/<svg[^>]*width="([\d.]+)"/.exec(svg)[1];
   const els = [];
-  for (const m of svg.matchAll(/<(rect|circle|polyline|line|path)\b([^>]*)\/?>/g))
-    els.push({ tag: m[1], a: attrs(m[2]) });
-  const texts = [...svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g)].map((m) => ({
-    tag: "text",
-    a: attrs(m[1]),
-    s: m[2],
-  }));
+  const texts = [];
+  // walk the tags in order so each mark carries the product of its ancestors' opacity
+  const groups = [];
+  for (const m of svg.matchAll(/<(\/?)(g|rect|circle|polyline|line|path|text)\b([^>]*?)(\/?)>/g)) {
+    const [, closing, tag, body, selfClose] = m;
+    if (tag === "g") {
+      if (closing) groups.pop();
+      else if (!selfClose) {
+        const o = attrs(body).opacity;
+        groups.push(o === undefined ? 1 : +o);
+      }
+      continue;
+    }
+    if (closing || tag === "text") continue;
+    const a = attrs(body);
+    const own = a.opacity === undefined ? 1 : +a.opacity;
+    els.push({ tag, a, opacity: groups.reduce((p, o) => p * o, own) });
+  }
+  for (const m of svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g))
+    texts.push({ tag: "text", a: attrs(m[1]), s: m[2] });
   const rules = darkRules(svg);
   const page = { light: [255, 255, 255], dark: null };
   const bgRect = els.find((e) => e.tag === "rect" && !e.a.x && +e.a.width === W);
   page.dark = (paint(bgRect, "fill", "dark", rules) || { rgb: [255, 255, 255] }).rgb;
+  const geom = (e) => ({ e, x: +e.a.x || 0, y: +e.a.y || 0, w: +e.a.width, h: +e.a.height });
   const rects = els
     .filter((e) => e.tag === "rect" && e !== bgRect && e.a.fill && e.a.fill !== "none")
-    .map((e) => ({ e, x: +e.a.x || 0, y: +e.a.y || 0, w: +e.a.width, h: +e.a.height }))
+    .map(geom)
     .filter((r) => r.w > 3 && r.h > 3);
+  // a text's anchor point (x, mid-height of the glyphs)
+  const anchor = (t) => ({ x: +t.a.x, y: +t.a.y - +(t.a["font-size"] || 16) * 0.35 });
   const out = [];
   for (const t of texts) {
     const x = +t.a.x;
@@ -115,27 +139,57 @@ export function auditSvg(svg, { minText, minBoxText }) {
       if (c < 4.5) out.push(`${theme}: "${t.s}" ${t.a.fill} at ${c.toFixed(2)}:1 (needs 4.5:1)`);
     }
   }
-  // non-text marks: series lines and dots, and solid bars (not boxes, not stripes)
+  // non-text marks, each composited over the page of the theme and held to 3:1: series
+  // lines and dots, gridless rules, and every rect that is not a text-framing box. A rect
+  // frames text only if a rendered text's anchor point lies inside it (heat cells, figure
+  // boxes) or sits beside its label (a legend swatch); one with neither is a bar and its fill
+  // and stroke are marks.
+  // Stripes of 3px or less, GRID hairlines and page-coloured fills (a hollow dot's centre)
+  // are not marks.
+  const anchors = texts.map(anchor);
+  const framesText = (r) =>
+    anchors.some((p) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h);
+  // A labeled swatch (a legend key): a rect of at most 32x20 whose meaning is carried by
+  // the text that starts within 12px to its right with its baseline inside the rect's
+  // vertical extent (+-4px). The information is the adjacent text, not the tint (WCAG 1.4.11).
+  const labelsSwatch = (r) =>
+    r.w <= 32 &&
+    r.h <= 20 &&
+    texts.some((t) => {
+      const gap = +t.a.x - (r.x + r.w);
+      const y = +t.a.y;
+      return (
+        (t.a["text-anchor"] || "start") === "start" &&
+        gap >= 0 &&
+        gap <= 12 &&
+        y >= r.y - 4 &&
+        y <= r.y + r.h + 4
+      );
+    });
+  const check = (e, attr, theme) => {
+    const raw = e.a[attr];
+    if (!raw || raw === "none" || (attr === "stroke" && raw === GRID)) return;
+    const c0 = paint(e, attr, theme, rules);
+    if (!c0 || c0.a === 0)
+      return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
+    if (sameRgb(c0.rgb, page[theme])) return;
+    const c = contrast(over(c0, page[theme]), page[theme]);
+    if (c < 3) {
+      const alpha = c0.a < 1 ? ` (alpha ${+c0.a.toFixed(3)})` : "";
+      out.push(`${theme}: ${e.tag} ${attr} ${raw}${alpha} at ${c.toFixed(2)}:1 (marks need 3:1)`);
+    }
+  };
   for (const e of els) {
     if (e === bgRect) continue;
-    let attr = null;
-    if (e.tag === "circle") attr = e.a.fill && e.a.fill !== "none" ? "fill" : "stroke";
-    else if (e.tag === "polyline") attr = "stroke";
+    const attrsToCheck = [];
+    if (e.tag === "circle") attrsToCheck.push(e.a.fill && e.a.fill !== "none" ? "fill" : "stroke");
+    else if (e.tag === "polyline" || e.tag === "line") attrsToCheck.push("stroke");
     else if (e.tag === "rect") {
-      const solid = parseColor(e.a.fill);
-      const boxy = e.a.stroke && e.a.stroke !== "none";
-      if (!solid || solid.a < 1 || boxy || +e.a.width <= 3 || +e.a.height <= 3) continue;
-      attr = "fill";
+      const r = geom(e);
+      if (r.w <= 3 || r.h <= 3 || framesText(r) || labelsSwatch(r)) continue;
+      attrsToCheck.push("fill", "stroke");
     } else continue;
-    for (const theme of ["light", "dark"]) {
-      const c0 = paint(e, attr, theme, rules);
-      if (!c0 || c0.a < 1) continue;
-      const c = contrast(c0.rgb, page[theme]);
-      // the page-coloured fill (a hollow dot's centre) is not a mark
-      if (c === 1) continue;
-      if (c < 3)
-        out.push(`${theme}: ${e.tag} ${attr} ${e.a[attr]} at ${c.toFixed(2)}:1 (marks need 3:1)`);
-    }
+    for (const attr of attrsToCheck) for (const theme of ["light", "dark"]) check(e, attr, theme);
   }
   return out;
 }

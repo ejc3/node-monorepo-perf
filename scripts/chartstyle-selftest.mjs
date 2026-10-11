@@ -244,6 +244,105 @@ test("log domains derive from the data: every point inside, 1-3 bounds labelled"
   }
 });
 
+// The audit's mark check, on hand-written SVGs: what a reader sees (the colour composited
+// over the theme's page) is what is held to 3:1, and only a rect with text written in it is
+// exempt as a text-framing box.
+const miniSvg = (body) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+  `<rect width="400" height="200" fill="#ffffff"/>${body}</svg>`;
+const auditMini = (body) =>
+  auditSvg(miniSvg(body), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+const text = (x, y, s) => `<text x="${x}" y="${y}" font-size="13" fill="#1c2330">${s}</text>`;
+test("the audit composites translucent marks over the page and holds them to 3:1", () => {
+  // a translucent near-white bar on white
+  assert.ok(
+    auditMini(`<rect x="20" y="20" width="200" height="12" fill="rgba(240,240,240,0.5)"/>`).some(
+      (i) => /rect fill/.test(i),
+    ),
+    "rgba near-white bar passed",
+  );
+  // a pale stroke made paler by stroke-opacity (its opaque colour alone would pass)
+  assert.deepEqual(
+    auditMini(`<polyline points="20,20 200,20" fill="none" stroke="#3a4656"/>`),
+    [],
+    "control: the opaque series colour passes",
+  );
+  for (const mark of [
+    `<polyline points="20,20 200,20" fill="none" stroke="#3a4656" stroke-opacity="0.1"/>`,
+    `<line x1="20" y1="20" x2="200" y2="20" stroke="#aaaaaa" stroke-opacity="0.5"/>`,
+    `<g opacity="0.3"><polyline points="20,20 200,20" fill="none" stroke="#3a4656"/></g>`,
+    `<g opacity="0.5"><g><line x1="20" y1="20" x2="200" y2="20" stroke="#556375"/></g></g>`,
+    `<circle cx="50" cy="50" r="4" fill="#3a4656" opacity="0.15"/>`,
+  ])
+    assert.ok(auditMini(mark).length > 0, `translucent mark passed: ${mark}`);
+  // the group closes: a mark after </g> is full strength again
+  assert.deepEqual(
+    auditMini(
+      `<g opacity="0.3"><text x="10" y="30" font-size="13" fill="#1c2330">t</text></g>` +
+        `<polyline points="20,20 200,20" fill="none" stroke="#3a4656"/>`,
+    ),
+    [],
+  );
+  // exemptions: GRID hairlines, page-coloured fills, stripes of 3px or less
+  assert.deepEqual(
+    auditMini(
+      `<line x1="20" y1="20" x2="200" y2="20" stroke="#e4e8ec"/>` +
+        `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="none"/>` +
+        `<rect x="20" y="60" width="200" height="2" fill="#eeeeee"/>` +
+        `<rect x="20" y="70" width="3" height="40" fill="#eeeeee"/>`,
+    ),
+    [],
+  );
+});
+
+test("the audit exempts a legend swatch only when its label sits beside it", () => {
+  const swatch = `<rect x="20" y="20" width="20" height="12" rx="2" fill="rgba(31,138,77,0.16)"/>`;
+  const label = (x, y) => `<text x="${x}" y="${y}" font-size="13" fill="#1c2330">fastest</text>`;
+  // the legend shape: 20x12 tint, label 5px to its right, baseline inside the rect
+  assert.deepEqual(auditMini(swatch + label(45, 30)), []);
+  // the same rect with its label 40px away is a bare tint
+  assert.ok(auditMini(swatch + label(80, 30)).length > 0, "far label exempted the swatch");
+  // a label on a different line does not label it
+  assert.ok(auditMini(swatch + label(45, 60)).length > 0, "off-line label exempted the swatch");
+  // a larger rect is a bar, label or not
+  assert.ok(
+    auditMini(
+      `<rect x="20" y="20" width="60" height="40" fill="rgba(31,138,77,0.16)"/>${label(85, 40)}`,
+    ).length > 0,
+    "60x40 rect exempted by a label beside it",
+  );
+});
+
+test("the audit exempts a rect only if text is written inside it", () => {
+  // a bordered bar with nothing in it: fill and stroke are both marks
+  const bar = auditMini(
+    `<rect x="20" y="20" width="200" height="20" fill="#dddddd" stroke="#bbbbbb"/>`,
+  );
+  assert.ok(
+    bar.some((i) => /rect fill/.test(i)),
+    "bordered bar fill skipped",
+  );
+  assert.ok(
+    bar.some((i) => /rect stroke/.test(i)),
+    "bordered bar stroke skipped",
+  );
+  // a text beside the bar (anchor outside it) does not frame it
+  assert.ok(
+    auditMini(
+      `<rect x="20" y="20" width="200" height="20" fill="#dddddd" stroke="#bbbbbb"/>${text(230, 34, "label")}`,
+    ).length > 0,
+    "a label next to the bar exempted it",
+  );
+  // a heat cell or figure box: the same rects with text anchored inside are exempt
+  assert.deepEqual(
+    auditMini(
+      `<rect x="20" y="20" width="200" height="30" fill="rgba(31,138,77,0.16)"/>${text(30, 40, "1.2s")}` +
+        `<rect x="20" y="60" width="200" height="30" fill="#dddddd" stroke="#bbbbbb"/>${text(30, 80, "box")}`,
+    ),
+    [],
+  );
+});
+
 // Every committed chart, in both themes: text at or above the floor (11px inside a
 // figure box), every text at 4.5:1 against what is drawn behind it, every mark at 3:1
 // against the page. One matrix over all generators, so a new chart cannot opt out.
