@@ -1,7 +1,7 @@
 # Living with Published Libs: User Stories
 
-User stories for the independently-published model: every lib is published, and apps
-consume only published packages. Mechanics are in
+The independently-published model: every lib is published, and apps consume only published
+packages. Mechanics are in
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md), [ROLLOUT.md](ROLLOUT.md), and
 [FEASIBILITY.md](FEASIBILITY.md). The publish and semver mechanics are measured on small AWS
 CodeArtifact scaffolds; the shared-workspace costs they are contrasted with come from
