@@ -30,10 +30,11 @@ breaking type error from that rev in any of the 4,000 apps before merge, fast.
 lockfile present, and `node_modules` cold (`install.storeWarm: true`): the clone or CI-runner
 case. It is one-time setup; revving a lib needs no reinstall.
 
-Which install case matters depends on the runner: bun leads cold at 200 apps (~1.6×) and on
-the fresh CI-runner frozen install (pnpm 11% behind, 1.03s vs 0.93s at 1,000 apps), while
-pnpm-hoisted is 3.1–3.4× faster than bun cold at 1,000–2,000 apps
-([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)).
+Which install case matters depends on the runner: bun is ~1.6× faster than pnpm cold at 200
+apps, while pnpm-hoisted is 3.1–3.4× faster than bun cold at 1,000–2,000 apps
+([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)). On the fresh CI-runner frozen
+install, pnpm-isolated is 11% behind bun, 1.03s vs 0.93s at 1,000 apps
+([CI-runner install](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
 
 A yarn-PnP variant has a compatibility boundary: stock tsgo and Next's default Turbopack fail
 under PnP while tsc, turbo, and oxlint work, and a native-PnP tsgo build runs the gate through
@@ -59,15 +60,14 @@ A breaking foundation signature turns **every** dependent app red in **1.55s**: 
 + 399 dependent libs).
 
 The same gate holds at the 30,000-app fleet scale: 58.1s clean and 58.9s to all 30,000 apps
-red on 64 cores, 10.3s / 6.2s when sliced across 64 / 192 cores with an identical verdict
-([FLEET.md](FLEET.md)).
+red on 64 cores. Slicing cuts the clean check to 10.3s / 6.2s on 64 / 192 cores; a union
+check verifies an identical breaking verdict ([FLEET.md](FLEET.md)).
 
 ## Parity with tsc on Real Types
 
 A self-contained vet (`bench/typecheck-parity-bench.json`) runs the whole-program shape over a
 throwaway 4,000:400:8 scaffold whose libs carry heavy types (recursive conditional + mapped
-types, 48-member unions, cross-lib intersections) instead of the standard workspace's 16-line
-re-export modules. One tsgo program checks it in **1.92s** at **1279MB** peak RSS; tsc (the
+types, 48-member unions, cross-lib intersections) instead of the standard workspace's 16 modules per lib, re-exported through an index. One tsgo program checks it in **1.92s** at **1279MB** peak RSS; tsc (the
 TypeScript 6 oracle) takes **16.9s** (**8.8×**). On the valid tree both report **0**. With 25
 injected error sites, tsgo flags the same **25 locations**, missing **0** and adding **0**.
 Codes match on 20 of 25: at the arg-type site tsc emits `TS2345` and tsgo `TS2739`.

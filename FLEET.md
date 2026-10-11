@@ -100,8 +100,8 @@ each of the 30,248 packages in the foundation's closure plus the 460 lib builds)
 [High-resolution PNG](bench/charts/fig-blast-radius.png)
 
 **Figure 1.** A foundation lib sits under every app's import graph, so revving it
-invalidates the whole fleet at once; a leaf lib's edit reaches only the packages that
-import it.
+invalidates the whole fleet at once, while a leaf lib's edit reaches only the packages
+that import it.
 
 ![Fleet-scale results: blast radius, the worst case two ways, and whether a bigger machine helps](bench/charts/fleet-gate.svg)
 
@@ -162,8 +162,8 @@ coincide.
 [High-resolution PNG](bench/charts/fig-sliced-gate.png)
 
 **Figure 2.** Partitioning the apps across K concurrent checker programs trades one
-high-RSS, mostly-idle process for K lower-RSS ones; the union check proves the partition
-does not change the verdict.
+high-RSS, mostly-idle process for K concurrent lower-RSS ones, and the union check proves
+the partition changes nothing about the verdict.
 
 ## The Pre-Push Command
 

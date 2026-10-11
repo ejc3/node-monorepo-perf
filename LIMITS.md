@@ -24,7 +24,7 @@ Scoping and caching reduce *execution*. These costs remain because they are inhe
 
 5. **Editor / language server.** Opening one app is O(closure) ([below](#editor-and-language-server)); opening the *whole* workspace as one project at 20k is O(repo): a multi-GB program with slow cross-package IntelliSense. Sub-tree opens, sparse-checkout, and PnP with an editor SDK scope it back to a closure.
 
-6. **git at 20k.** ~130k+ source files. `git status`, `checkout`, and `clone` are O(worktree) and need `fsmonitor`, `sparse-checkout`, and partial clone (a Scalar-style setup).
+6. **git at 20k.** ~126k generated files at 20,000 apps, source and configuration (`bench/results.json`). `git status`, `checkout`, and `clone` are O(worktree) and need `fsmonitor`, `sparse-checkout`, and partial clone (a Scalar-style setup).
 
 7. **Deploy-platform per-project model.** Vercel uses one project per app but caps projects per repo (Pro: 150; [Vercel limits](https://vercel.com/docs/limits)), so 20k apps split across repos or teams, itself a sharding pressure. Vercel's native "skip unaffected projects" does not consume a concurrent build slot; the deprecated `turbo-ignore` Ignored Build Step does. Use `turbo run --affected` plus the native skip.
 
@@ -38,7 +38,7 @@ Every CI runner starts with an empty local cache. Turborepo stores each task's o
 
 [High-resolution PNG](bench/charts/fig-remote-cache.png)
 
-**Figure 1.** The first runner to compute a task uploads its outputs, and every later runner with the same inputs downloads them. An edit changes only the hashes of the tasks downstream of it, so a leaf edit leaves most tasks restorable and a foundation edit none.
+**Figure 1.** A task's outputs are stored under a hash of its inputs, so the first runner to compute a task pays for it and uploads the result, every later runner with the same inputs downloads it instead, and an edit changes only the hashes of the tasks downstream of it — a leaf edit leaves most tasks restorable, a foundation edit none.
 
 <details><summary>Figure 1 fields</summary>
 

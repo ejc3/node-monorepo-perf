@@ -108,7 +108,7 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M. At 1M Flo
 
 [High-resolution PNG](bench/charts/fig-save-loop.png)
 
-**Figure 1.** The four mechanics differ in what they redo after an edit. The CLI relaunches and re-reads its saved incremental state; `--watch` stays resident but rebuilds the program; the LSP recomputes diagnostics for the open file only; Flow's server keeps the checked program resident and rechecks incrementally.
+**Figure 1.** The four mechanics differ in what they redo after an edit: the CLI relaunches and re-reads its saved incremental state, `--watch` stays resident but rebuilds the program, the LSP recomputes diagnostics for the open file only, and Flow's server keeps the checked program resident and rechecks incrementally.
 
 <details><summary>Figure 1 fields</summary>
 
@@ -126,7 +126,7 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M. At 1M Flo
 
 [High-resolution PNG](bench/charts/fig-freshness-gate.png)
 
-**Figure 2.** Relay's output is byte-stable on every timed no-change rerun, so codegen over an up-to-date tree leaves `git status --porcelain` over `__generated__` empty. Any listed path, changed or new and untracked (which a plain diff would miss), means a query and its committed artifact have drifted.
+**Figure 2.** Relay's output is byte-stable on every timed no-change rerun, so a codegen run over an up-to-date tree leaves `git status --porcelain` over `__generated__` with nothing to list, and any listed path — changed, or new and untracked, which a plain diff would miss — means a query and its committed artifact have drifted.
 
 <details><summary>Figure 2 fields</summary>
 

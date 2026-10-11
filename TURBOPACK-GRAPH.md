@@ -197,7 +197,7 @@ Wall times (`run-turbopack` in the cache-read table below):
   <!--v:dr.main.import.55-sst-mmap-normal-advice.10.warm.wall-->74.2s<!--/v-->, against <!--v:dr.main.import.base.10.cold.wall-->74.2s<!--/v--> cold; 55's warm build exceeds its cold build at the measured 100 and 1,000 new imports.
 - With the cache on, a cold build's `run-turbopack` takes longer than a cache-off build's at
   every N (writing the cache, and the operation counter below); the `no-fs-cache` A/B above
-  shows the same. One cache-off build at 1,000 changed strings ran 33s longer than its other
+  shows the same. One cache-off build at 1,000 changed strings ran 37s longer than its other
   rep, almost all of it after `run-turbopack` and unexplained; it lifts that median.
 
 **A warm start reads its cache one page at a time.** The cache's SST files are mmapped with
