@@ -205,4 +205,16 @@ test("checker-scale never turns a missing field into a plausible '—' (source-l
   assert.ok(/v == null\)\s*throw new Error/.test(src), "a bare null cell throws");
 });
 
+test("tool-comparison's stated denominator names its column-compared section (README block)", () => {
+  // the install-situations section compares down its column; a lede that says every
+  // multiple is against "the row's fastest" makes its one-cell rows all read as fastest
+  const src = readFileSync(new URL("./comparison-chart.mjs", import.meta.url), "utf8");
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const block = readme.split("<!-- chart-data:tool-comparison -->")[1].split("<!-- /chart-data")[0];
+  const lede = block.split("\n").find((l) => l.startsWith("Each cell:"));
+  assert.ok(lede, "the tool-comparison block opens with its 'Each cell:' context line");
+  if (/compareAxis: "col"/.test(src))
+    assert.ok(/column/.test(lede), `lede does not mention the column comparison: ${lede}`);
+});
+
 console.log(`1..${n}`);

@@ -142,7 +142,7 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8â
 <details>
 <summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
 
-Each cell: the measured time, then its multiple of the row's fastest. 64-core host (lint: 192-core).
+Each cell: the measured time, then its multiple of the fastest in its row (in pnpm 12 install situations: the cheapest in its column). 64-core host (lint: 192-core).
 
 **Install the workspace: bun, pnpm 12, yarn 4**
 

@@ -389,9 +389,21 @@ const cellOf = (sec, ri, ci) => {
   const detail = raw && typeof raw === "object" ? raw.detail : undefined;
   return { kind: "ranked", text: fmtS(v), mult: cellMult(sec, ri, ci), detail };
 };
+// The cell standing's denominator, stated from the sections' own comparison axes: a
+// column-compared section (install situations) measures each cell against the cheapest
+// cell in its column, not its row, and the lede must say so for every such section.
+const colSections = SECTIONS.filter((sec) => sec.compareAxis === "col");
+if (SECTIONS.some((sec) => !["row", "col"].includes(sec.compareAxis)))
+  throw new Error("comparison-chart: every section needs compareAxis row or col");
+const STANDING = colSections.length
+  ? `its multiple of the fastest in its row (in ${colSections.map((sec) => sec.title.split(":")[0]).join(", ")}: the cheapest in its column)`
+  : "its multiple of the row's fastest";
+for (const sec of colSections)
+  if (!STANDING.includes(sec.title.split(":")[0]))
+    throw new Error(`comparison-chart: the lede does not name column-compared "${sec.title}"`);
 const { svg, md } = heatChart({
   title: "Tooling head-to-head: wall time",
-  lede: `Each cell: the measured time, then its multiple of the row's fastest. ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core).`,
+  lede: `Each cell: the measured time, then ${STANDING}. ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core).`,
   sections: SECTIONS.map((sec) => ({
     title: sec.title,
     cols: sec.cols,
@@ -403,7 +415,7 @@ const { svg, md } = heatChart({
     source: sec.source,
     note: sec.note,
   })),
-  aria: "Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); each cell shows its measured time and its multiple of the row's fastest.",
+  aria: `Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); each cell shows its measured time and ${STANDING}.`,
 });
 emitChart("tool-comparison", svg);
 writeDocBlock(
