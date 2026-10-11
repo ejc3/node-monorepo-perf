@@ -4,36 +4,34 @@
 # Usage: post-status.sh <sha> <success|failure|error|pending> <description>
 # Environment: GITHUB_REPOSITORY (owner/name), STATUS_CONTEXT (default review-gate),
 # RUN_URL (target_url of the status), GITHUB_SERVER_URL (default https://github.com),
-# STATUS_QUOTA_GUARD (default 900), EVAL_STARTED (when the evaluation behind a verdict
-# began, ISO 8601 UTC), GITHUB_RUN_ID (this run).
+# STATUS_QUOTA_GUARD (default 900), GITHUB_RUN_ID (this run), and for a success:
+# EVAL_STARTED (when the evaluation began reading the PRs, ISO 8601 UTC) and PRS (the
+# space-separated numbers of the open PRs whose head is <sha>).
 #
-# Every status review-gate.yml posts goes through this script, for three reasons.
+# Every status review-gate.yml posts goes through this script. The rule it enforces:
 #
-# GitHub accepts at most 1000 statuses per commit and context and refuses the rest, leaving
-# the last one standing. Anyone can fire the events that re-run the gate (a PR comment is
-# enough), so a gate that posted on every run could be driven to the cap with a `success`
-# on top, after which no finding could turn it red. So a status is posted only when its
-# state or description differs from the current one, and once the context holds
-# STATUS_QUOTA_GUARD statuses on the commit a `success` is posted as `error` instead: near
-# the cap the last word must be one that blocks. A refused POST fails the caller loudly.
+#   A success is posted only when, read right before the POST, nothing has changed since
+#   the evaluation's snapshot. Anything else posts a blocking state; it never skips.
 #
-# `pending` invalidates a success when an event arrives: it is posted only over a current
-# `success` (a blocking status needs no invalidation), so it costs a status only when the
-# head was mergeable. A `success` is not posted when any review-gate run other than this one
-# and other than the sweep was created after EVAL_STARTED: that run belongs to an event this
-# evaluation did not see (a new finding, or a resolve that failed), and its own evaluation,
-# or the next sweep, posts the verdict. If the current status is a success, `pending` is
-# posted in its place. A run for another PR also defers this success; the next sweep, which
-# defers to no other sweep, posts it.
+# For a success that means: the statuses on the commit can be read; no review-gate status
+# other than a success was posted after EVAL_STARTED (another run's error or pending); no
+# review-gate run other than this one and the sweep was created after EVAL_STARTED; and for
+# each PR in PRS the PR can be read, its head is still <sha>, and no activity on it (the PR's
+# own updatedAt, any comment, review, or review-thread comment created, updated or edited)
+# is newer than EVAL_STARTED. A read that fails posts `error`; a newer signal posts
+# `pending`, and the run that answers that signal (or the next sweep) posts the verdict.
 #
-# A blocking status (failure, error, pending) is always safe to post, so it is posted even
-# when the status list cannot be read. A success that cannot be checked is not posted.
+# Quota: GitHub accepts at most 1000 statuses per commit and context and refuses the rest,
+# leaving the last one standing, and anyone can fire the events that re-run the gate. So a
+# state is posted only when it or its description differs from the current one, `pending`
+# only over a current `success` (a blocking status needs no invalidation), and once the
+# context holds STATUS_QUOTA_GUARD statuses a `success` is posted as `error`. A refused
+# POST fails the caller loudly.
 #
 # A `success` this workflow did not post (another account, another integration, or another
-# workflow run's URL) is not the gate's verdict. When the current status is such a success,
-# the real verdict is posted even if it is the same state, so the latest status on the
-# commit is the gate's own. This does not stop someone holding push access or the owner's
-# token: they can post again, or edit the ruleset (AGENTS.md, "Merge Gate").
+# workflow run) is not the gate's verdict; when the current status is one, the gate's
+# verdict is posted over it even if it is the same state. This does not stop someone who
+# holds push access or the owner's token (AGENTS.md, "Merge Gate").
 set -euo pipefail
 
 sha=${1:?usage: post-status.sh <sha> <state> <description>}
@@ -56,21 +54,29 @@ esac
 list_ok=1
 all=$(gh api --paginate "repos/$repo/commits/$sha/statuses?per_page=100" \
   --jq ".[] | select(.context == \"$ctx\")
-        | [.state, (.description // \"\"), (.creator.login // \"\"), (.target_url // \"\")]
+        | [.state, (.description // \"\"), (.creator.login // \"\"), (.target_url // \"\"), (.created_at // \"\")]
         | map(gsub(\"[\\u001f\\n]\"; \" \")) | join(\"\\u001f\")") || list_ok=0
 if [ "$list_ok" = 0 ]; then
+  # Nothing about the current status is known, so nothing is skipped: a success becomes an
+  # error, and any blocking state is posted as asked.
   if [ "$state" = success ]; then
-    echo "::error::could not read the $ctx statuses on ${sha:0:9}; a success that cannot be checked is not posted"
+    state=error
+    desc="Could not read the statuses to verify a success; see the run"
+  fi
+  echo "::warning::could not read the $ctx statuses on ${sha:0:9}; posting $state without comparing"
+  if ! gh api -X POST "repos/$repo/statuses/$sha" \
+    -f state="$state" -f context="$ctx" -f target_url="${RUN_URL:-}" -f description="${desc:0:140}" >/dev/null; then
+    echo "::error::GitHub refused the $ctx=$state status on ${sha:0:9}; the status on that commit is stale"
     exit 1
   fi
-  echo "::warning::could not read the $ctx statuses on ${sha:0:9}; posting the blocking $state anyway"
-  all=""
+  echo "posted $ctx=$state on ${sha:0:9}: ${desc:0:140}"
+  exit 0
 fi
 current=$(sed -n 1p <<<"$all")
 count=$(grep -c . <<<"$all" || true)
 # A non-whitespace separator: with a tab, read would merge empty fields.
 cur_state="" cur_desc="" cur_creator="" cur_url=""
-[ -z "$current" ] || IFS=$'\x1f' read -r cur_state cur_desc cur_creator cur_url <<<"$current"
+[ -z "$current" ] || IFS=$'\x1f' read -r cur_state cur_desc cur_creator cur_url _ <<<"$current"
 
 forged=0
 if [ "${cur_state:-}" = success ]; then
@@ -101,33 +107,78 @@ if [ "$state" = pending ] && [ "${cur_state:-}" != success ]; then
   echo "$ctx on ${sha:0:9} is ${cur_state:-unset}, which already blocks; no pending posted"
   exit 0
 fi
-if [ "$state" = success ] && [ -n "${EVAL_STARTED:-}" ]; then
-  # Runs of this workflow created after the evaluation began, other than this run and the
-  # sweep. A list that cannot be read counts as a newer run: the success waits.
-  newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
-    --jq "[.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
-                                     and .created_at >= \"$EVAL_STARTED\")] | length" || echo unreadable)
-  if [ "$newer" != 0 ]; then
-    echo "$ctx on ${sha:0:9}: $newer newer review-gate run(s) since $EVAL_STARTED; not posting this success"
-    if [ "${cur_state:-}" != success ]; then exit 0; fi
-    state=pending
-    desc="Re-evaluating after a newer event"
+
+# The success rule. Each check either passes or turns the success into a blocking state.
+block() { state=$1; desc=$2; echo "$ctx on ${sha:0:9}: not posting success: $desc"; }
+if [ "$state" = success ]; then
+  if [[ ! ${EVAL_STARTED:-} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
+     || [ -z "${PRS:-}" ] || [ -z "${PRS// /}" ]; then
+    block error "No evaluation snapshot (EVAL_STARTED, PRS) to verify a success against"
   fi
 fi
+if [ "$state" = success ]; then
+  # Another run's blocking status posted after this evaluation began.
+  newer_block=$(awk -F "$(printf '\037')" -v t="$EVAL_STARTED" '$5 > t && $1 != "success"' <<<"$all" | grep -c . || true)
+  if [ "$newer_block" -gt 0 ]; then
+    block pending "A blocking status was posted after this evaluation began"
+  fi
+fi
+if [ "$state" = success ]; then
+  # Runs of this workflow created after the evaluation began, other than this run and the
+  # sweep. A list that cannot be read is a failed read.
+  if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
+      --jq "[.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
+                                       and .created_at >= \"$EVAL_STARTED\")] | length"); then
+    block error "Could not read the review-gate runs to verify a success; see the run"
+  elif [ "$newer" != 0 ]; then
+    block pending "Re-evaluating after a newer event"
+  fi
+fi
+if [ "$state" = success ]; then
+  # The PRs themselves: head unchanged, nothing newer than the snapshot.
+  for pr in ${PRS:-}; do
+    [[ $pr =~ ^[0-9]+$ ]] || { block error "Not a PR number: ${pr:0:20}"; break; }
+    if ! act=$(gh api graphql -F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}" -f query='
+        query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
+          pullRequest(number: $n) { headRefOid updatedAt
+            comments(last: 100) { nodes { createdAt updatedAt lastEditedAt } }
+            reviews(last: 100) { nodes { submittedAt updatedAt lastEditedAt } }
+            reviewThreads(last: 100) { nodes { comments(last: 1) { nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
+        --jq '.data.repository.pullRequest
+              | if . == null then "unreadable"
+                else .headRefOid + " "
+                     + ([.updatedAt, (.comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt),
+                         (.reviews.nodes[] | .submittedAt, .updatedAt, .lastEditedAt),
+                         (.reviewThreads.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt)]
+                        | map(select(. != null)) | max // "none") end') || [ "$act" = unreadable ]; then
+      block error "Could not read PR #$pr to verify a success; see the run"
+      break
+    fi
+    read -r act_head act_last <<<"$act"
+    if [ "$act_head" != "$sha" ]; then
+      block pending "PR #$pr moved off this commit"
+      break
+    fi
+    if [[ $act_last > $EVAL_STARTED ]]; then
+      block pending "Re-evaluating: PR #$pr has activity after the snapshot"
+      break
+    fi
+  done
+fi
+desc=${desc:0:140}
+
 if [ "$forged" = 0 ] && [ "${cur_state:-}" = "$state" ] && [ "${cur_desc:-}" = "$desc" ]; then
   echo "$ctx on ${sha:0:9} is already $state: $desc"
   exit 0
 fi
 
-if [ "$state" = success ]; then
-  if [ "$count" -ge "$guard" ]; then
-    state=error
-    desc="This commit has $count $ctx statuses, near GitHub's cap of 1000; push a new commit"
-    desc=${desc:0:140}
-    if [ "$forged" = 0 ] && [ "${cur_state:-}" = "$state" ] && [ "${cur_desc:-}" = "$desc" ]; then
-      echo "$ctx on ${sha:0:9} is already $state: $desc"
-      exit 0
-    fi
+if [ "$state" = success ] && [ "$count" -ge "$guard" ]; then
+  state=error
+  desc="This commit has $count $ctx statuses, near GitHub's cap of 1000; push a new commit"
+  desc=${desc:0:140}
+  if [ "$forged" = 0 ] && [ "${cur_state:-}" = "$state" ] && [ "${cur_desc:-}" = "$desc" ]; then
+    echo "$ctx on ${sha:0:9} is already $state: $desc"
+    exit 0
   fi
 fi
 

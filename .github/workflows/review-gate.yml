@@ -50,10 +50,14 @@ name: review-gate
 # branch opened against two bases is two PRs on one commit). Jobs are serialized per sha
 # (concurrency group per sha, queued, never cancelled mid-run), so an older evaluation
 # cannot overwrite a newer verdict on the same commit. Every status goes through
-# post-status.sh, which posts only a state or description that differs from the current
-# one, because GitHub refuses statuses past 1000 per commit and context and anyone can fire
-# the events that re-run the gate; near that cap it posts `error` where it would post
-# `success`, so the cap can only leave a head blocked. An event posts `pending` before its
+# post-status.sh. It posts a `success` only when, read right before the POST, nothing has
+# changed since the evaluation began (statuses, newer runs, each PR's head and activity);
+# a failed read posts `error` and a newer signal `pending`. It posts only a state or
+# description that differs from the current one, because GitHub refuses statuses past 1000
+# per commit and context and anyone can fire the events that re-run the gate; near that cap
+# it posts `error` where it would post `success`, so the cap can only leave a head blocked.
+# The merge path is `make merge-pr`, which gates the exact head synchronously; this status
+# is defense in depth for a merge from the web UI. An event posts `pending` before its
 # evaluation queues, and only over a `success`; an evaluation does not post `success` while
 # a review-gate run created after it began exists (that run, or the next sweep, posts it). A run that ends without a verdict posts `error`
 # for each head it answered for. The gate is told which
@@ -178,10 +182,11 @@ jobs:
         env:
           SHAS: ${{ steps.heads.outputs.shas }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
+          # A refused pending fails this step, and the failure step below marks the heads
+          # error: a success that could not be invalidated must not stand.
           for sha in $(jq -r '.[]' <<<"$SHAS"); do
-            bash .claude/skills/pr-review-gate/post-status.sh "$sha" pending "Re-evaluating after a new event" \
-              || echo "::warning::could not post pending on ${sha:0:9}"
+            bash .claude/skills/pr-review-gate/post-status.sh "$sha" pending "Re-evaluating after a new event"
           done
 
       - name: Mark the heads this run could not resolve as error
@@ -196,9 +201,13 @@ jobs:
             workflow_run)
               heads=$(jq -r '.[]?.head.sha // empty' <<<"${RUN_PRS:-[]}" || true)
               heads+=$'\n'$RUN_HEAD_SHA ;;
-            workflow_dispatch)
+            workflow_dispatch | schedule)
               if [ -n "${INPUT_PR:-}" ]; then
                 heads=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$INPUT_PR" --jq '.head.sha' || true)
+              else
+                # A sweep answers for every open PR, so it marks every open head.
+                heads=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+                          --jq '.[].head.sha' || true)
               fi ;;
           esac
           heads=$(grep -x -E '[0-9a-f]{40}' <<<"$heads" | sort -u || true)
@@ -321,6 +330,7 @@ jobs:
         env:
           RC: ${{ steps.gate.outputs.rc }}
           EVAL_STARTED: ${{ steps.head.outputs.started }}
+          PRS: ${{ steps.head.outputs.prs }}
         run: |
           set -uo pipefail
           blocked=$(grep -m1 '^verdict: BLOCKED' gate.log 2>/dev/null | sed 's/^verdict: //' || true)

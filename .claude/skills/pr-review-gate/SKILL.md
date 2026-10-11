@@ -12,9 +12,13 @@ A PR merges into `main` only when the commit status `review-gate` on its head is
 `check-review-threads.sh` in this directory. Run the same check locally:
 
 ```bash
+make merge-pr PR=<n>           # gate the exact head, then squash-merge that head only
 make review-gate PR=<n>        # what CI runs, with the required reviewers
 make test-review-gate          # the gate's own harness
 ```
+
+Merge with `make merge-pr`: it is the final authority (it merges only the commit it
+gated, `--match-head-commit`); the status is defense in depth for UI merges.
 
 Exit codes: `0` CLEAR, `1` BLOCKED, `2` the gate could not evaluate (missing `jq`/`gh`,
 unreadable payload, the PR moved while it was read). Treat `2` as blocked.
@@ -94,9 +98,11 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
 - `test-check-review-threads.sh`: one case per hole the gate has had, plus the fixture
   cases and the cases for this copy's knobs.
 - `gate-discard-sites.sh`: pins every place the classifier discards body text.
-- `post-status.sh`: the only way review-gate.yml posts the status: a change only;
-  `pending` only over a `success`; `error` instead of `success` near GitHub's 1000-status
-  cap; no `success` while a newer review-gate run exists; a success this workflow did not
-  post replaced by the real verdict.
+- `post-status.sh`: the only way review-gate.yml posts the status. A `success` only
+  against an unchanged snapshot (statuses, newer runs, PR head and activity read right
+  before the POST); a failed read posts `error`, a newer signal `pending`. Otherwise a
+  change only; `pending` only over a `success`; `error` instead of `success` near GitHub's
+  1000-status cap; a success this workflow did not post replaced by the real verdict.
+- `merge-pr.sh`: `make merge-pr PR=<n>`, the merge path.
 - `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, six of
   them captured from this repository's PRs #46 and #63 to #67.

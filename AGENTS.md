@@ -1446,24 +1446,36 @@ CodeRabbit does not review this repository automatically: its summary comment sa
 repository has fewer than 10 stars and offers a "Trigger review" checkbox. The comment
 command or the checkbox starts a review.
 
-Run the gate locally before calling a PR ready, and the harness after changing the gate:
+Merge through the gate, not around it:
 
 ```bash
-make review-gate PR=<n>     # what the status runs, with the same required reviewers
+make merge-pr PR=<n>        # gate the exact head, then squash-merge that head only
+make review-gate PR=<n>     # the gate alone, with the same required reviewers
 make test-review-gate       # the gate's harness; CI runs it (review-gate-tests.yml)
 ```
+
+`make merge-pr` is the merge path and the final authority: it reads the PR head, runs the
+gate for that commit (`EXPECT_HEAD`) with the required reviewers, and only on CLEAR runs
+`gh pr merge <n> --squash --match-head-commit <sha>`, which GitHub refuses if the branch
+moved. The `review-gate` status is defense in depth for a merge from the web UI. What it
+cannot see is activity in the seconds between the gate reading the PR and the merge call;
+run it immediately before merging, never on an earlier verdict.
 
 The status is re-evaluated on PR open, push, reopen, ready-for-review and edit
 (`pull_request_target`); on every PR comment (`issue_comment`); on every review and inline
 comment (relayed by `review-gate-events.yml` through `workflow_run`); and every 10 minutes
 for every open PR. Resolving or unresolving a thread triggers no workflow; the sweep picks
 it up, or `gh workflow run review-gate -f pr=<n>` does at once. Every path runs the gate
-from `main`, never from the PR, and posts through `post-status.sh`, which posts only a
-changed status (GitHub caps a commit at 1000 statuses per context, and anyone can fire the
-events that re-run the gate) and posts `error` instead of `success` near that cap, so the
-cap can only leave a head blocked. An event turns a `success` to `pending` before its
-evaluation queues, and an evaluation does not post `success` when a newer review-gate run
-exists (that run, or the next sweep, posts it).
+from `main`, never from the PR, and posts through `post-status.sh`. A `success` is posted
+only when, read right before the POST, nothing changed since the evaluation began: the
+statuses read cleanly, no other run posted a blocking status since, no newer review-gate
+run exists, and each PR is still on that commit with no comment, review or thread
+activity newer than the snapshot. A failed read posts `error` and a newer signal posts
+`pending`; nothing is skipped. Statuses are posted only on change (GitHub caps a commit at
+1000 per context, and anyone can fire the events that re-run the gate), `error` replaces
+`success` near that cap, and an event turns a `success` to `pending` before its
+evaluation queues. A run that cannot evaluate the heads it answers for (a sweep included)
+marks them `error`.
 
 Threat model: the gate stops an accidental or careless merge. It is not a boundary against
 someone holding push access or the owner's token, who can add a workflow on a branch that

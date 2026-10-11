@@ -303,7 +303,7 @@ fetch_payload() {
             commits(last: 1) { nodes { commit { committedDate checkSuites(first: 10) { nodes { createdAt } } } } }
             reviews(first: $REVIEWS_PAGE_SIZE$rafter) {
               pageInfo { hasNextPage endCursor }
-              nodes { author { login __typename } state body submittedAt commit { oid }
+              nodes { author { login __typename } state body submittedAt lastEditedAt commit { oid }
                     comments(first: $REVIEWS_PAGE_SIZE) { totalCount nodes { replyTo { id } } } }
             } } } }" 2>/dev/null) || return 1
     require_page "$rresp" data.repository.pullRequest.reviews "the reviews" "$pr" || return 2
@@ -406,7 +406,7 @@ fetch_payload() {
           pullRequest(number: $pr) {
             reviews(first: $REVIEWS_PAGE_SIZE$rv2after) {
               pageInfo { hasNextPage endCursor }
-              nodes { author { login __typename } state body submittedAt commit { oid }
+              nodes { author { login __typename } state body submittedAt lastEditedAt commit { oid }
                     comments(first: $REVIEWS_PAGE_SIZE) { totalCount nodes { replyTo { id } } } }
             } } } }" 2>/dev/null) || return 1
     require_page "$rv2resp" data.repository.pullRequest.reviews "the second read of the reviews" "$pr" || return 2
@@ -943,7 +943,7 @@ def is_cr_reply_notice:
     # node-monorepo-perf addition: the acknowledgement of a review command that started a
     # review. It names no commit and reports no result, so it is a notice, never coverage.
     or (($l | length) == 4 and $l[0] == "<details>"
-        and ($l[1] | test("^<summary>✅ Actions? performed</summary>$"))
+        and ($l[1] | test("^<summary>(✅ )?Actions? performed</summary>$"))
         and ($l[2] | test("^(Full review|Review) triggered\\.$")) and $l[3] == "</details>");
 def cr_notice_start_re: "^<!-- This is an auto-generated comment: (?<k>rate limited|skip review|review paused) by coderabbit\\.ai -->$";
 def cr_notice_heading_re: "^## (Review limit reached|Review skipped|Reviews paused)$";
@@ -1046,13 +1046,13 @@ def is_codex_review_container:
 # Content. Regions that report a result are exempt only when the result is clean, wherever
 # they sit, nested ones included: the recent-review block posts no actionable comments, the
 # pre-merge checks report no failed check or warning, and the merge risk is Minimal or Low.
-# Every such region must close as often as it opens, and nowhere in the comment may
-# "Review failed" or a CAUTION alert appear. Text inside the other regions (the walkthrough prose, tips, the
+# Regions are matched with a stack, so a region of one name nested in another of the same
+# name keeps the comment a claim, and nowhere in the comment may "Review failed" or a
+# CAUTION alert appear. Text inside the other regions (the walkthrough prose, tips, the
 # rate-limit notice) is the CodeRabbit description of the change and is not read.
 def cr_summary_regions: ["review_stack_entry", "recent_review", "walkthrough", "change_assessment",
   "final_review_risk", "pre_merge_checks_walkthrough", "finishing_touch_checkbox", "tips",
-  "autopilot:", "auto:rate limited", "auto:skip review"];
-def cr_result_regions: ["recent_review", "pre_merge_checks_walkthrough", "final_review_risk"];
+  "autopilot:", "auto:rate limited", "auto:skip review", "auto:review in progress"];
 def cr_region_ok:
   .name as $n | .text as $t
   | (if $n == "recent_review" then ($t | test("Actionable comments posted: *[1-9]") | not)
@@ -1075,24 +1075,29 @@ def is_cr_summary_comment:
     and ($lines[0][(cr_summarize_marker | length):] | test("^[ \t\r]*$"))
     # every region marker anywhere in the body names an allow-listed region
     and all($lines[1:][]; (test(cr_region_open_re) | not) or (cr_region_key(.) | IN(cr_summary_regions[])))
-    and (reduce $lines[1:][] as $line ({inside: null, ok: true};
+    # One pass with a stack of open regions, so nesting is matched marker by marker: every
+    # region closes on its own close line, innermost first; a region may not open inside
+    # another of the same name; every region at any depth is content-checked; and a line
+    # outside all regions must be blank or one hidden HTML comment.
+    and (reduce $lines[1:][] as $line ({stack: [], regions: [], ok: true};
           if .ok | not then .
-          elif .inside != null then
-            (.inside as $close
-             | if ($line | startswith($close)) and ($line[($close | length):] | test("^[ \t\r]*$"))
-               then .inside = null else . end)
-          elif ($line | test(cr_region_open_re)) and (($line | capture(cr_region_open_re)).c != "summarize")
-            then .inside = cr_region_close($line)
+          elif ($line | test(cr_region_open_re)) and (($line | capture(cr_region_open_re)).c != "summarize") then
+            cr_region_key($line) as $k
+            | if any(.stack[]; .name == $k) then .ok = false
+              else .stack += [{name: $k, close: cr_region_close($line), buf: []}] end
+          elif (.stack | length) > 0
+               and (.stack[-1].close as $c | ($line | startswith($c))
+                    and ($line[($c | length):] | test("^[ \t\r]*$"))) then
+            .regions += [{name: .stack[-1].name, text: (.stack[-1].buf | join("\n"))}]
+            | .stack |= .[:-1]
+            | .stack |= map(.buf += [$line])
+          elif (.stack | length) > 0 then
+            if any(.stack[]; . as $f | ($line | startswith($f.close))) then .ok = false
+            else .stack |= map(.buf += [$line]) end
           elif ($line | test("^[ \t\r]*$")) or ($line | test("^<!--(?:(?!-->)[^\n])*-->[ \t\r]*$")) then .
           else .ok = false end)
-        | .ok and .inside == null)
-    and ($b | test("Review failed|\\[!CAUTION\\]") | not)
-    # every result region, at any depth, closes as often as it opens and reports clean
-    and all(cr_result_regions[]; . as $n
-          | ([$b | match("(?m)^<!-- \($n)_start -->[ \t\r]*$"; "g")] | length)
-            == ([$b | match("(?m)^<!-- \($n)_end -->[ \t\r]*$"; "g")] | length)
-          and all($b | match("<!-- \($n)_start -->(?<t>(?:.|\n)*?)<!-- \($n)_end -->"; "g");
-                  {name: $n, text: .captures[0].string} | cr_region_ok));'
+        | .ok and (.stack | length) == 0 and all(.regions[]; cr_region_ok))
+    and ($b | test("Review failed|\\[!CAUTION\\]") | not);'
 # Only these bots issue verdicts, and only from the account GitHub types as a Bot.
 # Anyone else posting the same words has written an ordinary comment: claimable like
 # any other, never coverage. Entries are logins; their mention handles (@codex,
@@ -1193,7 +1198,10 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
    --arg codex "$CODEX_LOGIN" --arg cr "$CODERABBIT_LOGIN" --arg me "$prauthor" \
    "$VERDICT_JQ"'($ignore | split(",")) as $skip
   | ($bots | split(",")) as $botlogins
-  | (.[0] | map({author, state, body, at: .submittedAt,
+  # node-monorepo-perf addition: a review body is dated by its last edit (lastEditedAt), as a
+  # comment is by updatedAt. Dated by submittedAt, a finding added by editing a review after
+  # it was answered inherited that older answer.
+  | (.[0] | map({author, state, body, at: (.lastEditedAt // .submittedAt),
                  claimable: (((.state // "COMMENTED") != "APPROVED")
                              and (($me == "") or ((.author.login // "") != $me))
                              # node-monorepo-perf addition: is_codex_review_container

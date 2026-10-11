@@ -12,7 +12,7 @@ APP ?= @demo/app-00100
 # `make lockfile-bench` can no longer write a record at non-canonical scale points
 SCALES ?= 200:100 1000:200 2000:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith vizdash gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest review-gate test-review-gate clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith vizdash gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest review-gate test-review-gate merge-pr clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -144,6 +144,10 @@ REVIEW_GATE_REQUIRED ?= chatgpt-codex-connector,coderabbitai
 review-gate: ## Run the PR merge gate the review-gate status runs: make review-gate PR=<n>
 	@test -n "$(PR)" || { echo "usage: make review-gate PR=<number>" >&2; exit 2; }
 	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/check-review-threads.sh $(PR)
+
+merge-pr: ## Merge a PR only if the gate is CLEAR for its exact head: make merge-pr PR=<n>
+	@test -n "$(PR)" || { echo "usage: make merge-pr PR=<number>" >&2; exit 2; }
+	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/merge-pr.sh $(PR)
 
 test-review-gate: ## Run the merge gate's test harness
 	bash .claude/skills/pr-review-gate/test-check-review-threads.sh

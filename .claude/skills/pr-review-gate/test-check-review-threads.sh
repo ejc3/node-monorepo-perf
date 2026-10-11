@@ -2016,6 +2016,8 @@ run_case "'Head commit changed.' (as posted on #64) is a notice, not a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '⚠️ Action not completed' 'Head commit changed.')")")" 0 "CLEAR"
 run_case "'Review triggered.' is a notice, not a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '✅ Actions performed' 'Review triggered.')")")" 0 "CLEAR"
+run_case "'Review triggered.' without the emoji (as posted on #65) is a notice, not a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack 'Action performed' 'Review triggered.')")")" 0 "CLEAR"
 run_case "'Review triggered.' is not coverage" \
   "$(wrap6 "[$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '✅ Actions performed' 'Review triggered.')")]")" 1 "UNREVIEWED HEAD"
 run_case "an acknowledgement with a finding added is a claim" \
@@ -2061,6 +2063,10 @@ run_case "a High merge risk nested inside the walkthrough is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- final_review_risk_start -->\n**Merge Risk:** **🔴 High** · up to `ada54`\n<!-- final_review_risk_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
 run_case "a result region that opens inside another and never closes is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_start -->\n**Actionable comments posted: 3**\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "a result region nested in one of the same name is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- pre_merge_checks_walkthrough_start -->\n<!-- pre_merge_checks_walkthrough_start -->\nall clean\n<!-- pre_merge_checks_walkthrough_end -->\n### ❌ Failed checks (1 warning)\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "a region that closes out of order is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_start -->\n<!-- walkthrough_end -->\nP1: this drops the last row\n<!-- recent_review_end -->"')")")" 1 "carry no disposition"
 # The allow-list is what CodeRabbit has emitted, no more: every region marker in the
 # captured CodeRabbit summaries is on it, and every entry on it occurs in one of them. A new
 # region CodeRabbit starts emitting makes its summary a claim until it is captured and listed.
@@ -2080,6 +2086,18 @@ else
 fi
 run_case "a summary comment with an indented region marker is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("\n<!-- tips_start -->"; "\n    <!-- tips_start -->")')")")" 1 "carry no disposition"
+
+echo "== addition 6b: a review body is dated by its last edit =="
+# Finding submitted 01-02, answered 01-03, then edited 01-04 to add a second finding: the
+# 01-03 answer predates what the body now says.
+EDITED_RV='{"author":{"login":"coderabbitai","__typename":"Bot"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":"%s","body":"P1: drops a row. P1: and the index","commit":{"oid":"0ldc0mm1t"},"comments":{"totalCount":0,"nodes":[]}}'
+ANSWER_RV='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","body":"RED-VERIFIED: row.test.ts","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
+run_env_case "a review edited after its answer is unanswered again" \
+  "" "$(wrapQ "$(printf "$EDITED_RV" 2026-01-04T00:00:00Z),$ANSWER_RV,$APPROVE")" 1 "UNANSWERED coderabbitai"
+run_env_case "a review edited before its answer stays answered" \
+  "" "$(wrapQ "$(printf "$EDITED_RV" 2026-01-02T12:00:00Z),$ANSWER_RV,$APPROVE")" 0 "CLEAR"
+run_env_case "a review never edited is dated by its submission" \
+  "" "$(wrapQ "$(printf "$EDITED_RV" '' | sed 's/"lastEditedAt":"",//'),$ANSWER_RV,$APPROVE")" 0 "CLEAR"
 
 echo "== addition 7: the live PRs these rules were written against =="
 # #46: CodeRabbit's three review bodies (actionable comments, nitpicks) and six open threads
@@ -2108,11 +2126,12 @@ run_env_case "#66: the new sign-off verdict covers the head, CLEAR" \
 run_env_case "#67: both threads answered, nothing unanswered, the head not yet reviewed" \
   "" "$(cat "$FIXTURES/review-threads-live-67.json")" 1 "UNREVIEWED HEAD" "UNANSWERED"
 
-echo "== addition 8: post-status.sh posts only a change, and replaces a success it did not post =="
+echo "== addition 8: post-status.sh posts a success only against an unchanged snapshot =="
 POSTER="$(dirname "$0")/post-status.sh"
 mkdir -p "$TMP/psbin"
 # gh shim: GET answers come from $PS_DIR/<endpoint-with-slashes-as-underscores>.json, passed
-# through the --jq filter the way gh applies it; a POST is recorded and exits $PS_POST_RC.
+# through the --jq filter the way gh applies it (a missing file is a failed read); a POST is
+# recorded and exits $PS_POST_RC.
 cat > "$TMP/psbin/gh" <<'SHIM'
 #!/bin/bash
 args=("$@"); filter=""; endpoint=""; post=0
@@ -2120,7 +2139,7 @@ for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     --jq) filter=${args[$((i + 1))]}; i=$((i + 1)) ;;
     -X) [ "${args[$((i + 1))]}" = POST ] && post=1; i=$((i + 1)) ;;
-    -f) i=$((i + 1)) ;;
+    -f | -F) i=$((i + 1)) ;;
     api | --paginate) ;;
     *) endpoint=${args[$i]} ;;
   esac
@@ -2133,18 +2152,37 @@ SHIM
 chmod +x "$TMP/psbin/gh"
 PS_SHA=0123456789abcdef0123456789abcdef01234567
 ps_n=0
-# $1 name, $2 statuses JSON (newest first), $3 run JSON for run 77 (or ""), $4 env, $5 state,
-# $6 description, $7 expected exit, $8 expected number of POSTs, $9 text the POST must carry.
+OURS_URL=https://github.com/o/r/actions/runs/77
+OURS_RUN='{"path":".github/workflows/review-gate.yml","event":"issue_comment","head_branch":"main"}'
+# One status; $5 is its created_at.
+st() { printf '{"context":"review-gate","state":"%s","description":"%s","creator":{"login":"%s"},"target_url":"%s","created_at":"%s"}' \
+  "$1" "$2" "$3" "$4" "${5:-2026-01-01T00:00:00Z}"; }
+runs() { printf '{"workflow_runs":[%s]}' "$1"; }
+wrun() { printf '{"id":%s,"event":"%s","created_at":"%s"}' "$1" "$2" "$3"; }
+# The PR as the success check reads it: $1 head, $2 the newest activity.
+gql() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","updatedAt":"%s","comments":{"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"nodes":[]},"reviewThreads":{"nodes":[]}}}}}' "$1" "$2" "$2"; }
+# The snapshot every success case starts from: evaluation began 00:04, PR #7, this is run 88,
+# no other run since, PR quiet since 00:03. A case overrides one piece with PS_RUNS, PS_GQL
+# (UNREADABLE makes the read fail) or its env column.
+SNAP="EVAL_STARTED=2026-01-02T00:04:00Z|PRS=7|GITHUB_RUN_ID=88"
+QUIET_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:05:00Z)")
+QUIET_PR=$(gql "$PS_SHA" 2026-01-02T00:03:00Z)
+# $1 name, $2 statuses JSON (newest first, or UNREADABLE), $3 run JSON for run 77 (or ""),
+# $4 env, $5 state, $6 description, $7 expected exit, $8 expected POSTs, $9 text the POST
+# must carry.
 ps_case() {
   local name=$1 statuses=$2 run=$3 envs=$4 st=$5 de=$6 want_rc=$7 want_posts=$8 want_post_txt=${9:-}
   ps_n=$((ps_n + 1)); local d="$TMP/ps.$ps_n"; mkdir "$d"
   [ "$statuses" = UNREADABLE ] || printf '%s' "$statuses" > "$d/repos_o_r_commits_${PS_SHA}_statuses.json"
-  [ -z "${PS_RUNS:-}" ] || printf '%s' "$PS_RUNS" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json"
   [ -z "$run" ] || printf '%s' "$run" > "$d/repos_o_r_actions_runs_77.json"
+  local r=${PS_RUNS-$QUIET_RUNS} g=${PS_GQL-$QUIET_PR}
+  [ "$r" = UNREADABLE ] || printf '%s' "$r" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json"
+  [ "$g" = UNREADABLE ] || printf '%s' "$g" > "$d/graphql.json"
   local envarr=() out rc posts
   [ -z "$envs" ] || IFS='|' read -r -a envarr <<<"$envs"
-  out=$(env PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://github.com \
-        RUN_URL=https://github.com/o/r/actions/runs/88 "${envarr[@]}" bash "$POSTER" "$PS_SHA" "$st" "$de" 2>&1); rc=$?
+  out=$(env -u EVAL_STARTED -u PRS -u GITHUB_RUN_ID PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r \
+        GITHUB_SERVER_URL=https://github.com RUN_URL=https://github.com/o/r/actions/runs/88 "${envarr[@]}" \
+        bash "$POSTER" "$PS_SHA" "$st" "$de" 2>&1); rc=$?
   posts=$(grep -c . "$d/posts" 2>/dev/null || true)
   if [ "$rc" = "$want_rc" ] && [ "${posts:-0}" = "$want_posts" ] \
      && { [ -z "$want_post_txt" ] || grep -qF -- "$want_post_txt" "$d/posts"; }; then
@@ -2155,57 +2193,98 @@ ps_case() {
     fail=$((fail+1))
   fi
 }
-OURS_RUN='{"path":".github/workflows/review-gate.yml","event":"issue_comment","head_branch":"main"}'
-st() { printf '{"context":"review-gate","state":"%s","description":"%s","creator":{"login":"%s"},"target_url":"%s"}' "$1" "$2" "$3" "$4"; }
-OURS_URL=https://github.com/o/r/actions/runs/77
-run_ps() { ps_case "$@"; }
-run_ps "no status yet: post the verdict" '[]' "" "" failure "BLOCKED x" 0 1 "state=failure"
-run_ps "the same failure again: post nothing" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" failure "BLOCKED x" 0 0
-run_ps "a changed description: post it" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" failure "BLOCKED y" 0 1 "BLOCKED y"
-run_ps "our own success again: post nothing" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" success "CLEAR" 0 0
-run_ps "only the newest status of the context counts" \
-  "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL"),$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" success "CLEAR" 0 1 "state=success"
-run_ps "a success posted by a person is replaced even by the same verdict" \
-  "[$(st success 'CLEAR' 'someone' '')]" "" "" success "CLEAR" 0 1 "state=success"
-run_ps "a success from another workflow is replaced" \
-  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/other.yml","event":"pull_request","head_branch":"x"}' "" failure "BLOCKED x" 0 1 "state=failure"
-run_ps "a success from review-gate.yml run on a branch push is replaced" \
-  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/review-gate.yml","event":"push","head_branch":"evil"}' "" success "CLEAR" 0 1 "state=success"
-run_ps "a success from review-gate.yml dispatched on another ref is replaced" \
-  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/review-gate.yml","event":"workflow_dispatch","head_branch":"evil"}' "" success "CLEAR" 0 1 "state=success"
-many=$(for i in $(seq 1 5); do st failure "BLOCKED $i" 'github-actions[bot]' "$OURS_URL"; echo ,; done | tr -d '\n' | sed 's/,$//')
-run_ps "near the status cap a success is posted as error" "[$many]" "$OURS_RUN" "STATUS_QUOTA_GUARD=5" success "CLEAR" 0 1 "state=error"
-run_ps "below the cap a success is posted as success" "[$many]" "$OURS_RUN" "STATUS_QUOTA_GUARD=6" success "CLEAR" 0 1 "state=success"
-run_ps "a refused POST fails loudly" '[]' "" "PS_POST_RC=1" failure "BLOCKED x" 1 1
-run_ps "pending is not posted over a missing status" '[]' "" "" pending "x" 0 0
-run_ps "pending is not posted over a failure" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" pending "x" 0 0
-run_ps "pending is posted over a success" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" pending "x" 0 1 "state=pending"
-# A review-gate run created after the evaluation began answers an event it may not have
-# seen (PR #70's P1: a comment arriving while an older evaluation of the head runs).
-runs() { printf '{"workflow_runs":[%s]}' "$1"; }
-wrun() { printf '{"id":%s,"event":"%s","created_at":"%s"}' "$1" "$2" "$3"; }
 FAIL_ST="[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]"
 OK_ST="[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]"
-PS_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:05:00Z)") \
-  run_ps "a success with no newer event run is posted" "$FAIL_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=success"
+# Changes only, and the quota (PR #70's P2: two statuses per event).
+ps_case "no status yet: post the verdict" '[]' "" "" failure "BLOCKED x" 0 1 "state=failure"
+ps_case "the same failure again: post nothing" "$FAIL_ST" "$OURS_RUN" "" failure "BLOCKED x" 0 0
+ps_case "a changed description: post it" "$FAIL_ST" "$OURS_RUN" "" failure "BLOCKED y" 0 1 "BLOCKED y"
+ps_case "our own success again: post nothing" "$OK_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 0
+ps_case "only the newest status of the context counts" \
+  "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL"),$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" \
+  "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+many=$(for i in $(seq 1 5); do st failure "BLOCKED $i" 'github-actions[bot]' "$OURS_URL"; echo ,; done | tr -d '\n' | sed 's/,$//')
+ps_case "near the status cap a success is posted as error" "[$many]" "$OURS_RUN" "$SNAP|STATUS_QUOTA_GUARD=5" success "CLEAR" 0 1 "state=error"
+ps_case "below the cap a success is posted as success" "[$many]" "$OURS_RUN" "$SNAP|STATUS_QUOTA_GUARD=6" success "CLEAR" 0 1 "state=success"
+ps_case "a refused POST fails loudly" '[]' "" "PS_POST_RC=1" failure "BLOCKED x" 1 1
+ps_case "pending is not posted over a missing status" '[]' "" "" pending "x" 0 0
+ps_case "pending is not posted over a failure" "$FAIL_ST" "$OURS_RUN" "" pending "x" 0 0
+ps_case "pending is posted over a success" "$OK_ST" "$OURS_RUN" "" pending "x" 0 1 "state=pending"
+ps_case "an unknown state is refused" '[]' "" "" approved "x" 2 0
+# Forged successes.
+ps_case "a success posted by a person is replaced even by the same verdict" \
+  "[$(st success 'CLEAR' 'someone' '')]" "" "$SNAP" success "CLEAR" 0 1 "state=success"
+ps_case "a success from another workflow is replaced" "$OK_ST" \
+  '{"path":".github/workflows/other.yml","event":"pull_request","head_branch":"x"}' "" failure "BLOCKED x" 0 1 "state=failure"
+ps_case "a success from review-gate.yml run on a branch push is replaced" "$OK_ST" \
+  '{"path":".github/workflows/review-gate.yml","event":"push","head_branch":"evil"}' "$SNAP" success "CLEAR" 0 1 "state=success"
+ps_case "a success from review-gate.yml dispatched on another ref is replaced" "$OK_ST" \
+  '{"path":".github/workflows/review-gate.yml","event":"workflow_dispatch","head_branch":"evil"}' "$SNAP" success "CLEAR" 0 1 "state=success"
+# The success rule: verified against the snapshot, or blocking (PR #70's P1 and the closure
+# review's races and partial failures).
+ps_case "a success with a quiet snapshot is posted" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+ps_case "a success with no snapshot is posted as error" "$FAIL_ST" "$OURS_RUN" "" success "CLEAR" 0 1 "state=error"
+ps_case "a success is not posted over another run's newer error" \
+  "[$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:05:00Z)]" \
+  "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+ps_case "an error older than the snapshot does not hold a success back" \
+  "[$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:03:00Z)]" \
+  "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
 PS_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 91 issue_comment 2026-01-02T00:05:00Z)") \
-  run_ps "a success is not posted over a block when a newer event run exists" "$FAIL_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 0
+  ps_case "a newer event run turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
 PS_RUNS=$(runs "$(wrun 91 workflow_run 2026-01-02T00:05:00Z)") \
-  run_ps "a standing success is turned pending when a newer event run exists" "$OK_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=pending"
+  ps_case "a standing success is turned pending when a newer event run exists" "$OK_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
 PS_RUNS=$(runs "$(wrun 91 issue_comment 2026-01-02T00:03:00Z)") \
-  run_ps "a run created before the evaluation began does not defer it" "$FAIL_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=success"
-run_ps "a run list that cannot be read defers the success" "$FAIL_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 0
-PS_RUNS=$(runs "$(wrun 91 issue_comment 2026-01-02T00:05:00Z)") \
-  run_ps "a failure is posted whatever runs are newer" "$OK_ST" "$OURS_RUN" \
-  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" failure "BLOCKED x" 0 1 "state=failure"
-run_ps "an error is posted when the status list cannot be read" UNREADABLE "" "" error "could not evaluate" 0 1 "state=error"
-run_ps "a success is not posted when the status list cannot be read" UNREADABLE "" "" success "CLEAR" 1 0
-run_ps "an unknown state is refused" '[]' "" "" approved "x" 2 0
+  ps_case "a run created before the evaluation began does not defer it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_RUNS=UNREADABLE \
+  ps_case "a run list that cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+PS_GQL=$(gql "$PS_SHA" 2026-01-02T00:05:00Z) \
+  ps_case "activity on the PR after the snapshot turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gql fedcba9876543210fedcba9876543210fedcba98 2026-01-02T00:03:00Z) \
+  ps_case "a PR that moved off the commit turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=UNREADABLE \
+  ps_case "a PR that cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+PS_GQL='{"data":{"repository":{"pullRequest":null}}}' \
+  ps_case "a PR the token cannot see turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+# A status list that cannot be read: nothing is skipped.
+ps_case "an unreadable status list posts the error asked for" UNREADABLE "" "" error "could not evaluate" 0 1 "state=error"
+ps_case "an unreadable status list posts the pending asked for" UNREADABLE "" "" pending "x" 0 1 "state=pending"
+ps_case "an unreadable status list turns a success into error" UNREADABLE "" "$SNAP" success "CLEAR" 0 1 "state=error"
+
+echo "== addition 8b: merge-pr.sh merges only a CLEAR head, by that head =="
+MERGER="$(dirname "$0")/merge-pr.sh"
+mkdir -p "$TMP/mpbin"
+cat > "$TMP/mpbin/gh" <<'SHIM'
+#!/bin/bash
+printf '%s\n' "$*" >> "$MP_DIR/calls"
+case "$*" in
+  "pr view"*) [ -n "${MP_VIEW:-}" ] || exit 1; printf '%s\n' "$MP_VIEW" ;;
+  "pr merge"*) exit 0 ;;
+esac
+SHIM
+chmod +x "$TMP/mpbin/gh"
+printf '#!/bin/bash\necho "EXPECT_HEAD=$EXPECT_HEAD REQ=$REQUIRE_HEAD_REVIEW_FROM pr=$1" >> "$MP_DIR/gate"\nexit "${MP_GATE_RC:-0}"\n' > "$TMP/mpgate.sh"
+mp_case() {
+  local name=$1 view=$2 gate_rc=$3 want_rc=$4 want_merge=$5 out rc d
+  ps_n=$((ps_n + 1)); d="$TMP/mp.$ps_n"; mkdir "$d"
+  out=$(env MP_DIR="$d" MP_VIEW="$view" MP_GATE_RC="$gate_rc" MERGE_GATE_SCRIPT="$TMP/mpgate.sh" \
+        PATH="$TMP/mpbin:$PATH" GITHUB_REPOSITORY=o/r bash "$MERGER" 7 2>&1); rc=$?
+  local merged; merged=$(grep -c '^pr merge' "$d/calls" 2>/dev/null || true)
+  if [ "$rc" = "$want_rc" ] && [ "${merged:-0}" = "$want_merge" ] \
+     && { [ "$want_merge" = 0 ] || { grep -qF -- "--match-head-commit $PS_SHA" "$d/calls" \
+          && grep -qF "EXPECT_HEAD=$PS_SHA" "$d/gate"; }; }; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc, merges=${merged:-0} want=$want_merge)"
+    sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1))
+  fi
+}
+MP_OPEN=$(printf '{"state":"OPEN","headRefOid":"%s","baseRefName":"main"}' "$PS_SHA")
+mp_case "a CLEAR head is merged by that head" "$MP_OPEN" 0 0 1
+mp_case "a blocked head is not merged" "$MP_OPEN" 1 1 0
+mp_case "a gate that cannot evaluate does not merge" "$MP_OPEN" 2 1 0
+mp_case "a PR that cannot be read is not merged" "" 0 2 0
+mp_case "a closed PR is not merged" "$(printf '{"state":"CLOSED","headRefOid":"%s","baseRefName":"main"}' "$PS_SHA")" 0 2 0
 
 echo "== addition 9: the gate workflows' structure =="
 # Each check below pins one property of .github/workflows/review-gate*.yml that no runtime
@@ -2256,9 +2335,7 @@ check("pull_request_target is answered for its own head sha",
       rs.get("env", {}).get("PRT_HEAD_SHA") == "${{ github.event.pull_request.head.sha }}"
       and any(s.get("id") == "heads" and "shas=$PRT_HEAD_SHA" in (s.get("run") or "") for s in rs["steps"]))
 fb = [s for s in rs["steps"] if "failure()" in s.get("if", "")]
-fbrun = fb[0].get("run") or "" if len(fb) == 1 else ""
-check("a resolve that fails marks the heads it knows as error",
-      "state=error" in fbrun and all(k in fbrun for k in ("PRT_HEAD_SHA", "ISSUE_NUMBER", "RUN_HEAD_SHA", "INPUT_PR")))
+check("a resolve that fails has exactly one failure() fallback step", len(fb) == 1)
 PY
 )
 while IFS=$'\t' read -r verdict wname; do
@@ -2266,6 +2343,78 @@ while IFS=$'\t' read -r verdict wname; do
   if [ "$verdict" = PASS ]; then echo "  PASS  $wname"; pass=$((pass+1)); else echo "  FAIL  $wname"; fail=$((fail+1)); fi
 done <<<"$wf_out"
 [ "$(grep -c . <<<"$wf_out")" -eq 10 ] || { echo "  FAIL  the workflow structure checks did not all run"; fail=$((fail+1)); }
+
+echo "== addition 10: the workflow's fallback steps, run against a stubbed gh =="
+# The steps run as GitHub would run them: their `run:` text, with the step's env, a gh that
+# records every call. Each case names the heads that must be marked error.
+fb_extract() {  # $1 job, $2 python predicate on the step -> the step's run text
+  python3 - "$WORKFLOWS_DIR/review-gate.yml" "$1" "$2" <<'PY'
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+steps = [s for s in wf["jobs"][sys.argv[2]]["steps"] if eval(sys.argv[3], {"s": s})]
+print(steps[0]["run"] if len(steps) == 1 else "echo 'no unique step'; exit 99")
+PY
+}
+FB_RUN=$(fb_extract resolve '"failure()" in s.get("if", "")')
+INV_RUN=$(fb_extract resolve '"schedule" in s.get("if", "")')
+POST_RUN=$(fb_extract evaluate '"always()" in s.get("if", "")')
+mkdir -p "$TMP/fbbin"
+cat > "$TMP/fbbin/gh" <<'SHIM'
+#!/bin/bash
+printf '%s\n' "$*" >> "$FB_DIR/calls"
+case "$*" in
+  *"-X POST"*) exit 0 ;;
+  *"pulls/42"*) echo "4242424242424242424242424242424242424242" ;;
+  *"pulls?state=open"*) printf '%s\n%s\n' 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 ;;
+  *) exit 1 ;;
+esac
+SHIM
+chmod +x "$TMP/fbbin/gh"
+H1=1111111111111111111111111111111111111111; H2=2222222222222222222222222222222222222222
+HF=abababababababababababababababababababab; H42=4242424242424242424242424242424242424242
+fb_case() {  # $1 name, $2 env (|-separated), $3 space-separated heads that must get state=error
+  local name=$1 envs=$2 want=$3 d out rc envarr=() missing=""
+  ps_n=$((ps_n + 1)); d="$TMP/fb.$ps_n"; mkdir "$d"
+  IFS='|' read -r -a envarr <<<"$envs"
+  out=$(cd "$d" && env FB_DIR="$d" PATH="$TMP/fbbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://github.com \
+        GITHUB_RUN_ID=5 STATUS_CONTEXT=review-gate RUN_PRS='[]' RUN_HEAD_SHA= INPUT_PR= PRT_HEAD_SHA= ISSUE_NUMBER= \
+        "${envarr[@]}" bash -c "$FB_RUN" 2>&1); rc=$?
+  for h in $want; do
+    grep -q "statuses/$h.*state=error" "$d/calls" 2>/dev/null || missing+=" ${h:0:6}"
+  done
+  if [ -z "$missing" ] && [ "$rc" != 0 ]; then echo "  PASS  $name"; pass=$((pass+1))
+  else echo "  FAIL  $name (rc=$rc, not marked:$missing)"; sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1)); fi
+}
+fb_case "pull_request_target: the event's own head" "EVENT=pull_request_target|PRT_HEAD_SHA=$H1" "$H1"
+fb_case "issue_comment: the commented PR's head" "EVENT=issue_comment|ISSUE_NUMBER=42" "$H42"
+fb_case "workflow_run from a fork: the run's head sha" "EVENT=workflow_run|RUN_HEAD_SHA=$HF" "$HF"
+fb_case "workflow_run listing its PRs: their heads" \
+  "EVENT=workflow_run|RUN_PRS=[{\"number\":3,\"head\":{\"sha\":\"$H2\"}}]" "$H2"
+fb_case "workflow_dispatch for one PR: that PR's head" "EVENT=workflow_dispatch|INPUT_PR=42" "$H42"
+fb_case "workflow_dispatch for every PR: every open head" "EVENT=workflow_dispatch" "$H1 $H2"
+fb_case "schedule: every open head" "EVENT=schedule" "$H1 $H2"
+
+# The invalidation step: a pending GitHub refuses must fail the step, so the failure step
+# runs (PR #70: "Fail closed when the pending status is rejected").
+d="$TMP/fb.inv"; mkdir -p "$d/.claude/skills/pr-review-gate"
+printf '#!/bin/bash\necho "post $*" >> "%s/calls"; exit 1\n' "$d" > "$d/.claude/skills/pr-review-gate/post-status.sh"
+out=$(cd "$d" && env SHAS="[\"$H1\"]" bash -c "$INV_RUN" 2>&1); rc=$?
+if [ "$rc" != 0 ] && grep -q "post $H1 pending" "$d/calls"; then
+  echo "  PASS  a refused pending fails the invalidation step"; pass=$((pass+1))
+else
+  echo "  FAIL  a refused pending fails the invalidation step (rc=$rc)"; sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1))
+fi
+
+# The verdict step when the checkout failed: post-status.sh is absent, and the step posts
+# error itself.
+d="$TMP/fb.post"; mkdir "$d"
+out=$(cd "$d" && env FB_DIR="$d" PATH="$TMP/fbbin:$PATH" GITHUB_REPOSITORY=o/r SHA="$H1" STATUS_CONTEXT=review-gate \
+      RUN_URL=u RC= EVAL_STARTED= PRS= GITHUB_EVENT_NAME=issue_comment bash -c "$POST_RUN" 2>&1); rc=$?
+if grep -q "statuses/$H1.*state=error" "$d/calls" 2>/dev/null && [ "$rc" != 0 ]; then
+  echo "  PASS  the verdict step without its checkout posts error and fails"; pass=$((pass+1))
+else
+  echo "  FAIL  the verdict step without its checkout posts error and fails (rc=$rc)"; sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1))
+fi
 
 echo
 echo "passed=$pass failed=$fail"
