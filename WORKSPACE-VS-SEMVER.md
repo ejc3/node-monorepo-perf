@@ -31,7 +31,7 @@ Only `workspace:` forces local linking unconditionally. The two halves of this r
 | `workspace:^` | link local | `^1.4.9` |
 | `workspace:^1.4.9` | link local if satisfied | `^1.4.9` |
 
-At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only; the on-disk file is untouched. An explicit `workspace:^1.4.9` has only `workspace:` stripped. All forms link local at install, with the same lockfile line count and `node_modules` entry count and cold installs 11% apart (0.62s vs 0.56s, one sample each, `bench/perf-matrix.json`); the spec form sets the published string.
+At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only; the on-disk file is untouched. An explicit `workspace:^1.4.9` has only `workspace:` stripped. All forms link local at install. The two measured forms have the same lockfile line count and `node_modules` entry count, and their cold installs are 11% apart: `workspace:*` 0.62s, `workspace:^x.y.z` 0.56s (one sample each, `bench/perf-matrix.json`). The spec form sets the published string.
 
 ## 3. Diamond Resolution Under Semver
 
