@@ -12,14 +12,10 @@ One native-compiled tool per job, with no slower baseline in the loop. Sources o
 | lint                | **oxlint** (oxc)                         | 1.86.0  |
 | orchestrate + scope | **turbo**                                | 2.9.18  |
 
-TypeScript 7 is GA. The native compiler ships as `typescript` with a `tsc` binary; the tsgo
-name is retired, and this repo keeps `tsgo` as the task and record label. Pin the exact
-version. TypeScript 6, the last JS release, stays installed as the `typescript6` alias for the
-oracle checker and tsserver. All five records are measured on typescript 7.0.2. The gate and
-inner-loop records (`bench/optimal-gate-bench.json`, `bench/dev-loop-bench.json`) ran on a
-192-core c8g.48xlarge (arm64, per each record's `machine`/`cores`); the parity and real-app
-records ran on the dedicated 64-core c7gd.metal
-([README](README.md#the-64-core-machine)).
+Pin `typescript` exactly; TypeScript 6 stays installed as the oracle and for tsserver
+([TYPECHECKERS.md](TYPECHECKERS.md#tsc-vs-tsgo)). All five records ran typescript 7.0.2: the
+gate and inner-loop records on a 192-core c8g.48xlarge, the parity and real-app records on the
+dedicated 64-core c7gd.metal ([README](README.md#the-64-core-machine)).
 
 ## The Scenario
 
@@ -34,21 +30,14 @@ breaking type error from that rev in any of the 4,000 apps before merge, fast.
 lockfile present, and `node_modules` cold (`install.storeWarm: true`): the clone or CI-runner
 case. It is one-time setup; revving a lib needs no reinstall.
 
-Which install case matters depends on the runner. Against pnpm 12.8.1 (the Rust CLI) the full
-re-resolve is scale-dependent: bun is ~1.6× faster at 200 apps, and pnpm-hoisted is 3.1–3.4×
-faster than bun at 1,000–2,000 apps. At 2,000 apps pnpm-hoisted is fastest cold (2.5s; yarn-PnP
-second at 3.2s) and fastest warm (1.1s). On the fresh CI-runner frozen install, pnpm on its
-default isolated linker is 11% behind bun (1.03s vs 0.93s at 1,000 apps,
-`bench/container-install-bench.json`). Per-cell numbers are in
-[TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4).
+Which install case matters depends on the runner: bun leads cold at 200 apps (~1.6×) and on
+the fresh CI-runner frozen install (pnpm 11% behind, 1.03s vs 0.93s at 1,000 apps), while
+pnpm-hoisted is 3.1–3.4× faster than bun cold at 1,000–2,000 apps
+([TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4)).
 
 A yarn-PnP variant has a compatibility boundary: stock tsgo and Next's default Turbopack fail
-under PnP, while tsc, turbo, and oxlint work (`bench/pnp-compat-bench.json`, at 20:10). At full
-fleet scale (`bench/yarn-fleet-bench.json`) stock tsgo fails with 30,000 unresolved-name
-errors. The checker's green path is the native-PnP tsgo build, which runs the gate through
-`.pnp.cjs`. Under PnP, `next build` builds via webpack or rspack on node 22.22.0 and fails on
-every builder on node 22.23.3 (`bench/tsgo-pnp-bench.json` + `bench/rspack-pnp-bench.json`;
-[TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
+under PnP while tsc, turbo, and oxlint work, and a native-PnP tsgo build runs the gate through
+`.pnp.cjs` at full fleet scale ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
 ## The Whole-Workspace Type-Error Gate
 
@@ -58,10 +47,10 @@ tsconfig.whole.json`, `@demo/*`→`packages/*/src/index.ts`). It parses each lib
 across every importing app, and skips the per-lib dist builds. At 4,000:400 it typechecks the
 tree in **1.59s** at **857MB** peak RSS. It is typecheck-only and emits no `dist`.
 
-Vite+'s integrated `vp check` takes 2.35s on a 920-source-file corpus (921 files for `vp
-check`, which also checks the root `vite.config.ts`), where this stack's gate shape takes
-0.42s (`bench/vite-plus-tools-bench.json`). That is context, not a like-for-like engine
-comparison: one tsgo program over lib source against tsgolint's per-file typed lint.
+Vite+'s one-pass `vp check` takes 2.35s where this gate shape takes 0.42s on a
+920-source-file corpus (921 for `vp check`, which also checks the root `vite.config.ts`), with a different type-check model (one tsgo program over lib source
+vs tsgolint's per-file typed lint), so it is not a like-for-like engine comparison
+([TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
 
 ## Catching a Breaking Change
 
@@ -69,19 +58,13 @@ A breaking foundation signature turns **every** dependent app red in **1.55s**: 
 4,000 apps** report `error TS2554: Expected 2 arguments, but got 1` (4,399 TS2554: 4,000 apps
 + 399 dependent libs).
 
-The same gate holds at the measured production-fleet scale (30,000 apps / 460 libs, ~1.03M
-generated files, 64-core box). It runs clean in **58.1s**, 10.9× faster than the orchestrated
-per-package path (which also emits dist, as at 4,000:400), and catches the breaking rev with
-all 30,000 apps red in **58.9s**. A bigger box does not speed it up: 66.6s on 192 cores
-([FLEET.md](FLEET.md), `bench/fleet-gate-bench.json`, `bench/fleet-gate-bench.pbox.json`).
-Slicing the check into K concurrent programs (all lib source plus 1/K of the apps) cuts it to
-**10.3s** on 64 cores and **6.2s** on 192 with a union-verified identical verdict
-([FLEET.md](FLEET.md#the-sliced-gate-using-the-whole-box), `bench/sliced-gate-bench.json` +
-`.pbox.json`).
+The same gate holds at the 30,000-app fleet scale: 58.1s clean and 58.9s to all 30,000 apps
+red on 64 cores, 10.3s / 6.2s when sliced across 64 / 192 cores with an identical verdict
+([FLEET.md](FLEET.md)).
 
 ## Parity with tsc on Real Types
 
-A self-contained vet (`bench/typecheck-parity-bench.json`) runs the one-program shape over a
+A self-contained vet (`bench/typecheck-parity-bench.json`) runs the whole-program shape over a
 throwaway 4,000:400:8 scaffold whose libs carry heavy types (recursive conditional + mapped
 types, 48-member unions, cross-lib intersections) instead of the standard workspace's 16-line
 re-export modules. One tsgo program checks it in **1.92s** at **1279MB** peak RSS; tsc (the
@@ -93,8 +76,8 @@ Codes match on 20 of 25: at the arg-type site tsc emits `TS2345` and tsgo `TS273
 
 `turbo run typecheck:tsgo --filter=...@demo/lib-001` runs one tsgo per package against built
 `dist`: **4,800 of 4,800 tasks** cold in **46.9s**. It also emits every lib's `dist` (tsc
-`^build`), which a deploy needs and the type-error gate does not. For a universal rev the
-one-program gate is ~30× faster (1.59s vs 46.9s); turbo's value here is the dist artifacts and
+`^build`), which a deploy needs and the whole-program gate does not. For a universal rev the
+whole-program gate is ~30× faster (1.59s vs 46.9s); turbo's value here is the dist artifacts and
 the per-package cache on the next run.
 
 ## Scoping a Non-Universal Rev
@@ -117,7 +100,7 @@ and one leaf lib (`@demo/lib-400`), fresh / subsequent (`bench/dev-loop-bench.js
 
 Onboarding `bun install` takes **1.4s** fresh (cold `node_modules`) and **0.9s** subsequent
 (warm). tsgo and oxlint keep no incremental cache, so the first run matches steady state within
-noise; that is why they run directly on every save, not through turbo. A core-package rev is
+noise; that is why they run directly on every save, not through turbo. A foundation-lib rev is
 O(repo) (1.6s as one tsgo program); a developer's edit reaches only their closure (~220ms).
 
 ## Real Apps, Lint, Caveats
