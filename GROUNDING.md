@@ -17,12 +17,11 @@ Primary sources for each practice the benchmark follows, for where pnpm + Turbor
 | Remote caching | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
 | One Vercel project per app | [Vercel monorepos](https://vercel.com/docs/monorepos), [Vercel limits](https://vercel.com/docs/limits) |
 
-- **`node-linker`.** On [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees) under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and 2.2–2.7× faster at 1,000–2,000; hoisted warm relink is 4.3–6.8× faster at those scales. The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower, one sample per variant, `bench/perf-matrix.json`). The two records vary scale and catalog form together, so they do not isolate the cause of the reversal.
-- **Vercel.** Skip-unaffected does not consume a build slot; legacy turbo-ignore does.
+- **`node-linker`.** This repo's measurements of the choice: [OPTIMIZATIONS.md §1.1](OPTIMIZATIONS.md#11-node-linker-mode).
 
 ## The Ceiling
 
-The stack's ceiling is where graph load, lockfile size, and foundation blast radius dominate. The escape is a different architecture; the vendors acknowledge it, and the largest monorepos document their end-states.
+Sources for the escape from the ceiling [LIMITS.md](LIMITS.md) measures (graph load, lockfile size, foundation blast radius): a different architecture, acknowledged by vendors and documented in production monorepos.
 
 - `--affected` and caching cannot eliminate the tasks of modified projects or their dependents; the remedy is distributed task execution ([Nx reduce-waste](https://nx.dev/docs/concepts/ci-concepts/reduce-waste)).
 - Caching is not execution: a remote *cache* (Nx Replay) helps only the second consumer; the escape needs distributed *execution* (Nx Agents, [Bazel RBE](https://bazel.build/remote/rbe)).
@@ -48,9 +47,9 @@ At ~130k files (20k apps) Git itself needs scaling, with the same focus-vs-whole
 | Report variance, not bare averages; repeat noisy runs | [hyperfine](https://github.com/sharkdp/hyperfine), [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) |
 | Report absolute numbers + full system config | [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) |
 
-- **State.** Each run gets a fresh temp workspace; `node_modules`, yarn state, and the lockfile are removed per measurement; ambient tool env (`YARN_*`/`BUN_*`/`PNPM_*`/`npm_config_*`) is stripped per timed run. Truly-cold redirects each tool's store and metadata to a throwaway dir, asserted populated afterward.
+- **State.** Install-bench uses a fresh temporary workspace per scale. It removes `node_modules` and yarn's project-local state before each measurement; cold measurements also remove lockfiles, while warm measurements retain them. Each timed run strips the relevant tool's ambient configuration variables (`YARN_*`/`BUN_*`/`PNPM_*`/`npm_config_*`). Truly-cold redirects each tool's store and metadata to a fresh directory, then checks that it is populated.
 - **Completeness.** `verifyComplete()` throws unless every app and lib resolves all declared deps + devDeps (yarn PnP through `.pnp.cjs`); build-bench errors on 0-byte output.
-- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run. A record carries its core count and tool versions where its bench writes them. The 64-core machine and run protocol are in the [README](README.md#the-64-core-machine); `bench/env.json` is that box's capture (CPU model, cores, RAM, OS, tool versions).
+- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run; machines and run protocol: [README](README.md#the-64-core-machine).
 
 ## Scenario Realism
 
@@ -68,6 +67,6 @@ Each scenario is checked against primary sources, so the suite tests practices i
 
 - **Frozen CI installs.** `npm ci` is "meant to be used in automated environments". pnpm `frozenLockfile` defaults true under CI, and yarn `enableImmutableInstalls` is "true (the default on CI)". `bun ci` equals `--frozen-lockfile`, and bun has no CI auto-enable; `yarn-rollout-bench` and `wave-rollout-bench` measure that asymmetry.
 - **Package counts.** Microsoft 1JS ~2,500 packages / ~20M LOC; TikTok 1,000+ projects ([lockfile subspaces](https://developers.tiktok.com/blog/subspaces-divide-and-conquer-your-npm-upkeep) + Sparo); DefinitelyTyped 9,114 projects. Documented counts cluster at 1,000–2,500, so the lab's 4,000-app point extrapolates above the cluster and below DefinitelyTyped.
-- **yarn PnP.** Klaviyo migrated to Yarn 3 PnP zero-installs; CI image builds went from 11 min average (16 min worst-case) to ~1 min.
+- **yarn PnP.** Klaviyo migrated to Yarn 3 PnP zero-installs. When most or all Docker layers missed cache, CI image builds had taken 11 min on average and 16 min worst-case; after the migration, the worst build time was ~1 min.
 - **CI installers.** State of JS 2025: 1,123 respondents named `bun install` among the monorepo tools they use (pnpm led at 3,940). bun runs in production at Anthropic (which acquired Bun; Claude Code infra), Midjourney, and Railway; yarn PnP at Datadog and Klaviyo. This is an adoption signal; no pnpm→bun or pnpm→yarn speed migration is documented.
-- **Fresh containers.** GitLab's Docker executor runs a container per job, and GitHub's actions-runner-controller runs one ephemeral pod per job. GitHub-hosted runners are fresh **VMs** per job, so absolute times differ, but the empty-cache-per-job property the bench isolates is the same.
+- **Fresh containers.** GitLab's Docker executor runs a container per job, and GitHub's actions-runner-controller runs one ephemeral pod per job. GitHub-hosted runners use a fresh **VM** per job except single-CPU runners, which use a container on a shared VM; absolute times differ, but the empty-cache-per-job property the bench isolates is the same.
