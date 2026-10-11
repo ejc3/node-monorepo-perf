@@ -21,7 +21,7 @@ Only `workspace:` forces local linking unconditionally. The two halves of this r
 
 ```
 "@demo/lib-09": "workspace:^1.4.9"  ->  "@demo/lib-09": "^1.4.9"
-"typescript":  "catalog:"           ->  "typescript":  "^5.9.0"
+"typescript":  "catalog:"           ->  "typescript":  "6.0.3"
 ```
 
 | You write | Dev | Published (dep at 1.4.9) |
@@ -31,7 +31,7 @@ Only `workspace:` forces local linking unconditionally. The two halves of this r
 | `workspace:^` | link local | `^1.4.9` |
 | `workspace:^1.4.9` | link local if satisfied | `^1.4.9` |
 
-At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only; the on-disk file is untouched. An explicit `workspace:^1.4.9` has only `workspace:` stripped. All forms link local at install and produce the same lockfile line count and `node_modules` entry count. Their cold installs are 0.62s (`workspace:*`) and 0.56s (`workspace:^x.y.z`), one sample each, against a ~1.7× move from the `node-linker` (`bench/perf-matrix.json`). The spec form sets the published string.
+At publish, pnpm reads the target's `"version"` and writes the combined range into the tarball copy only; the on-disk file is untouched. An explicit `workspace:^1.4.9` has only `workspace:` stripped. All forms link local at install, with the same lockfile line count and `node_modules` entry count and cold installs 11% apart (0.62s vs 0.56s, one sample each, `bench/perf-matrix.json`); the spec form sets the published string.
 
 ## 3. Diamond Resolution Under Semver
 
@@ -74,7 +74,7 @@ To import a lib's TypeScript source (not `dist`), set `transpilePackages: ['@ejc
 
 ## 7. Per-App Workspaces
 
-§5's recommendation, live on CodeArtifact: one repo with no app-spanning workspace, each app its own pnpm workspace (`scripts/per-app-workspace-demo.sh` builds it). Apps commit plain semver and resolve from the registry; publishable libs commit `workspace:^`; `workspace:*` is for transient co-dev only. A libs-only workspace (`packages: ["libs/*"]`) builds and publishes the lib DAG, and each app's own `pnpm-workspace.yaml` shadows it on install. Both apps pin `@ejc3/ui` at the same version; `@ejc3/util` is `ui`'s transitive dep, named by neither app. The apps differ only in `web`'s root override.
+§5's recommendation, live on CodeArtifact: one repo with no app-spanning workspace, each app its own pnpm workspace (`scripts/per-app-workspace-demo.sh` builds it). Apps commit plain semver and resolve from the registry; publishable libs commit `workspace:^`; `workspace:*` is for transient co-dev only. A libs-only workspace (`packages: ["libs/*"]`) builds and publishes the lib DAG, and each app's own `pnpm-workspace.yaml` shadows it on install. Both apps pin `@ejc3/ui` at the same version; `@ejc3/util` is `ui`'s transitive dep, named by neither app. `web` includes the local `@ejc3/util` as a workspace member and adds the root override; `admin` does neither.
 
 **Proof 1: pnpm rewrites `workspace:^` on pack.** `pnpm pack` on `@ejc3/ui`:
 
@@ -124,7 +124,7 @@ This rule has two limits. An existing lockfile **keeps prior choices**: split ed
 nothing moves forward until something re-resolves (`pnpm update`, an install after a manifest change,
 or `pnpm dedupe`, which re-resolves toward fewer copies within declared ranges). And peer-dependency
 contexts can instantiate even a single chosen version more than once
-([`dedupe-peer-dependents`](https://pnpm.io/settings#dedupepeerdependents)).
+([`dedupe-peer-dependents`](https://pnpm.io/settings/peer-dependencies#dedupepeerdependents)).
 
 A split costs duplicate bytes plus the hazards of crossing instances (`instanceof` across copies,
 doubled singletons, two React contexts). To collapse one durably, the lagging consumer republishes
