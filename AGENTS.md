@@ -1384,6 +1384,70 @@ Every commit goes through this loop before it lands, no exceptions, docs include
    Never skip, suppress, or rationalize a finding.
 6. **`prettier --check` clean,** then commit. The message describes what's
    in the diff (see the global `~/.claude/CLAUDE.md` commit conventions).
+7. **On the PR, the merge gate.** The two local reviewers above do not replace the bot
+   reviews on the PR; the gate below requires both.
+
+### Merge Gate
+
+No PR merges into `main` until every review finding on it is adjudicated and its head
+commit has been reviewed by Codex and CodeRabbit. The ruleset on `main` requires the
+commit status **`review-gate`** to be `success` on the PR head.
+`.github/workflows/review-gate.yml` posts it from
+`.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
+go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
+`GITHUB_REPOSITORY` default). The status is `failure` while the gate blocks and `error`
+when it cannot evaluate; both block the merge.
+
+The gate blocks on:
+
+- an unresolved review thread (outdated ones included);
+- a resolved thread with no reply that opens with a disposition;
+- a PR-level finding (a review body from anyone but the PR author, or a top-level PR
+  comment, the author's included) with no disposition posted after it;
+- a head commit nobody but the author reviewed (an empty review object is a reply
+  container, not a review);
+- a head commit not reviewed by each of `chatgpt-codex-connector` and `coderabbitai`
+  (`REQUIRE_HEAD_REVIEW_FROM`): a covering review object from that bot on the head, or its
+  no-findings result naming the head and dated after the head arrived.
+
+Dispositions open a reply of their own and are newer than the claim they answer:
+
+| Disposition | Use for |
+|---|---|
+| `RED-VERIFIED: <test>` | a defect claim, closed by a test watched failing without the fix |
+| `NOT-A-DEFECT: <reason>` | naming, docs, style, bot summaries; say what was done |
+| `DISAGREE: <reason>` | a defect claim rejected, with the reasoning |
+
+Answer a PR-level finding with a review from the author (`gh pr review <n> --comment -b
+"NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. A bot command
+(`@codex review`), a bot's no-findings verdict, and a bot's notice that it did not run, in
+the exact shapes the gate knows, need no answer. CodeRabbit's summary comment does, after
+its last edit.
+
+Get both bot reviews after every push, by PR comment:
+
+```bash
+gh pr comment <n> --body "@codex review"
+gh pr comment <n> --body "@coderabbitai review"
+```
+
+CodeRabbit does not review this repository automatically: its summary comment says the
+repository has fewer than 10 stars and offers a "Trigger review" checkbox. The comment
+command or the checkbox starts a review.
+
+Run the gate locally before calling a PR ready, and the harness after changing the gate:
+
+```bash
+make review-gate PR=<n>     # what the status runs, with the same required reviewers
+make test-review-gate       # the gate's harness; CI runs it (review-gate-tests.yml)
+```
+
+The status is re-evaluated on PR open, push, reopen, ready-for-review and edit
+(`pull_request_target`); on every PR comment (`issue_comment`); on every review and inline
+comment (relayed by `review-gate-events.yml` through `workflow_run`); and every 10 minutes
+for every open PR. Resolving or unresolving a thread triggers no workflow; the sweep picks
+it up, or `gh workflow run review-gate -f pr=<n>` does at once. Every path runs the gate
+from `main`, never from the PR.
 
 ## Mandatory Doc-Sync Pass
 
