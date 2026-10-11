@@ -26,8 +26,11 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 - **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, or a
   top-level PR comment) with no disposition posted after it. Not claims: APPROVED reviews,
   `@codex review` / `@coderabbitai review` and the other documented bot commands, a listed
-  bot's no-findings verdict, and a listed bot's notice that it did not run (in the exact
-  shapes the gate knows).
+  bot's no-findings verdict (Codex's may end with one plain sentence of its own), a listed
+  bot's notice that it did not run, Codex's review that only holds its inline comments,
+  CodeRabbit's command acknowledgements, and CodeRabbit's summary comment when nothing
+  sits outside its delimited regions (each in the exact shapes the gate knows, and only
+  from the bot's own account).
 - **UNREVIEWED HEAD**: nobody but the author reviewed the head commit. An empty review
   object is a reply container, not a review.
 - **MISSING HEAD REVIEW**: a login in `REQUIRE_HEAD_REVIEW_FROM` (here
@@ -64,10 +67,11 @@ gh pr comment <n> --body "@coderabbitai review"
 ```
 
 CodeRabbit does not review this repository automatically (its notice says the repository
-has fewer than 10 stars); it reviews when triggered. Its summary comment counts as a
-finding until answered, and so does its walkthrough after each edit. Codex covers the head
-with a review object (findings) or with its review-summary comment whose row says
-Completed and names the head (no findings).
+has fewer than 10 stars); it reviews when triggered. Its findings arrive as a review
+object and inline threads; its summary comment is not a claim here (upstream treats it as
+one). Codex covers the head with a review object (findings), its "Didn't find any major
+issues" comment naming the head, or its review-summary comment whose row says Completed
+and names the head.
 
 ## Status updates
 
@@ -80,11 +84,12 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
 ## Files
 
 - `check-review-threads.sh`: the gate. A port of ejc3/fcvm's
-  `scripts/check-review-threads.sh`; fixes go upstream first. This copy adds three knobs:
-  the repository from `GITHUB_REPOSITORY` (default `ejc3/node-monorepo-perf`),
-  `EXPECT_HEAD`, and `REQUIRE_HEAD_REVIEW_FROM`.
+  `scripts/check-review-threads.sh`; fixes go upstream first. This copy adds three knobs
+  (the repository from `GITHUB_REPOSITORY`, default `ejc3/node-monorepo-perf`;
+  `EXPECT_HEAD`; `REQUIRE_HEAD_REVIEW_FROM`) and three classifier rules for this
+  repository's bot traffic, each marked "node-monorepo-perf addition".
 - `test-check-review-threads.sh`: one case per hole the gate has had, plus the fixture
   cases and the cases for this copy's knobs.
 - `gate-discard-sites.sh`: pins every place the classifier discards body text.
-- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, one of
-  them captured from this repository's PR #46.
+- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, five of
+  them captured from this repository's PRs #46 and #64 to #67.

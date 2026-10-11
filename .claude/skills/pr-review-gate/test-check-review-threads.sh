@@ -10,7 +10,17 @@
 # The sections at the end are this repository's: the cases upstream keeps in its Rust
 # harness (tests/test_log_scan.rs) over the payloads in fixtures/, and the cases for the
 # three node-monorepo-perf additions (GITHUB_REPOSITORY, EXPECT_HEAD,
-# REQUIRE_HEAD_REVIEW_FROM), each observed red against the unmodified upstream script.
+# REQUIRE_HEAD_REVIEW_FROM), each observed red against the unmodified upstream script,
+# and for the three classifier additions for the bot traffic on this repository (Codex's
+# changing sign-off, its inline-comment container review, CodeRabbit's summary comment and
+# acknowledgements), each observed red against the script before them.
+#
+# One deliberate divergence from upstream: this repository does not treat the CodeRabbit
+# summary comment as a claim (see is_cr_summary_comment). Nine upstream cases asserted that
+# a finding placed INSIDE one of that comment's regions is claimable; they are kept, renamed
+# "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream:
+# ...)", and now expect CLEAR. Text outside the regions is still a claim, and those
+# upstream cases are unchanged.
 #
 # Usage: test-check-review-threads.sh [path-to-check-review-threads.sh]
 set -uo pipefail
@@ -1376,8 +1386,8 @@ run_case "a rate-limited reply with a finding appended is claimable" \
 P1: this drops the last row")")")" 1 "carry no disposition"
 run_case "a summary notice with text after the tips is claimable" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" 'P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a summary notice with an unquoted line inside it is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE"$'\n\nP1: this drops the last row')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice with an unquoted line inside it is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE"$'\n\nP1: this drops the last row')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 # The payload between a notice's markers is parsed, not skimmed for a leading ">". This
 # body is CodeRabbit's current rate-limit copy in full (aws #17): the prose paragraphs, the
 # nested Review details block, the run configuration and the file list. Every line of it is
@@ -1455,16 +1465,16 @@ run_case "today's rate-limit copy, prose and file list and all, needs no disposi
 # A finding quoted INSIDE the notice is the same hole as one appended after the tips: the
 # body is exempted from dispositions and the claim is never answered. Both positions, and
 # both notice kinds, must stay claimable.
-run_case "a summary notice with a quoted finding appended is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE"$'\n> \n> P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a summary notice with a quoted finding inside its details block is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "${LIMIT_NOTICE_ADAPTIVE/'> <summary>How can I continue?</summary>'/'> <summary>How can I continue?</summary>'$'\n> \n> P1: this drops the last row'}")" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a skipped notice with a quoted finding is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'skip review' "$SKIP_NOTICE"$'\n> \n> P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a summary notice of a kind this gate does not list is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice failure $'> [!CAUTION]\n> ## Review failed\n> \n> The pull request is closed.')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a summary notice beside a walkthrough is a walkthrough, still claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_walk "$NOTICE_LIMITED" clean "$BASE40" "$HEAD40")" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice with a quoted finding appended is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE"$'\n> \n> P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice with a quoted finding inside its details block is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "${LIMIT_NOTICE_ADAPTIVE/'> <summary>How can I continue?</summary>'/'> <summary>How can I continue?</summary>'$'\n> \n> P1: this drops the last row'}")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a skipped notice with a quoted finding is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'skip review' "$SKIP_NOTICE"$'\n> \n> P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice of a kind this gate does not list is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice failure $'> [!CAUTION]\n> ## Review failed\n> \n> The pull request is closed.')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice beside a walkthrough is a walkthrough, still claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_walk "$NOTICE_LIMITED" clean "$BASE40" "$HEAD40")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 
 
 echo "== finding 45: a region removed before classification is a region nobody read =="
@@ -1493,17 +1503,17 @@ CR_TIPS_FINDING=${CR_TIPS/'<sub>Comment'/'P1: this drops the last row'$'\n\n''<s
 [ "$CR_TIPS_FINDING" != "$CR_TIPS" ] || { echo "  FAIL  tips fixture edit did not apply"; fail=$((fail+1)); }
 CR_TIPS_UNLISTED=${CR_TIPS/'<sub>Comment'/'<sub>A tips line this gate has never seen.</sub>'$'\n\n''<sub>Comment'}
 [ "$CR_TIPS_UNLISTED" != "$CR_TIPS" ] || { echo "  FAIL  tips fixture edit did not apply"; fail=$((fail+1)); }
-run_case "a summary notice with a finding in its tips block is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_FINDING")" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
-run_case "a summary notice whose tips block holds an unlisted line is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_UNLISTED")" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice with a finding in its tips block is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_FINDING")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice whose tips block holds an unlisted line is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_UNLISTED")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 # A finding APPENDED to a line that is itself a listed shape. This is what the anchors in
 # each shape list are for: without them the shape matches the head of the line and the rest
 # rides along, which is round 1 of this class with a different marker.
 CR_TIPS_TRAILING=${CR_TIPS/'available commands.</sub>'/'available commands.</sub> P1: this drops the last row'}
 [ "$CR_TIPS_TRAILING" != "$CR_TIPS" ] || { echo "  FAIL  tips fixture edit did not apply"; fail=$((fail+1)); }
-run_case "a summary notice whose tips line carries a finding after it is claimable" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_TRAILING")" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
+run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice whose tips line carries a finding after it is claimable)" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_TRAILING")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 run_case "a summary notice with a finding in its tips block covers no head" \
   "$(wrap7 "[$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "$LIMIT_NOTICE" '' "$CR_TIPS_FINDING")" 2026-01-02T01:00:00Z)]")" 1 "UNREVIEWED HEAD"
 # The About Codex block, in both comments Codex folds one into: the legacy verdict, which
@@ -1942,6 +1952,106 @@ if [ -n "$mk_req" ] && [ "$mk_req" = "$wf_req" ]; then
 else
   echo "  FAIL  the Makefile requires '$mk_req' and the workflow '$wf_req'"; fail=$((fail+1))
 fi
+
+echo "== addition 4: Codex's no-findings verdict with a sign-off that changes every time =="
+for signoff in ' Already looking forward to the next diff.' ' What shall we delve into next?' \
+               " Let's keep the momentum going!"; do
+  run_case "the codex sign-off '$signoff' is a verdict that covers the head it names" \
+    "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body "$signoff" deadbeef)")]")" \
+    0 "HEAD COVERED"
+done
+run_case "a sign-off carrying a colon is a finding, not a verdict" \
+  "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' One thing: the lease drops.' deadbeef)")]")" \
+  1 "carry no disposition" "UNREVIEWED HEAD"
+run_case "a sign-off carrying a number is a finding, not a verdict" \
+  "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' Line 42 drops the lease.' deadbeef)")]")" \
+  1 "carry no disposition" "UNREVIEWED HEAD"
+run_case "a sign-off of two sentences is a finding, not a verdict" \
+  "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' Nice. The lease drops before the rename.' deadbeef)")]")" \
+  1 "carry no disposition" "UNREVIEWED HEAD"
+run_case "the new sign-off from a human is claimable, not coverage" \
+  "$(wrap6 "[$(cmt helpful-human User 2026-01-02T01:00:00Z "$(codex_body ' Already looking forward to the next diff.' deadbeef)")]")" \
+  1 "carry no disposition" "UNREVIEWED HEAD"
+run_env_case "the new sign-off naming an older commit needs no answer and covers nothing" \
+  "" "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' Already looking forward to the next diff.' abc123def4)")]")" \
+  1 "UNREVIEWED HEAD" "UNANSWERED"
+run_case "the new sign-off from the CodeRabbit bot is claimable, not coverage" \
+  "$(wrap6 "[$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(codex_body ' Already looking forward to the next diff.' deadbeef)")]")" \
+  1 "carry no disposition" "UNREVIEWED HEAD"
+# The verdict is coverage, so it is one of the comments the gate re-reads and compares: a
+# new-shape verdict edited between the two reads must block like any other.
+FLAVOR=$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' Already looking forward to the next diff.' deadbeef)")
+FLAVOR_EDITED=$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' What shall we delve into next?' deadbeef)" 2026-01-02T02:00:00Z)
+run_case "a new-shape verdict that changed between the two reads blocks" \
+  "$(wrap6 "[$FLAVOR]" "[$FLAVOR_EDITED]")" 2 "changed under us"
+
+echo "== addition 5: Codex's review object that only holds its inline comments =="
+# As posted on #64, #65 and #67: heading, one sentence, the reviewed commit, About Codex.
+codex_container() { jq -n --arg sha "$1" --arg extra "${2:-}" '"\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\(if $extra == "" then "" else "\n" + $extra + "\n" end)\n**Reviewed commit:** `\($sha)`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>"'; }
+APPROVE=$(rv reviewer User deadbeef '""' APPROVED)
+ONE_INLINE='{"totalCount":1,"nodes":[{"replyTo":null}]}'
+run_env_case "the container review is not a claim; its inline thread is judged as a thread" \
+  "" "$(wrapQ "$(rv chatgpt-codex-connector Bot 0ldc0mm1t "$(codex_container abc1234)" COMMENTED "$ONE_INLINE"),$APPROVE")" \
+  0 "CLEAR" "UNANSWERED"
+run_env_case "a container review with a finding added to its body is a claim" \
+  "" "$(wrapQ "$(rv chatgpt-codex-connector Bot 0ldc0mm1t "$(codex_container abc1234 'P1: this also drops the last row')" COMMENTED "$ONE_INLINE"),$APPROVE")" \
+  1 "UNANSWERED chatgpt-codex-connector"
+run_env_case "the container shape from a user account is a claim" \
+  "" "$(wrapQ "$(rv chatgpt-codex-connector User 0ldc0mm1t "$(codex_container abc1234)" COMMENTED "$ONE_INLINE"),$APPROVE")" \
+  1 "UNANSWERED chatgpt-codex-connector"
+run_env_case "the container shape from another bot is a claim" \
+  "" "$(wrapQ "$(rv coderabbitai Bot 0ldc0mm1t "$(codex_container abc1234)" COMMENTED "$ONE_INLINE"),$APPROVE")" \
+  1 "UNANSWERED coderabbitai"
+
+echo "== addition 6: CodeRabbit's acknowledgements and summary comment are not claims =="
+cr_ack() { jq -n --arg s "$1" --arg t "$2" '"<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:0000 -->\n<details>\n<summary>\($s)</summary>\n\n\($t)\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>"'; }
+run_case "'Head commit changed.' (as posted on #64) is a notice, not a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '⚠️ Action not completed' 'Head commit changed.')")")" 0 "CLEAR"
+run_case "'Review triggered.' is a notice, not a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '✅ Actions performed' 'Review triggered.')")")" 0 "CLEAR"
+run_case "'Review triggered.' is not coverage" \
+  "$(wrap6 "[$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '✅ Actions performed' 'Review triggered.')")]")" 1 "UNREVIEWED HEAD"
+run_case "an acknowledgement with a finding added is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(cr_ack '⚠️ Action not completed' $'Head commit changed.\n\nP1: this drops the last row')")")" 1 "carry no disposition"
+# The summary comment as CodeRabbit posts it on this repository (#66): summarize marker, a
+# rate-limit notice region, the autopilot region, the tips region.
+CR_SUM=$(jq -r '.data.repository.pullRequest.comments.nodes[] | select(.author.login == "coderabbitai")
+                | select(.body | startswith("<!-- This is an auto-generated comment: summarize")) | .body' \
+         "$FIXTURES/review-threads-live-66.json" | jq -R -s .)
+run_case "the summary comment from the CodeRabbit bot is not a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$CR_SUM")")" 0 "CLEAR"
+run_case "the summary comment from a user account is a claim" \
+  "$(wrap9 "$(cmt coderabbitai User 2026-01-02T01:00:00Z "$CR_SUM")")" 1 "carry no disposition"
+run_case "a summary comment with text after its regions is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n\nP1: this drops the last row"')")")" 1 "carry no disposition"
+run_case "a summary comment whose region never closes is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("<!-- tips_end -->"; "")')")")" 1 "carry no disposition"
+run_case "a summary comment with text on its marker line is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("summarize by coderabbit.ai -->"; "summarize by coderabbit.ai --> P1: this drops the last row")')")")" 1 "carry no disposition"
+run_case "a summary comment with visible text between two hidden comments is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- a --> P1: this drops the last row <!-- b -->"')")")" 1 "carry no disposition"
+run_case "a summary comment with an indented region marker is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("\n<!-- tips_start -->"; "\n    <!-- tips_start -->")')")")" 1 "carry no disposition"
+
+echo "== addition 7: the live PRs these rules were written against =="
+# #46: CodeRabbit's summary is no longer a claim, and its three review bodies (actionable
+# comments, nitpicks) and six open threads still block: a summary that reports findings
+# does not wave them through, because they arrive as review objects and threads.
+run_env_case "#46: the summary is exempt, the review bodies and threads still block" \
+  "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "3 PR-level review body/bodies" "UNANSWERED coderabbitai (COMMENT)"
+run_env_case "#46: the six open CodeRabbit threads are still listed" \
+  "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "7 total, 6 unresolved"
+# #64: Codex P1 inline (answered RED-VERIFIED, resolved), container review, two no-findings
+# verdicts, CodeRabbit summary + three acknowledgements.
+run_env_case "#64: nothing left to answer, CLEAR" "" "$(cat "$FIXTURES/review-threads-live-64.json")" 0 "CLEAR" "UNANSWERED"
+run_env_case "#64: with both bots required, only CodeRabbit's head review is missing" \
+  "$REQ" "$(cat "$FIXTURES/review-threads-live-64.json")" 1 "MISSING HEAD REVIEW  coderabbitai" "UNANSWERED"
+run_env_case "#65: an answered, resolved thread and a :+1: verdict on the head, CLEAR" \
+  "" "$(cat "$FIXTURES/review-threads-live-65.json")" 0 "CLEAR" "UNANSWERED"
+run_env_case "#66: the new sign-off verdict covers the head, CLEAR" \
+  "" "$(cat "$FIXTURES/review-threads-live-66.json")" 0 "HEAD COVERED" "UNANSWERED"
+run_env_case "#67: both threads answered, nothing unanswered, the head not yet reviewed" \
+  "" "$(cat "$FIXTURES/review-threads-live-67.json")" 1 "UNREVIEWED HEAD" "UNANSWERED"
 
 echo
 echo "passed=$pass failed=$fail"

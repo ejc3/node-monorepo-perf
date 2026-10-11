@@ -13,8 +13,12 @@
 # comment below (#853, #897, ...) is an ejc3/fcvm PR, where the incident it cites happened.
 # Ports have drifted before (ejc3/safe_cli still carries an older one), so a fix belongs
 # upstream in fcvm first and is carried here after. Everything this copy adds is marked
-# "node-monorepo-perf addition" and is limited to three knobs: the repository default
-# (GITHUB_REPOSITORY), EXPECT_HEAD, and REQUIRE_HEAD_REVIEW_FROM.
+# "node-monorepo-perf addition": three knobs (the repository default from
+# GITHUB_REPOSITORY, EXPECT_HEAD, REQUIRE_HEAD_REVIEW_FROM) and three classifier rules for
+# the bot traffic on this repository (Codex's changing no-findings sign-off, Codex's
+# inline-comment container review, CodeRabbit's summary comment and two more of its
+# command acknowledgements). The summary-comment rule is a deliberate divergence: upstream
+# treats that comment as a claim.
 #
 # Why GraphQL and not `created_at` heuristics: an earlier version of the docs
 # said "comment older than your fix commit => already addressed". That is wrong
@@ -855,6 +859,21 @@ def verdict_lines:
              | map(select(length > 0 and . != cr_note))) end;
 def codex_line_re: "^Codex Review: Didn.t find any major issues\\.?( Bravo\\.| Keep it up!| Keep them coming!| Hooray!| Swish!| You.re on a roll\\.| :\\+1:| :rocket:| :tada:| Nice work[.!]| Great job[.!]| 👍)?$";
 def reviewed_re: "^\\*\\*Reviewed commit:\\*\\* `(?<sha>[0-9a-f]{7,40})`$";
+# node-monorepo-perf addition. On this repository Codex closes its verdict with a sentence
+# that changes every time ("Already looking forward to the next diff.", "What shall we delve
+# into next?"), so a list of sign-offs never closes. The tail is accepted as one plain
+# sentence: words, spaces, commas, apostrophes and hyphens, one closing . ! or ?, at most 80
+# characters. That shape cannot carry what a finding is written with (a colon, a backtick,
+# a digit, a link, markup, a second sentence), so "Didn.t find any major issues. P1: drops
+# data" stays a finding. A plain sentence that states a defect ("The error path leaks
+# memory.") has the same shape as one that does not, so what this rule rests on is the
+# author: it is applied only to a comment from the Codex Bot account (CODEX_LOGIN, checked
+# where it is used), whose comment opens by saying it found no major issues. It is accepted
+# only as line one of the two-line verdict, and the reviewed-commit line still binds it.
+def codex_flavor_line_re: "^Codex Review: Didn.t find any major issues\\. [A-Za-z][A-Za-z ,\u0027\u2019-]{0,78}[.!?]$";
+def is_codex_flavor_verdict:
+  verdict_lines as $l
+  | $l != null and ($l | length) == 2 and ($l[0] | test(codex_flavor_line_re)) and ($l[1] | test(reviewed_re));
 def is_verdict:
   verdict_lines as $l
   | ($l == ["<details>", "<summary>✅ Action performed</summary>", "Full review finished.", "</details>"])
@@ -911,7 +930,7 @@ def codex_limit_line1: "You have reached your Codex usage limits for code review
 def codex_limit_line2: "To continue using code reviews, add credits to your account and enable them for code reviews in your [settings](https://chatgpt.com/codex/cloud/settings/code-review).";
 def is_codex_limit_notice:
   verdict_lines as $l | ($l == [codex_limit_line1]) or ($l == [codex_limit_line1, codex_limit_line2]);
-def cr_not_done_re: "^(Review rate limited\\.|Already reviewed\\.|Already reviewed the last commit\\. Use `@coderabbitai full review` to rerun a review of the entire changeset\\.|No files to review\\.|Pull request is closed\\.)$";
+def cr_not_done_re: "^(Review rate limited\\.|Already reviewed\\.|Already reviewed the last commit\\. Use `@coderabbitai full review` to rerun a review of the entire changeset\\.|No files to review\\.|Pull request is closed\\.|Head commit changed\\.)$";
 def cr_fair_usage_re: "^Your included review limit is currently reached under our \\[Fair Usage Limits Policy\\]\\(https://docs\\.coderabbit\\.ai/management/plans#fair-usage-limits-policy\\)\\. This review may still proceed through usage-based billing if eligible\\. Your next included review will be available in [0-9]+ (minutes?|seconds?|hours?)\\.$";
 def cr_chat_limit_re: "^`@[A-Za-z0-9-]+` have exceeded the limit for the number of chat messages per hour\\. Please wait \\*\\*[0-9]+ (minutes?|seconds?|hours?)( and [0-9]+ (minutes?|seconds?))?\\*\\* before sending another message\\.$";
 def is_cr_reply_notice:
@@ -921,7 +940,12 @@ def is_cr_reply_notice:
     or (($l | length) == 6 and $l[0] == "<details>" and $l[1] == "<summary>⚠️ Action not completed</summary>"
         and $l[2] == "Review rate limited." and $l[3] == "---" and ($l[4] | test(cr_fair_usage_re))
         and $l[5] == "</details>")
-    or (($l | length) == 2 and $l[0] == "### Rate Limit Exceeded" and ($l[1] | test(cr_chat_limit_re)));
+    or (($l | length) == 2 and $l[0] == "### Rate Limit Exceeded" and ($l[1] | test(cr_chat_limit_re)))
+    # node-monorepo-perf addition: the acknowledgement of a review command that started a
+    # review. It names no commit and reports no result, so it is a notice, never coverage.
+    or (($l | length) == 4 and $l[0] == "<details>"
+        and ($l[1] | test("^<summary>✅ Actions? performed</summary>$"))
+        and ($l[2] | test("^(Full review|Review) triggered\\.$")) and $l[3] == "</details>");
 def cr_notice_start_re: "^<!-- This is an auto-generated comment: (?<k>rate limited|skip review|review paused) by coderabbit\\.ai -->$";
 def cr_notice_heading_re: "^## (Review limit reached|Review skipped|Reviews paused)$";
 # The notice payload, one accepted shape per line, with the parts that vary between
@@ -990,7 +1014,50 @@ def is_cr_summary_notice:
                        | cr_notice_payload_ok)
                   and ((($p[0] + $q[1]) | strip_accounted(["cr_tips", "html_comment"])) as $rest
                        | $rest != null and ($rest | test("[^[:space:]]") | not))));
-def is_cr_notice: is_cr_reply_notice or is_cr_summary_notice;'
+def is_cr_notice: is_cr_reply_notice or is_cr_summary_notice;
+# node-monorepo-perf addition. The review object Codex submits to hold its inline comments:
+# a fixed heading, a fixed sentence, the reviewed commit, and the About Codex block, with
+# nothing else. Its findings are the inline threads, which the thread rules adjudicate; the
+# body claims nothing. Any other line in it makes the body a claim again.
+def is_codex_review_container:
+  verdict_lines as $l
+  | $l != null and ($l | length) == 3
+    and $l[0] == "### 💡 Codex Review"
+    and $l[1] == "Here are some automated review suggestions for this pull request."
+    and ($l[2] | test(reviewed_re));
+# node-monorepo-perf addition. The CodeRabbit summary comment (walkthrough, recent-review
+# block, pre-merge checks, or a notice before any review ran) is not a claim. CodeRabbit
+# posts its findings as a review object and inline threads, which the rules above judge as
+# claims, so the summary that describes the change is exempt as a whole, by policy: what
+# sits INSIDE one of the regions CodeRabbit delimits is its own summary text and is not read.
+# What sits OUTSIDE them is held to the accounting rule. The comment must open with the
+# summarize marker, and every other line outside a region must be blank or one complete
+# HTML comment at column 0 (which GitHub hides). A region opens on a whole line
+# "<!-- NAME_start -->", "<!-- NAME:start -->" or "<!-- This is an auto-generated comment:
+# KIND by coderabbit.ai -->" and closes on its own matching whole line; an unclosed region,
+# an indented or fenced marker, or any text appended outside the regions leaves the
+# comment a claim. Nothing is removed from the body: lines are only classified.
+def cr_region_open_re: "^<!-- (?:(?<a>[a-z_]+)_start|(?<b>[a-z_]+):start|This is an auto-generated comment: (?<c>[a-z ]+) by coderabbit\\.ai) -->[ \t\r]*$";
+def cr_region_close($open):
+  ($open | capture(cr_region_open_re)) as $m
+  | if $m.a != null then "<!-- \($m.a)_end -->"
+    elif $m.b != null then "<!-- \($m.b):end -->"
+    else "<!-- end of auto-generated comment: \($m.c) by coderabbit.ai -->" end;
+def is_cr_summary_comment:
+  (. // "") as $b
+  | (($b | split("\n"))[0] | startswith(cr_summarize_marker))
+    and ((($b | split("\n"))[0])[(cr_summarize_marker | length):] | test("^[ \t\r]*$"))
+    and (reduce ($b | split("\n"))[1:][] as $line ({inside: null, ok: true};
+          if .ok | not then .
+          elif .inside != null then
+            (.inside as $close
+             | if ($line | startswith($close)) and ($line[($close | length):] | test("^[ \t\r]*$"))
+               then .inside = null else . end)
+          elif ($line | test(cr_region_open_re)) and (($line | capture(cr_region_open_re)).c != "summarize")
+            then .inside = cr_region_close($line)
+          elif ($line | test("^[ \t\r]*$")) or ($line | test("^<!--(?:(?!-->)[^\n])*-->[ \t\r]*$")) then .
+          else .ok = false end)
+        | .ok and .inside == null);'
 # Only these bots issue verdicts, and only from the account GitHub types as a Bot.
 # Anyone else posting the same words has written an ordinary comment: claimable like
 # any other, never coverage. Entries are logins; their mention handles (@codex,
@@ -1023,6 +1090,7 @@ prauthor=$(jq -r '.data.repository.pullRequest.author.login // ""' <<<"$payload"
 COVERAGE_FP_JQ="$VERDICT_JQ"'($bots | split(",")) as $botlogins
   | [ .[] | select(((.author.__typename // "") == "Bot") and (.author.login | IN($botlogins[])))
           | select(((.body // "") | is_verdict)
+                   or (((.author.login // "") == $codex) and ((.body // "") | is_codex_flavor_verdict))
                    or (((.author.login // "") == $codex) and ((.body // "") | is_codex_summary))
                    or ((.body // "") | contains(cr_summarize_marker)))
           | {login: .author.login, createdAt: (.createdAt // ""),
@@ -1092,13 +1160,21 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
   | ($bots | split(",")) as $botlogins
   | (.[0] | map({author, state, body, at: .submittedAt,
                  claimable: (((.state // "COMMENTED") != "APPROVED")
-                             and (($me == "") or ((.author.login // "") != $me)))}))
+                             and (($me == "") or ((.author.login // "") != $me))
+                             # node-monorepo-perf addition: is_codex_review_container
+                             and ((((.author.__typename // "") == "Bot")
+                                   and ((.author.login // "") == $codex)
+                                   and ((.body // "") | is_codex_review_container)) | not))}))
   + (.[1] | map(. as $c
       | (($c.author.__typename // "") == "Bot" and ($c.author.login | IN($botlogins[]))) as $listed
-      | ($listed and ($c.body | is_verdict)) as $v
+      | ($listed and (($c.body | is_verdict)
+                      # node-monorepo-perf addition: is_codex_flavor_verdict, Codex only
+                      or ((($c.author.login // "") == $codex) and ($c.body | is_codex_flavor_verdict)))) as $v
       | ($listed and (($c.author.login // "") == $codex) and ($c.body | is_codex_summary)) as $sum
       | ($listed and ((($c.author.login // "") == $codex and ($c.body | is_codex_limit_notice))
                       or (($c.author.login // "") == $cr and ($c.body | is_cr_notice)))) as $notice
+      # node-monorepo-perf addition: is_cr_summary_comment, from the CodeRabbit Bot only.
+      | ($listed and (($c.author.login // "") == $cr) and ($c.body | is_cr_summary_comment)) as $crsum
       | {author, state: "COMMENT", body, at: .updatedAt,
          verdict: ($v or $sum), notice: $notice,
          reviewed_rows: ((if $notice then []
@@ -1109,7 +1185,7 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
                          | map(select((.sha // "") != "" and (.at // "") != ""))),
          claimable: ((.author.login | IN($skip[]) | not)
                      and ((.body // "") | test($trig; "i") | not)
-                     and (($v or $sum or $notice) | not))}))' \
+                     and (($v or $sum or $notice or $crsum) | not))}))' \
          <(echo "$reviews") <(echo "$prcomments")) || {
   echo "verdict: BLOCKED — could not merge PR-level bodies." >&2; exit 2; }
 

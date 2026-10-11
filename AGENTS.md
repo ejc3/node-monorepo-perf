@@ -1419,10 +1419,16 @@ Dispositions open a reply of their own and are newer than the claim they answer:
 | `DISAGREE: <reason>` | a defect claim rejected, with the reasoning |
 
 Answer a PR-level finding with a review from the author (`gh pr review <n> --comment -b
-"NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. A bot command
-(`@codex review`), a bot's no-findings verdict, and a bot's notice that it did not run, in
-the exact shapes the gate knows, need no answer. CodeRabbit's summary comment does, after
-its last edit.
+"NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. These need no
+answer, each only from the bot's own account and only in the shape the gate knows: a bot
+command (`@codex review`); Codex's no-findings comment ("Didn't find any major issues."
+plus at most one plain sentence, then the reviewed commit); the Codex review that only
+holds its inline comments (heading, one fixed sentence, reviewed commit); CodeRabbit's
+command acknowledgements and its notices that a review did not run; and CodeRabbit's
+summary comment, as long as nothing sits outside the regions CodeRabbit delimits in it.
+Findings from either bot arrive as review bodies and inline threads, and those are
+claims. Treating the CodeRabbit summary as no claim is this repository's choice; the
+upstream gate in ejc3/fcvm treats it as one.
 
 Get both bot reviews after every push, by PR comment:
 
