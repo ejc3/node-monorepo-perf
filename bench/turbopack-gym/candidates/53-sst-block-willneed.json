@@ -1,0 +1,5 @@
+{
+  "description": "turbo-persistence StaticSortedFile (mmap mode): before a block's first read in this process (its bit in verified_blocks unset, or the index/uncached-value path), madvise(WILLNEED) the block's byte range, so a block that is not in the page cache arrives as one read instead of one 4 KiB fault per page (the mapping's Random advice turns readahead off), which on a warm start's dependent lookups queue one behind another",
+  "patch": "bench/turbopack-gym/candidates/53-sst-block-willneed.patch",
+  "base": "vercel/next.js v16.4.0"
+}

@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks join/try_join/try_flat_join poll each child with read-triggered inline execution suppressed while other children of the join are still pending, so a fan-out schedules all its tasks before the joining thread runs any of them inline",
+  "patch": "bench/turbopack-gym/candidates/33-no-inline-joins.patch",
+  "base": "vercel/next.js v16.4.0"
+}

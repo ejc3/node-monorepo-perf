@@ -1,0 +1,5 @@
+{
+  "description": "compute_binding_usage_info: visit modules in topological (DFS post-order) priority instead of discovery order (the base heap pops the latest-discovered module first on equal priority), so each module is processed about once, after its importers as far as cycles allow, instead of re-propagating `export *` barrel usage for every newly visited importer",
+  "patch": "bench/turbopack-gym/candidates/11-binding-usage-topo.patch",
+  "base": "vercel/next.js v16.4.0"
+}

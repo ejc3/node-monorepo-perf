@@ -1,0 +1,524 @@
+{
+ "generator": "upstream-readiness (scratch scripts; see bench/turbopack-gym/upstream-readiness.md)",
+ "base": "vercel/next.js v16.4.0 (e273d5b2e8)",
+ "toolchain": {
+  "rust": "nightly-2026-08-20 (rust-toolchain.toml)",
+  "node": "v22.23.3",
+  "pnpm": "10.33.0"
+ },
+ "patches": {
+  "11": {
+   "commits": [
+    "turbopack: visit modules in topological order in compute_binding_usage_info"
+   ],
+   "diffSha256": "24f8a8aed3dbae1f"
+  },
+  "22": {
+   "commits": [
+    "turbo-tasks: shard the PriorityRunner queue",
+    "turbo-tasks: rustfmt priority_runner.rs",
+    "turbo-tasks: fix clippy type_complexity and manual_is_multiple_of in priority_runner.rs"
+   ],
+   "diffSha256": "c0bca41e3877764b"
+  },
+  "heap-order": {
+   "commits": [
+    "turbopack: break fixed-point traversal priority ties by earliest discovery"
+   ],
+   "diffSha256": "302cf2ad91d3527d"
+  }
+ },
+ "bindings": {
+  "11": {
+   "id": "025caf543a851f0e",
+   "diffSha256": "24f8a8aed3dbae1f"
+  },
+  "22": {
+   "id": "8b9b40c2d29bb470",
+   "diffSha256": "f17d498b091b13f2"
+  },
+  "base": {
+   "id": "ad85c3c79d0a6bc6",
+   "diffSha256": "e3b0c44298fc1c14"
+  },
+  "heap-order": {
+   "id": "ee6510632bf681a6",
+   "diffSha256": "302cf2ad91d3527d"
+  }
+ },
+ "rust": {
+  "11": {
+   "fmt": {
+    "pass": true,
+    "files": []
+   },
+   "clippy": "pass",
+   "clippyInlineStats": "pass",
+   "checkNapi": "pass",
+   "nextest": {
+    "run": 1713,
+    "passed": 1713,
+    "failed": 0,
+    "skipped": 2
+   },
+   "doctest": {
+    "crates": 8,
+    "passed": 8,
+    "failed": 0,
+    "ignored": 37
+   }
+  },
+  "commands": {
+   "fmt": "cargo fmt -- --check  (rustfmt of the pinned nightly-2026-08-20 toolchain)",
+   "clippy": "cargo clippy -p turbo-tasks -p turbopack-core --all-targets -- -D warnings -A deprecated",
+   "clippyInlineStats": "cargo clippy -p turbo-tasks --all-targets --features inline_execution_stats -- -D warnings -A deprecated",
+   "checkNapi": "cargo check -p next-napi-bindings",
+   "nextest": "cargo nextest run -p turbo-tasks -p turbo-tasks-backend -p turbopack-core -p turbopack -p turbopack-ecmascript -p turbopack-tests -p next-core -p next-api --cargo-profile release-with-assertions --no-fail-fast",
+   "doctest": "cargo test -p turbo-tasks -p turbo-tasks-backend -p turbopack-core -p turbopack -p turbopack-ecmascript -p turbopack-tests -p next-core -p next-api --doc --profile=release-with-assertions --no-fail-fast"
+  },
+  "base": {
+   "fmt": {
+    "pass": true,
+    "files": []
+   },
+   "clippy": "pass",
+   "clippyInlineStats": "pass",
+   "checkNapi": "pass",
+   "nextest": {
+    "run": 1713,
+    "passed": 1713,
+    "failed": 0,
+    "skipped": 2
+   },
+   "doctest": {
+    "crates": 8,
+    "passed": 8,
+    "failed": 0,
+    "ignored": 37
+   }
+  },
+  "22-as-benchmarked": {
+   "fmt": {
+    "pass": false,
+    "files": [
+     "turbopack/crates/turbo-tasks/src/priority_runner.rs"
+    ]
+   },
+   "clippy": "fail",
+   "clippyInlineStats": "fail",
+   "checkNapi": "pass",
+   "nextest": {
+    "run": 1718,
+    "passed": 1718,
+    "failed": 0,
+    "skipped": 2
+   },
+   "doctest": {
+    "crates": 8,
+    "passed": 8,
+    "failed": 0,
+    "ignored": 37
+   },
+   "clippyErrors": [
+    "clippy::type_complexity (PriorityRunner::shards)",
+    "clippy::manual_is_multiple_of (test code, 2 sites)"
+   ]
+  },
+  "22-final": {
+   "fmt": {
+    "pass": true,
+    "files": []
+   },
+   "clippy": "pass",
+   "clippyInlineStats": "pass",
+   "nextestTurboTasks": {
+    "command": "cargo nextest run -p turbo-tasks -p turbo-tasks-backend --cargo-profile release-with-assertions --no-fail-fast",
+    "run": 394,
+    "passed": 394,
+    "failed": 0,
+    "skipped": 0
+   }
+  },
+  "heap-order": {
+   "fmt": {
+    "pass": true,
+    "files": []
+   },
+   "nextest": {
+    "command": "cargo nextest run -p turbopack-core -p turbopack -p turbopack-tests -p next-core --cargo-profile release-with-assertions --no-fail-fast",
+    "run": 710,
+    "passed": 710,
+    "failed": 0,
+    "skipped": 2
+   },
+   "comparatorRevertedTieBreakTests": {
+    "command": "cargo nextest run -p turbopack-core -E 'test(/fixed_point/)' (comparator reverted, tests kept)",
+    "run": 3,
+    "passed": 1,
+    "failed": 2,
+    "skipped": 165,
+    "failedTests": [
+     "module_graph::tests::test_traverse_edges_fixed_point_no_priority_is_bfs_deep",
+     "module_graph::tests::test_traverse_edges_fixed_point_no_priority_is_bfs"
+    ]
+   }
+  }
+ },
+ "integration": {
+  "labels": {
+   "11": {
+    "binding": "025caf543a851f0e",
+    "fileRuns": 113,
+    "passed": 1568,
+    "failed": 2,
+    "skipped": 43,
+    "todo": 126,
+    "fileSecondsSum": 3040,
+    "failedCases": [
+     "dev test/development/app-hmr/hmr.test.ts :: app-dir-hmr filesystem changes can navigate cleanly to a page that requires a change in the Webpack runtime",
+     "dev test/development/app-dir/server-hmr/server-hmr.test.ts :: server-hmr module preservation only evaluates the last visited page when a shared module changes"
+    ]
+   },
+   "22": {
+    "binding": "8b9b40c2d29bb470",
+    "fileRuns": 113,
+    "passed": 1568,
+    "failed": 2,
+    "skipped": 43,
+    "todo": 126,
+    "fileSecondsSum": 3028,
+    "failedCases": [
+     "dev test/development/app-hmr/hmr.test.ts :: app-dir-hmr filesystem changes can navigate cleanly to a page that requires a change in the Webpack runtime",
+     "dev test/development/app-dir/server-hmr/server-hmr.test.ts :: server-hmr module preservation only evaluates the last visited page when a shared module changes"
+    ]
+   },
+   "base": {
+    "binding": "ad85c3c79d0a6bc6",
+    "fileRuns": 113,
+    "passed": 1568,
+    "failed": 2,
+    "skipped": 43,
+    "todo": 126,
+    "fileSecondsSum": 2941,
+    "failedCases": [
+     "dev test/development/app-hmr/hmr.test.ts :: app-dir-hmr filesystem changes can navigate cleanly to a page that requires a change in the Webpack runtime",
+     "dev test/development/app-dir/server-hmr/server-hmr.test.ts :: server-hmr module preservation only evaluates the last visited page when a shared module changes"
+    ]
+   }
+  },
+  "list": {
+   "fileRuns": 113,
+   "start": 55,
+   "dev": 58,
+   "files": [
+    "start test/production/app-dir/actions-tree-shaking/basic/basic-edge.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/basic/basic.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/client-actions-tree-shaking/client-actions-tree-shaking.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/mixed-module-actions/mixed-module-actions-edge.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/mixed-module-actions/mixed-module-actions.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/reexport/reexport-edge.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/reexport/reexport.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/shared-module-actions/shared-module-actions-edge.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/shared-module-actions/shared-module-actions.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/use-effect-actions/use-effect-actions-edge.test.ts",
+    "start test/production/app-dir/actions-tree-shaking/use-effect-actions/use-effect-actions.test.ts",
+    "start test/production/app-dir/barrel-optimization/basic/index.test.ts",
+    "start test/production/app-dir/barrel-optimization/mui/index.test.ts",
+    "start test/production/app-dir/client-components-tree-shaking/index.test.ts",
+    "start test/production/app-dir/optimize-package-imports-side-effects/optimize-package-imports-side-effects.test.ts",
+    "start test/production/app-dir/reference-tree-shaking/reference-tree-shaking.test.ts",
+    "start test/production/app-dir/turbopack-chunk-loading-global/turbopack-chunk-loading-global.test.ts",
+    "start test/production/app-dir/turbopack-chunking-removed-config/turbopack-chunking-removed-config.test.ts",
+    "start test/production/app-dir/turbopack-chunking/turbopack-chunking.test.ts",
+    "start test/production/app-dir/turbopack-collect-multiple-entries/turbopack-collect-multiple-entries.test.ts",
+    "start test/production/app-dir/turbopack-module-graph-cycle/turbopack-module-graph-cycle.test.ts",
+    "start test/production/app-dir/turbopack-non-placeable-import/turbopack-non-placeable-import.test.ts",
+    "start test/production/app-dir/turbopack-shared-runtime-async-module/turbopack-shared-runtime-async-module.test.ts",
+    "start test/production/optimize-server-react/optimize-server-react.test.ts",
+    "start test/production/re-export-all-exports-from-page-disallowed/re-export-all-exports-from-page-disallowed.test.ts",
+    "start test/production/remove-unused-imports/remove-unused-imports.test.ts",
+    "start test/production/standalone-mode/tracing-side-effects-false/tracing-side-effects-false.test.ts",
+    "start test/production/typescript-checked-side-effect-imports/index.test.ts",
+    "start test/e2e/app-dir/actions-unused-args/actions-unused-args.test.ts",
+    "start test/e2e/app-dir/actions/app-action-export.test.ts",
+    "start test/e2e/app-dir/actions/app-action-form-state-node-middleware.test.ts",
+    "start test/e2e/app-dir/actions/app-action-form-state.test.ts",
+    "start test/e2e/app-dir/actions/app-action-node-middleware.test.ts",
+    "start test/e2e/app-dir/actions/app-action-progressive-enhancement.test.ts",
+    "start test/e2e/app-dir/actions/app-action-size-limit-invalid-node-middleware.test.ts",
+    "start test/e2e/app-dir/actions/app-action-size-limit-invalid.test.ts",
+    "start test/e2e/app-dir/actions/app-action.test.ts",
+    "start test/e2e/app-dir/app/experimental-compile.test.ts",
+    "start test/e2e/app-dir/app/index.test.ts",
+    "start test/e2e/app-dir/app/standalone-gsp.test.ts",
+    "start test/e2e/app-dir/app/standalone.test.ts",
+    "start test/e2e/app-dir/app/useReportWebVitals.test.ts",
+    "start test/e2e/app-dir/client-reference-reexport-unused/client-reference-reexport-unused.test.ts",
+    "start test/e2e/app-dir/client-reference-side-effects/client-reference-side-effects.test.ts",
+    "start test/e2e/app-dir/css-order/css-order.test.ts",
+    "start test/e2e/app-dir/dynamic-import-tree-shaking/dynamic-import-tree-shaking.test.ts",
+    "start test/e2e/app-dir/reexport-client-component-metadata/reexport-client-component-metadata.test.ts",
+    "start test/e2e/app-dir/rsc-basic/rsc-basic-blocking-ssr.test.ts",
+    "start test/e2e/app-dir/rsc-basic/rsc-basic-react-experimental.test.ts",
+    "start test/e2e/app-dir/rsc-basic/rsc-basic.test.ts",
+    "start test/e2e/app-dir/treeshake-mw/mw.test.ts",
+    "start test/e2e/app-dir/turbopack-tree-shaking-chunkgroup/turbopack-tree-shaking-chunkgroup.test.ts",
+    "start test/e2e/import-attributes/import-attributes.test.ts",
+    "start test/e2e/turbopack-emit-collect/index.test.ts",
+    "start test/e2e/turbopack-tree-shaking-pages/turbopack-tree-shaking-pages.test.ts",
+    "dev test/e2e/app-dir/actions-unused-args/actions-unused-args.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-export.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-form-state-node-middleware.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-form-state.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-node-middleware.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-progressive-enhancement.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-size-limit-invalid-node-middleware.test.ts",
+    "dev test/e2e/app-dir/actions/app-action-size-limit-invalid.test.ts",
+    "dev test/e2e/app-dir/actions/app-action.test.ts",
+    "dev test/e2e/app-dir/app/experimental-compile.test.ts",
+    "dev test/e2e/app-dir/app/index.test.ts",
+    "dev test/e2e/app-dir/app/standalone-gsp.test.ts",
+    "dev test/e2e/app-dir/app/standalone.test.ts",
+    "dev test/e2e/app-dir/app/useReportWebVitals.test.ts",
+    "dev test/e2e/app-dir/client-reference-reexport-unused/client-reference-reexport-unused.test.ts",
+    "dev test/e2e/app-dir/client-reference-side-effects/client-reference-side-effects.test.ts",
+    "dev test/e2e/app-dir/css-order/css-order.test.ts",
+    "dev test/e2e/app-dir/dynamic-import-tree-shaking/dynamic-import-tree-shaking.test.ts",
+    "dev test/e2e/app-dir/reexport-client-component-metadata/reexport-client-component-metadata.test.ts",
+    "dev test/e2e/app-dir/rsc-basic/rsc-basic-blocking-ssr.test.ts",
+    "dev test/e2e/app-dir/rsc-basic/rsc-basic-react-experimental.test.ts",
+    "dev test/e2e/app-dir/rsc-basic/rsc-basic.test.ts",
+    "dev test/e2e/app-dir/treeshake-mw/mw.test.ts",
+    "dev test/e2e/app-dir/turbopack-tree-shaking-chunkgroup/turbopack-tree-shaking-chunkgroup.test.ts",
+    "dev test/e2e/import-attributes/import-attributes.test.ts",
+    "dev test/e2e/turbopack-emit-collect/index.test.ts",
+    "dev test/e2e/turbopack-tree-shaking-pages/turbopack-tree-shaking-pages.test.ts",
+    "dev test/development/app-dir/hmr-deleted-page/hmr-deleted-page.test.ts",
+    "dev test/development/app-dir/hmr-dep-accept/hmr-dep-accept.test.ts",
+    "dev test/development/app-dir/hmr-move-file/hmr-move-file.test.ts",
+    "dev test/development/app-dir/hmr-refetch-coalescing/hmr-refetch-coalescing.test.ts",
+    "dev test/development/app-dir/hmr-rsc-cancellation/hmr-rsc-cancellation.test.ts",
+    "dev test/development/app-dir/hmr-shared-css/hmr-shared-css.test.ts",
+    "dev test/development/app-dir/layout-dynamic-import-hmr/layout-dynamic-import-hmr.test.ts",
+    "dev test/development/app-dir/server-hmr/server-hmr.test.ts",
+    "dev test/development/app-dir/turbopack-reexport-hmr/turbopack-reexport-hmr.test.ts",
+    "dev test/development/app-hmr/hmr-env.test.ts",
+    "dev test/development/app-hmr/hmr.test.ts",
+    "dev test/development/app-hmr/server-restart.test.ts",
+    "dev test/development/basic/barrel-optimization/barrel-optimization-mui.test.ts",
+    "dev test/development/basic/barrel-optimization/barrel-optimization-tremor.test.ts",
+    "dev test/development/basic/barrel-optimization/barrel-optimization.test.ts",
+    "dev test/development/basic/hmr/basic-no-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/basic-no-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/basic-yes-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/basic-yes-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/error-recovery-no-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/error-recovery-no-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/error-recovery-yes-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/error-recovery-yes-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/full-reload-no-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/full-reload-no-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/full-reload-yes-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/full-reload-yes-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/hot-module-reload-no-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/hot-module-reload-no-base-path-yes-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/hot-module-reload-yes-base-path-no-asset-prefix.test.ts",
+    "dev test/development/basic/hmr/hot-module-reload-yes-base-path-yes-asset-prefix.test.ts"
+   ]
+  },
+  "distinctCaseNames": 1724,
+  "casesWithDifferentStatus": 0,
+  "serialReruns": [
+   "hmrfail-base-r1 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 28s",
+   "hmrfail-base-r1 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 52s",
+   "hmrfail-11-r1 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 27s",
+   "hmrfail-11-r1 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 51s",
+   "hmrfail-22-r1 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 26s",
+   "hmrfail-22-r1 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 51s",
+   "hmrfail-base-r2 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 27s",
+   "hmrfail-base-r2 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 52s",
+   "hmrfail-11-r2 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 27s",
+   "hmrfail-11-r2 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 52s",
+   "hmrfail-22-r2 dev test/development/app-hmr/hmr.test.ts: exit=1 passed=5 failed=1 27s",
+   "hmrfail-22-r2 dev test/development/app-dir/server-hmr/server-hmr.test.ts: exit=1 passed=18 failed=1 51s"
+  ]
+ },
+ "devCheck22": {
+  "app": "generated quick app (monolith-gen --routes 400: 401 routes)",
+  "cpus": 32,
+  "rounds": 3,
+  "cycles": 6,
+  "order": "base and 22 alternating per round",
+  "editTargets": [
+   "app page of p76",
+   "server feature component f76/m29",
+   "client component C023 behind the @/ui export* barrel"
+  ],
+  "burst": "80 distinct page routes, 16 requests in flight",
+  "perBinding": {
+   "22": {
+    "readyMs": [
+     503,
+     503,
+     502
+    ],
+    "cold5RoutesMs": [
+     4033,
+     3924,
+     3983
+    ],
+    "burst80Ms": [
+     9896,
+     9900,
+     9417
+    ],
+    "editToVisibleMedianMs": {
+     "page": 247,
+     "feature": 202,
+     "ui-barrel": 259
+    }
+   },
+   "base": {
+    "readyMs": [
+     402,
+     504,
+     503
+    ],
+    "cold5RoutesMs": [
+     4681,
+     4687,
+     4511
+    ],
+    "burst80Ms": [
+     10617,
+     11417,
+     10807
+    ],
+    "editToVisibleMedianMs": {
+     "page": 253,
+     "feature": 204,
+     "ui-barrel": 253
+    }
+   }
+  },
+  "correctness": {
+   "responsesChecked": 744,
+   "non200": 0,
+   "textHashMismatchesVsBase": 0,
+   "serverLogErrorLines": 0
+  }
+ },
+ "heapOrder": {
+  "abMonolith": {
+   "a": "base",
+   "b": "upstream-heap",
+   "app": "monolith",
+   "reps": 6,
+   "laneCpus": 16,
+   "metric": "graph",
+   "ratio": 0.6015,
+   "swapRatios": [
+    0.6037,
+    0.6017,
+    0.5991
+   ],
+   "guardMetric": "turbopack",
+   "guardRatio": 0.9034,
+   "aMedianS": 10.138,
+   "bMedianS": 6.032,
+   "aCores": 7.48,
+   "bCores": 12.02,
+   "sameOutput": false,
+   "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 96,
+    "node": "v22.23.3"
+   }
+  },
+  "abQuick": {
+   "a": "base",
+   "b": "upstream-heap",
+   "app": "quick",
+   "reps": 2,
+   "laneCpus": 16,
+   "metric": "graph",
+   "ratio": 0.9415,
+   "swapRatios": [
+    0.9415
+   ],
+   "guardMetric": "turbopack",
+   "guardRatio": 0.9915,
+   "aMedianS": 1.975,
+   "bMedianS": 1.86,
+   "aCores": 8.45,
+   "bCores": 9.15,
+   "sameOutput": false,
+   "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 96,
+    "node": "v22.23.3"
+   }
+  },
+  "ab11SameLanesMonolith": {
+   "a": "base",
+   "b": "11",
+   "app": "monolith",
+   "reps": 6,
+   "laneCpus": 16,
+   "metric": "graph",
+   "ratio": 0.5856,
+   "swapRatios": [
+    0.5928,
+    0.5826,
+    0.5815
+   ],
+   "guardMetric": "turbopack",
+   "guardRatio": 0.9101,
+   "aMedianS": 10.198,
+   "bMedianS": 6.021,
+   "aCores": 7.67,
+   "bCores": 12.27,
+   "sameOutput": true,
+   "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 96,
+    "node": "v22.23.3"
+   }
+  },
+  "outputDiff": {
+   "method": "normalized-content multiset comparison of one rep (gym normalizer); every rep of both A/Bs reported outputs differ",
+   "quick": {
+    "filesPerBuild": 7910,
+    "unmatchedPerBuild": 4,
+    "byKind": {
+     "diagnostics/route-bundle-stats.json": 1,
+     "chunkJs": 2,
+     "sourceMap": 1
+    }
+   },
+   "monolith": {
+    "filesPerBuild": 41857,
+    "unmatchedPerBuild": 119,
+    "byKind": {
+     "chunkJs": 112,
+     "sourceMap": 7
+    },
+    "chunksWithSameModuleIdMultisetAsBase": 112
+   },
+   "nature": "Every differing chunk holds the same module ids as a chunk of base (all 112 monolith chunks matched by module-id multiset); what changes is the member order of scope-hoisted merged module groups and with it the order of their hoisted imports, and so the content-hashed chunk names. Example (quick app): base emits the merged group of C017 and u147 with the JSX runtime and react imported before u147 and its imports, matching C017 source import order; with the flipped tie-break u147 and its imports come first and the JSX runtime and react are imported after them."
+  }
+ },
+ "canaryMerge": {
+  "command": "git merge-tree --write-tree --merge-base v16.4.0 <canary> <branch>",
+  "canary": "8766132988 2026-10-07",
+  "merge": {
+   "upstream/11": "clean",
+   "upstream/22": "clean",
+   "upstream/heap-order": "clean"
+  },
+  "commitsTouchingPatchedFilesSinceBase": 0
+ }
+}

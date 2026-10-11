@@ -1,0 +1,95 @@
+{
+  "note": "Diagnostic runs behind the operation-counter section of bench/turbopack-gym/cache-drift.md, on a dedicated 192-core box. Single builds and a microbenchmark, not A/Bs: they locate a cost; turbopack-graph-52.json measures it. The warm-build page-cache probes and profiles are in cache-read-probes.json.",
+  "operationCounterLeaf": {
+    "what": "cold monolith builds, one per binding, perf cpu-clock at 499 Hz without call graphs on the build's CPUs 0-23 of a dedicated 192-core c8g.48xlarge (nothing else running); top leaf symbols of tokio-rt-worker samples (perf report --sort sym; kernel symbols unresolved on that host), and the share of the named leaves",
+    "runs": [
+      {
+        "binding": "base",
+        "run": "mv1skzin-b86978",
+        "runTurbopack": 44.315,
+        "graph": 13.363,
+        "output": "939f49aa09028665",
+        "topLeaves": [
+          "9.29%  [.] __aarch64_ldadd8_acq_rel",
+          "1.76%  [.] 0x00000000000a1ba4",
+          "1.56%  [k] (kernel address)",
+          "1.39%  [.] <roaring::bitmap::RoaringBitmap>::serialize_into::<<turbopack_core::module_graph::chunk_group_info:",
+          "1.25%  [k] (kernel address)",
+          "1.23%  [k] (kernel address)",
+          "1.16%  [.] __aarch64_cas8_acq",
+          "1.11%  [k] (kernel address)"
+        ],
+        "share": {
+          "__aarch64_ldadd8_acq_rel": "9.29%",
+          "__aarch64_ldadd8_acq": "0%",
+          "_dl_tlsdesc_dynamic": "0%",
+          "__tls_get_addr": "0%",
+          "_dl_tlsdesc_return": "0%"
+        }
+      },
+      {
+        "binding": "p52-no-op-guard",
+        "run": "mv1snaco-4335a2",
+        "runTurbopack": 42.553,
+        "graph": 13.487,
+        "output": "939f49aa09028665",
+        "topLeaves": [
+          "2.86%  [k] (kernel address)",
+          "1.80%  [.] 0x00000000000a1ba4",
+          "1.42%  [.] <roaring::bitmap::RoaringBitmap>::serialize_into::<<turbopack_core::module_graph::chunk_group_info:",
+          "1.31%  [.] __aarch64_cas8_acq",
+          "1.18%  [k] (kernel address)",
+          "1.17%  [k] (kernel address)",
+          "0.91%  [.] <dashmap::DashMap<turbo_tasks::id::TaskId, alloc::boxed::Box<turbo_tasks_backend::backend::storage_",
+          "0.87%  [k] (kernel address)"
+        ],
+        "share": {
+          "__aarch64_ldadd8_acq_rel": "0.03%",
+          "__aarch64_ldadd8_acq": "0%",
+          "_dl_tlsdesc_dynamic": "0%",
+          "__tls_get_addr": "0%",
+          "_dl_tlsdesc_return": "0%"
+        }
+      },
+      {
+        "binding": "52-striped-op-count",
+        "run": "mv1splpq-74c9bf",
+        "runTurbopack": 43.122,
+        "graph": 14.006,
+        "output": "939f49aa09028665",
+        "topLeaves": [
+          "2.92%  [k] (kernel address)",
+          "1.83%  [.] 0x00000000000a1ba4",
+          "1.47%  [.] <roaring::bitmap::RoaringBitmap>::serialize_into::<<turbopack_core::module_graph::chunk_group_info:",
+          "1.44%  [.] __aarch64_cas8_acq",
+          "1.30%  [k] (kernel address)",
+          "1.25%  [k] (kernel address)",
+          "1.07%  [k] (kernel address)",
+          "0.90%  [k] (kernel address)"
+        ],
+        "share": {
+          "__aarch64_ldadd8_acq_rel": "0.21%",
+          "__aarch64_ldadd8_acq": "0%",
+          "_dl_tlsdesc_dynamic": "0%",
+          "__tls_get_addr": "0%",
+          "_dl_tlsdesc_return": "0%"
+        }
+      }
+    ]
+  },
+  "operationCounterMicrobench": {
+    "52": {
+      "noSnapshot": 1320.6,
+      "snapshotWaiting": 19.4
+    },
+    "what": "SnapshotCoordinator begin_operation + drop of empty operations on 24 threads for 2 s, with no snapshot requested and while a begin_snapshot waits on one held operation (release build of the coordinator alone, CPUs 0-23 of the same dedicated host); millions of operations per second",
+    "original": {
+      "noSnapshot": 49.5,
+      "snapshotWaiting": 49.5
+    },
+    "52 (first version, notify on every stripe emptied)": {
+      "noSnapshot": 1374.9,
+      "snapshotWaiting": 1.1
+    }
+  }
+}

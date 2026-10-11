@@ -1,0 +1,56 @@
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs b/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
+index 5ceeaa9ffc..aa05a9837f 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
+@@ -159,10 +159,40 @@ pub async fn compute_binding_usage_info(
+             None
+         };
+ 
+-        let entries = graph_ref.all_chunk_group_entry_modules();
++        let entries = graph_ref
++            .all_chunk_group_entry_modules()
++            .collect::<Vec<_>>();
++
++        // Visit modules in topological order (importers before the modules they import, as far
++        // as cycles allow): the priority of a module is its DFS post-order index, and the
++        // traversal pops the highest priority first. A module is then usually visited once, after
++        // all of its importers have contributed their used exports, instead of once more every
++        // time another importer reaches it (which is quadratic for widely imported barrels with
++        // many `export *` re-exports). The result is the same fixed point in any order.
++        let mut topological_priority = FxHashMap::<ResolvedVc<Box<dyn Module>>, u32>::default();
++        let mut post_order = 0u32;
++        graph_ref.traverse_nodes_dfs(
++            entries.iter().copied(),
++            &mut (),
++            |_, _| Ok(GraphTraversalAction::Continue),
++            |module, _| {
++                // A module can be reached through more than one node (a `VisitedModule` node in a
++                // later graph layer). The first post-order index is already after all of its
++                // descendants and before all of its importers.
++                topological_priority.entry(module).or_insert_with(|| {
++                    let p = post_order;
++                    post_order += 1;
++                    p
++                });
++                Ok(())
++            },
++        )?;
++        let priority = |module: ResolvedVc<Box<dyn Module>>| {
++            topological_priority.get(&module).copied().unwrap_or(0)
++        };
+ 
+         let visit_count = graph_ref.traverse_edges_fixed_point_with_priority(
+-            entries.map(|m| (m, 0)),
++            entries.iter().map(|&m| (m, priority(m))),
+             &mut (),
+             |parent, target, _, _| {
+                 // Entries are always used
+@@ -300,7 +330,7 @@ pub async fn compute_binding_usage_info(
+                     Ok(GraphTraversalAction::Skip)
+                 }
+             },
+-            |_, _| Ok(0),
++            |module, _| Ok(priority(module)),
+         )?;
+ 
+         // Compute cycles and select modules to be 'circuit breakers'

@@ -1,0 +1,5 @@
+{
+  "description": "compute_chunk_group_info: intern each distinct chunk-group bitmap to a u32 id during the fixed point and memoize merge(from, into) per id pair (subset test, union id), so the per-edge is_subset/|= runs once per distinct pair of bitmaps instead of once per visited edge; same decisions and bitmaps, so visit order and chunk-group ids are unchanged",
+  "patch": "bench/turbopack-gym/candidates/41-chunk-groups-interned.patch",
+  "base": "vercel/next.js v16.4.0 + 15-graph-algos-combined + 22-sharded-runner-2choice"
+}

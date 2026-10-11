@@ -1,0 +1,15 @@
+{
+  "description": "mimalloc: never purge (no madvise/TLB shootdowns from freed pages)",
+  "env": {
+    "MIMALLOC_PURGE_DELAY": "-1"
+  },
+  "result": {
+    "status": "rejected",
+    "ratio": 0.999,
+    "guardRatio": 1.0071,
+    "sameOutput": true,
+    "a": 9.646,
+    "b": 9.636,
+    "when": "2026-10-07T14:10:03.987Z"
+  }
+}

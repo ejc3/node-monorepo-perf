@@ -1,0 +1,5 @@
+{
+  "description": "compute_merged_modules: intern each distinct merge-group RoaringBitmap to a u32 id once, and hash/compare ids in the per-chunk-group list building and exposure pass",
+  "patch": "bench/turbopack-gym/candidates/12-merged-bitmap-ids.patch",
+  "base": "vercel/next.js v16.4.0"
+}

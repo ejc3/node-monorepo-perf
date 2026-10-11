@@ -1,0 +1,5 @@
+{
+  "description": "53 plus madvise(WILLNEED) over each whole meta file at open (meta files keep Random advice and are probed on every lookup); measured the same as 53",
+  "patch": "bench/turbopack-gym/candidates/54-sst-meta-willneed.patch",
+  "base": "vercel/next.js v16.4.0"
+}

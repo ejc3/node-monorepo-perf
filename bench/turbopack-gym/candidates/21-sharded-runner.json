@@ -1,0 +1,5 @@
+{
+  "description": "shard the turbo-tasks PriorityRunner queue (one global parking_lot Mutex) into workers/4 cache-padded shards keyed by claim-key hash, with a non-empty-shard bitmap and a Dekker push/exit check for liveness",
+  "patch": "bench/turbopack-gym/candidates/21-sharded-runner.patch",
+  "base": "vercel/next.js v16.4.0"
+}

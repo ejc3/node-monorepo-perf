@@ -1,0 +1,15 @@
+{
+  "description": "cap turbo-tasks worker parallelism at 8 threads",
+  "env": {
+    "TURBO_TASKS_AVAILABLE_PARALLELISM": "8"
+  },
+  "result": {
+    "status": "rejected",
+    "ratio": 1.2699,
+    "guardRatio": 1.3239,
+    "sameOutput": true,
+    "a": 9.554,
+    "b": 12.125,
+    "when": "2026-10-07T14:04:49.540Z"
+  }
+}

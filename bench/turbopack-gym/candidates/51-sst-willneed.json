@@ -1,0 +1,5 @@
+{
+  "description": "turbo-persistence StaticSortedFile::open (mmap mode): after the existing Random advice, madvise(WILLNEED) the whole SST so the kernel reads it in the background; SSTs open on their first lookup, and with Random advice alone each dependent lookup of a warm build faults its block in page by page while the page cache is cold",
+  "patch": "bench/turbopack-gym/candidates/51-sst-willneed.patch",
+  "base": "vercel/next.js v16.4.0"
+}

@@ -1,0 +1,135 @@
+diff --git a/turbopack/crates/turbo-tasks/src/lib.rs b/turbopack/crates/turbo-tasks/src/lib.rs
+index c93bb9d35d..b9864a945c 100644
+--- a/turbopack/crates/turbo-tasks/src/lib.rs
++++ b/turbopack/crates/turbo-tasks/src/lib.rs
+@@ -101,11 +101,12 @@ pub use crate::{
+     },
+     join_iter_ext::{JoinIterExt, TryFlatJoinIterExt, TryJoinIterExt},
+     manager::{
+-        CurrentCellRef, GcRoot, InputResolution, ReadCellTracking, ReadConsistency, ReadTracking,
+-        ScheduleKey, TaskPersistence, TaskPriority, TurboTasks, TurboTasksApi, TurboTasksCallApi,
+-        Unused, UpdateInfo, dynamic_call, emit, get_serialization_invalidator, mark_finished,
+-        mark_stateful, mark_top_level_task, prevent_gc, run, run_once, run_once_with_reason,
+-        trait_call, try_turbo_tasks, turbo_tasks, turbo_tasks_scope, turbo_tasks_weak,
++        CurrentCellRef, GcRoot, InlineExecutionSuppressed, InputResolution, ReadCellTracking,
++        ReadConsistency, ReadTracking, ScheduleKey, TaskPersistence, TaskPriority, TurboTasks,
++        TurboTasksApi, TurboTasksCallApi, Unused, UpdateInfo, dynamic_call, emit,
++        get_serialization_invalidator, mark_finished, mark_stateful, mark_top_level_task,
++        prevent_gc, run, run_once, run_once_with_reason, trait_call, try_turbo_tasks, turbo_tasks,
++        turbo_tasks_scope, turbo_tasks_weak,
+         unmark_top_level_task_may_leak_eventually_consistent_state, with_turbo_tasks,
+     },
+     mapped_read_ref::MappedReadRef,
+diff --git a/turbopack/crates/turbo-tasks/src/manager.rs b/turbopack/crates/turbo-tasks/src/manager.rs
+index 4e8053b4e8..51ef08b51b 100644
+--- a/turbopack/crates/turbo-tasks/src/manager.rs
++++ b/turbopack/crates/turbo-tasks/src/manager.rs
+@@ -615,9 +615,56 @@ thread_local! {
+     static INLINE_EXECUTION_DEPTH: Cell<usize> = const { Cell::new(0) };
+ }
+ 
+-/// Whether the current thread may execute another task inline, see [`MAX_INLINE_EXECUTION_DEPTH`].
++thread_local! {
++    /// Set while a future that multiplexes many reads is polled, see
++    /// [`InlineExecutionSuppressed`].
++    static INLINE_EXECUTION_SUPPRESSED: Cell<bool> = const { Cell::new(false) };
++}
++
++/// Whether the current thread may execute another task inline, see [`MAX_INLINE_EXECUTION_DEPTH`]
++/// and [`InlineExecutionSuppressed`].
+ fn inline_execution_allowed() -> bool {
+-    INLINE_EXECUTION_DEPTH.get() < MAX_INLINE_EXECUTION_DEPTH
++    INLINE_EXECUTION_DEPTH.get() < MAX_INLINE_EXECUTION_DEPTH && !INLINE_EXECUTION_SUPPRESSED.get()
++}
++
++pin_project_lite::pin_project! {
++    /// Polls the inner future with read-triggered inline execution disabled on the polling
++    /// thread.
++    ///
++    /// A future that multiplexes many concurrent reads whose results produce more work (e.g. a
++    /// large graph traversal driving a `FuturesUnordered` of per-node futures) should not execute
++    /// the task one of those reads waits for inline: that would run the task serially inside the multiplexer's poll, so none of the
++    /// other reads would make progress, and no newly discovered work would be scheduled, until it
++    /// finishes. Instead the read waits for a worker, which leaves the multiplexer free to keep
++    /// scheduling work for all workers.
++    ///
++    /// Tasks that are executed inline by other reads are unaffected, since the suppression only
++    /// applies during this future's poll on this thread.
++    pub struct InlineExecutionSuppressed<F> {
++        #[pin]
++        future: F,
++    }
++}
++
++impl<F> InlineExecutionSuppressed<F> {
++    pub fn new(future: F) -> Self {
++        Self { future }
++    }
++}
++
++impl<F: Future> Future for InlineExecutionSuppressed<F> {
++    type Output = F::Output;
++
++    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<F::Output> {
++        struct Restore(bool);
++        impl Drop for Restore {
++            fn drop(&mut self) {
++                INLINE_EXECUTION_SUPPRESSED.set(self.0);
++            }
++        }
++        let _restore = Restore(INLINE_EXECUTION_SUPPRESSED.replace(true));
++        self.project().future.poll(cx)
++    }
+ }
+ 
+ /// Counts one level of inline task execution on this thread, see [`MAX_INLINE_EXECUTION_DEPTH`].
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/mod.rs b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+index d86b14f1ca..d833aaae26 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/mod.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
+ use tracing::{Instrument, Level, Span};
+ use turbo_rcstr::{RcStr, rcstr};
+ use turbo_tasks::{
+-    CollectiblesSource, FxIndexMap, JoinIterExt, NonLocalValue, OperationVc, ReadRef, ResolvedVc,
+-    TryFlatJoinIterExt, TryJoinIterExt, ValueToString, Vc,
++    CollectiblesSource, FxIndexMap, InlineExecutionSuppressed, JoinIterExt, NonLocalValue,
++    OperationVc, ReadRef, ResolvedVc, TryFlatJoinIterExt, TryJoinIterExt, ValueToString, Vc,
+     debug::ValueDebugFormat,
+     graph::{AdjacencyMap, GraphTraversal, Visit, VisitControlFlow},
+ };
+@@ -344,18 +344,22 @@ impl SingleModuleGraph {
+             .try_join()
+             .await?;
+ 
+-        let children_nodes_iter = AdjacencyMap::new()
+-            .visit(
+-                root_nodes,
+-                SingleModuleGraphBuilder {
+-                    visited_modules,
+-                    emit_spans,
+-                    include_traced,
+-                    include_binding_usage,
+-                },
+-            )
+-            .await
+-            .completed()?;
++        // The traversal drives every in-flight node's `edges` future from this one future. If a
++        // read in there executed the task it waits for inline, that task would run serially in
++        // this poll, stalling all other nodes and the scheduling of newly discovered ones until
++        // it finishes. On large graphs that makes this future the bottleneck of the whole
++        // traversal, so let workers execute those tasks instead.
++        let children_nodes_iter = InlineExecutionSuppressed::new(AdjacencyMap::new().visit(
++            root_nodes,
++            SingleModuleGraphBuilder {
++                visited_modules,
++                emit_spans,
++                include_traced,
++                include_binding_usage,
++            },
++        ))
++        .await
++        .completed()?;
+         let node_count = children_nodes_iter.len();
+ 
+         let mut graph: DiGraph<SingleModuleGraphNode, RefData> = DiGraph::with_capacity(

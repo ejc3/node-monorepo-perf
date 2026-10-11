@@ -1,0 +1,5 @@
+{
+  "description": "combined 11+13+12: topological (DFS post-order) priority for the binding-usage and merged-modules fixed points via ModuleGraphSnapshot::topological_priority, plus interning merged-module bitmaps to u32 ids before grouping",
+  "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+  "base": "vercel/next.js v16.4.0"
+}

@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks-backend SnapshotCoordinator: count active operations in cache-line-padded per-thread stripes instead of one shared AtomicUsize that every operation's begin and end write (only while the persistent cache is on); the snapshot flags move to their own read-mostly word, a phase closes admission by setting the running bit and then summing the stripes (SeqCst store-load handshake), reopening it if an operation was counted, and an operation end takes the mutex to notify a waiting phase only when its stripe empties and the stripes sum to zero",
+  "patch": "bench/turbopack-gym/candidates/52-striped-op-count.patch",
+  "base": "vercel/next.js v16.4.0"
+}

@@ -1,0 +1,213 @@
+diff --git a/turbopack/crates/turbo-tasks/src/join_iter_ext.rs b/turbopack/crates/turbo-tasks/src/join_iter_ext.rs
+index f7b98615d3..de5c262afa 100644
+--- a/turbopack/crates/turbo-tasks/src/join_iter_ext.rs
++++ b/turbopack/crates/turbo-tasks/src/join_iter_ext.rs
+@@ -1,6 +1,10 @@
+ use std::{
+     future::{Future, IntoFuture},
+     pin::Pin,
++    sync::{
++        Arc,
++        atomic::{AtomicUsize, Ordering},
++    },
+     task::Poll,
+ };
+ 
+@@ -11,6 +15,52 @@ use futures::{
+ };
+ use pin_project_lite::pin_project;
+ 
++use crate::manager::with_inline_execution_suppressed;
++
++pin_project! {
++    /// One future of a join. While other futures of the same join are still pending, it is polled
++    /// with read-triggered inline execution suppressed.
++    ///
++    /// The join polls its futures one after another within one poll. If a future executed the task
++    /// it reads inline, the futures after it would not even be polled, so the tasks they call would
++    /// not be scheduled, until that execution finished: the fan-out would run serially on this
++    /// thread instead of on all workers. Once a future is the only one left pending, the join is
++    /// waiting for that single read anyway, so it may execute the task inline.
++    pub struct JoinChild<F> {
++        #[pin]
++        future: F,
++        pending: Arc<AtomicUsize>,
++    }
++}
++
++impl<F: Future> Future for JoinChild<F> {
++    type Output = F::Output;
++
++    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<F::Output> {
++        let this = self.project();
++        let result = if this.pending.load(Ordering::Relaxed) > 1 {
++            with_inline_execution_suppressed(|| this.future.poll(cx))
++        } else {
++            this.future.poll(cx)
++        };
++        if result.is_ready() {
++            this.pending.fetch_sub(1, Ordering::Relaxed);
++        }
++        result
++    }
++}
++
++fn join_children<F: Future>(iter: impl Iterator<Item = F>) -> JoinAll<JoinChild<F>> {
++    let pending = Arc::new(AtomicUsize::new(0));
++    join_all(iter.map(|future| {
++        pending.fetch_add(1, Ordering::Relaxed);
++        JoinChild {
++            future,
++            pending: pending.clone(),
++        }
++    }))
++}
++
+ pin_project! {
+     /// Future for the [JoinIterExt::join] method.
+     pub struct Join<F>
+@@ -18,7 +68,7 @@ pin_project! {
+         F: Future,
+     {
+         #[pin]
+-        inner: JoinAll<F>,
++        inner: JoinAll<JoinChild<F>>,
+     }
+ }
+ 
+@@ -53,7 +103,7 @@ pin_project! {
+         F: Future,
+     {
+         #[pin]
+-        inner: JoinAll<F>,
++        inner: JoinAll<JoinChild<F>>,
+     }
+ }
+ 
+@@ -96,7 +146,7 @@ where
+ {
+     fn join(self) -> Join<F> {
+         Join {
+-            inner: join_all(self.map(|f| f.into_future())),
++            inner: join_children(self.map(|f| f.into_future())),
+         }
+     }
+ }
+@@ -109,7 +159,7 @@ where
+ {
+     fn try_join(self) -> TryJoin<F> {
+         TryJoin {
+-            inner: join_all(self.map(|f| f.into_future())),
++            inner: join_children(self.map(|f| f.into_future())),
+         }
+     }
+ }
+@@ -121,7 +171,7 @@ pin_project! {
+         F: Future,
+     {
+         #[pin]
+-        inner: JoinAll<F>,
++        inner: JoinAll<JoinChild<F>>,
+     }
+ }
+ 
+@@ -174,7 +224,7 @@ where
+ {
+     fn try_flat_join(self) -> TryFlatJoin<F> {
+         TryFlatJoin {
+-            inner: join_all(self.map(|f| f.into_future())),
++            inner: join_children(self.map(|f| f.into_future())),
+         }
+     }
+ }
+diff --git a/turbopack/crates/turbo-tasks/src/lib.rs b/turbopack/crates/turbo-tasks/src/lib.rs
+index c93bb9d35d..b9864a945c 100644
+--- a/turbopack/crates/turbo-tasks/src/lib.rs
++++ b/turbopack/crates/turbo-tasks/src/lib.rs
+@@ -101,11 +101,12 @@ pub use crate::{
+     },
+     join_iter_ext::{JoinIterExt, TryFlatJoinIterExt, TryJoinIterExt},
+     manager::{
+-        CurrentCellRef, GcRoot, InputResolution, ReadCellTracking, ReadConsistency, ReadTracking,
+-        ScheduleKey, TaskPersistence, TaskPriority, TurboTasks, TurboTasksApi, TurboTasksCallApi,
+-        Unused, UpdateInfo, dynamic_call, emit, get_serialization_invalidator, mark_finished,
+-        mark_stateful, mark_top_level_task, prevent_gc, run, run_once, run_once_with_reason,
+-        trait_call, try_turbo_tasks, turbo_tasks, turbo_tasks_scope, turbo_tasks_weak,
++        CurrentCellRef, GcRoot, InlineExecutionSuppressed, InputResolution, ReadCellTracking,
++        ReadConsistency, ReadTracking, ScheduleKey, TaskPersistence, TaskPriority, TurboTasks,
++        TurboTasksApi, TurboTasksCallApi, Unused, UpdateInfo, dynamic_call, emit,
++        get_serialization_invalidator, mark_finished, mark_stateful, mark_top_level_task,
++        prevent_gc, run, run_once, run_once_with_reason, trait_call, try_turbo_tasks, turbo_tasks,
++        turbo_tasks_scope, turbo_tasks_weak,
+         unmark_top_level_task_may_leak_eventually_consistent_state, with_turbo_tasks,
+     },
+     mapped_read_ref::MappedReadRef,
+diff --git a/turbopack/crates/turbo-tasks/src/manager.rs b/turbopack/crates/turbo-tasks/src/manager.rs
+index 4e8053b4e8..a765a4db25 100644
+--- a/turbopack/crates/turbo-tasks/src/manager.rs
++++ b/turbopack/crates/turbo-tasks/src/manager.rs
+@@ -615,9 +615,62 @@ thread_local! {
+     static INLINE_EXECUTION_DEPTH: Cell<usize> = const { Cell::new(0) };
+ }
+ 
+-/// Whether the current thread may execute another task inline, see [`MAX_INLINE_EXECUTION_DEPTH`].
++thread_local! {
++    /// Set while a future that multiplexes many reads is polled, see
++    /// [`InlineExecutionSuppressed`].
++    static INLINE_EXECUTION_SUPPRESSED: Cell<bool> = const { Cell::new(false) };
++}
++
++/// Whether the current thread may execute another task inline, see [`MAX_INLINE_EXECUTION_DEPTH`]
++/// and [`InlineExecutionSuppressed`].
+ fn inline_execution_allowed() -> bool {
+-    INLINE_EXECUTION_DEPTH.get() < MAX_INLINE_EXECUTION_DEPTH
++    INLINE_EXECUTION_DEPTH.get() < MAX_INLINE_EXECUTION_DEPTH && !INLINE_EXECUTION_SUPPRESSED.get()
++}
++
++pin_project_lite::pin_project! {
++    /// Polls the inner future with read-triggered inline execution disabled on the polling
++    /// thread.
++    ///
++    /// A future that multiplexes many concurrent reads (e.g. a graph traversal driving a
++    /// `FuturesUnordered` of per-node futures) must not execute the task one of those reads waits
++    /// for inline: that would run the task serially inside the multiplexer's poll, so none of the
++    /// other reads would make progress, and no newly discovered work would be scheduled, until it
++    /// finishes. Instead the read waits for a worker, which leaves the multiplexer free to keep
++    /// scheduling work for all workers.
++    ///
++    /// Tasks that are executed inline by other reads are unaffected, since the suppression only
++    /// applies during this future's poll on this thread.
++    pub struct InlineExecutionSuppressed<F> {
++        #[pin]
++        future: F,
++    }
++}
++
++impl<F> InlineExecutionSuppressed<F> {
++    pub fn new(future: F) -> Self {
++        Self { future }
++    }
++}
++
++impl<F: Future> Future for InlineExecutionSuppressed<F> {
++    type Output = F::Output;
++
++    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<F::Output> {
++        with_inline_execution_suppressed(|| self.project().future.poll(cx))
++    }
++}
++
++/// Runs `f` with read-triggered inline execution disabled on this thread, see
++/// [`InlineExecutionSuppressed`].
++pub(crate) fn with_inline_execution_suppressed<R>(f: impl FnOnce() -> R) -> R {
++    struct Restore(bool);
++    impl Drop for Restore {
++        fn drop(&mut self) {
++            INLINE_EXECUTION_SUPPRESSED.set(self.0);
++        }
++    }
++    let _restore = Restore(INLINE_EXECUTION_SUPPRESSED.replace(true));
++    f()
+ }
+ 
+ /// Counts one level of inline task execution on this thread, see [`MAX_INLINE_EXECUTION_DEPTH`].
