@@ -50,30 +50,27 @@ Every CI runner starts with an empty local cache. Turborepo caches each task's o
 
 **The network cost, measured.** Shaping the loopback with `tc netem` prices what the floor leaves as arithmetic (`bench/ci-cache-network-bench.json`, 300:100, 192-core c8g.48xlarge; RTT = 2× the netem delay):
 
-| task (cache size) | no-cache cold | localhost floor | same-region (1 Gbps, 2 ms) | cross-region (500 Mbps, 30 ms) |
-| ----------------- | ------------- | --------------- | -------------------------- | ------------------------------ |
-| typecheck (0.2 MB) | 9.8s | 1.4s | 1.4s | 1.6s |
-| build (247 MB) | 24.7s | 3.7s | 3.5s | 5.5s |
-
-The network cost grows with cache **size**. Same-region, both restores sit inside the spread of their own localhost samples (typecheck 1.40–1.56s, build 2.4–4.1s). The cross-region profile (500 Mbps and 30 ms RTT, varied together) adds 0.2s to the 0.2 MB typecheck restore and 1.8s to the 247 MB build restore. Every restore stays ×4.5–×7.1 under the cold compute it replaces (typecheck ×6.9 localhost to ×6.0 cross-region; build ×6.7 to ×4.5), so the shared cache wins on every link measured.
-
 ![Remote cache restore vs cold compute across network profiles](bench/charts/cache-network.svg)
 
 [High-resolution PNG](bench/charts/cache-network.png)
 
 <!-- chart-data:cache-network -->
 <details>
-<summary>The chart as a table (fastest in bold)</summary>
+<summary>The numbers as a table (fastest in bold; readable on a phone)</summary>
+
+A shared Turborepo cache beats cold compute on every link tested (4.5–7.1×); the cross-region link (500 Mbps · 30 ms RTT) adds 0.2s to the 0.2 MB typecheck restore and adds 1.8s to the 247 MB build restore. Each cell: the restore time, then its multiple of the row's fastest.
 
 | task, fresh CI runner | cold compute (no shared cache) | localhost (floor · no network) | same-region (1 Gbps · 2 ms) | cross-region (500 Mbps · 30 ms) |
 | --- | ---: | ---: | ---: | ---: |
 | typecheck (0.2 MB cache · 500 tasks) | 9.8s (×6.9) | 1.4s (+0.8%) | **1.4s** | 1.6s (×1.2) |
-| build (247 MB cache · 400 tasks) | 25s (×7.1) | 3.7s (×1.1) | **3.5s** | 5.5s (×1.6) |
+| build (247 MB cache · 400 tasks) | 24.7s (×7.1) | 3.7s (×1.1) | **3.5s** | 5.5s (×1.6) |
 
 [`bench/ci-cache-network-bench.json`](bench/ci-cache-network-bench.json). turbo 2.9.18, 300:100, restore = median of 3, 192 cores. RTT = 2× the netem delay. Every restore asserted all-cached from the remote. Cold compute carries no cache.
 
 </details>
 <!-- /chart-data:cache-network -->
+
+The network cost grows with cache **size**. Same-region, both restores sit inside the spread of their own localhost samples (typecheck 1.40–1.56s, build 2.4–4.1s). The cross-region profile (500 Mbps and 30 ms RTT, varied together) adds 0.2s to the 0.2 MB typecheck restore and 1.8s to the 247 MB build restore. Every restore stays ×4.5–×7.1 under the cold compute it replaces (typecheck ×6.9 localhost to ×6.0 cross-region; build ×6.7 to ×4.5), so the shared cache wins on every link measured.
 
 **It cannot help when an edit changes everything.** A remote cache restores only artifacts an edit did not invalidate (Figure 1; `bench/ci-cache-bench.json`, 300:100 under `--universal 1`, 500 tasks): a leaf edit leaves **486 of 500** restored and 14 recomputed, a foundation edit **0 of 500** restored and all recomputed. This is §3's blast radius from the cache's side: scope an edit and the cache absorbs the rest; touch a foundation and someone pays the full cold rebuild.
 

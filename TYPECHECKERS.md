@@ -22,7 +22,9 @@ Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the
 
 <!-- chart-data:checker-scale -->
 <details>
-<summary>The chart as tables (fastest in bold)</summary>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+tsgo 7.0.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host. Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a ranking.
 
 **Whole-program check: tsgo, tsc, Flow**
 
@@ -40,7 +42,7 @@ Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the
 
 |  | tsgo (1M modules) | tsc (100k modules) | Flow (1M modules) |
 | --- | ---: | ---: | ---: |
-| red check vs green check | -0.5% (red 70.3s · green 70.7s) | +0.8% (red 65.5s · green 65.0s) | +1.0% (red 93.5s · green 92.5s) |
+| red check vs green check | -0.5% (70.3s vs 70.7s) | +0.8% (65.5s vs 65.0s) | +1.0% (93.5s vs 92.5s) |
 
 [`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit nonzero reporting exactly those errors.
 
@@ -73,9 +75,9 @@ Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the
 |  | flow main @ cdb4f637 | released 0.321.0 |
 | --- | ---: | ---: |
 | recheck round-trip (storm, median) | **520ms** | 3.30s (×6.3) |
-| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged at cycle 13 (WorkerCanceled panic) |
+| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged (at cycle 13) |
 
-[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
+[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
 
 </details>
 <!-- /chart-data:checker-scale -->

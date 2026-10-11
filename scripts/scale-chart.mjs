@@ -12,8 +12,6 @@
 
 import { readFileSync } from "node:fs";
 import {
-  RAMP,
-  rampRGB,
   fmtMult,
   heatChart,
   emitChart,
@@ -164,11 +162,11 @@ const SECTIONS = [
       lbl,
       {
         lsp: L(n).tsgoLsp.warm.errorAppearsMs,
-        tss: L(n).tsserver?.skipped ? null : L(n).tsserver.warm.errorAppearsMs,
+        tss: L(n).tsserver?.skipped ? NAR("anchor ≤100k") : L(n).tsserver.warm.errorAppearsMs,
         flow: rowMs(P(n).flow, "incrOneEdit"),
         watch: L(n).tsgoWatch.oneEditRecheckMs,
         cli: rowMs(P(n).tsgo, "incrOneEdit"),
-        tsccli: P(n).tsc?.skipped ? null : rowMs(P(n).tsc, "incrOneEdit"),
+        tsccli: P(n).tsc?.skipped ? NAR("anchor ≤100k") : rowMs(P(n).tsc, "incrOneEdit"),
       },
     ]),
     source: "bench/tsgo-scale-bench.json, bench/lsp-scale-bench.json",
@@ -188,7 +186,7 @@ const SECTIONS = [
           typeof L(n).tsgoLsp.warm.completionMs === "number"
             ? L(n).tsgoLsp.warm.completionMs
             : TO(compCeil(n), "timed out"),
-        tss: L(n).tsserver?.skipped ? null : L(n).tsserver.warm.completionMs,
+        tss: L(n).tsserver?.skipped ? NAR("anchor ≤100k") : L(n).tsserver.warm.completionMs,
       },
     ]),
     source: "bench/lsp-scale-bench.json",
@@ -221,14 +219,14 @@ const SECTIONS = [
             label: `${RT.runs.find((r) => r.label === "main storm").cycles.length}/${RT.runs.find((r) => r.label === "main storm").cycles.length} clean`,
           },
           rel: CRASH(
-            `wedged at cycle ${RT.runs.find((r) => r.label === "released-0321 storm").wedgedAtCycle}`,
-            "WorkerCanceled panic",
+            "wedged",
+            `at cycle ${RT.runs.find((r) => r.label === "released-0321 storm").wedgedAtCycle}`,
           ),
         },
       ],
     ],
     source: "bench/flow-wedge-retest.json",
-    note: `Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).`,
+    note: `Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).`,
   },
 ];
 
@@ -256,19 +254,23 @@ const fmtS = (ms) => {
 // --- render -------------------------------------------------------------------------------------
 const cellOf = (sec, ri, ci) => {
   const v = sec.rows[ri][1][sec.cols[ci].k];
-  if (v == null) return { kind: "na", why: "anchor ≤100k" };
+  // a bare null/undefined is a missing field, never a plausible "—": every
+  // intentionally-unmeasured cell is an explicit NAR(why) at its source
+  if (v == null)
+    throw new Error(
+      `checker-scale "${sec.title}": cell ${sec.cols[ci].k} of "${sec.rows[ri][0]}" is missing`,
+    );
   if (v.na) return { kind: "na", why: v.why };
   // a crash is a status, not a measurement: no time, no multiplier
   if (v.crash) return { kind: "status", main: v.label, sub: v.sub || "" };
-  if (v.ok) return { kind: "tint", rgb: RAMP[0][1], main: v.label, sub: "no panic", good: true };
+  if (v.ok) return { kind: "ok", main: v.label, sub: "no panic" };
   if (v.green !== undefined && v.red !== undefined) {
     // the red-gate premium as a percentage, both times as the sub-line
     const pct = ((v.red - v.green) / v.green) * 100;
     return {
-      kind: "tint",
-      rgb: Math.abs(pct) < 5 ? RAMP[0][1] : rampRGB(1 + Math.abs(pct) / 100),
+      kind: "delta",
       main: `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
-      sub: `red ${fmtS(v.red)} · green ${fmtS(v.green)}`,
+      sub: `${fmtS(v.red)} vs ${fmtS(v.green)}`,
     };
   }
   if (v.timeout) {
@@ -287,7 +289,7 @@ const { svg, md } = heatChart({
   title: "Type checkers from 10k to 1,000,000 modules",
   lede: [
     `tsgo ${bareVer(TS.versions.tsgo)} · tsc ${TS.versions.typescript} (64GB heap) · flow ${(String(TS.versions.flow).match(/flow main @ [0-9a-f]+/) || ["main build"])[0].replace("flow main", "main")} (wedge fixes in) · ${TS.cores}-core host.`,
-    "Each cell: the measured time, then its multiple of the row's fastest. A timeout shows its ceiling as a floor (≥); a crash shows status, never a number.",
+    "Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a ranking.",
   ],
   sections: SECTIONS.map((sec) => ({
     title: sec.title,
@@ -301,11 +303,16 @@ const { svg, md } = heatChart({
   })),
   labelW: 196,
   colW: 112,
+  statusKey: "≥ timeout · crash: status only",
   aria: "Type checkers at scale, 10k to one million modules: whole-program check (tsgo vs tsc vs Flow), the red-gate premium, the one-edit save loop by mechanic, completion, and Flow's wedge under edit pressure; each cell shows its measured time and its multiple of the row's fastest.",
 });
 emitChart("checker-scale", svg);
 for (const doc of ["README.md", "TYPECHECKERS.md"])
-  writeDocBlock(doc, "checker-scale", mdDetails("The chart as tables (fastest in bold)", md));
+  writeDocBlock(
+    doc,
+    "checker-scale",
+    mdDetails("The numbers as tables (fastest in bold; readable on a phone)", md),
+  );
 console.log(
   `sections: ${SECTIONS.length}, scenario rows: ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)}`,
 );

@@ -928,6 +928,11 @@ Shared helpers the bench scripts import rather than run directly:
   display), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
+- `scripts/chartstyle-selftest.mjs`: the kit's self-test (`node scripts/chartstyle-selftest.mjs`,
+  run by `charts.yml` before rendering): text fits at the 9px floor or throws, row labels
+  wrap inside their column, headers clear the section rule, the key lists only states the
+  chart shows, the markdown twin carries the context line and the SVG's standings,
+  secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold
   ratio range and, per task, each shaped profile's restore time against the localhost
@@ -942,7 +947,8 @@ Shared helpers the bench scripts import rather than run directly:
   and warm cells per scale, the truly-cold pair, and the container bench's fresh and
   cache-restored bun/pnpm medians, and names the faster side of each from the cells (equal
   cells are reported as tied; a margin is worded by `_chartstyle.mjs`'s near-tie rule, the
-  same words the comparison chart prints for that cell); `installSpeedContext()` renders the
+  same rule the comparison chart applies to that cell, in sentence form: "+3% vs fastest",
+  "×1.6 slower"); `installSpeedContext()` renders the
   record's `speedContext` and `claimSpeedSentence()` the speed sentence of its `claim`, each
   clause labelled with its own record's tool versions. Imported by `wave-rollout-bench.mjs`
   (writes both, into its own checkout) and `comparison-chart.mjs`
@@ -1162,18 +1168,22 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
 - **One visual grammar.** Heat-table sections drawn by the kit's `heatChart` renderer. Each
   cell's headline is the measured value; its second line is its standing against the row's
   fastest ("fastest", "+N%", "×N"). The cell is a light `rgba()` tint of the ramp colour
-  (ImageMagick's SVG renderer ignores `fill-opacity`) with a full-strength stripe at its
-  left edge, so the same fill reads on light and dark and the text is plain ink. One
-  green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in log-multiple space, so ×12 is
-  the same colour in every chart. Sections are a heading and a hairline, not tinted panels.
-  One type scale (`TYPE`) for every generator.
+  (ImageMagick's SVG renderer ignores `fill-opacity`) whose strength grows with the
+  multiple, with a full-strength stripe at its left edge, so the same fill reads on light
+  and dark and the text is plain ink; secondary and status text clear WCAG AA on the
+  strongest tint. One green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
+  log-multiple space, so ×12 is the same colour in every chart. Sections are a heading and
+  a hairline, not tinted panels. The heat charts share one type scale (`TYPE`) with a
+  9px floor (`MIN_TEXT`): text that does not fit its space at the floor fails the
+  generator rather than shrinking. The key lists only the states a chart shows.
+  `scripts/chartstyle-selftest.mjs` pins these layout and legibility contracts in CI.
 - **One shared skin: `scripts/_chartstyle.mjs`.** Every generator imports the shared kit
   (see Shared Internals) — palette, box tints, system-ui type, the in-SVG dark-mode
   `<style>` block with an explicit light background it retargets (a transparent SVG with
   dark text is unreadable on GitHub dark), the heat ramp + cell painters, and the
   SVG+PNG emit step. No generator redefines a palette constant or ramp anchor locally.
-- **Stable tool colors.** A tool keeps ONE hue in every chart (the dot beside its column
-  header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
+- **Stable tool colors.** A tool keeps ONE hue in every chart (the short rule under its
+  column header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
   yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)
   `#b2538f` · Flow `#b28a2f` · Vite `#5865c0` · Next `#a86b32` · oxlint `#2e9e57` ·
   ESLint `#9a6ade`. Validated per co-occurring group for CVD separation and contrast on
@@ -1203,9 +1213,10 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
   delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs
   are committed back). The doc embeds the SVG with the PNG linked below it.
-- **Every chart has a text alternative.** A chart scaled to a phone screen is unreadable,
-  and GitHub's mobile views ignore width media queries, so each generator also writes the
-  chart's numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
+- **Charts carry a text alternative.** A chart scaled to a phone screen is unreadable,
+  and GitHub's mobile views ignore width media queries, so the heat charts
+  (`comparison-chart`, `scale-chart`, `net-cache-chart`) also write the chart's context
+  line and numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
   `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
   block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and
   a doc missing its markers fails the generator. Edit the prose around a block, never the

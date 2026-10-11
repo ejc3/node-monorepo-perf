@@ -165,7 +165,7 @@ const SECTIONS = [
         ["warmMs", "Warm"],
       ].flatMap(([state, rLabel]) =>
         INSTALL_SCALES.map(([scale, sLabel]) => [
-          `${rLabel} · ${sLabel} · ${byScale[scale].depEdgesVerified.toLocaleString("en-US")} dep edges`,
+          `${rLabel} · ${sLabel}`,
           Object.fromEntries(
             INSTALL_COLS.map((c) => [
               c.k,
@@ -173,11 +173,12 @@ const SECTIONS = [
                 ms: inst(scale, c.tool, state),
                 detail:
                   c.tool === "yarnPnp"
-                    ? `${byScale[scale][c.tool].nmEntries} entries + ${(byScale[scale][c.tool].pnpCjsBytes / 1e6).toFixed(1)}MB table`
+                    ? `${byScale[scale][c.tool].nmEntries} entries + ${(byScale[scale][c.tool].pnpCjsBytes / 1e6).toFixed(1)} MB`
                     : `${(byScale[scale][c.tool].nmEntries / 1000).toFixed(1)}k nm entries`,
               },
             ]),
           ),
+          `${byScale[scale].depEdgesVerified.toLocaleString("en-US")} dep edges`,
         ]),
       ),
       [
@@ -185,7 +186,7 @@ const SECTIONS = [
         // scale must change this label, not silently keep "200 apps" over new numbers.
         // "Cold store + no lockfile", not "fresh container": the pass deletes the
         // lockfile, and a real fresh container/CI checkout keeps the committed one.
-        `Cold store + no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
+        `Cold store, no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
         {
           bun: IB.trulyCold.bunMs,
           iso: { ms: null, why: "not measured" },
@@ -193,10 +194,11 @@ const SECTIONS = [
           ynm: IB.trulyCold.yarnNmMs,
           ypnp: IB.trulyCold.yarnPnpMs,
         },
+        "fresh store and metadata, network",
       ],
     ],
     source: "bench/install-bench.json",
-    note: `Row label: dependency edges resolved and verified after the install. Third line: what each linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store + no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm ${IB.pnpmVersion} · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}.`,
+    note: `Under each row label: the dependency edges resolved and verified after the install. Under each time: what the linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store, no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm ${IB.pnpmVersion} · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}.`,
   },
   {
     title: `CI-runner install: frozen, from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps)`,
@@ -253,7 +255,7 @@ const SECTIONS = [
     ],
     rows: [
       [
-        "cold resolve (no lockfile)",
+        "cold resolve (no lockfile, warm store)",
         {
           p10: pnRow("pnpm10", "coldResolve"),
           p12: pnRow("pnpm12", "coldResolve"),
@@ -261,11 +263,11 @@ const SECTIONS = [
         },
       ],
       [
-        "warm (lockfile + store)",
+        "warm (lockfile + store, node_modules wiped)",
         { p10: pnRow("pnpm10", "warm"), p12: pnRow("pnpm12", "warm"), tip: pnRow("tip", "warm") },
       ],
       [
-        "frozen (CI)",
+        "frozen (--frozen-lockfile, the CI row)",
         {
           p10: pnRow("pnpm10", "frozen"),
           p12: pnRow("pnpm12", "frozen"),
@@ -273,7 +275,7 @@ const SECTIONS = [
         },
       ],
       [
-        "truly cold (empty store)",
+        "truly cold (fresh store + network; frozen)",
         {
           p10: pnNum("rows.pnpm10.trulyCold.ms"),
           p12: pnNum("rows.pnpm12.trulyCold.ms"),
@@ -282,7 +284,7 @@ const SECTIONS = [
       ],
     ],
     source: "bench/pnpm12-bench.json",
-    note: `Separate dataset: one workspace per leg, every leg locks the identical package set (${pnNum("rows.pnpm12.lockPackages")} packages, ${pnNum("rows.pnpm12.importers").toLocaleString("en-US")} importers), leg order rotated per round. Median of ${pnSamples}; truly cold is one sample. Not comparable to the install rows above.`,
+    note: `Separate dataset: one workspace per leg, every leg locks the identical package set (${pnNum("rows.pnpm12.lockPackages")} packages, ${pnNum("rows.pnpm12.importers").toLocaleString("en-US")} importers), leg order rotated per round. Median of ${pnSamples}; truly cold is one sample with the lockfile retained (store and network cost, no re-resolve). Not comparable to the install rows above.`,
   },
   {
     title: "Typecheck: tsgo vs tsc",
@@ -338,7 +340,7 @@ const SECTIONS = [
     ],
     rows: [
       [
-        `syntactic (${LB.syntactic.eslintMatchedRuleCount} vs ${LB.syntactic.oxlintActiveRuleCount} rules)`,
+        `syntactic (oxlint ${LB.syntactic.oxlintActiveRuleCount} · ESLint ${LB.syntactic.eslintMatchedRuleCount} rules)`,
         { eslint: LB.syntactic.eslint.noCacheMs, oxlint: LB.syntactic.oxlint.runMs },
       ],
       [
@@ -348,7 +350,7 @@ const SECTIONS = [
       ["type-aware", { eslint: LB.typeAware.eslint.ms, oxlint: LB.typeAware.oxlint.ms }],
     ],
     source: "bench/lint-bench.json",
-    note: `ESLint runs a strict subset of oxlint's rules. oxlint is multithreaded and ESLint is not, so the ratio grows with cores (${need(LB, "cores", "bench/lint-bench.json")} here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
+    note: `ESLint runs a strict subset of oxlint's rules. oxlint runs multithreaded and ESLint runs single-process here (no --concurrency), so the ratio grows with cores (${need(LB, "cores", "bench/lint-bench.json")} here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
   },
 ];
 
@@ -395,6 +397,7 @@ const { svg, md } = heatChart({
     cols: sec.cols,
     rows: sec.rows.map((row, ri) => ({
       label: row[0],
+      sub: row[2],
       cells: sec.cols.map((_, ci) => cellOf(sec, ri, ci)),
     })),
     source: sec.source,
@@ -406,7 +409,7 @@ emitChart("tool-comparison", svg);
 writeDocBlock(
   "README.md",
   "tool-comparison",
-  mdDetails("The chart as tables (fastest in bold)", md),
+  mdDetails("The numbers as tables (fastest in bold; readable on a phone)", md),
 );
 console.log(
   `sections: ${SECTIONS.length}, scenario rows: ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)}`,

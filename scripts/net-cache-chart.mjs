@@ -26,7 +26,7 @@ const need = (v, what) => {
   return v;
 };
 
-const secs = (ms) => (ms >= 10000 ? `${(ms / 1000).toFixed(0)}s` : `${(ms / 1000).toFixed(1)}s`);
+const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
 // --- columns: cold + each profile, subtitles derived from the JSON's shaping ----
 const rateLabel = (rate) => {
@@ -76,7 +76,7 @@ const srcNote = `turbo ${DATA.versions?.turbo ?? "?"}, ${DATA.scale}, restore = 
 
 const { svg, md } = heatChart({
   title: TITLE,
-  lede: FINDING,
+  lede: [FINDING, "Each cell: the restore time, then its multiple of the row's fastest."],
   sections: [
     {
       rowHead: "task, fresh CI runner",
@@ -111,5 +111,5 @@ emitChart("cache-network", svg);
 writeDocBlock(
   "LIMITS.md",
   "cache-network",
-  mdDetails("The chart as a table (fastest in bold)", md),
+  mdDetails("The numbers as a table (fastest in bold; readable on a phone)", md),
 );

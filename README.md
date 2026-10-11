@@ -140,21 +140,23 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8�
 
 <!-- chart-data:tool-comparison -->
 <details>
-<summary>The chart as tables (fastest in bold)</summary>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+Each cell: the measured time, then its multiple of the row's fastest. 64-core host (lint: 192-core).
 
 **Install the workspace: bun, pnpm 12, yarn 4**
 
 |  | bun | pnpm 12 isolated | pnpm 12 hoisted | yarn 4 node-modules | yarn 4 PnP (zip cache + .pnp.cjs) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Cold · 200 apps · 2,649 dep edges | **0.28s**<br>15.4k nm entries | 0.43s (×1.6)<br>15.7k nm entries | 0.46s (×1.7)<br>12.6k nm entries | 3.2s (×11)<br>11.2k nm entries | 1.7s (×6.0)<br>64 entries + 0.8MB table |
-| Cold · 1,000 apps · 11,898 dep edges | 2.9s (×3.1)<br>30.0k nm entries | 2.1s (×2.2)<br>31.1k nm entries | **0.96s**<br>17.8k nm entries | 4.3s (×4.4)<br>12.1k nm entries | 2.3s (×2.4)<br>64 entries + 2.0MB table |
-| Cold · 2,000 apps · 23,350 dep edges | 8.6s (×3.4)<br>47.9k nm entries | 6.8s (×2.7)<br>50.2k nm entries | **2.5s**<br>24.2k nm entries | 5.6s (×2.2)<br>13.2k nm entries | 3.2s (×1.3)<br>64 entries + 3.5MB table |
-| Warm · 200 apps · 2,649 dep edges | 0.27s (×1.1)<br>15.4k nm entries | **0.25s**<br>15.7k nm entries | 0.26s (+3%)<br>12.6k nm entries | 2.8s (×11)<br>11.2k nm entries | 1.4s (×5.5)<br>64 entries + 0.8MB table |
-| Warm · 1,000 apps · 11,898 dep edges | 2.8s (×4.8)<br>30.0k nm entries | 2.5s (×4.3)<br>31.1k nm entries | **0.59s**<br>17.8k nm entries | 3.9s (×6.7)<br>12.1k nm entries | 2.1s (×3.6)<br>64 entries + 2.0MB table |
-| Warm · 2,000 apps · 23,350 dep edges | 8.8s (×8.3)<br>47.9k nm entries | 7.3s (×6.8)<br>50.2k nm entries | **1.1s**<br>24.2k nm entries | 5.4s (×5.0)<br>13.2k nm entries | 2.9s (×2.7)<br>64 entries + 3.5MB table |
-| Cold store + no lockfile · 200 apps | **1.3s** | — (not measured) | 2.2s (×1.7) | 9.2s (×6.9) | 7.8s (×5.8) |
+| Cold · 200 apps (2,649 dep edges) | **0.28s**<br>15.4k nm entries | 0.43s (×1.6)<br>15.7k nm entries | 0.46s (×1.7)<br>12.6k nm entries | 3.2s (×11)<br>11.2k nm entries | 1.7s (×6.0)<br>64 entries + 0.8 MB |
+| Cold · 1,000 apps (11,898 dep edges) | 2.9s (×3.1)<br>30.0k nm entries | 2.1s (×2.2)<br>31.1k nm entries | **0.96s**<br>17.8k nm entries | 4.3s (×4.4)<br>12.1k nm entries | 2.3s (×2.4)<br>64 entries + 2.0 MB |
+| Cold · 2,000 apps (23,350 dep edges) | 8.6s (×3.4)<br>47.9k nm entries | 6.8s (×2.7)<br>50.2k nm entries | **2.5s**<br>24.2k nm entries | 5.6s (×2.2)<br>13.2k nm entries | 3.2s (×1.3)<br>64 entries + 3.5 MB |
+| Warm · 200 apps (2,649 dep edges) | 0.27s (×1.1)<br>15.4k nm entries | **0.25s**<br>15.7k nm entries | 0.26s (+3%)<br>12.6k nm entries | 2.8s (×11)<br>11.2k nm entries | 1.4s (×5.5)<br>64 entries + 0.8 MB |
+| Warm · 1,000 apps (11,898 dep edges) | 2.8s (×4.8)<br>30.0k nm entries | 2.5s (×4.3)<br>31.1k nm entries | **0.59s**<br>17.8k nm entries | 3.9s (×6.7)<br>12.1k nm entries | 2.1s (×3.6)<br>64 entries + 2.0 MB |
+| Warm · 2,000 apps (23,350 dep edges) | 8.8s (×8.3)<br>47.9k nm entries | 7.3s (×6.8)<br>50.2k nm entries | **1.1s**<br>24.2k nm entries | 5.4s (×5.0)<br>13.2k nm entries | 2.9s (×2.7)<br>64 entries + 3.5 MB |
+| Cold store, no lockfile · 200 apps (fresh store and metadata, network) | **1.3s** | — (not measured) | 2.2s (×1.7) | 9.2s (×6.9) | 7.8s (×5.8) |
 
-[`bench/install-bench.json`](bench/install-bench.json). Row label: dependency edges resolved and verified after the install. Third line: what each linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store + no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1.
+[`bench/install-bench.json`](bench/install-bench.json). Under each row label: the dependency edges resolved and verified after the install. Under each time: what the linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store, no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1.
 
 **CI-runner install: frozen, from the committed lockfile (1,000 apps)**
 
@@ -169,12 +171,12 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8�
 
 |  | pnpm 12 (Rust · 12.8.1) | tip of main (Rust · 12.8.2) | pnpm 10 (JS · 10.29.1) |
 | --- | ---: | ---: | ---: |
-| cold resolve (no lockfile) | 0.93s (+1%) | **0.92s** | 307s (×336) |
-| warm (lockfile + store) | 0.52s (+0.2%) | **0.52s** | 5.1s (×9.7) |
-| frozen (CI) | **0.49s** | 0.49s (+0.2%) | 4.9s (×10) |
-| truly cold (empty store) | **1.1s** | 1.1s (+0.4%) | 7.0s (×6.5) |
+| cold resolve (no lockfile, warm store) | 0.93s (+1%) | **0.92s** | 307s (×336) |
+| warm (lockfile + store, node_modules wiped) | 0.52s (+0.2%) | **0.52s** | 5.1s (×9.7) |
+| frozen (--frozen-lockfile, the CI row) | **0.49s** | 0.49s (+0.2%) | 4.9s (×10) |
+| truly cold (fresh store + network; frozen) | **1.1s** | 1.1s (+0.4%) | 7.0s (×6.5) |
 
-[`bench/pnpm12-bench.json`](bench/pnpm12-bench.json). Separate dataset: one workspace per leg, every leg locks the identical package set (58 packages, 1,201 importers), leg order rotated per round. Median of 3; truly cold is one sample. Not comparable to the install rows above.
+[`bench/pnpm12-bench.json`](bench/pnpm12-bench.json). Separate dataset: one workspace per leg, every leg locks the identical package set (58 packages, 1,201 importers), leg order rotated per round. Median of 3; truly cold is one sample with the lockfile retained (store and network cost, no re-resolve). Not comparable to the install rows above.
 
 **Typecheck: tsgo vs tsc**
 
@@ -209,11 +211,11 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8�
 
 |  | oxlint | ESLint |
 | --- | ---: | ---: |
-| syntactic (530 vs 598 rules) | **0.19s** | 9.6s (×51) |
+| syntactic (oxlint 598 · ESLint 530 rules) | **0.19s** | 9.6s (×51) |
 | syntactic, ESLint --cache | **0.19s** | 1.6s (×8.3) |
 | type-aware | **0.39s** | 3.6s (×9.2) |
 
-[`bench/lint-bench.json`](bench/lint-bench.json). ESLint runs a strict subset of oxlint's rules. oxlint is multithreaded and ESLint is not, so the ratio grows with cores (192 here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint 1.86.0 · ESLint 9.39.5.
+[`bench/lint-bench.json`](bench/lint-bench.json). ESLint runs a strict subset of oxlint's rules. oxlint runs multithreaded and ESLint runs single-process here (no --concurrency), so the ratio grows with cores (192 here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint 1.86.0 · ESLint 9.39.5.
 
 </details>
 <!-- /chart-data:tool-comparison -->
@@ -226,7 +228,9 @@ The chart below uses the same heat-table style for a different question: how tsg
 
 <!-- chart-data:checker-scale -->
 <details>
-<summary>The chart as tables (fastest in bold)</summary>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+tsgo 7.0.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host. Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a ranking.
 
 **Whole-program check: tsgo, tsc, Flow**
 
@@ -244,7 +248,7 @@ The chart below uses the same heat-table style for a different question: how tsg
 
 |  | tsgo (1M modules) | tsc (100k modules) | Flow (1M modules) |
 | --- | ---: | ---: | ---: |
-| red check vs green check | -0.5% (red 70.3s · green 70.7s) | +0.8% (red 65.5s · green 65.0s) | +1.0% (red 93.5s · green 92.5s) |
+| red check vs green check | -0.5% (70.3s vs 70.7s) | +0.8% (65.5s vs 65.0s) | +1.0% (93.5s vs 92.5s) |
 
 [`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit nonzero reporting exactly those errors.
 
@@ -277,9 +281,9 @@ The chart below uses the same heat-table style for a different question: how tsg
 |  | flow main @ cdb4f637 | released 0.321.0 |
 | --- | ---: | ---: |
 | recheck round-trip (storm, median) | **520ms** | 3.30s (×6.3) |
-| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged at cycle 13 (WorkerCanceled panic) |
+| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged (at cycle 13) |
 
-[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
+[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
 
 </details>
 <!-- /chart-data:checker-scale -->
