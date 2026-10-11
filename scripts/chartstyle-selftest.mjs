@@ -264,4 +264,32 @@ for (const f of readdirSync(chartsDir)
     assert.deepEqual(issues, [], `${f}:\n  ${issues.slice(0, 12).join("\n  ")}`);
   });
 
+test("charts.yml triggers on every module the chart scripts import", () => {
+  // a module only the self-test or a generator imports (e.g. _svg-audit.mjs) must still
+  // run the chart workflow when it alone changes, on push and on pull_request alike
+  const wf = readFileSync(new URL("../.github/workflows/charts.yml", import.meta.url), "utf8");
+  const scripts = [
+    "chartstyle-selftest.mjs",
+    "chart.mjs",
+    "comparison-chart.mjs",
+    "scale-chart.mjs",
+    "net-cache-chart.mjs",
+    "fleet-chart.mjs",
+    "figures.mjs",
+  ];
+  const local = new Set();
+  for (const f of scripts) {
+    const src = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
+    for (const m of src.matchAll(/from "\.\/([\w.-]+\.mjs)"/g)) local.add(m[1]);
+    local.add(f);
+  }
+  for (const f of local) {
+    const n = wf.split(`- "scripts/${f}"`).length - 1;
+    assert.ok(
+      n >= 2,
+      `scripts/${f} is in charts.yml's paths ${n} time(s); push and pull_request both need it`,
+    );
+  }
+});
+
 console.log(`1..${n}`);
