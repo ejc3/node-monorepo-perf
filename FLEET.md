@@ -1,13 +1,13 @@
 # The Fleet Preset: a Measured Production Shape
 
-`--preset fleet` generates the workspace shape measured on a production fleet of ~30,000 small Next.js apps sharing 460 TypeScript libraries. The standard generated workspace is uniform by design: every app imports the same number of libs, and every lib layer looks the same. The measured fleet is skewed on every axis that drives benchmark behavior. This preset reproduces that skew deterministically, so the tree-agnostic operations (`make install/build/typecheck/graph/focus/prune`) and the gate bench run against a real-world shape at real-world scale and stay reproducible. The self-generating bench scripts still scaffold their own layered trees. Sources of record: `bench/fleet-shape.json` (shape targets vs the generated tree) and `bench/fleet-gate-bench.json` / `bench/fleet-gate-bench.pbox.json` (the optimal-stack gate on this shape on a 64-core and a 192-core box; see the Results section below).
+`--preset fleet` generates the workspace shape measured on a production fleet of ~30,000 small Next.js apps sharing 460 TypeScript libraries. The standard generated workspace is uniform by design: every app imports the same number of libs, and every lib layer looks the same. The measured fleet is skewed on every axis that drives benchmark behavior. This preset reproduces that skew deterministically, so the tree-agnostic operations (`make install/build/typecheck/graph/focus/prune`) and the gate bench run against a real-world shape at real-world scale and stay reproducible. At full scale one tsgo program type-checks the fleet in 58.1s on 64 cores, and K concurrent slices cut that to 10.3s (6.2s on 192 cores) with an identical verdict. Sources of record: `bench/fleet-shape.json` (shape targets vs the generated tree) and `bench/fleet-gate-bench.json` / `bench/fleet-gate-bench.pbox.json` (the optimal-stack gate on this shape on a 64-core and a 192-core box).
 
 ```bash
 make gen-fleet                 # 30,000 apps / 460 libs, ~1.03M generated files
 make gen-fleet APPS=3000       # same lib graph, scaled-down app count
 make fleet-verify              # recompute the tree's graph metrics vs the targets
 make fleet-gate-bench          # bun install + tsgo whole-program gate + turbo + oxlint
-make typecheck-whole           # the one-command whole-workspace type gate (pre-push)
+make typecheck-whole           # the one-command whole-program gate (pre-push)
 make fleet-chart               # re-render the results infographic from the bench JSONs
 ```
 
@@ -37,8 +37,8 @@ Four structural properties separate the fleet from the uniform `layered` workspa
 At full scale one app is emitted under a renamed package (`@demo/app-13215` →
 `@demo/app-13215-r1`). bun rejects a workspace when two distinct member names collide in
 its u32-truncated name hash (oven-sh/bun#36386), and the 30,000:460 name universe contains
-exactly one such pair. Universes below 13,215 apps contain none, because the pair needs
-`app-13215` to exist; the quickstart's `APPS=3000` emits no rename. The generator pre-scans
+exactly one such pair. With 460 libs, the first collision appears at 13,215 apps, when
+`app-13215` exists; the quickstart's `APPS=3000` emits no rename. The generator pre-scans
 for these collisions and renames only the colliding app's package name, so directories,
 file paths, and every graph metric are unchanged (`bunNameHashRenames` in the generator
 summary records it).
@@ -47,7 +47,7 @@ summary records it).
 
 Divergences from the measured fleet, recorded in `bench/fleet-shape.json` `fleetContext`:
 
-- **The fleet is not one workspace today.** It runs ~30,000 independent per-app installs with per-app lockfiles, and libs are linked by relative-path `file:` deps. This preset models the single-workspace conversion of that fleet, which is what the rest of this repo benchmarks. A conversion also has two mechanical prerequisites the generator sidesteps by construction: the measured lib graph contains 3 small dependency cycles (largest ≤6 nodes) and 2 duplicate package names, both of which a workspace tool rejects. The generated graph is an acyclic tree of unique names.
+- **The fleet is not one workspace today.** It runs ~30,000 independent per-app installs with per-app lockfiles, and libs are linked by relative-path `file:` deps. This preset models the single-workspace conversion of that fleet, which is what the rest of this repo benchmarks. A conversion also has two mechanical prerequisites the generator sidesteps by construction: the measured lib graph contains 3 small dependency cycles (largest ≤6 nodes) and 2 duplicate package names, both of which a workspace tool rejects. The generated dependency graph is acyclic and uses unique package names.
 - **Source-linked libs.** 421 of the 460 measured libs point `main`/`types` at `src/*.ts`, and apps transpile lib source directly; the fleet has no per-lib build step. The whole-program tsgo gate reads lib source via `tsconfig.whole.json` paths, so it mirrors the fleet's actual typecheck semantics. The turbo `^build` path prices per-package orchestration the fleet does not have yet.
 - **External dependency breadth.** The fleet's apps collectively depend on 1,430 distinct external packages (1,710 with devDeps). The generated workspace holds the external surface at the repo's standard pinned set, so install benches measure workspace shape, not registry breadth or third-party postinstall behavior.
 - **Version spread.** Two ranges of the framework dependency dominate the fleet at roughly 73%/25% (a rollout mid-flight), with long-tail spec divergence on most popular externals. The generated tree models the post-catalog end state; `--skew 25` approximates the two-version split (on react rather than next).
@@ -81,15 +81,15 @@ fleet-gate records carry no load field:
 | bun install (30,460 packages, warm store) | 180.8s | 209.2s |
 | whole-workspace type check (one tsgo program, from source) | 58.1s / 51.3GB peak RSS | 66.6s / 50.4GB |
 | breaking foundation rev → all 30,000 apps red (TS2554, exact file:line) | 58.9s | 67.7s |
-| turbo per-package gate (30,708 tasks incl. the 460 tsc `^build`s) | 633.9s | 348.4s |
+| per-package turbo path (30,708 tasks incl. the 460 tsc `^build`s) | 633.9s | 348.4s |
 | leaf-lib gate (`--filter=...leaf`, 100 tasks) | 120.3s | 45.5s |
 | oxlint across the tree | 2.4s | 3.1s |
 
-For a universal rev the one-program check beats the per-package pipeline **10.9×** on the
-clean pair (58.1s vs 633.9s). The pipeline's 30,248 typecheck processes each re-read the
+For a universal rev the whole-program check beats the per-package turbo path **10.9×** on
+the clean pair (58.1s vs 633.9s). That path's 30,248 typecheck processes each re-read the
 same shared types, and it also runs the 460 lib builds and emits each lib's dist, so the
-pair is not like-for-like. The one-program check was not faster on the bigger machine
-(58.1s → 66.6s); the per-package pipeline ran 1.8× faster there. That is one observation per
+pair is not like-for-like. The whole-program check was not faster on the bigger machine
+(58.1s → 66.6s); the per-package turbo path ran 1.8× faster there. That is one observation per
 machine, a cross-machine comparison, not a controlled core-scaling experiment. The
 blast-radius contrast is structural: a universal rev re-runs 30,708 tasks (a typecheck for
 each of the 30,248 packages in the foundation's closure plus the 460 lib builds), a leaf rev
@@ -110,16 +110,16 @@ import it.
 
 ## The Sliced Gate: Using the Whole Box
 
-The one-program gate cannot use a big machine. Its own reference run is 58.2s on 64 cores
+The whole-program gate cannot use a big machine. Its own reference run is 58.2s on 64 cores
 and 67.7s on 192, at 786% / 1,416% CPU, so most of either box sits idle. (The fleet-gate
 records above read 58.1s / 66.6s on their own trees: run-to-run spread. Every ratio here is
-computed within one record.) The per-package pipeline uses every core but re-parses the
-shared libs ~30,000×. The middle point wins: partition the apps into K slices, each a tsgo
+computed within one record.) The per-package turbo path uses every core but re-parses
+the shared libs ~30,000×. The middle point wins: partition the apps into K slices, each a tsgo
 program over all lib source plus 1/K of the apps, and run them concurrently
 (`scripts/sliced-gate-bench.mjs` → `bench/sliced-gate-bench.json`; 192-core column
-`bench/sliced-gate-bench.pbox.json`, also a c8gb.48xlarge). The recorded pre-run 1-minute
-load was 1.2 on the 64-core box (the tail of its queue's pre-bench burst) and 12.6 on the
-192-core box:
+`bench/sliced-gate-bench.pbox.json`, also a c8gb.48xlarge). Slices are exact-`files`
+programs; per-app globs would make config matching quadratic and bias the sweep. The
+192-core run's recorded pre-run 1-minute load was 12.6:
 
 | K | 64-core wall | 192-core wall | max slice RSS† |
 | --- | --- | --- | --- |
@@ -137,22 +137,20 @@ K=24/48 rows come from the 192-core record (hence the 64-core "—" wall cells).
 shared K the two boxes' RSS agree within 5%. On the 64-core box K=16 and K=32 are within
 2.6% of each other (10,614ms vs 10,342ms); the record's best K is 32.
 
-**5.6× faster than the one-program gate on the same 64-core box (10.3s at K=32), and 10.9×
-on the 192-core box (6.2s at K=48): the machine the one-program gate could not use is now
+**5.6× faster than the whole-program gate on the same 64-core box (10.3s at K=32), and 10.9×
+on the 192-core box (6.2s at K=48): the machine the whole-program gate could not use is now
 the fastest way to run it.** The 192-core wall keeps falling through K=48.
 
 The verdict is identical. The breaking-rev union check asserts that the distinct error
 locations across all slices equal the whole-program set exactly (30,171 = 30,171): lib-side
 errors dedupe, and app-side errors are neither lost nor added. The breaking verdict lands in
 10.3s on 64 cores and 6.5s on 192, each a from-scratch batch run. Flow's resident server
-answers the same rev incrementally, on its smaller dialect mirror, in 14.9s on the same
-64-core box and 13.1s on a 192-core c8g.48xlarge (a different instance type from the sliced
-run's c8gb.48xlarge). Slices are exact-`files` programs; per-app globs would make config
-matching quadratic and bias the sweep.
+answers the same rev incrementally, on its smaller mirror, in 14.9s / 13.1s
+([TYPECHECKERS.md](TYPECHECKERS.md#flow-on-the-fleet-shape)).
 
-Re-parsing the lib closure K times costs less than it sounds. On the 64-core box total CPU
-stays at or below the one-program run through K=8 (404–449s against ~457s) and rises to +14%
-at K=16 and +28% at K=32 (520s, 584s). On the 192-core box it lands *below* the one-program
+Re-parsing the lib closure K times keeps total CPU at or below the whole-program run through
+K=8 on the 64-core box (404–449s against ~457s), then raises it to +14% at K=16 and +28% at
+K=32 (520s, 584s). On the 192-core box it lands *below* the whole-program
 run at every K (~959s → 774–935s). The largest slice's peak RSS falls to 2.2GB at K=32
 against the 51.2GB monolith, while the slices' summed peak RSS rises: 67.9GB at K=32 on the
 64-core box (+33%) and 72.9GB at K=48 on the 192-core box (+38% over its 52.7GB reference).
@@ -179,8 +177,8 @@ One tsgo process reads every app and lib from source and prints a plain verdict:
 (safe to push) or `RED` with a digest (error count, top error codes, how many apps and libs
 are affected, first sample lines). It exits with the checker's code, so the same command
 works as a CI gate. On this shape it takes ~1 minute; the clean run records ~51GB peak RSS.
-A breaking signature comes back as every affected call site with exact file and line, the
-input a codemod consumes. It needs no build step, cache, or orchestration, only a box with
+The checker identifies every affected call site with exact file and line; this command
+prints the first five in its digest. It needs no build step, cache, or orchestration, only a box with
 the RAM.
 
 Two companion records run the same scenario under different tooling: a Flow-dialect mirror
