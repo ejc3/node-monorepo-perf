@@ -558,6 +558,99 @@ export function heatChart({
   return { svg: svgDoc(W, y - 18, aria, T), md: md.join("\n\n") };
 }
 
+// --- axes / series (v2) ----------------------------------------------------------------
+// The plotting grammar for the scaling charts: real axes (ticks, gridlines, titles),
+// log scales where the data spans more than ~10×, direct labels instead of legends.
+// Series hues are mid-toned so a line reads on the light and the dark surface alike:
+// the heat ramp's green and red anchors carry the closure-vs-repo semantics the
+// mechanism figures use (green = the scoped / cached side, red = the whole-repo /
+// cold side); ACCENT is the neutral single series.
+export const SERIES = {
+  scoped: rgbCss(RAMP[0][1]),
+  repo: rgbCss(RAMP[3][1]),
+  neutral: ACCENT,
+};
+export const linScale = (d0, d1, r0, r1) => (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
+export const logScale = (d0, d1, r0, r1) => {
+  const l0 = Math.log10(d0);
+  const span = Math.log10(d1) - l0;
+  return (v) => {
+    if (!(v > 0)) throw new Error(`log scale: non-positive value ${v}`);
+    return r0 + ((Math.log10(v) - l0) / span) * (r1 - r0);
+  };
+};
+// compact tick label: 300 · 1k · 20k · 1M
+export const fmtTick = (n) =>
+  n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${+(n / 1000).toFixed(1)}k` : String(n);
+const f1 = (n) => +n.toFixed(1);
+// Plot frame: gridlines at the value-axis ticks, a baseline, tick labels, axis titles.
+// `grid` picks which axis carries the gridlines ("y" for line charts, "x" for
+// horizontal bars). Ticks are explicit: the caller chooses round values inside the
+// domain, so no label is invented by an auto-tick heuristic.
+export function plotFrame({
+  x,
+  y,
+  w,
+  h,
+  sx,
+  sy,
+  xTicks = [],
+  yTicks = [],
+  xFmt = fmtTick,
+  yFmt = fmtTick,
+  xTitle,
+  yTitle,
+  grid = "y",
+}) {
+  const parts = [];
+  if (grid === "y")
+    for (const t of yTicks)
+      parts.push(
+        `<line x1="${x}" y1="${f1(sy(t))}" x2="${x + w}" y2="${f1(sy(t))}" stroke="${GRID}"/>`,
+      );
+  if (grid === "x")
+    for (const t of xTicks)
+      parts.push(
+        `<line x1="${f1(sx(t))}" y1="${y}" x2="${f1(sx(t))}" y2="${y + h}" stroke="${GRID}"/>`,
+      );
+  // baseline: the domain-floor edge of the plot
+  parts.push(`<line x1="${x}" y1="${y + h}" x2="${x + w}" y2="${y + h}" stroke="${MUTED}"/>`);
+  for (const t of xTicks) {
+    const tx = f1(sx(t));
+    parts.push(`<line x1="${tx}" y1="${y + h}" x2="${tx}" y2="${y + h + 4}" stroke="${MUTED}"/>`);
+    parts.push(txt(tx, y + h + 17, xFmt(t), { size: TYPE.note, fill: MUTED, anchor: "middle" }));
+  }
+  for (const t of yTicks)
+    parts.push(
+      txt(x - 8, f1(sy(t)) + 3.5, yFmt(t), { size: TYPE.note, fill: MUTED, anchor: "end" }),
+    );
+  if (xTitle)
+    parts.push(txt(x + w, y + h + 36, xTitle, { size: TYPE.note, fill: MUTED, anchor: "end" }));
+  if (yTitle) parts.push(txt(x, y - 12, yTitle, { size: TYPE.note, fill: MUTED }));
+  return parts;
+}
+// One series: a polyline broken at missing points, with a dot per measured point.
+export function seriesLine(points, sx, sy, color, { width = 2.25, r = 3.25 } = {}) {
+  const parts = [];
+  let seg = [];
+  const flush = () => {
+    if (seg.length > 1)
+      parts.push(
+        `<polyline points="${seg.join(" ")}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"/>`,
+      );
+    seg = [];
+  };
+  for (const [px, py] of points) {
+    if (py == null) flush();
+    else seg.push(`${f1(sx(px))},${f1(sy(py))}`);
+  }
+  flush();
+  for (const [px, py] of points)
+    if (py != null)
+      parts.push(`<circle cx="${f1(sx(px))}" cy="${f1(sy(py))}" r="${r}" fill="${color}"/>`);
+  return parts;
+}
+
 // --- text measurement / wrapping --------------------------------------------------
 // Rough advance-width estimate (px) so canvases widen to fit prose, never clip.
 export const approxW = (str, px, bold = false) => str.length * px * (bold ? 0.58 : 0.53);

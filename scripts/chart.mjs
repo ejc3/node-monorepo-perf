@@ -1,16 +1,25 @@
 #!/usr/bin/env node
-// Renders dependency-free SVG charts + a markdown summary from bench/results.json.
+// Renders the scaling charts (SVG + 300 DPI PNG each), their README text alternatives,
+// and a markdown summary from bench/results.json.
 //   node scripts/chart.mjs
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { MUTED, ACCENT, GRID, RAMP, rgbCss, txt, svgDoc } from "./_chartstyle.mjs";
-
-// series colors from the shared system: verdict hues off the heat ramp's anchors
-// (green = the fast/cached side, red = the cold side, amber = the whole-repo side)
-const C_GREEN = rgbCss(RAMP[0][1]);
-const C_AMBER = rgbCss(RAMP[1][1]);
-const C_RED = rgbCss(RAMP[3][1]);
+import {
+  MUTED,
+  TYPE,
+  SERIES,
+  txt,
+  svgDoc,
+  linScale,
+  logScale,
+  plotFrame,
+  seriesLine,
+  emitChart,
+  mdTable,
+  mdDetails,
+  writeDocBlock,
+} from "./_chartstyle.mjs";
 
 const ROOT = process.cwd();
 const resultsPath = join(ROOT, "bench", "results.json");
@@ -35,123 +44,131 @@ const fmtBytes = (b) => {
   }
   return n.toFixed(n >= 100 || i === 0 ? 0 : 1) + u[i];
 };
+// seconds to one decimal, the precision the README results table prints
+const fmtSec1 = (ms) => `${(Math.round(ms / 100) / 10).toFixed(1)}s`;
 const fmtNum = (n) => (n == null ? "—" : n.toLocaleString("en-US"));
 
-// ---- generic vertical bar chart (drawn with the shared visual system) ----
-function barChart({ file, title, subtitle, bars, valueFmt = fmtMs, logScale = false }) {
-  const W = 760,
-    H = 420,
-    padL = 70,
-    padR = 24,
-    padT = 86,
-    padB = 90;
-  const plotW = W - padL - padR,
-    plotH = H - padT - padB;
-  const vals = bars.map((b) => b.value ?? 0);
-  const maxV = Math.max(1, ...vals);
-  const scale = (v) => {
-    if (!logScale) return (v / maxV) * plotH;
-    const lv = Math.log10(Math.max(1, v)),
-      lm = Math.log10(Math.max(10, maxV));
-    return (lv / lm) * plotH;
-  };
-  const n = bars.length;
-  const gap = 18;
-  const bw = Math.min(120, (plotW - gap * (n + 1)) / n);
-  const T = [];
-  T.push(txt(padL, 34, title, { size: 18, weight: "700" }));
-  if (subtitle) T.push(txt(padL, 54, subtitle, { size: 12.5, fill: MUTED }));
-  T.push(
-    `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="${GRID}"/>`,
-  );
-  bars.forEach((b, i) => {
-    const h = Math.max(2, scale(b.value ?? 0));
-    const x = padL + gap + i * (bw + gap);
-    const y = padT + plotH - h;
-    T.push(`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="4" fill="${b.color}"/>`);
-    T.push(
-      txt(x + bw / 2, y - 8, valueFmt(b.value), { size: 13, weight: "600", anchor: "middle" }),
-    );
-    String(b.label)
-      .split("\n")
-      .forEach((ln, k) => {
-        T.push(
-          txt(x + bw / 2, padT + plotH + 22 + k * 16, ln, {
-            size: 12,
-            fill: MUTED,
-            anchor: "middle",
-          }),
-        );
-      });
-  });
-  writeFileSync(
-    join(chartsDir, file),
-    svgDoc(W, H, `${title}${subtitle ? ` — ${subtitle}` : ""}`, T),
-  );
-  return file;
+// ---- drawing (the shared v2 grammar: real axes, direct labels, the kit's type scale) ----
+const W = 680;
+const PAD = 20;
+
+// title + one-line lede, the header every chart here shares; returns the next free y
+function header(T, title, lede) {
+  T.push(txt(PAD, 30, title, { size: TYPE.title, weight: "650" }));
+  if (lede) T.push(txt(PAD, 50, lede, { size: TYPE.lede, fill: MUTED }));
+  return lede ? 76 : 56;
 }
 
-// ---- line chart (metric vs scale) ----
-function lineChart({ file, title, subtitle, series, xs, yFmt = fmtMs }) {
-  const W = 760,
-    H = 420,
-    padL = 78,
-    padR = 24,
-    padT = 86,
-    padB = 70;
-  const plotW = W - padL - padR,
-    plotH = H - padT - padB;
-  const allY = series.flatMap((s) => s.points.map((p) => p)).filter((v) => v != null);
-  const maxY = Math.max(1, ...allY);
-  const maxX = Math.max(...xs);
-  const sx = (x) => padL + (x / maxX) * plotW;
-  const sy = (y) => padT + plotH - (y / maxY) * plotH;
+// round tick step (1/2/5 × 10^k) giving at most `max` intervals over [0, top]
+const niceStep = (top, max = 5) => {
+  const raw = top / max;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw);
+};
+
+// Horizontal bars on a LINEAR axis from zero: bar length is the value, so the
+// cold-vs-warm ratio reads at its true size. Value at the bar end, label at the left.
+function hBarChart({ name, title, lede, bars, xTitle, valueFmt }) {
   const T = [];
-  T.push(txt(padL, 34, title, { size: 18, weight: "700" }));
-  if (subtitle) T.push(txt(padL, 54, subtitle, { size: 12.5, fill: MUTED }));
+  const top = header(T, title, lede);
+  const labelW = 150;
+  const x0 = PAD + labelW;
+  const plotW = W - x0 - PAD - 64; // room for the value label past the longest bar
+  const barH = 26;
+  const gap = 14;
+  const plotTop = top + 4;
+  const plotH = bars.length * barH + (bars.length + 1) * gap;
+  const max = Math.max(...bars.map((b) => b.value));
+  const step = niceStep(max);
+  const xMax = Math.ceil(max / step) * step;
+  const sx = linScale(0, xMax, x0, x0 + plotW);
+  const ticks = [];
+  for (let t = 0; t <= xMax + 1e-9; t += step) ticks.push(t);
   T.push(
-    `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="${GRID}"/>`,
+    ...plotFrame({
+      x: x0,
+      y: plotTop,
+      w: plotW,
+      h: plotH,
+      sx,
+      sy: () => 0,
+      xTicks: ticks,
+      xFmt: (t) => (t === 0 ? "0" : fmtMs(t)),
+      xTitle,
+      grid: "x",
+    }),
   );
-  T.push(`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="${GRID}"/>`);
-  xs.forEach((x) => {
-    T.push(txt(sx(x), padT + plotH + 22, fmtNum(x), { size: 12, fill: MUTED, anchor: "middle" }));
+  bars.forEach((b, i) => {
+    const by = plotTop + gap + i * (barH + gap);
+    const bw = Math.max(1.5, sx(b.value) - x0);
+    T.push(
+      `<rect x="${x0}" y="${by}" width="${+bw.toFixed(1)}" height="${barH}" rx="2" fill="${b.color}"/>`,
+    );
+    T.push(
+      txt(x0 + bw + 8, by + barH / 2 + 4.5, valueFmt(b.value), {
+        size: TYPE.value,
+        weight: "650",
+      }),
+    );
+    T.push(txt(PAD, by + barH / 2 - 1.5, b.label, { size: TYPE.label }));
+    if (b.sub) T.push(txt(PAD, by + barH / 2 + 12, b.sub, { size: TYPE.note, fill: MUTED }));
   });
-  series.forEach((s) => {
-    // break the line at missing points instead of joining straight across the gap
-    const coords = s.points.map((y, i) => (y == null ? null : `${sx(xs[i])},${sy(y)}`));
-    let seg = [];
-    const flush = () => {
-      if (seg.length)
-        T.push(
-          `<polyline points="${seg.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`,
-        );
-      seg = [];
-    };
-    for (const c of coords) {
-      if (c) seg.push(c);
-      else flush();
-    }
-    flush();
-    s.points.forEach((y, i) => {
-      if (y == null) return;
-      T.push(`<circle cx="${sx(xs[i])}" cy="${sy(y)}" r="4" fill="${s.color}"/>`);
-      const lx = Math.min(sx(xs[i]), W - padR - 26);
-      T.push(txt(lx, sy(y) - 10, yFmt(y), { size: 11, anchor: "middle" }));
-    });
-  });
-  // legend
-  series.forEach((s, i) => {
-    const lx = W - padR - 160,
-      ly = padT + 6 + i * 20;
-    T.push(`<rect x="${lx}" y="${ly - 10}" width="12" height="12" rx="3" fill="${s.color}"/>`);
-    T.push(txt(lx + 18, ly, s.name, { size: 12, fill: MUTED }));
-  });
-  writeFileSync(
-    join(chartsDir, file),
-    svgDoc(W, H, `${title}${subtitle ? ` — ${subtitle}` : ""}`, T),
-  );
-  return file;
+  const H = plotTop + plotH + 48;
+  emitChart(name, svgDoc(W, H, `${title}. ${lede}`, T));
+  return `${name}.svg`;
 }
+
+// Log–log scaling chart over workspace size. A named series is labeled directly at its
+// last point (no legend); first and last values are printed unless `endLabels: false`.
+function scaleChart({ name, title, lede, series, xDomain, xTicks, yDomain, yTicks, yTitle }) {
+  const T = [];
+  const top = header(T, title, lede);
+  const x0 = PAD + 44; // y tick labels sit left of the plot
+  const plotTop = top + 28;
+  // the right margin holds the direct series labels; a lone series needs none
+  const plotW = W - x0 - PAD - (series.some((s) => s.name) ? 150 : 24);
+  const plotH = 250;
+  const sx = logScale(xDomain[0], xDomain[1], x0, x0 + plotW);
+  const sy = logScale(yDomain[0], yDomain[1], plotTop + plotH, plotTop);
+  T.push(
+    ...plotFrame({
+      x: x0,
+      y: plotTop,
+      w: plotW,
+      h: plotH,
+      sx,
+      sy,
+      xTicks,
+      yTicks,
+      xTitle: "workspace packages (apps + libs), log scale",
+      yTitle: `${yTitle}, log scale`,
+    }),
+  );
+  for (const s of series) {
+    T.push(...seriesLine(s.points, sx, sy, s.color));
+    const measured = s.points.filter(([, py]) => py != null);
+    const [fx, fy] = measured[0];
+    const [lx, ly] = measured[measured.length - 1];
+    // endpoint values, above the line (a flat series carries its range in `sub` instead)
+    if (s.endLabels !== false) {
+      T.push(txt(sx(fx), sy(fy) - 9, fmtNum(fy), { size: TYPE.note, anchor: "middle" }));
+      T.push(txt(sx(lx), sy(ly) - 9, fmtNum(ly), { size: TYPE.note, anchor: "middle" }));
+    }
+    // direct series label right of the last point (in place of a legend)
+    if (s.name)
+      T.push(
+        txt(sx(lx) + 12, sy(ly) + 4, s.name, { size: TYPE.label, weight: "650" }),
+        ...(s.sub ? [txt(sx(lx) + 12, sy(ly) + 18, s.sub, { size: TYPE.note, fill: MUTED })] : []),
+      );
+  }
+  const H = plotTop + plotH + 52;
+  emitChart(name, svgDoc(W, H, `${title}. ${lede}`, T));
+  return `${name}.svg`;
+}
+
+// the README text alternative for one chart (the mobile-readable form of its numbers)
+const docBlock = (id, head, rows) =>
+  writeDocBlock("README.md", id, mdDetails("The chart's numbers as a table", mdTable(head, rows)));
 
 // measure.mjs appends, so a re-measured sweep can land on top of rows from an older
 // toolchain (or another box). The charts and summary.md present the rows as ONE
@@ -196,7 +213,7 @@ const made = [];
 // CHART_STRICT) rather than silently charting a different scale.
 // The title names the mechanism (turbo-orchestrated tsc): presenting this as THE
 // whole-workspace typecheck cost would mislead now that the README table shows the
-// recommended whole-program tsgo checking the same tree in ~1s, so the subtitle
+// recommended whole-program tsgo checking the same tree in ~1s, so the lede
 // carries that number when the tsgo dataset has the matching scale point.
 const tcRec = [...all].reverse().find((r) => r.phases?.typecheck);
 const tcBig = tcRec?.phases?.typecheck;
@@ -216,42 +233,93 @@ if (
     if (Number.isFinite(tsgoScale?.coldMedianMs))
       tsgoNote = `; whole-program tsgo: ${fmtMs(tsgoScale.coldMedianMs)} on ${tsgoTable.cores} cores (same generator shape, no cache)`;
   }
+  const scale = `${fmtNum(tcRec.apps)} apps + ${fmtNum(tcRec.libs)} libs`;
   made.push(
-    barChart({
-      file: "typecheck-cold-vs-warm.svg",
-      title: "Whole-workspace typecheck (turbo-orchestrated tsc): cold vs warm cache",
-      subtitle: `${fmtNum(tcRec.apps)} apps + ${fmtNum(tcRec.libs)} libs — Turborepo local cache${tsgoNote}`,
-      logScale: true,
+    hBarChart({
+      name: "typecheck-cold-vs-warm",
+      title: "Whole-workspace typecheck, turbo-orchestrated tsc",
+      lede: `${scale}, the largest scale the sweep typechecks${tsgoNote}`,
+      xTitle: "wall time",
+      valueFmt: fmtSec1,
       bars: [
-        { label: "cold\n(first run)", value: tcBig.coldMs, color: C_RED },
-        { label: "warm\n(FULL TURBO)", value: tcBig.warmMs, color: C_GREEN },
+        {
+          label: "cold",
+          sub: "empty Turborepo cache",
+          value: tcBig.coldMs,
+          color: SERIES.repo,
+        },
+        {
+          label: "warm",
+          sub: "every task a cache hit",
+          value: tcBig.warmMs,
+          color: SERIES.scoped,
+        },
       ],
     }),
   );
+  docBlock(
+    "typecheck-cold-vs-warm",
+    ["scale", "cold", "warm (full cache hit)"],
+    [[scale, fmtSec1(tcBig.coldMs), fmtSec1(tcBig.warmMs)]],
+  );
 }
 
-// Chart 2: packages built — focused closure vs whole workspace (both measured counts)
+// the x axis both scaling charts share: workspace packages, log scale
+const PKG_DOMAIN = [200, 30000];
+const PKG_TICKS = [300, 1000, 3000, 10000, 30000];
+const pkgs = (r) => r.apps + r.libs;
+
+// Chart 2: tasks a build selects — the whole workspace vs one app's closure — at every
+// scale (both are measured counts). The largest row must carry a verified graph phase,
+// as before; smaller rows without one leave a gap rather than a guessed point.
 const g = big?.phases?.graph;
 if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g.totalBuildTasks)) {
+  const graphOk = (r) =>
+    r.phases?.graph &&
+    r.phases.graph.ok !== false &&
+    Number.isFinite(r.phases.graph.focusPackages) &&
+    Number.isFinite(r.phases.graph.totalBuildTasks);
+  const at = (key) => all.map((r) => [pkgs(r), graphOk(r) ? r.phases.graph[key] : null]);
+  const closures = all.filter(graphOk).map((r) => r.phases.graph.focusPackages);
+  const closureMin = Math.min(...closures);
+  const closureMax = Math.max(...closures);
   made.push(
-    barChart({
-      file: "focus-vs-full.svg",
-      title: "Packages built: focused closure vs whole workspace",
-      subtitle: `${g.sampleApp} + closure vs whole workspace — Turborepo --filter`,
-      valueFmt: fmtNum,
-      bars: [
+    scaleChart({
+      name: "focus-vs-full",
+      title: "Tasks a build selects: whole workspace vs one app's closure",
+      lede: "turbo run build, unscoped vs --filter=<app>..., at each measured scale",
+      xDomain: PKG_DOMAIN,
+      xTicks: PKG_TICKS,
+      yDomain: [30, 30000],
+      yTicks: [30, 100, 300, 1000, 3000, 10000, 30000],
+      yTitle: "build tasks",
+      series: [
         {
-          label: `focused closure\n(${g.sampleApp})`,
-          value: g.focusPackages,
-          color: C_GREEN,
+          name: "whole workspace",
+          sub: "grows with the repo",
+          color: SERIES.repo,
+          points: at("totalBuildTasks"),
         },
         {
-          label: "whole workspace",
-          value: g.totalBuildTasks,
-          color: C_AMBER,
+          name: "one app's closure",
+          sub: `${closureMin}–${closureMax} tasks at every scale`,
+          color: SERIES.scoped,
+          endLabels: false,
+          points: at("focusPackages"),
         },
       ],
     }),
+  );
+  docBlock(
+    "focus-vs-full",
+    ["apps (libs)", "whole-workspace build tasks", "one app's closure"],
+    all
+      .filter(graphOk)
+      .map((r) => [
+        `${fmtNum(r.apps)} (${fmtNum(r.libs)})`,
+        fmtNum(r.phases.graph.totalBuildTasks),
+        `${fmtNum(r.phases.graph.focusPackages)} (${r.phases.graph.sampleApp})`,
+      ]),
   );
 }
 
@@ -261,21 +329,31 @@ const lk = all.filter(
 );
 if (lk.length >= 2) {
   made.push(
-    lineChart({
-      file: "lockfile-vs-scale.svg",
+    scaleChart({
+      name: "lockfile-vs-scale",
       title: "Lockfile size vs workspace size",
-      subtitle:
-        "pnpm-lock.yaml lines vs total workspace packages (apps + libs, one importer each) — O(repo)",
-      xs: lk.map((r) => r.apps + r.libs),
-      yFmt: fmtNum,
+      lede: "pnpm-lock.yaml lines; one importer per workspace package",
+      xDomain: PKG_DOMAIN,
+      xTicks: PKG_TICKS,
+      yDomain: [6000, 1000000],
+      yTicks: [10000, 30000, 100000, 300000, 1000000],
+      yTitle: "lockfile lines",
       series: [
         {
-          name: "lockfile lines",
-          color: ACCENT,
-          points: lk.map((r) => r.phases.install.lockfileLines),
+          color: SERIES.neutral,
+          points: lk.map((r) => [pkgs(r), r.phases.install.lockfileLines]),
         },
       ],
     }),
+  );
+  docBlock(
+    "lockfile-vs-scale",
+    ["apps (libs)", "workspace packages", "lockfile lines"],
+    lk.map((r) => [
+      `${fmtNum(r.apps)} (${fmtNum(r.libs)})`,
+      fmtNum(pkgs(r)),
+      fmtNum(r.phases.install.lockfileLines),
+    ]),
   );
 }
 

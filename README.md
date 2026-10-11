@@ -88,9 +88,61 @@ Scaling factor, 200 → 10,000 apps (50× apps, 34× packages), the range every 
 The focused build's work stays one closure, but its wall time carries a repo-sized term. At the three scales where the closure is 100 packages (2,000 / 5,000 / 20,000 apps) the focused build takes 11.9s / 15.4s / 39.5s, and `turbo prune` of the matching 101-package subtree takes 1.9s / 4.4s / 25.0s: the two move together (+27.6s and +23.1s from 2,000 to 20,000 apps) because both load the whole graph before selecting a subset ([LIMITS.md](LIMITS.md), item 2). The whole-workspace type-error gate is cheap on the recommended checker: tsgo checks all 2,000 apps from source in **1.01s** (1.47s at 4,000), faster than even the tsc warm-cache hit; the turbo-orchestrated tsc column takes 46× as long cold at 2,000 apps (it also builds each lib's dist, work tsgo skips). So the gate stays O(repo) but in seconds, not minutes. At 20,000 apps the whole-workspace tsc typecheck is not run; extrapolating the 10,000-app per-package rates (21.6ms cold, 2.3ms on a full cache hit) gives ~7 minutes cold and ~47s warm on this box. The tsgo whole-program gate is measured to 4,000 apps; beyond that is extrapolation. What stays irreducibly O(repo) is in [LIMITS.md](LIMITS.md). To avoid the tsc-path O(repo) cost, scope with `--filter=<app>...` / `--affected`; an unscoped `turbo run` enumerates the whole graph even on cache hits. At 20,000 apps a scoped command already costs 23–28s more than the same-sized selection does at 2,000, so shard.
 
 ### Charts
-![whole-workspace typecheck via turbo-orchestrated tsc, cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)
-![focus vs full](bench/charts/focus-vs-full.svg)
-![lockfile size vs scale](bench/charts/lockfile-vs-scale.svg)
+
+![Whole-workspace typecheck through turbo-orchestrated tsc at the largest typechecked scale: cold cache vs a full cache hit](bench/charts/typecheck-cold-vs-warm.svg)
+
+[High-resolution PNG](bench/charts/typecheck-cold-vs-warm.png)
+
+<!-- chart-data:typecheck-cold-vs-warm -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| scale | cold | warm (full cache hit) |
+| --- | ---: | ---: |
+| 10,000 apps + 300 libs | 222.8s | 23.9s |
+
+</details>
+<!-- /chart-data:typecheck-cold-vs-warm -->
+
+![Build tasks selected at each scale: the whole workspace grows with the repo, one app's closure stays roughly flat](bench/charts/focus-vs-full.svg)
+
+[High-resolution PNG](bench/charts/focus-vs-full.png)
+
+<!-- chart-data:focus-vs-full -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| apps (libs) | whole-workspace build tasks | one app's closure |
+| --- | ---: | ---: |
+| 200 (100) | 300 | 75 (@demo/app-100) |
+| 1,000 (200) | 1,200 | 124 (@demo/app-0500) |
+| 2,000 (300) | 2,300 | 100 (@demo/app-1000) |
+| 5,000 (300) | 5,300 | 100 (@demo/app-2500) |
+| 10,000 (300) | 10,300 | 121 (@demo/app-05000) |
+| 20,000 (300) | 20,300 | 100 (@demo/app-10000) |
+
+</details>
+<!-- /chart-data:focus-vs-full -->
+
+![Lockfile lines vs workspace packages, log-log](bench/charts/lockfile-vs-scale.svg)
+
+[High-resolution PNG](bench/charts/lockfile-vs-scale.png)
+
+<!-- chart-data:lockfile-vs-scale -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| apps (libs) | workspace packages | lockfile lines |
+| --- | ---: | ---: |
+| 200 (100) | 300 | 10,185 |
+| 1,000 (200) | 1,200 | 41,515 |
+| 2,000 (300) | 2,300 | 80,255 |
+| 5,000 (300) | 5,300 | 191,255 |
+| 10,000 (300) | 10,300 | 376,255 |
+| 20,000 (300) | 20,300 | 746,255 |
+
+</details>
+<!-- /chart-data:lockfile-vs-scale -->
 
 ### The 64-Core Machine
 
