@@ -1,16 +1,16 @@
 # Faster Type-Checking
 
-Each package in [the workspace under test](README.md#the-workspace-under-test) runs `tsc --noEmit`, cached by Turborepo. Whole-repo type-checking is O(repo). The first lever is checking less (`turbo --affected`); the second is making each check cheaper.
+tsgo checks ~12× faster than tsc and stays near-linear to a million modules; Flow uses about a third of tsgo's memory, and its resident server answers one edit in 324ms at 1M. Whole-repo type-checking is O(repo): the first lever is checking less (`turbo --affected`), the second is making each check cheaper.
 
 ## tsc vs tsgo
 
-`scripts/typecheck-bench.mjs` times `--noEmit` over one N-module program, median of five runs. tsgo is the native compiler, shipped since GA as `typescript@7` with a native `tsc` binary. The tsc column is TypeScript 6, the last JS release, installed as the `typescript6` alias and used as the oracle.
+`scripts/typecheck-bench.mjs` times `--noEmit` over one N-module program, median of five runs: tsgo (`typescript@7`'s native `tsc`, pinned at 7.0.2) against tsc (TypeScript 6, the last JS release, installed as the `typescript6` alias).
 
 | modules | tsc | tsgo | speedup |
 |---|---|---|---|
-| 3,000 | 3,062ms | 257ms | 11.9x |
+| 3,000 | 3,062ms | 257ms | 11.9× |
 
-Consistent with Microsoft's ~10x claim. TypeScript 7 ships as `typescript` (this repo pins `7.0.2` exactly) with a native `tsc`; the tsgo name is retired, and this repo keeps `tsgo` as the task and record label. For modern configs the native `tsc --noEmit` drops into the per-package Turborepo task. It drops some legacy config (bare `baseUrl`, `moduleResolution: node10`, older `target`s), has no plugin API, and ships no tsserver, so TypeScript 6 stays installed (here as the `typescript6` alias) for tsserver and as the oracle checker. With both majors installed, `node_modules/.bin/tsc` is ambiguous; every bench resolves both checkers by direct path (`scripts/_ts.mjs`) and asserts the version before timing.
+Consistent with Microsoft's ~10× claim. The tsgo name is retired upstream; this repo keeps `tsgo` as the task and record label. For modern configs the native `tsc --noEmit` drops into the per-package Turborepo task. It drops some legacy config (bare `baseUrl`, `moduleResolution: node10`, older `target`s), has no plugin API, and ships no tsserver, so TypeScript 6 stays installed for tsserver and as the oracle. With both majors installed, `node_modules/.bin/tsc` is ambiguous; every bench resolves both checkers by direct path (`scripts/_ts.mjs`) and asserts the version before timing.
 
 ## Behavior at a Million Files: tsgo vs tsc vs Flow
 
@@ -94,9 +94,9 @@ The corpus is **fixed-depth**: 100 layers, each module importing ≤3 from the l
 | 500,000 | 33.4s | 40.0s | — | 45.7s | 46.8s |
 | 1,000,000 | 70.7s | 84.8s | — | 92.5s | 94.0s |
 
-¹ Flow is a main-branch build; released 0.321's server crashes at this scale (last paragraph).
+¹ Flow is a main-branch build. Released Flow through 0.321 has a recheck-cancellation race that silently wedges its server at this scale, in 3 of 5 sweeps ([facebook/flow#9454](https://github.com/facebook/flow/issues/9454), fixed on main; retest with `scripts/flow-wedge-retest.mjs`, evidence in `bench/flow-0321-wedge-evidence.md`).
 
-tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M (70.7s warm, 84.8s truly cold). At 1M Flow's full check is +31% of tsgo (92.5s vs 70.7s); at the 100k anchor tsc is 11× (65.0s vs 6.1s).
+tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M. At 1M Flow's full check is +31% of tsgo (92.5s vs 70.7s); at the 100k anchor tsc is 11× (65.0s vs 6.1s).
 
 ### Red rows, memory, developer loops
 
@@ -118,7 +118,7 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M (70.7s war
 
 ### The daemons and codegen
 
-**Daemons** (`scripts/lsp-scale-bench.mjs` → `bench/lsp-scale-bench.json`). tsgo's `--lsp` serves the million-module program: 17.5s cold open, 2.4s to the squiggle, 68.0GB RSS. At the 100k anchor its cold open is **17× faster than tsserver's** (1.5s vs 24.3s). tsgo LSP completion grows with N: 301,058 items at 100k, past the 120s ceiling from 250k up. tsserver stays at 1,067 items in 17–20ms.
+**Daemons** (`scripts/lsp-scale-bench.mjs` → `bench/lsp-scale-bench.json`). tsgo's `--lsp` serves the million-module program: 17.5s cold open, 2.4s to the squiggle, 68.0GB RSS. At the 100k anchor its cold open is **17× faster than tsserver's** (1.5s vs 24.3s). tsgo LSP completion grows with N: 301,058 items at 100k, past the 120s ceiling from 250k up. tsserver stays at 1,067 items in 17–20ms. The editor loop on one app's closure is in [LIMITS.md](LIMITS.md#editor-and-language-server).
 
 **Codegen** (`scripts/relay-codegen-bench.mjs` → `bench/relay-codegen-bench.json`; 192-core c8g.48xlarge, tsgo 7.0.2). relay-compiler runs over a 10,000-component tree in both dialects. Codegen (~2.9s) dominates the checker: 0.91s for tsgo, 1.7s for Flow (released 0.321 via `flow-bin`; the main-branch build matters only at wedge scale). Checked-in artifacts hold up: the CI freshness gate (Figure 2) costs 3.0s at 10k components and detects an edited query. At the 30,000-component fleet anchor the same git-tracked freshness pass costs 9.5s (codegen 9.48s + status 0.04s; 9.3s cold, one sample). Committing artifacts keeps the type gate build-free for ~10s of CI per pass.
 
@@ -134,13 +134,11 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M (70.7s war
 
 </details>
 
-Released Flow through 0.321 has a recheck-cancellation race that silently wedges its server at this scale, in 3 of 5 sweeps ([facebook/flow#9454](https://github.com/facebook/flow/issues/9454), fixed on main; retest with `scripts/flow-wedge-retest.mjs`, evidence in `bench/flow-0321-wedge-evidence.md`). The editor loop on one app's closure is in [LIMITS.md](LIMITS.md#editor-and-language-server).
-
 ## Flow on the Fleet Shape
 
 `scripts/fleet-flow-bench.mjs` mirrors the measured fleet workspace ([FLEET.md](FLEET.md), 30,000 apps / 460 libs) in Flow's dialect as 876,440 `// @flow` files (every workspace module plus a typed entry per app) derived from the generated tree's own manifests. Every workspace import edge carries over, including the oven-sh/bun#36386 app rename. The mirror is not file-for-file. It omits each app's Next layout and the Next/React ambient type surface the TS program carries (~936k workspace files plus external `.d.ts`), so the time and memory rows compare Flow's mirror against tsgo's somewhat larger program. The breaking rev shows the workspace graph's fidelity: **both checkers flag exactly 30,171 call sites**, each in its own dialect. App entries are typed function compositions, not JSX. Package imports resolve via `module.name_mapper`, with no install. The checker is the Rust-port build with the wedge fixes, provenance recorded.
 
-Records: `bench/fleet-flow-bench.json` on the dedicated 64-core c7gd.metal ([README](README.md#the-64-core-machine)), and `bench/fleet-flow-bench.pbox.json` on a 192-core c8g.48xlarge. That record carries the core count, not the instance type. It ran with `FLEET_FLOW_WORK` overridden and otherwise identical knobs, with a deliberate 12-thread nice-19 CPU keep-warm on that box. The recorded pre-run 1-minute load was 1.3 on the 64-core box (the tail of its queue's pre-bench burst) and 7.8 on the 192-core box. The tsgo column is the 64-core fleet-gate record (`bench/fleet-gate-bench.json`, typescript 7.0.2):
+Records: `bench/fleet-flow-bench.json` on the dedicated 64-core c7gd.metal ([README](README.md#the-64-core-machine)), and `bench/fleet-flow-bench.pbox.json` on a 192-core c8g.48xlarge. That record carries the core count, not the instance type. It ran with `FLEET_FLOW_WORK` overridden and otherwise identical knobs, with a deliberate 12-thread nice-19 CPU keep-warm on that box and a recorded pre-run 1-minute load of 7.8. The tsgo column is the 64-core fleet-gate record (`bench/fleet-gate-bench.json`, typescript 7.0.2):
 
 | row | tsgo (fleet gate) | Flow, 64-core | Flow, 192-core |
 | --- | --- | --- | --- |
@@ -153,15 +151,15 @@ Records: `bench/fleet-flow-bench.json` on the dedicated 64-core c7gd.metal ([REA
 
 tsgo wins the batch rows in the fleet's actual dialect: 1.4× on the check and 1.5× on the batch breaking rev, on the same 64-core box. Flow holds the mirrored program in **2.6× less memory**.
 
-Flow's resident server changes the foundation owner's loop: the full-fleet breaking verdict costs **14.9s incrementally** against tsgo's 58.9s per batch run. tsgo's resident mechanics today are its `--watch` (~23s per re-check at the million-file scale) and its LSP, an editor server rather than a batch verdict. Upstream's incremental work targets tsc parity, not server-style incrementality (see the daemons section).
+Flow's resident server changes the foundation owner's loop: the full-fleet breaking verdict costs **14.9s incrementally** against tsgo's 58.9s per batch run. At the million-file scale, tsgo's `--watch` rechecks in ~23s by rebuilding the program; its LSP reports diagnostics for open files rather than a whole-project verdict (`bench/lsp-scale-bench.json`).
 
-On the 192-core box Flow's batch check, batch breaking rev, and server init are 1–9% faster, its incremental breaking rev 12% faster, and its stays-green edit 66% slower (9.3s → 15.4s). tsgo's one-program check and breaking rev are 15% slower there (66.6s / 67.7s in `bench/fleet-gate-bench.pbox.json`, a c8gb.48xlarge). Three times the cores buys neither checker more than 12% on any row, matching the fleet gate's result. This is one run per machine: a cross-machine observation.
+Three times the cores buys neither checker more than 12% on any row (tsgo's check and breaking rev are 15% slower on the 192-core c8gb.48xlarge, 66.6s / 67.7s in `bench/fleet-gate-bench.pbox.json`), matching the fleet gate's result; one run per machine.
 
 A universal-lib edit costs 9–15s even incrementally, because blast radius binds every checker. The sub-second edit loops measured at 1M modules were minimal-invalidation edits with nothing downstream to recheck: a non-exported const on a mid-corpus module, and an error seeded in a zero-dependent leaf. The fleet rev changes an exported surface every app imports.
 
 ## Ranked Levers
 
-1. tsgo (`typescript@7`'s native `tsc`): ~10x per check, drop-in. Pin the exact version; keep TypeScript 6 (the `typescript6` alias) as the oracle and tsserver.
+1. tsgo: ~10× per check, drop-in for modern configs; pin the exact version.
 2. Cheap config: `skipLibCheck: true`; `incremental: true` with `tsBuildInfoFile` in Turborepo `outputs`; `"types": []`; `turbo --affected`.
 3. Do not adopt TS project references with Turborepo. They add a second config and cache layer, and `composite` forces `.d.ts` emit on every package, heavier than `--noEmit`.
 
