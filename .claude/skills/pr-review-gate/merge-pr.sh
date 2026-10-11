@@ -26,7 +26,14 @@ for tool in gh jq; do
 done
 here=$(cd "$(dirname "$0")" && pwd)
 gate=${MERGE_GATE_SCRIPT:-$here/check-review-threads.sh}
-repo=${GITHUB_REPOSITORY:-${REPO_OWNER:-ejc3}/${REPO_NAME:-node-monorepo-perf}}
+# The same precedence as the gate (REPO_OWNER/REPO_NAME, then GITHUB_REPOSITORY, then this
+# repository), resolved once here and handed to the gate, so both read one repository.
+if [ -n "${GITHUB_REPOSITORY:-}" ]; then
+  REPO_OWNER=${REPO_OWNER:-${GITHUB_REPOSITORY%%/*}}
+  REPO_NAME=${REPO_NAME:-${GITHUB_REPOSITORY#*/}}
+fi
+export REPO_OWNER=${REPO_OWNER:-ejc3} REPO_NAME=${REPO_NAME:-node-monorepo-perf}
+repo=$REPO_OWNER/$REPO_NAME
 
 info=$(gh pr view "$pr" --repo "$repo" --json state,headRefOid,baseRefName) || {
   echo "merge-pr: could not read PR #$pr; not merging" >&2; exit 2; }

@@ -1047,8 +1047,8 @@ def is_codex_review_container:
 # they sit, nested ones included: the recent-review block posts no actionable comments, the
 # pre-merge checks report no failed check or warning, and the merge risk is Minimal or Low.
 # Regions are matched with a stack, so a region of one name nested in another of the same
-# name keeps the comment a claim, and nowhere in the comment may "Review failed" or a
-# CAUTION alert appear. Text inside the other regions (the walkthrough prose, tips, the
+# name, or a close marker other than that of the innermost open region, keeps the comment a
+# claim, and nowhere in the comment may "Review failed" or a CAUTION alert appear. Text inside the other regions (the walkthrough prose, tips, the
 # rate-limit notice) is the CodeRabbit description of the change and is not read.
 def cr_summary_regions: ["review_stack_entry", "recent_review", "walkthrough", "change_assessment",
   "final_review_risk", "pre_merge_checks_walkthrough", "finishing_touch_checkbox", "tips",
@@ -1065,6 +1065,7 @@ def cr_region_close($open):
   | if $m.a != null then "<!-- \($m.a)_end -->"
     elif $m.b != null then "<!-- \($m.b):end -->"
     else "<!-- end of auto-generated comment: \($m.c) by coderabbit.ai -->" end;
+def cr_region_close_re: "^<!-- (?:[a-z_]+_end|[a-z_]+:end|end of auto-generated comment: [a-z ]+ by coderabbit\\.ai) -->[ \t\r]*$";
 def cr_region_key($open):
   ($open | capture(cr_region_open_re)) as $m
   | if $m.a != null then $m.a elif $m.b != null then "\($m.b):" else "auto:\($m.c)" end;
@@ -1091,6 +1092,7 @@ def is_cr_summary_comment:
             .regions += [{name: .stack[-1].name, text: (.stack[-1].buf | join("\n"))}]
             | .stack |= .[:-1]
             | .stack |= map(.buf += [$line])
+          elif ($line | test(cr_region_close_re)) then .ok = false
           elif (.stack | length) > 0 then
             if any(.stack[]; . as $f | ($line | startswith($f.close))) then .ok = false
             else .stack |= map(.buf += [$line]) end

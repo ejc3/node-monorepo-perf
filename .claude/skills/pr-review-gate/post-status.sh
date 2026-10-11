@@ -117,8 +117,9 @@ if [ "$state" = success ]; then
   fi
 fi
 if [ "$state" = success ]; then
-  # Another run's blocking status posted after this evaluation began.
-  newer_block=$(awk -F "$(printf '\037')" -v t="$EVAL_STARTED" '$5 > t && $1 != "success"' <<<"$all" | grep -c . || true)
+  # Another run's blocking status posted after this evaluation began. EVAL_STARTED is whole
+  # seconds and so are GitHub's timestamps, so the same second counts as after.
+  newer_block=$(awk -F "$(printf '\037')" -v t="$EVAL_STARTED" '$5 >= t && $1 != "success"' <<<"$all" | grep -c . || true)
   if [ "$newer_block" -gt 0 ]; then
     block pending "A blocking status was posted after this evaluation began"
   fi
@@ -159,7 +160,7 @@ if [ "$state" = success ]; then
       block pending "PR #$pr moved off this commit"
       break
     fi
-    if [[ $act_last > $EVAL_STARTED ]]; then
+    if [[ $act_last > $EVAL_STARTED || $act_last == "$EVAL_STARTED" ]]; then
       block pending "Re-evaluating: PR #$pr has activity after the snapshot"
       break
     fi

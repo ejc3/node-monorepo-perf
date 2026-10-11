@@ -192,6 +192,8 @@ jobs:
       - name: Mark the heads this run could not resolve as error
         # A run that ends without a verdict must not leave an older success standing.
         if: failure()
+        env:
+          RESOLVED: ${{ steps.heads.outputs.shas }}
         run: |
           set -uo pipefail
           heads=""
@@ -210,6 +212,8 @@ jobs:
                           --jq '.[].head.sha' || true)
               fi ;;
           esac
+          # The heads this run already resolved (a later step failed) are its too.
+          heads+=$'\n'$(jq -r '.[]?' <<<"${RESOLVED:-[]}" 2>/dev/null || true)
           heads=$(grep -x -E '[0-9a-f]{40}' <<<"$heads" | sort -u || true)
           if [ -z "$heads" ]; then
             echo "::error::could not resolve the heads for this $EVENT event; their review-gate status was not refreshed"

@@ -2066,7 +2066,9 @@ run_case "a result region that opens inside another and never closes is a claim"
 run_case "a result region nested in one of the same name is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- pre_merge_checks_walkthrough_start -->\n<!-- pre_merge_checks_walkthrough_start -->\nall clean\n<!-- pre_merge_checks_walkthrough_end -->\n### ❌ Failed checks (1 warning)\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
 run_case "a region that closes out of order is a claim" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_start -->\n<!-- walkthrough_end -->\nP1: this drops the last row\n<!-- recent_review_end -->"')")")" 1 "carry no disposition"
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_start -->\n<!-- walkthrough_end -->\n<!-- recent_review_end -->"')")")" 1 "carry no disposition"
+run_case "a close marker of a region that is not open is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_end -->\n**Actionable comments posted: 3**\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
 # The allow-list is what CodeRabbit has emitted, no more: every region marker in the
 # captured CodeRabbit summaries is on it, and every entry on it occurs in one of them. A new
 # region CodeRabbit starts emitting makes its summary a claim until it is captured and listed.
@@ -2227,6 +2229,11 @@ ps_case "a success with no snapshot is posted as error" "$FAIL_ST" "$OURS_RUN" "
 ps_case "a success is not posted over another run's newer error" \
   "[$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:05:00Z)]" \
   "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+ps_case "an error posted in the snapshot's own second holds a success back" \
+  "[$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:04:00Z)]" \
+  "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gql "$PS_SHA" 2026-01-02T00:04:00Z) \
+  ps_case "PR activity in the snapshot's own second turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
 ps_case "an error older than the snapshot does not hold a success back" \
   "[$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:03:00Z)]" \
   "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
@@ -2281,6 +2288,17 @@ mp_case() {
 }
 MP_OPEN=$(printf '{"state":"OPEN","headRefOid":"%s","baseRefName":"main"}' "$PS_SHA")
 mp_case "a CLEAR head is merged by that head" "$MP_OPEN" 0 0 1
+# The gate and the merge read one repository, whichever variables are set.
+d="$TMP/mp.repo"; mkdir "$d"
+printf '#!/bin/bash\necho "gate repo=$REPO_OWNER/$REPO_NAME" >> "$MP_DIR/gate"\n' > "$TMP/mpgate-repo.sh"
+env MP_DIR="$d" MP_VIEW="$MP_OPEN" MERGE_GATE_SCRIPT="$TMP/mpgate-repo.sh" PATH="$TMP/mpbin:$PATH" \
+  GITHUB_REPOSITORY=a/b REPO_OWNER=c bash "$MERGER" 7 >/dev/null 2>&1
+if grep -q 'gate repo=c/b' "$d/gate" 2>/dev/null && grep -q '^pr view 7 --repo c/b' "$d/calls" \
+   && grep -q '^pr merge 7 --repo c/b' "$d/calls"; then
+  echo "  PASS  the gate and the merge read the same repository"; pass=$((pass+1))
+else
+  echo "  FAIL  the gate and the merge read the same repository"; cat "$d/gate" "$d/calls" 2>/dev/null | sed 's/^/          /'; fail=$((fail+1))
+fi
 mp_case "a blocked head is not merged" "$MP_OPEN" 1 1 0
 mp_case "a gate that cannot evaluate does not merge" "$MP_OPEN" 2 1 0
 mp_case "a PR that cannot be read is not merged" "" 0 2 0
@@ -2393,6 +2411,8 @@ fb_case "workflow_run listing its PRs: their heads" \
 fb_case "workflow_dispatch for one PR: that PR's head" "EVENT=workflow_dispatch|INPUT_PR=42" "$H42"
 fb_case "workflow_dispatch for every PR: every open head" "EVENT=workflow_dispatch" "$H1 $H2"
 fb_case "schedule: every open head" "EVENT=schedule" "$H1 $H2"
+fb_case "a delayed workflow_run: the payload head and the head it resolved" \
+  "EVENT=workflow_run|RUN_HEAD_SHA=$HF|RESOLVED=[\"$H2\"]" "$HF $H2"
 
 # The invalidation step: a pending GitHub refuses must fail the step, so the failure step
 # runs (PR #70: "Fail closed when the pending status is rejected").
