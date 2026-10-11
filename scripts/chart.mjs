@@ -9,7 +9,10 @@ import {
   MUTED,
   TYPE,
   SERIES,
+  MARGIN,
   txt,
+  footer,
+  logDomain,
   svgDoc,
   linScale,
   logScale,
@@ -50,7 +53,8 @@ const fmtNum = (n) => (n == null ? "—" : n.toLocaleString("en-US"));
 
 // ---- drawing (the shared v2 grammar: real axes, direct labels, the kit's type scale) ----
 const W = 680;
-const PAD = 20;
+const PAD = MARGIN;
+const SOURCE = "bench/results.json";
 
 // title + one-line lede, the header every chart here shares; returns the next free y
 function header(T, title, lede) {
@@ -68,7 +72,7 @@ const niceStep = (top, max = 5) => {
 
 // Horizontal bars on a LINEAR axis from zero: bar length is the value, so the
 // cold-vs-warm ratio reads at its true size. Value at the bar end, label at the left.
-function hBarChart({ name, title, lede, bars, xTitle, valueFmt }) {
+function hBarChart({ name, title, lede, bars, xTitle, valueFmt, sources = SOURCE }) {
   const T = [];
   const top = header(T, title, lede);
   const labelW = 150;
@@ -113,14 +117,20 @@ function hBarChart({ name, title, lede, bars, xTitle, valueFmt }) {
     T.push(txt(PAD, by + barH / 2 - 1.5, b.label, { size: TYPE.label }));
     if (b.sub) T.push(txt(PAD, by + barH / 2 + 12, b.sub, { size: TYPE.note, fill: MUTED }));
   });
-  const H = plotTop + plotH + 48;
-  emitChart(name, svgDoc(W, H, `${title}. ${lede}`, T));
+  const fy = plotTop + plotH + 70;
+  T.push(...footer(W, fy, sources));
+  emitChart(name, svgDoc(W, fy + 14, `${title}. ${lede}`, T));
   return `${name}.svg`;
 }
 
 // Log–log scaling chart over workspace size. A named series is labeled directly at its
 // last point (no legend); first and last values are printed unless `endLabels: false`.
-function scaleChart({ name, title, lede, series, xDomain, xTicks, yDomain, yTicks, yTitle }) {
+function scaleChart({ name, title, lede, series, yTitle, sources = SOURCE }) {
+  // both axes derive their domain from the plotted points, so no measured point can
+  // fall outside the frame (a fixed range would draw a new scale off the canvas)
+  const xs = logDomain(series.flatMap((s) => s.points.map(([px]) => px)));
+  const ys = logDomain(series.flatMap((s) => s.points.map(([, py]) => py)));
+  const [xDomain, xTicks, yDomain, yTicks] = [xs.domain, xs.ticks, ys.domain, ys.ticks];
   const T = [];
   const top = header(T, title, lede);
   const x0 = PAD + 44; // y tick labels sit left of the plot
@@ -161,8 +171,9 @@ function scaleChart({ name, title, lede, series, xDomain, xTicks, yDomain, yTick
         ...(s.sub ? [txt(sx(lx) + 12, sy(ly) + 18, s.sub, { size: TYPE.note, fill: MUTED })] : []),
       );
   }
-  const H = plotTop + plotH + 52;
-  emitChart(name, svgDoc(W, H, `${title}. ${lede}`, T));
+  const fy = plotTop + plotH + 74;
+  T.push(...footer(W, fy, sources));
+  emitChart(name, svgDoc(W, fy + 14, `${title}. ${lede}`, T));
   return `${name}.svg`;
 }
 
@@ -265,22 +276,20 @@ if (
 }
 
 // the x axis both scaling charts share: workspace packages, log scale
-const PKG_DOMAIN = [200, 30000];
-const PKG_TICKS = [300, 1000, 3000, 10000, 30000];
 const pkgs = (r) => r.apps + r.libs;
 
 // Chart 2: tasks a build selects — the whole workspace vs one app's closure — at every
 // scale (both are measured counts). The largest row must carry a verified graph phase,
 // as before; smaller rows without one leave a gap rather than a guessed point.
 const g = big?.phases?.graph;
-if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g.totalBuildTasks)) {
+if (g && g.ok !== false && Number.isFinite(g.focusTasks) && Number.isFinite(g.totalBuildTasks)) {
   const graphOk = (r) =>
     r.phases?.graph &&
     r.phases.graph.ok !== false &&
-    Number.isFinite(r.phases.graph.focusPackages) &&
+    Number.isFinite(r.phases.graph.focusTasks) &&
     Number.isFinite(r.phases.graph.totalBuildTasks);
   const at = (key) => all.map((r) => [pkgs(r), graphOk(r) ? r.phases.graph[key] : null]);
-  const closures = all.filter(graphOk).map((r) => r.phases.graph.focusPackages);
+  const closures = all.filter(graphOk).map((r) => r.phases.graph.focusTasks);
   const closureMin = Math.min(...closures);
   const closureMax = Math.max(...closures);
   made.push(
@@ -288,10 +297,6 @@ if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g
       name: "focus-vs-full",
       title: "Tasks a build selects: whole workspace vs one app's closure",
       lede: "turbo run build, unscoped vs --filter=<app>..., at each measured scale",
-      xDomain: PKG_DOMAIN,
-      xTicks: PKG_TICKS,
-      yDomain: [30, 30000],
-      yTicks: [30, 100, 300, 1000, 3000, 10000, 30000],
       yTitle: "build tasks",
       series: [
         {
@@ -305,7 +310,7 @@ if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g
           sub: `${closureMin}–${closureMax} tasks at every scale`,
           color: SERIES.scoped,
           endLabels: false,
-          points: at("focusPackages"),
+          points: at("focusTasks"),
         },
       ],
     }),
@@ -318,7 +323,7 @@ if (g && g.ok !== false && Number.isFinite(g.focusPackages) && Number.isFinite(g
       .map((r) => [
         `${fmtNum(r.apps)} (${fmtNum(r.libs)})`,
         fmtNum(r.phases.graph.totalBuildTasks),
-        `${fmtNum(r.phases.graph.focusPackages)} (${r.phases.graph.sampleApp})`,
+        `${fmtNum(r.phases.graph.focusTasks)} (${r.phases.graph.sampleApp})`,
       ]),
   );
 }
@@ -333,10 +338,6 @@ if (lk.length >= 2) {
       name: "lockfile-vs-scale",
       title: "Lockfile size vs workspace size",
       lede: "pnpm-lock.yaml lines; one importer per workspace package",
-      xDomain: PKG_DOMAIN,
-      xTicks: PKG_TICKS,
-      yDomain: [6000, 1000000],
-      yTicks: [10000, 30000, 100000, 300000, 1000000],
       yTitle: "lockfile lines",
       series: [
         {
@@ -404,10 +405,12 @@ for (const f of canonical) {
   }
 }
 
-// remove only genuinely orphaned SVGs (renamed/removed charts) — never doc-linked or externally-owned ones
+// remove only genuinely orphaned SVGs (renamed/removed charts) and their PNG rasters —
+// never doc-linked or externally-owned ones
 for (const f of readdirSync(chartsDir)) {
   if (f.endsWith(".svg") && !made.includes(f) && !canonical.has(f) && !external.has(f)) {
     rmSync(join(chartsDir, f));
+    rmSync(join(chartsDir, f.replace(/\.svg$/, ".png")), { force: true });
   }
 }
 

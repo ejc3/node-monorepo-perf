@@ -23,6 +23,17 @@ export const MUTED = "#6b7885";
 export const ACCENT = "#1a73e8";
 export const GRID = "#e4e8ec";
 export const BG = "#ffffff";
+// One outer margin for every chart and figure.
+export const MARGIN = 20;
+// The whole-repo vs scoped-closure pair, at two strengths: `mark` for lines, bars and
+// dots, `tint` for areas behind text. Deliberately off the heat ramp's hues (so a
+// whole-repo series never reads as a ×100 cell) and off every TOOL_COLORS hue; the two
+// separate by lightness as well as hue, so they hold under colour-vision deficiency.
+// Marks clear 3:1 against the page in both themes (the dark block lifts the charcoal).
+export const REPO = { mark: "#3a4656", tint: "rgba(58,70,86,0.12)" };
+export const SCOPE = { mark: "#1b8aa0", tint: "rgba(27,138,160,0.14)" };
+// a neutral single series (no repo/closure meaning, no tool identity)
+export const SLATE = "#556375";
 // box tints: [fill, border] — semantic, not decorative
 export const TINT = {
   blue: ["#eef3fb", "#b9cdec"], // component / neutral
@@ -74,6 +85,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="${REPO.mark}"]{stroke:#a7b6c8}circle[fill="${REPO.mark}"],rect[fill="${REPO.mark}"]{fill:#a7b6c8}
+text[fill="${REPO.mark}"]{fill:#a7b6c8}
 }</style>`;
 
 export const esc = (s) =>
@@ -148,10 +161,11 @@ export const arrow = (x1, y1, x2, y2, dashed = false) => {
 };
 
 // provenance footer: a hairline + one muted "data: …" line (the number-tracing
-// rule made visible inside the image)
-export const footer = (w, y, sources, pad = 16) => [
+// rule made visible inside the image). One style for every figure, fleet chart and
+// line chart; the heat charts carry per-section source links instead.
+export const footer = (w, y, sources, pad = MARGIN) => [
   `<line x1="${pad}" y1="${y - 14}" x2="${w - pad}" y2="${y - 14}" stroke="${GRID}"/>`,
-  txt(pad, y, `data: ${sources}`, { size: 10, fill: MUTED }),
+  txt(pad, y, `data: ${sources}`, { size: TYPE.note, fill: MUTED }),
 ];
 
 // --- the heat ramp ---------------------------------------------------------------
@@ -211,6 +225,9 @@ export const TYPE = {
   note: 10, // per-section note, legend, axis
 };
 export const MIN_TEXT = 9;
+// text inside a figure box (a labelled node) has a higher floor: at phone width a
+// figure scales to roughly half size
+export const MIN_BOX_TEXT = 11;
 
 // text colours for verdicts and for secondary text ON a tinted cell. Each clears
 // WCAG AA (4.5:1) on the strongest light tint; the dark block recolours them.
@@ -561,14 +578,33 @@ export function heatChart({
 // --- axes / series (v2) ----------------------------------------------------------------
 // The plotting grammar for the scaling charts: real axes (ticks, gridlines, titles),
 // log scales where the data spans more than ~10×, direct labels instead of legends.
-// Series hues are mid-toned so a line reads on the light and the dark surface alike:
-// the heat ramp's green and red anchors carry the closure-vs-repo semantics the
-// mechanism figures use (green = the scoped / cached side, red = the whole-repo /
-// cold side); ACCENT is the neutral single series.
+// Series colours: the REPO/SCOPE pair (whole repo vs one closure, also used by the
+// mechanism figures) and SLATE for a neutral single series.
 export const SERIES = {
-  scoped: rgbCss(RAMP[0][1]),
-  repo: rgbCss(RAMP[3][1]),
-  neutral: ACCENT,
+  scoped: SCOPE.mark,
+  repo: REPO.mark,
+  neutral: SLATE,
+};
+// A log domain that contains every value, on 1–3 bounds (…, 100, 300, 1k, 3k, …), and
+// its ticks. Derived from the data, so a record outside any fixed range can never be
+// drawn past the frame.
+const LOG_STEPS = [1, 3];
+const logStops = (lo, hi) => {
+  const out = [];
+  for (let e = Math.floor(Math.log10(lo)) - 1; e <= Math.ceil(Math.log10(hi)) + 1; e++)
+    for (const m of LOG_STEPS) out.push(+(m * 10 ** e).toPrecision(12));
+  return out;
+};
+export const logDomain = (values) => {
+  const vs = values.filter((v) => v != null);
+  if (!vs.length || vs.some((v) => !(v > 0)))
+    throw new Error(`log domain needs positive values, got [${values}]`);
+  const lo = Math.min(...vs);
+  const hi = Math.max(...vs);
+  const stops = logStops(lo, hi);
+  const d0 = Math.max(...stops.filter((s) => s <= lo));
+  const d1 = Math.min(...stops.filter((s) => s >= hi));
+  return { domain: [d0, d1], ticks: stops.filter((s) => s >= d0 && s <= d1) };
 };
 export const linScale = (d0, d1, r0, r1) => (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
 export const logScale = (d0, d1, r0, r1) => {

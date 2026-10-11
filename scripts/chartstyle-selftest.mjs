@@ -6,7 +6,7 @@
 //   node scripts/chartstyle-selftest.mjs
 
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -18,7 +18,10 @@ import {
   heatChart,
   headerBand,
   writeDocBlock,
+  logDomain,
+  MIN_BOX_TEXT,
 } from "./_chartstyle.mjs";
+import { auditSvg } from "./_svg-audit.mjs";
 
 let n = 0;
 const test = (name, fn) => {
@@ -216,5 +219,49 @@ test("tool-comparison's stated denominator names its column-compared section (RE
   if (/compareAxis: "col"/.test(src))
     assert.ok(/column/.test(lede), `lede does not mention the column comparison: ${lede}`);
 });
+
+test("log domains derive from the data: every point inside, 1-3 bounds labelled", () => {
+  for (const vals of [
+    [150, 30300], // a 50:50 record next to the fleet-sized tree
+    [300, 20300],
+    [75, 124, 20300],
+    [10185, 746255],
+    [3, 2e6],
+  ]) {
+    const { domain, ticks } = logDomain(vals);
+    for (const v of vals) assert.ok(v >= domain[0] && v <= domain[1], `${v} outside [${domain}]`);
+    assert.equal(ticks[0], domain[0], "the floor is a labelled tick");
+    assert.equal(ticks[ticks.length - 1], domain[1], "the ceiling is a labelled tick");
+  }
+  assert.throws(() => logDomain([0, 10]), /positive/);
+});
+
+// Every committed chart, in both themes: text at or above the floor (11px inside a
+// figure box), every text at 4.5:1 against what is drawn behind it, every mark at 3:1
+// against the page. One matrix over all generators, so a new chart cannot opt out.
+// LEGACY holds charts not yet redrawn on the shared grammar; the PR that redraws one
+// removes it here.
+const LEGACY = new Set([
+  "fig-blast-radius.svg",
+  "fig-freshness-gate.svg",
+  "fig-linker-layouts.svg",
+  "fig-next-pnp-node.svg",
+  "fig-orepo-oclosure.svg",
+  "fig-remote-cache.svg",
+  "fig-save-loop.svg",
+  "fig-sliced-gate.svg",
+  "fleet-gate.svg",
+]);
+const chartsDir = new URL("../bench/charts/", import.meta.url);
+for (const f of readdirSync(chartsDir)
+  .filter((f) => f.endsWith(".svg") && !LEGACY.has(f))
+  .sort())
+  test(`${f}: legible in both themes`, () => {
+    const issues = auditSvg(readFileSync(new URL(f, chartsDir), "utf8"), {
+      minText: MIN_TEXT,
+      minBoxText: MIN_BOX_TEXT,
+    });
+    assert.deepEqual(issues, [], `${f}:\n  ${issues.slice(0, 12).join("\n  ")}`);
+  });
 
 console.log(`1..${n}`);

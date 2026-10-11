@@ -93,6 +93,8 @@ The focused build's work stays one closure, but its wall time carries a repo-siz
 
 [High-resolution PNG](bench/charts/typecheck-cold-vs-warm.png)
 
+**Figure 2.** The cold run builds each lib's dist and type-checks every package; the warm run finds every task's inputs unchanged and restores its cached output instead of running tsc, so it pays only turbo's hashing and restore.
+
 <!-- chart-data:typecheck-cold-vs-warm -->
 <details>
 <summary>The chart's numbers as a table</summary>
@@ -107,6 +109,8 @@ The focused build's work stays one closure, but its wall time carries a repo-siz
 ![Build tasks selected at each scale: the whole workspace grows with the repo, one app's closure stays roughly flat](bench/charts/focus-vs-full.svg)
 
 [High-resolution PNG](bench/charts/focus-vs-full.png)
+
+**Figure 3.** Both lines count build tasks. The unscoped run selects a task per package, so it grows with the repo; `--filter=<app>...` selects the app and the libs it imports, and the generator's layered graph keeps that closure a similar size at every scale.
 
 <!-- chart-data:focus-vs-full -->
 <details>
@@ -127,6 +131,8 @@ The focused build's work stays one closure, but its wall time carries a repo-siz
 ![Lockfile lines vs workspace packages, log-log](bench/charts/lockfile-vs-scale.svg)
 
 [High-resolution PNG](bench/charts/lockfile-vs-scale.png)
+
+**Figure 4.** The lockfile holds one importer entry per workspace package next to the shared external packages, so its length grows with the package count.
 
 <!-- chart-data:lockfile-vs-scale -->
 <details>

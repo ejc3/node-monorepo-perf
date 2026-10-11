@@ -127,7 +127,7 @@ jobs:
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
             # the build (the PNGs were still validated above; refresh locally with the chart make targets).
-            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart scale-chart net-cache-chart fleet-chart' and commit them"
+            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit them"
           fi
 
       - name: Upload the freshly-rendered PNGs (PR builds)

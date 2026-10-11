@@ -17,6 +17,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
 }</style>
 <rect width="862" height="2182.5" fill="#ffffff"/>
 <text x="20" y="32" font-size="17" fill="#1c2330" font-weight="650">Tooling head-to-head: wall time</text>
