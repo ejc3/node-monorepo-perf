@@ -1,6 +1,6 @@
 # Industry Grounding
 
-The primary source behind each practice in the benchmark, where pnpm + Turborepo hits a ceiling and the architecture that replaces it, and the methodology's mapping to benchmarking norms.
+Primary sources for each practice the benchmark follows, for where pnpm + Turborepo hits a ceiling and what replaces it, and for the methodology's benchmarking norms.
 
 ## Practices This Repo Follows
 
@@ -17,16 +17,16 @@ The primary source behind each practice in the benchmark, where pnpm + Turborepo
 | Remote caching | [Turborepo remote caching](https://turborepo.dev/docs/core-concepts/remote-caching) |
 | One Vercel project per app | [Vercel monorepos](https://vercel.com/docs/monorepos), [Vercel limits](https://vercel.com/docs/limits) |
 
-- **`node-linker`.** Under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and runs 2.2–2.7× faster at 1,000–2,000; warm relink 4.3–6.8× faster hoisted there, on [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees). The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower on one sample per variant, `bench/perf-matrix.json`); the records vary scale and catalog form together, so the cause of the reversal is not isolated.
+- **`node-linker`.** On [the workspace under test](README.md#the-workspace-under-test) (`bench/install-bench.json`, decataloged trees) under pnpm 12.8.1, hoisted cold is about 6% behind isolated at 200 apps and 2.2–2.7× faster at 1,000–2,000; hoisted warm relink is 4.3–6.8× faster at those scales. The 300:100 catalog workspace reverses the cold direction (hoisted ~1.7× slower, one sample per variant, `bench/perf-matrix.json`). The two records vary scale and catalog form together, so they do not isolate the cause of the reversal.
 - **Vercel.** Skip-unaffected does not consume a build slot; legacy turbo-ignore does.
 
 ## The Ceiling
 
-The stack has a ceiling near where graph-load + lockfile + foundation-blast dominate; the escape is a different architecture, vendor-acknowledged with documented end-states.
+The stack's ceiling is where graph load, lockfile size, and foundation blast radius dominate. The escape is a different architecture; the vendors acknowledge it, and the largest monorepos document their end-states.
 
-- Affected + caching cannot eliminate the tasks of modified projects or their dependents; the remedy is distributed task execution ([Nx reduce-waste](https://nx.dev/docs/concepts/ci-concepts/reduce-waste)).
-- Caching is not execution: remote *cache* (Nx Replay) helps only the second consumer; the escape needs distributed *execution* (Nx Agents, [Bazel RBE](https://bazel.build/remote/rbe)).
-- The per-invocation O(repo) graph-load is escaped by a persistent daemon: Buck2 keeps one graph between invocations, remote-execution-first ([buck2 docs](https://buck2.build/docs/about/why/)); Bazel persistent workers cut startup ([Bazel persistent](https://bazel.build/remote/persistent)).
+- `--affected` and caching cannot eliminate the tasks of modified projects or their dependents; the remedy is distributed task execution ([Nx reduce-waste](https://nx.dev/docs/concepts/ci-concepts/reduce-waste)).
+- Caching is not execution: a remote *cache* (Nx Replay) helps only the second consumer; the escape needs distributed *execution* (Nx Agents, [Bazel RBE](https://bazel.build/remote/rbe)).
+- A persistent daemon escapes the per-invocation O(repo) graph load: Buck2 keeps one graph between invocations and is remote-execution-first ([buck2 docs](https://buck2.build/docs/about/why/)); Bazel persistent workers cut startup ([Bazel persistent](https://bazel.build/remote/persistent)).
 - **End-states.** Google (Piper + CitC FUSE + Blaze/Bazel, ~1B files, [paper](https://research.google/pubs/why-google-stores-billions-of-lines-of-code-in-a-single-repository/)); Meta (Sapling + EdenFS + Buck2, [Sapling](https://engineering.fb.com/2022/11/15/open-source/sapling-source-control-scalable/), [Buck2](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system/)); Microsoft (Scalar/VFS-for-Git + Rush + Lage, [Scalar](https://github.blog/open-source/git/the-story-of-scalar/), [Rush Stack](https://rushstack.io/)); Canva and Uber (Git + Bazel, [Canva](https://www.canva.dev/blog/engineering/we-put-half-a-million-files-in-one-git-repository-heres-what-we-learned/), [Uber](https://www.uber.com/blog/go-monorepo-bazel/)).
 
 ## The Git Axis
@@ -35,7 +35,7 @@ At ~130k files (20k apps) Git itself needs scaling, with the same focus-vs-whole
 
 - `core.fsmonitor=true` + `core.untrackedCache=true`: `git status` at 2M files 85.1s → 0.75s ([fsmonitor](https://github.blog/engineering/infrastructure/improve-git-monorepo-performance-with-a-file-system-monitor/)).
 - Cone sparse-checkout + sparse index: index 180 MB → <10 MB, `git status` 1.3s → <200 ms ([sparse index](https://github.blog/open-source/git/make-your-monorepo-feel-small-with-gits-sparse-index/)).
-- Partial clone (`git clone --filter=blob:none --sparse`): clone becomes O(history) not O(all blobs) ([sparse-checkout](https://github.blog/open-source/git/bring-your-monorepo-down-to-size-with-sparse-checkout/)).
+- Partial clone (`git clone --filter=blob:none --sparse`): clone cost becomes O(history), not O(all blobs) ([sparse-checkout](https://github.blog/open-source/git/bring-your-monorepo-down-to-size-with-sparse-checkout/)).
 - Scalar (`scalar clone`, Git 2.38+): bundles the above + commit-graph + background maintenance ([Scalar](https://github.blog/open-source/git/the-story-of-scalar/)).
 
 ## Methodology Norms
@@ -48,13 +48,13 @@ At ~130k files (20k apps) Git itself needs scaling, with the same focus-vs-whole
 | Report variance, not bare averages; repeat noisy runs | [hyperfine](https://github.com/sharkdp/hyperfine), [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) |
 | Report absolute numbers + full system config | [benchmarking crimes](https://gernot-heiser.org/benchmarking-crimes.html) |
 
-- **State.** Fresh per-run temp workspace; node_modules/yarn-state/lockfile removed per measurement; ambient tool env (`YARN_*`/`BUN_*`/`PNPM_*`/`npm_config_*`) stripped per timed run. Truly-cold redirects each tool's store + metadata to a throwaway dir, asserted populated.
+- **State.** Each run gets a fresh temp workspace; `node_modules`, yarn state, and the lockfile are removed per measurement; ambient tool env (`YARN_*`/`BUN_*`/`PNPM_*`/`npm_config_*`) is stripped per timed run. Truly-cold redirects each tool's store and metadata to a throwaway dir, asserted populated afterward.
 - **Completeness.** `verifyComplete()` throws unless every app and lib resolves all declared deps + devDeps (yarn PnP through `.pnp.cjs`); build-bench errors on 0-byte output.
-- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run; a record carries its core count and tool versions where its bench writes them, and the 64-core machine and run protocol are stated in the [README](README.md#the-64-core-machine) (`bench/env.json` is that box's capture: CPU model, cores, RAM, OS, tool versions).
+- **System config.** `/usr/bin/time -v` records CPU% and peak RSS per run. A record carries its core count and tool versions where its bench writes them. The 64-core machine and run protocol are in the [README](README.md#the-64-core-machine); `bench/env.json` is that box's capture (CPU model, cores, RAM, OS, tool versions).
 
 ## Scenario Realism
 
-Each scenario is checked against primary sources so the suite tests practices that exist in the wild.
+Each scenario is checked against primary sources, so the suite tests practices in real use.
 
 | Scenario | Verdict | Key sources |
 |---|---|---|
@@ -66,8 +66,8 @@ Each scenario is checked against primary sources so the suite tests practices th
 | bun / yarn 4 as the CI installer at scale | Realistic | [State of JS 2025](https://2025.stateofjs.com/en-US/other-tools/), [Anthropic](https://www.anthropic.com/news/anthropic-acquires-bun-as-claude-code-reaches-usd1b-milestone), [Midjourney](https://bun.com/blog/bun-v1.3), [Railway](https://docs.railway.com/reference/functions), [Datadog](https://opensource.datadoghq.com/projects/yarn/), [Klaviyo](https://klaviyo.tech/goodbye-dependency-installations-a242ccf6fa40) |
 | Fresh containers as the CI-runner stand-in (`container-install-bench`) | Partially | Faithful for the self-hosted container tier |
 
-- **Frozen CI installs.** `npm ci` is "meant to be used in automated environments". pnpm `frozenLockfile` defaults true under CI, and yarn `enableImmutableInstalls` is "true (the default on CI)". `bun ci` equals `--frozen-lockfile` with no CI auto-enable — the asymmetry `yarn-rollout-bench`/`wave-rollout-bench` measure.
+- **Frozen CI installs.** `npm ci` is "meant to be used in automated environments". pnpm `frozenLockfile` defaults true under CI, and yarn `enableImmutableInstalls` is "true (the default on CI)". `bun ci` equals `--frozen-lockfile`, and bun has no CI auto-enable; `yarn-rollout-bench` and `wave-rollout-bench` measure that asymmetry.
 - **Package counts.** Microsoft 1JS ~2,500 packages / ~20M LOC; TikTok 1,000+ projects ([lockfile subspaces](https://developers.tiktok.com/blog/subspaces-divide-and-conquer-your-npm-upkeep) + Sparo); DefinitelyTyped 9,114 projects. Documented counts cluster at 1,000–2,500, so the lab's 4,000-app point extrapolates above the cluster and below DefinitelyTyped.
-- **yarn PnP.** Klaviyo migrated to Yarn 3 PnP zero-installs; CI image builds 11 min average (16 min worst-case) → ~1 min.
-- **CI installers.** State of JS 2025 — 1,123 respondents named `bun install` among monorepo tools they use (pnpm led at 3,940). bun runs in production at Anthropic (acquired Bun; Claude Code infra), Midjourney, and Railway; yarn PnP at Datadog and Klaviyo. The evidence is an adoption signal; there are no documented pnpm→bun or pnpm→yarn speed migrations.
-- **Fresh containers.** GitLab's Docker executor is container-per-job, and GitHub's actions-runner-controller runs one ephemeral pod per job. GitHub-hosted runners are fresh **VMs** per job (absolute times differ), but the empty-cache-per-job property the bench isolates is the same.
+- **yarn PnP.** Klaviyo migrated to Yarn 3 PnP zero-installs; CI image builds went from 11 min average (16 min worst-case) to ~1 min.
+- **CI installers.** State of JS 2025: 1,123 respondents named `bun install` among the monorepo tools they use (pnpm led at 3,940). bun runs in production at Anthropic (which acquired Bun; Claude Code infra), Midjourney, and Railway; yarn PnP at Datadog and Klaviyo. This is an adoption signal; no pnpm→bun or pnpm→yarn speed migration is documented.
+- **Fresh containers.** GitLab's Docker executor runs a container per job, and GitHub's actions-runner-controller runs one ephemeral pod per job. GitHub-hosted runners are fresh **VMs** per job, so absolute times differ, but the empty-cache-per-job property the bench isolates is the same.
