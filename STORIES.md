@@ -82,7 +82,8 @@ can't reproduce it; the choice is copy-paste drift or graduating it to `@acme/*`
 **15. `file:` postinstall rule.** As a platform engineer I rely on the default: pnpm 12 and
 bun **block** a `file:` dep's `postinstall`, and pnpm 12 also fails the install on the blocked
 build with `ERR_PNPM_IGNORED_BUILDS` (`bench/bun-safety-bench.json` rung A). A dep that needs
-its script is allowlisted explicitly (`pnpm.onlyBuiltDependencies` / `trustedDependencies`).
+its script is allowlisted explicitly (pnpm 12: `allowBuilds` in `pnpm-workspace.yaml`; bun:
+`trustedDependencies`).
 
 ---
 
@@ -90,6 +91,6 @@ its script is allowlisted explicitly (`pnpm.onlyBuiltDependencies` / `trustedDep
 
 Maya changes by lockfile, Sam by release, Priya across both. The shared-workspace model
 ([README.md](README.md), [FEASIBILITY.md](FEASIBILITY.md)) inverts both pains: the lib dev
-sees every app break before merge (whole-program gate 1.6s at 4,000 apps,
+sees every app that no longer type-checks before merge (whole-program gate 1.6s at 4,000 apps,
 `bench/optimal-gate-bench.json`), and the app dev never waits. The cost is that everyone rides
 HEAD.

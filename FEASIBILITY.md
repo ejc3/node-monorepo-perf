@@ -39,7 +39,7 @@ apps, 31.3s at 10,000.
 
 ## When Each O(repo) Cost Is Paid
 
-Each is paid once per change, not per person. The resolve is committed to `pnpm-lock.yaml`;
+The lockfile resolve is paid once per lockfile change, not per person: it is committed to `pnpm-lock.yaml`;
 everyone else runs `pnpm install --frozen-lockfile` and skips it. Under pnpm 12.8.1 the
 resolve's share of a cold install falls with scale: 76% at 200 apps, 26% at 1,000, 14% at
 2,000 (`lockfile-bench.json`). Resolve dominates the 200-app cold install; linking dominates
