@@ -146,7 +146,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
     }
   }
   // non-text marks, each composited over the page of the theme and held to 3:1: series
-  // lines and dots, gridless rules, and every rect that is not a text-framing box. A rect
+  // lines, arrows and edges (lines, polylines, paths and arrowheads), dots (filled or
+  // hollow), and every rect that is not a text-framing box. A rect
   // frames text only if a rendered text's anchor point lies inside it (heat cells, figure
   // boxes) or sits beside its label (a legend swatch); one with neither is a bar and its fill
   // and stroke are marks.
@@ -174,7 +175,10 @@ export function auditSvg(svg, { minText, minBoxText }) {
     });
   const check = (e, attr, theme) => {
     const raw = e.a[attr];
-    if (!raw || raw === "none" || (attr === "stroke" && raw === GRID)) return;
+    // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
+    // a dot is a mark like any other
+    const hairline = attr === "stroke" && ["line", "path", "polyline"].includes(e.tag);
+    if (!raw || raw === "none" || (hairline && raw.toLowerCase() === GRID)) return;
     const c0 = paint(e, attr, theme, rules);
     if (!c0 || c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
@@ -188,8 +192,10 @@ export function auditSvg(svg, { minText, minBoxText }) {
   for (const e of els) {
     if (e === bgRect) continue;
     const attrsToCheck = [];
-    if (e.tag === "circle") attrsToCheck.push(e.a.fill && e.a.fill !== "none" ? "fill" : "stroke");
+    if (e.tag === "circle") attrsToCheck.push("fill", "stroke");
     else if (e.tag === "polyline" || e.tag === "line") attrsToCheck.push("stroke");
+    else if (e.tag === "path")
+      attrsToCheck.push("stroke", "fill"); // edges and arrowheads
     else if (e.tag === "rect") {
       const r = geom(e);
       if (r.w <= 3 || r.h <= 3 || framesText(r) || labelsSwatch(r)) continue;

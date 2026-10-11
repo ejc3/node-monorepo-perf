@@ -419,4 +419,23 @@ test("charts.yml triggers on every module the chart scripts import", () => {
   }
 });
 
+test("the audit checks arrow and edge paths: a faint path stroke and a faint arrowhead fill are flagged, a GRID hairline path is not", () => {
+  const faint = "#f4f4f4"; // ~1.1:1 on white
+  const wrap = (body) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60"><rect width="200" height="60" fill="#ffffff"/>${body}</svg>`;
+  const audit = (body) => auditSvg(wrap(body), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  const edge = audit(`<path d="M10 20L90 20" fill="none" stroke="${faint}"/>`);
+  assert.ok(
+    edge.some((i) => i.includes("path stroke")),
+    `a faint edge path escaped the mark check: ${edge}`,
+  );
+  const head = audit(`<path d="M100 20L94 17L94 23z" fill="${faint}"/>`);
+  assert.ok(
+    head.some((i) => i.includes("path fill")),
+    `a faint arrowhead escaped the mark check: ${head}`,
+  );
+  const hair = audit(`<path d="M0 50L200 50" fill="none" stroke="#e4e8ec"/>`);
+  assert.deepEqual(hair, [], "a GRID-coloured hairline path is decoration, not a mark");
+});
+
 console.log(`1..${n}`);
