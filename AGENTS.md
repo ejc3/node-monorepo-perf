@@ -1395,8 +1395,11 @@ commit status **`review-gate`** to be `success` on the PR head.
 `.github/workflows/review-gate.yml` posts it from
 `.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
 go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
-`GITHUB_REPOSITORY` default). The status is `failure` while the gate blocks and `error`
-when it cannot evaluate; both block the merge.
+`GITHUB_REPOSITORY` default, and the bot-traffic rules below). The status is `failure`
+while the gate blocks and `error` when it cannot evaluate, or when a run ended without a
+verdict; both block the merge. The ruleset also turns on GitHub's own "require
+conversation resolution", which blocks an unresolved thread at once, without waiting for
+a re-run of the gate.
 
 The gate blocks on:
 
@@ -1421,14 +1424,16 @@ Dispositions open a reply of their own and are newer than the claim they answer:
 Answer a PR-level finding with a review from the author (`gh pr review <n> --comment -b
 "NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. These need no
 answer, each only from the bot's own account and only in the shape the gate knows: a bot
-command (`@codex review`); Codex's no-findings comment ("Didn't find any major issues."
-plus at most one plain sentence, then the reviewed commit); the Codex review that only
-holds its inline comments (heading, one fixed sentence, reviewed commit); CodeRabbit's
-command acknowledgements and its notices that a review did not run; and CodeRabbit's
-summary comment, as long as nothing sits outside the regions CodeRabbit delimits in it.
-Findings from either bot arrive as review bodies and inline threads, and those are
-claims. Treating the CodeRabbit summary as no claim is this repository's choice; the
-upstream gate in ejc3/fcvm treats it as one.
+command (`@codex review`); Codex's no-findings comment ("Didn't find any major issues.",
+a sign-off from the list of ones Codex has posted, then the reviewed commit); the Codex review that only holds its inline comments (heading, one fixed
+sentence, reviewed commit); CodeRabbit's command acknowledgements and its notices that a
+review did not run; and CodeRabbit's summary comment when every region in it is one the
+gate has seen CodeRabbit emit, nothing sits outside those regions, and the regions that
+report a result report a clean one (no actionable comments, no failed or warning
+pre-merge check, merge risk Minimal or Low, no failed review). Any other sign-off or
+summary is a claim. Findings from either bot arrive as review bodies and inline threads,
+and those are claims. Treating a clean CodeRabbit summary as no claim is this
+repository's choice; the upstream gate in ejc3/fcvm treats it as one.
 
 Get both bot reviews after every push, by PR comment:
 
@@ -1453,7 +1458,21 @@ The status is re-evaluated on PR open, push, reopen, ready-for-review and edit
 comment (relayed by `review-gate-events.yml` through `workflow_run`); and every 10 minutes
 for every open PR. Resolving or unresolving a thread triggers no workflow; the sweep picks
 it up, or `gh workflow run review-gate -f pr=<n>` does at once. Every path runs the gate
-from `main`, never from the PR.
+from `main`, never from the PR, and posts through `post-status.sh`, which posts only a
+changed status (GitHub caps a commit at 1000 statuses per context, and anyone can fire the
+events that re-run the gate) and posts `error` instead of `success` near that cap, so the
+cap can only leave a head blocked. An event turns a `success` to `pending` before its
+evaluation queues, and an evaluation does not post `success` when a newer review-gate run
+exists (that run, or the next sweep, posts it).
+
+Threat model: the gate stops an accidental or careless merge. It is not a boundary against
+someone holding push access or the owner's token, who can add a workflow on a branch that
+posts a `review-gate` success, post one with the API, or edit the ruleset. The ruleset
+names GitHub Actions as the status's expected source, which rules out a status posted
+with a personal token; a forged success from another workflow is replaced by the gate's
+verdict the next time it evaluates that head (an event or the 10-minute sweep). A
+"require workflows to pass" rule, which would close that gap, is an organization ruleset
+feature and is not available to this user-owned repository.
 
 ## Mandatory Doc-Sync Pass
 

@@ -6,6 +6,13 @@ name: review-gate
 # reviewed by each bot in REQUIRE_HEAD_REVIEW_FROM). The ruleset on main requires that
 # status, so a PR merges only after its findings are adjudicated and its head reviewed.
 #
+# Threat model: the gate stops an accidental or careless merge. It is not a boundary
+# against someone holding push access or the owner's token: they can add a workflow on a
+# branch that posts a `review-gate` success, or edit the ruleset. post-status.sh replaces a
+# success that a review-gate.yml run on the default branch did not post with the real
+# verdict whenever it evaluates that head, so such a status lasts until the next event or
+# sweep (at most ten minutes).
+#
 # Why a commit status and not this job's own check run: issue_comment, workflow_run,
 # schedule and workflow_dispatch runs belong to the default branch's commit, not the PR's,
 # so their check runs never reach the PR's head. A status posted through the API on the head
@@ -33,19 +40,23 @@ name: review-gate
 #                        event that did not arrive or whose relay did not run
 #   workflow_dispatch    one PR (input) or every open PR
 #
-# The evaluate job fails while the head is blocked, except on the schedule sweep: runs from
-# these events attach to the default branch's latest commit, and a sweep failing every ten
-# minutes per open PR would mark that commit red for no event at all. The sweep's verdict
-# is the status it posts.
+# The evaluate job fails while the head is blocked only on pull_request_target. Runs from
+# the other events attach to the default branch's latest commit, so they fail only when the
+# gate could not evaluate; the status carries the verdict.
 #
 # The unit of evaluation is the head COMMIT, because a status belongs to a commit: every
 # event is mapped to the head sha(s) it can have changed, one job per sha evaluates every
 # open PR whose head is that sha, and the commit is CLEAR only if all of them are (one
 # branch opened against two bases is two PRs on one commit). Jobs are serialized per sha
 # (concurrency group per sha, queued, never cancelled mid-run), so an older evaluation
-# cannot overwrite a newer verdict on the same commit. An event-driven run posts `pending`
-# first, then the verdict; the sweep posts only a verdict that differs from the current one,
-# since GitHub refuses statuses past 1000 per commit and context. The gate is told which
+# cannot overwrite a newer verdict on the same commit. Every status goes through
+# post-status.sh, which posts only a state or description that differs from the current
+# one, because GitHub refuses statuses past 1000 per commit and context and anyone can fire
+# the events that re-run the gate; near that cap it posts `error` where it would post
+# `success`, so the cap can only leave a head blocked. An event posts `pending` before its
+# evaluation queues, and only over a `success`; an evaluation does not post `success` while
+# a review-gate run created after it began exists (that run, or the next sweep, posts it). A run that ends without a verdict posts `error`
+# for each head it answered for. The gate is told which
 # head to judge (EXPECT_HEAD) and blocks if a PR moved, so a verdict is never posted on a
 # commit it was not computed for. A matrix holds at most 256 jobs; past that a run takes a
 # window of 256 shas at a random offset, so every head is reached within a few runs, and
@@ -85,49 +96,65 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      contents: read # the checkout of post-status.sh from main
       pull-requests: read
+      statuses: write # pending over a success, and error for heads it could not resolve
+      actions: read # post-status.sh: which run posted the current status
     outputs:
       shas: ${{ steps.heads.outputs.shas }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EVENT: ${{ github.event_name }}
+      PRT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      RUN_PRS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+      RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      INPUT_PR: ${{ inputs.pr }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      - name: Check out the gate from main (never the PR's code)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: .claude/skills/pr-review-gate
+
       - name: Work out which head commits this event can have changed
         id: heads
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          PRT_NUMBER: ${{ github.event.pull_request.number }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          RUN_PRS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
-          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          INPUT_PR: ${{ inputs.pr }}
         run: |
           set -euo pipefail
-          # number, head branch, head sha of every open PR, one per line. Only an OPEN PR's
-          # head is gated; a comment on a closed PR maps to nothing.
-          open=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
-                   --jq '.[] | "\(.number)\t\(.head.ref)\t\(.head.sha)"')
-          case "$EVENT" in
-            pull_request_target) nums=$PRT_NUMBER ;;
-            issue_comment)       nums=$ISSUE_NUMBER ;;
-            workflow_run)
-              # Same-repository PRs are listed on the run. A fork PR's run lists none, and its
-              # head_repository is not reliably the fork, so every open PR whose head branch
-              # name or head sha matches the run is taken. Over-matching (two forks with one
-              # branch name) only re-evaluates another head; the gate reads everything from
-              # the API, so naming the wrong PR cannot move another commit's status.
-              nums=$(jq -r '.[]?.number' <<<"${RUN_PRS:-[]}")
-              nums+=$'\n'$(awk -F'\t' -v b="$RUN_HEAD_BRANCH" -v s="$RUN_HEAD_SHA" \
-                '(b != "" && $2 == b) || (s != "" && $3 == s) { print $1 }' <<<"$open") ;;
-            workflow_dispatch|schedule)
-              if [ -n "${INPUT_PR:-}" ]; then nums=$INPUT_PR; else nums=$(cut -f1 <<<"$open"); fi ;;
-            *) echo "::error::unexpected event $EVENT"; exit 1 ;;
-          esac
-          # Every entry must be a PR number; anything else is refused, not skipped.
-          bad=$(grep -v -x -E '[0-9]*' <<<"$nums" || true)
-          if [ -n "$bad" ]; then echo "::error::not a PR number: ${bad:0:200}"; exit 1; fi
-          shas=$(awk -F'\t' 'NR == FNR { if ($1 != "") want[$1] = 1; next }
-                              ($1 in want) { print $3 }' <(printf '%s\n' "$nums") <(printf '%s\n' "$open") \
-                 | grep -x -E '[0-9a-f]{40}' | sort -u || true)
+          if [ "$EVENT" = pull_request_target ]; then
+            # The event names its own head; that is the commit this run answers for.
+            shas=$PRT_HEAD_SHA
+          else
+            # number, head branch, head sha of every open PR, one per line. Only an OPEN
+            # PR's head is gated; a comment on a closed PR maps to nothing.
+            open=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+                     --jq '.[] | "\(.number)\t\(.head.ref)\t\(.head.sha)"')
+            case "$EVENT" in
+              issue_comment) nums=$ISSUE_NUMBER ;;
+              workflow_run)
+                # Same-repository PRs are listed on the run. A fork PR's run lists none, and
+                # its head_repository is not reliably the fork, so every open PR whose head
+                # branch name or head sha matches the run is taken. Over-matching (two forks
+                # with one branch name) only re-evaluates another head; the gate reads
+                # everything from the API, so naming the wrong PR cannot move another
+                # commit's status.
+                nums=$(jq -r '.[]?.number' <<<"${RUN_PRS:-[]}")
+                nums+=$'\n'$(awk -F'\t' -v b="$RUN_HEAD_BRANCH" -v s="$RUN_HEAD_SHA" \
+                  '(b != "" && $2 == b) || (s != "" && $3 == s) { print $1 }' <<<"$open") ;;
+              workflow_dispatch | schedule)
+                if [ -n "${INPUT_PR:-}" ]; then nums=$INPUT_PR; else nums=$(cut -f1 <<<"$open"); fi ;;
+              *) echo "::error::unexpected event $EVENT"; exit 1 ;;
+            esac
+            # Every entry must be a PR number; anything else is refused, not skipped.
+            bad=$(grep -v -x -E '[0-9]*' <<<"$nums" || true)
+            if [ -n "$bad" ]; then echo "::error::not a PR number: ${bad:0:200}"; exit 1; fi
+            shas=$(awk -F'\t' 'NR == FNR { if ($1 != "") want[$1] = 1; next }
+                                ($1 in want) { print $3 }' <(printf '%s\n' "$nums") <(printf '%s\n' "$open"))
+          fi
+          shas=$(grep -x -E '[0-9a-f]{40}' <<<"$shas" | sort -u || true)
           n=$(grep -c . <<<"$shas" || true)
           if [ "$n" -gt 256 ]; then
             # A 256-wide window at a random offset: each head is in a given run's window
@@ -141,6 +168,51 @@ jobs:
           json=$(printf '%s\n' "$shas" | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "shas=$json" >> "$GITHUB_OUTPUT"
           echo "event $EVENT -> heads $json"
+
+      - name: Invalidate a success on each head before its evaluation queues
+        # An evaluation already running for a head may have read the PR before this event;
+        # its success must not stand until the queued one finishes. post-status.sh posts
+        # pending only over a success, so a blocked head costs no status. The sweep reports
+        # no new event and does not invalidate.
+        if: github.event_name != 'schedule'
+        env:
+          SHAS: ${{ steps.heads.outputs.shas }}
+        run: |
+          set -uo pipefail
+          for sha in $(jq -r '.[]' <<<"$SHAS"); do
+            bash .claude/skills/pr-review-gate/post-status.sh "$sha" pending "Re-evaluating after a new event" \
+              || echo "::warning::could not post pending on ${sha:0:9}"
+          done
+
+      - name: Mark the heads this run could not resolve as error
+        # A run that ends without a verdict must not leave an older success standing.
+        if: failure()
+        run: |
+          set -uo pipefail
+          heads=""
+          case "$EVENT" in
+            pull_request_target) heads=$PRT_HEAD_SHA ;;
+            issue_comment) heads=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$ISSUE_NUMBER" --jq '.head.sha' || true) ;;
+            workflow_run)
+              heads=$(jq -r '.[]?.head.sha // empty' <<<"${RUN_PRS:-[]}" || true)
+              heads+=$'\n'$RUN_HEAD_SHA ;;
+            workflow_dispatch)
+              if [ -n "${INPUT_PR:-}" ]; then
+                heads=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$INPUT_PR" --jq '.head.sha' || true)
+              fi ;;
+          esac
+          heads=$(grep -x -E '[0-9a-f]{40}' <<<"$heads" | sort -u || true)
+          if [ -z "$heads" ]; then
+            echo "::error::could not resolve the heads for this $EVENT event; their review-gate status was not refreshed"
+            exit 1
+          fi
+          for sha in $heads; do
+            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=error -f context="$STATUS_CONTEXT" \
+              -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              -f description="The gate could not resolve this event; see the run" >/dev/null \
+              || echo "::error::GitHub refused the error status on ${sha:0:9}"
+          done
+          exit 1
 
   evaluate:
     # Not named after the status context: the ruleset requires the STATUS, and a check run
@@ -164,13 +236,14 @@ jobs:
       issues: read # top-level PR comments
       checks: read # the head's check suites, which date its arrival
       statuses: write # the review-gate status on the head
+      actions: read # post-status.sh: which run posted the current status
     env:
       GH_TOKEN: ${{ github.token }}
       SHA: ${{ matrix.sha }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check out the gate from main (never the PR's code)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: main
           persist-credentials: false
@@ -183,11 +256,14 @@ jobs:
           jq --version
           gh --version | head -1
 
-      - name: Find the open PRs on this head and mark it pending
+      - name: Find the open PRs on this head
         id: head
         run: |
           set -euo pipefail
           [[ $SHA =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a commit sha: $SHA"; exit 1; }
+          # The evaluation begins here, before the PRs on this head are read: a review-gate
+          # run created after this moment answers an event this evaluation may not have seen.
+          echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           prs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
                   --jq ".[] | select(.head.sha == \"$SHA\") | .number" | sort -n | tr '\n' ' ')
           if [ -z "${prs// /}" ]; then
@@ -198,14 +274,6 @@ jobs:
           fi
           echo "open=true" >> "$GITHUB_OUTPUT"
           echo "prs=$prs" >> "$GITHUB_OUTPUT"
-          # GitHub keeps at most 1000 statuses per commit and context, after which a post is
-          # refused and the last one stands. The sweep therefore posts nothing that would not
-          # change the status: no pending, and no verdict equal to the current one.
-          if [ "$GITHUB_EVENT_NAME" != schedule ]; then
-            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
-              -f state=pending -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL" \
-              -f description="Evaluating review threads, dispositions and head coverage" >/dev/null
-          fi
 
       - name: Run the gate for every open PR on this head
         id: gate
@@ -215,6 +283,10 @@ jobs:
           PRS_ON_HEAD: ${{ steps.head.outputs.prs }}
         run: |
           set +e
+          # The gate prints review text that anyone can write. Workflow commands are off
+          # while it runs, so a "::" line in a comment is printed, not executed.
+          stop=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+          echo "::stop-commands::$stop"
           : > gate.log
           worst=0
           for p in $PRS_ON_HEAD; do
@@ -230,42 +302,53 @@ jobs:
             if [ "$rc" != 0 ] && [ "$rc" != 1 ]; then worst=2
             elif [ "$rc" = 1 ] && [ "$worst" = 0 ]; then worst=1; fi
           done
+          echo "::$stop::"
           [ -n "${PRS_ON_HEAD// /}" ] || worst=2
           echo "rc=$worst" >> "$GITHUB_OUTPUT"
           {
             echo "### review-gate: head ${EXPECT_HEAD:0:9}, PR(s) ${PRS_ON_HEAD}, result $worst"
-            echo '```'
-            cat gate.log
-            echo '```'
+            echo "<pre>"
+            sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' gate.log
+            echo "</pre>"
           } >> "$GITHUB_STEP_SUMMARY"
           # The verdict is posted by the next step; this step fails only if it could not run.
           exit 0
 
       - name: Post the verdict as the review-gate status
-        if: always() && steps.head.outputs.open == 'true'
+        # always(): a run that ends without a verdict (checkout, tools, the PR read, the gate
+        # itself) posts `error`, so an older success never outlives a run that failed.
+        if: always() && steps.head.outputs.open != 'false'
         env:
           RC: ${{ steps.gate.outputs.rc }}
+          EVAL_STARTED: ${{ steps.head.outputs.started }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           blocked=$(grep -m1 '^verdict: BLOCKED' gate.log 2>/dev/null | sed 's/^verdict: //' || true)
           case "${RC:-}" in
             0) state=success; desc="CLEAR: findings adjudicated, head reviewed" ;;
             1) state=failure; desc=${blocked:-BLOCKED} ;;
             *) state=error; desc="The gate could not evaluate (exit ${RC:-none}); see the run" ;;
           esac
-          desc=${desc:0:140}
-          # The combined status holds the latest status of each context, whatever else was
-          # posted on the commit since.
-          current=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$SHA/status?per_page=100" \
-                      --jq ".statuses[] | select(.context == \"$STATUS_CONTEXT\") | \"\(.state)\t\(.description)\"" | sed -n 1p)
-          if [ "$current" = "$state"$'\t'"$desc" ]; then
-            echo "$STATUS_CONTEXT on ${SHA:0:9} is already $state: $desc"
+          stop=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+          echo "::stop-commands::$stop"
+          if [ -r .claude/skills/pr-review-gate/post-status.sh ]; then
+            bash .claude/skills/pr-review-gate/post-status.sh "$SHA" "$state" "$desc"
+            posted=$?
           else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" \
-              -f state="$state" -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL" \
-              -f description="$desc" >/dev/null
-            echo "posted $STATUS_CONTEXT=$state on ${SHA:0:9}: $desc"
+            # The checkout failed, so the poster is not here: post the error directly.
+            state=error
+            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=error \
+              -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL" \
+              -f description="The gate could not run (checkout failed); see the run" >/dev/null
+            posted=$?
           fi
-          # The job fails while the head is blocked, as the status does (not on the sweep;
-          # see the header).
-          [ "${RC:-}" = 0 ] || [ "$GITHUB_EVENT_NAME" = schedule ]
+          echo "::$stop::"
+          if [ "$posted" != 0 ]; then echo "::error::the $STATUS_CONTEXT status was not posted"; exit 1; fi
+          # A blocked PR is a verdict, not a broken run: the status carries it. Runs from
+          # events other than pull_request_target attach to the default branch's commit, so
+          # they fail only when the gate could not evaluate.
+          case "$state" in
+            success) exit 0 ;;
+            failure) [ "$GITHUB_EVENT_NAME" != pull_request_target ] ;;
+            *) exit 1 ;;
+          esac

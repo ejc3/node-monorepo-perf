@@ -16,7 +16,7 @@
 # acknowledgements), each observed red against the script before them.
 #
 # One deliberate divergence from upstream: this repository does not treat the CodeRabbit
-# summary comment as a claim (see is_cr_summary_comment). Nine upstream cases asserted that
+# summary comment as a claim (see is_cr_summary_comment). Eight upstream cases asserted that
 # a finding placed INSIDE one of that comment's regions is claimable; they are kept, renamed
 # "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream:
 # ...)", and now expect CLEAR. Text outside the regions is still a claim, and those
@@ -1471,8 +1471,8 @@ run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a c
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'rate limited' "${LIMIT_NOTICE_ADAPTIVE/'> <summary>How can I continue?</summary>'/'> <summary>How can I continue?</summary>'$'\n> \n> P1: this drops the last row'}")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a skipped notice with a quoted finding is claimable)" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice 'skip review' "$SKIP_NOTICE"$'\n> \n> P1: this drops the last row')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
-run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice of a kind this gate does not list is claimable)" \
-  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice failure $'> [!CAUTION]\n> ## Review failed\n> \n> The pull request is closed.')" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
+run_case "a summary notice of a kind this gate does not list is claimable" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_summary_notice failure $'> [!CAUTION]\n> ## Review failed\n> \n> The pull request is closed.')" 2026-01-02T01:00:00Z)")" 1 "carry no disposition"
 run_case "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream: a summary notice beside a walkthrough is a walkthrough, still claimable)" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-01T00:00:00Z "$(cr_walk "$NOTICE_LIMITED" clean "$BASE40" "$HEAD40")" 2026-01-02T01:00:00Z)")" 0 "CLEAR"
 
@@ -1955,10 +1955,17 @@ fi
 
 echo "== addition 4: Codex's no-findings verdict with a sign-off that changes every time =="
 for signoff in ' Already looking forward to the next diff.' ' What shall we delve into next?' \
-               " Let's keep the momentum going!"; do
+               " Chef's kiss." ' Another round soon, please!' ' Delightful!'; do
   run_case "the codex sign-off '$signoff' is a verdict that covers the head it names" \
     "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body "$signoff" deadbeef)")]")" \
     0 "HEAD COVERED"
+done
+for claim in ' Only the workflow files were reviewed.' ' Not much to say!' ' Nothing broken here!' \
+             ' The error path leaks memory.' ' Mostly fine but slow!' ' Everything compiles fine.' \
+             ' Credentials exposed!' ' Reviewed documentation exclusively!' ' Lovely work!'; do
+  run_case "the sign-off '$claim' is a claim and binds no coverage" \
+    "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body "$claim" deadbeef)")]")" \
+    1 "carry no disposition" "UNREVIEWED HEAD"
 done
 run_case "a sign-off carrying a colon is a finding, not a verdict" \
   "$(wrap6 "[$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' One thing: the lease drops.' deadbeef)")]")" \
@@ -2030,28 +2037,235 @@ run_case "a summary comment with text on its marker line is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("summarize by coderabbit.ai -->"; "summarize by coderabbit.ai --> P1: this drops the last row")')")")" 1 "carry no disposition"
 run_case "a summary comment with visible text between two hidden comments is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- a --> P1: this drops the last row <!-- b -->"')")")" 1 "carry no disposition"
+run_case "a summary comment with a region this gate has not seen is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- new_section_start -->\nP1: this drops the last row\n<!-- new_section_end -->"')")")" 1 "carry no disposition"
+run_case "an unseen region nested inside an allowed one is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- hidden_findings_start -->\nP1\n<!-- hidden_findings_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "a recent-review block that posted actionable comments is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- recent_review_start -->\n**Actionable comments posted: 2**\n<!-- recent_review_end -->"')")")" 1 "carry no disposition"
+run_case "a recent-review block that posted none is not" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- recent_review_start -->\nNo actionable comments were generated in the recent review. 🎉\n<!-- recent_review_end -->"')")")" 0 "CLEAR"
+run_case "pre-merge checks with a warning are a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- pre_merge_checks_walkthrough_start -->\n| Docstring Coverage | ⚠️ Warning | 39% |\n<!-- pre_merge_checks_walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "pre-merge checks that all passed are not" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- pre_merge_checks_walkthrough_start -->\n<summary>✅ Passed checks (5 passed)</summary>\n<!-- pre_merge_checks_walkthrough_end -->"')")")" 0 "CLEAR"
+run_case "a merge risk above Low is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- final_review_risk_start -->\n**Merge Risk:** **🔴 High** · up to `ada54`\n<!-- final_review_risk_end -->"')")")" 1 "carry no disposition"
+run_case "a merge risk of Minimal is not" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- final_review_risk_start -->\n**Merge Risk:** **⚪ Minimal** · up to `ada54`\n<!-- final_review_risk_end -->"')")")" 0 "CLEAR"
+run_case "a region carrying Review failed is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n> [!CAUTION]\n> ## Review failed\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "failed pre-merge checks nested inside the walkthrough are a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- pre_merge_checks_walkthrough_start -->\n### ❌ Failed checks (1 warning)\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "a High merge risk nested inside the walkthrough is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- final_review_risk_start -->\n**Merge Risk:** **🔴 High** · up to `ada54`\n<!-- final_review_risk_end -->\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+run_case "a result region that opens inside another and never closes is a claim" \
+  "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b + "\n<!-- walkthrough_start -->\n<!-- recent_review_start -->\n**Actionable comments posted: 3**\n<!-- walkthrough_end -->"')")")" 1 "carry no disposition"
+# The allow-list is what CodeRabbit has emitted, no more: every region marker in the
+# captured CodeRabbit summaries is on it, and every entry on it occurs in one of them. A new
+# region CodeRabbit starts emitting makes its summary a claim until it is captured and listed.
+allow=$(sed -n '/^def cr_summary_regions:/,/\];$/p' "$GATE" | sed 's/^def cr_summary_regions://' \
+        | grep -o '"[^"]*"' | tr -d '"' | sort -u)
+seen=$(for f in "$FIXTURES"/review-threads-live-*.json; do
+  jq -r '.data.repository.pullRequest.comments.nodes[] | select(.author.login == "coderabbitai")
+         | select(.body | startswith("<!-- This is an auto-generated comment: summarize")) | .body' "$f"
+done | sed -n -E 's/^<!-- ([a-z_]+)_start -->[ \t\r]*$/\1/p; s/^<!-- ([a-z_]+):start -->[ \t\r]*$/\1:/p;
+                   s/^<!-- This is an auto-generated comment: ([a-z ]+) by coderabbit\.ai -->[ \t\r]*$/auto:\1/p' \
+  | grep -v '^auto:summarize$' | sort -u)
+if [ -n "$allow" ] && [ "$allow" = "$seen" ]; then
+  echo "  PASS  the summary region allow-list is exactly the regions in the captured fixtures"; pass=$((pass+1))
+else
+  echo "  FAIL  the summary region allow-list and the captured regions differ"
+  diff <(printf '%s\n' "$allow") <(printf '%s\n' "$seen") | sed 's/^/          /'; fail=$((fail+1))
+fi
 run_case "a summary comment with an indented region marker is a claim" \
   "$(wrap9 "$(cmt coderabbitai Bot 2026-01-02T01:00:00Z "$(jq -n --argjson b "$CR_SUM" '$b | sub("\n<!-- tips_start -->"; "\n    <!-- tips_start -->")')")")" 1 "carry no disposition"
 
 echo "== addition 7: the live PRs these rules were written against =="
-# #46: CodeRabbit's summary is no longer a claim, and its three review bodies (actionable
-# comments, nitpicks) and six open threads still block: a summary that reports findings
-# does not wave them through, because they arrive as review objects and threads.
-run_env_case "#46: the summary is exempt, the review bodies and threads still block" \
-  "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "3 PR-level review body/bodies" "UNANSWERED coderabbitai (COMMENT)"
+# #46: CodeRabbit's three review bodies (actionable comments, nitpicks) and six open threads
+# block, and so does its summary, whose pre-merge checks report a failed check (docstring
+# coverage warning): a summary that reports a failure is not waved through.
+run_env_case "#46: the review bodies, the threads and the failed-check summary all block" \
+  "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "4 PR-level review body/bodies"
+run_env_case "#46: the summary with a failed pre-merge check is listed" \
+  "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "UNANSWERED coderabbitai (COMMENT)"
 run_env_case "#46: the six open CodeRabbit threads are still listed" \
   "" "$(cat "$FIXTURES/review-threads-live-46.json")" 1 "7 total, 6 unresolved"
 # #64: Codex P1 inline (answered RED-VERIFIED, resolved), container review, two no-findings
 # verdicts, CodeRabbit summary + three acknowledgements.
-run_env_case "#64: nothing left to answer, CLEAR" "" "$(cat "$FIXTURES/review-threads-live-64.json")" 0 "CLEAR" "UNANSWERED"
-run_env_case "#64: with both bots required, only CodeRabbit's head review is missing" \
-  "$REQ" "$(cat "$FIXTURES/review-threads-live-64.json")" 1 "MISSING HEAD REVIEW  coderabbitai" "UNANSWERED"
+# Its CodeRabbit summary reports "Failed checks (1 warning)" (docstring coverage), so that
+# summary is the one thing left to answer.
+run_env_case "#64: only the summary with a failed pre-merge check is unanswered" \
+  "" "$(cat "$FIXTURES/review-threads-live-64.json")" 1 "1 PR-level review body/bodies" "UNANSWERED chatgpt-codex-connector"
+run_env_case "#64: with both bots required, CodeRabbit's head review is missing" \
+  "$REQ" "$(cat "$FIXTURES/review-threads-live-64.json")" 1 "MISSING HEAD REVIEW  coderabbitai"
+run_env_case "#63: the skip-review summary is not a claim" \
+  "" "$(cat "$FIXTURES/review-threads-live-63.json")" 1 "UNREVIEWED HEAD" "UNANSWERED"
 run_env_case "#65: an answered, resolved thread and a :+1: verdict on the head, CLEAR" \
   "" "$(cat "$FIXTURES/review-threads-live-65.json")" 0 "CLEAR" "UNANSWERED"
 run_env_case "#66: the new sign-off verdict covers the head, CLEAR" \
   "" "$(cat "$FIXTURES/review-threads-live-66.json")" 0 "HEAD COVERED" "UNANSWERED"
 run_env_case "#67: both threads answered, nothing unanswered, the head not yet reviewed" \
   "" "$(cat "$FIXTURES/review-threads-live-67.json")" 1 "UNREVIEWED HEAD" "UNANSWERED"
+
+echo "== addition 8: post-status.sh posts only a change, and replaces a success it did not post =="
+POSTER="$(dirname "$0")/post-status.sh"
+mkdir -p "$TMP/psbin"
+# gh shim: GET answers come from $PS_DIR/<endpoint-with-slashes-as-underscores>.json, passed
+# through the --jq filter the way gh applies it; a POST is recorded and exits $PS_POST_RC.
+cat > "$TMP/psbin/gh" <<'SHIM'
+#!/bin/bash
+args=("$@"); filter=""; endpoint=""; post=0
+for ((i = 0; i < ${#args[@]}; i++)); do
+  case "${args[$i]}" in
+    --jq) filter=${args[$((i + 1))]}; i=$((i + 1)) ;;
+    -X) [ "${args[$((i + 1))]}" = POST ] && post=1; i=$((i + 1)) ;;
+    -f) i=$((i + 1)) ;;
+    api | --paginate) ;;
+    *) endpoint=${args[$i]} ;;
+  esac
+done
+if [ "$post" = 1 ]; then printf '%s\n' "$*" >> "$PS_DIR/posts"; exit "${PS_POST_RC:-0}"; fi
+f="$PS_DIR/$(printf '%s' "${endpoint%%\?*}" | tr '/' '_').json"
+[ -r "$f" ] || { echo "shim: no fixture for $endpoint" >&2; exit 1; }
+if [ -n "$filter" ]; then jq -r "$filter" "$f"; else cat "$f"; fi
+SHIM
+chmod +x "$TMP/psbin/gh"
+PS_SHA=0123456789abcdef0123456789abcdef01234567
+ps_n=0
+# $1 name, $2 statuses JSON (newest first), $3 run JSON for run 77 (or ""), $4 env, $5 state,
+# $6 description, $7 expected exit, $8 expected number of POSTs, $9 text the POST must carry.
+ps_case() {
+  local name=$1 statuses=$2 run=$3 envs=$4 st=$5 de=$6 want_rc=$7 want_posts=$8 want_post_txt=${9:-}
+  ps_n=$((ps_n + 1)); local d="$TMP/ps.$ps_n"; mkdir "$d"
+  [ "$statuses" = UNREADABLE ] || printf '%s' "$statuses" > "$d/repos_o_r_commits_${PS_SHA}_statuses.json"
+  [ -z "${PS_RUNS:-}" ] || printf '%s' "$PS_RUNS" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json"
+  [ -z "$run" ] || printf '%s' "$run" > "$d/repos_o_r_actions_runs_77.json"
+  local envarr=() out rc posts
+  [ -z "$envs" ] || IFS='|' read -r -a envarr <<<"$envs"
+  out=$(env PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://github.com \
+        RUN_URL=https://github.com/o/r/actions/runs/88 "${envarr[@]}" bash "$POSTER" "$PS_SHA" "$st" "$de" 2>&1); rc=$?
+  posts=$(grep -c . "$d/posts" 2>/dev/null || true)
+  if [ "$rc" = "$want_rc" ] && [ "${posts:-0}" = "$want_posts" ] \
+     && { [ -z "$want_post_txt" ] || grep -qF -- "$want_post_txt" "$d/posts"; }; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc, posts=${posts:-0} want=$want_posts)"
+    sed 's/^/          /' <<<"$out" | head -4; [ -r "$d/posts" ] && sed 's/^/          POST /' "$d/posts"
+    fail=$((fail+1))
+  fi
+}
+OURS_RUN='{"path":".github/workflows/review-gate.yml","event":"issue_comment","head_branch":"main"}'
+st() { printf '{"context":"review-gate","state":"%s","description":"%s","creator":{"login":"%s"},"target_url":"%s"}' "$1" "$2" "$3" "$4"; }
+OURS_URL=https://github.com/o/r/actions/runs/77
+run_ps() { ps_case "$@"; }
+run_ps "no status yet: post the verdict" '[]' "" "" failure "BLOCKED x" 0 1 "state=failure"
+run_ps "the same failure again: post nothing" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" failure "BLOCKED x" 0 0
+run_ps "a changed description: post it" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" failure "BLOCKED y" 0 1 "BLOCKED y"
+run_ps "our own success again: post nothing" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" success "CLEAR" 0 0
+run_ps "only the newest status of the context counts" \
+  "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL"),$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" success "CLEAR" 0 1 "state=success"
+run_ps "a success posted by a person is replaced even by the same verdict" \
+  "[$(st success 'CLEAR' 'someone' '')]" "" "" success "CLEAR" 0 1 "state=success"
+run_ps "a success from another workflow is replaced" \
+  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/other.yml","event":"pull_request","head_branch":"x"}' "" failure "BLOCKED x" 0 1 "state=failure"
+run_ps "a success from review-gate.yml run on a branch push is replaced" \
+  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/review-gate.yml","event":"push","head_branch":"evil"}' "" success "CLEAR" 0 1 "state=success"
+run_ps "a success from review-gate.yml dispatched on another ref is replaced" \
+  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" '{"path":".github/workflows/review-gate.yml","event":"workflow_dispatch","head_branch":"evil"}' "" success "CLEAR" 0 1 "state=success"
+many=$(for i in $(seq 1 5); do st failure "BLOCKED $i" 'github-actions[bot]' "$OURS_URL"; echo ,; done | tr -d '\n' | sed 's/,$//')
+run_ps "near the status cap a success is posted as error" "[$many]" "$OURS_RUN" "STATUS_QUOTA_GUARD=5" success "CLEAR" 0 1 "state=error"
+run_ps "below the cap a success is posted as success" "[$many]" "$OURS_RUN" "STATUS_QUOTA_GUARD=6" success "CLEAR" 0 1 "state=success"
+run_ps "a refused POST fails loudly" '[]' "" "PS_POST_RC=1" failure "BLOCKED x" 1 1
+run_ps "pending is not posted over a missing status" '[]' "" "" pending "x" 0 0
+run_ps "pending is not posted over a failure" "[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" pending "x" 0 0
+run_ps "pending is posted over a success" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" "$OURS_RUN" "" pending "x" 0 1 "state=pending"
+# A review-gate run created after the evaluation began answers an event it may not have
+# seen (PR #70's P1: a comment arriving while an older evaluation of the head runs).
+runs() { printf '{"workflow_runs":[%s]}' "$1"; }
+wrun() { printf '{"id":%s,"event":"%s","created_at":"%s"}' "$1" "$2" "$3"; }
+FAIL_ST="[$(st failure 'BLOCKED x' 'github-actions[bot]' "$OURS_URL")]"
+OK_ST="[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]"
+PS_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:05:00Z)") \
+  run_ps "a success with no newer event run is posted" "$FAIL_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=success"
+PS_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 91 issue_comment 2026-01-02T00:05:00Z)") \
+  run_ps "a success is not posted over a block when a newer event run exists" "$FAIL_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 0
+PS_RUNS=$(runs "$(wrun 91 workflow_run 2026-01-02T00:05:00Z)") \
+  run_ps "a standing success is turned pending when a newer event run exists" "$OK_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=pending"
+PS_RUNS=$(runs "$(wrun 91 issue_comment 2026-01-02T00:03:00Z)") \
+  run_ps "a run created before the evaluation began does not defer it" "$FAIL_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 1 "state=success"
+run_ps "a run list that cannot be read defers the success" "$FAIL_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" success "CLEAR" 0 0
+PS_RUNS=$(runs "$(wrun 91 issue_comment 2026-01-02T00:05:00Z)") \
+  run_ps "a failure is posted whatever runs are newer" "$OK_ST" "$OURS_RUN" \
+  "EVAL_STARTED=2026-01-02T00:04:00Z|GITHUB_RUN_ID=88" failure "BLOCKED x" 0 1 "state=failure"
+run_ps "an error is posted when the status list cannot be read" UNREADABLE "" "" error "could not evaluate" 0 1 "state=error"
+run_ps "a success is not posted when the status list cannot be read" UNREADABLE "" "" success "CLEAR" 1 0
+run_ps "an unknown state is refused" '[]' "" "" approved "x" 2 0
+
+echo "== addition 9: the gate workflows' structure =="
+# Each check below pins one property of .github/workflows/review-gate*.yml that no runtime
+# case can reach. Point WORKFLOWS_DIR elsewhere to run them against another copy.
+WORKFLOWS_DIR=${WORKFLOWS_DIR:-"$(dirname "$0")/../../../.github/workflows"}
+wf_out=$(python3 - "$WORKFLOWS_DIR" <<'PY'
+import glob, os, re, sys, yaml
+d = sys.argv[1]
+def load(name):
+    with open(os.path.join(d, name)) as f:
+        return yaml.safe_load(f)
+def check(name, ok):
+    print(("PASS" if ok else "FAIL") + "\t" + name)
+files = sorted(glob.glob(os.path.join(d, "review-gate*.yml")))
+uses = []
+for f in files:
+    for job in (yaml.safe_load(open(f)).get("jobs") or {}).values():
+        for step in job.get("steps") or []:
+            if "uses" in step:
+                uses.append(step["uses"])
+check("every action in the gate workflows is pinned to a full commit sha",
+      len(files) == 3 and all(re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", u) for u in uses))
+wf = load("review-gate.yml")
+text = open(os.path.join(d, "review-gate.yml")).read()
+check("pending is posted only through post-status.sh, and not by the sweep",
+      "state=pending" not in text
+      and any("post-status.sh" in (s.get("run") or "") and " pending " in (s.get("run") or "")
+              and "schedule" in s.get("if", "") for s in wf["jobs"]["resolve"]["steps"]))
+ev = wf["jobs"]["evaluate"]["steps"]
+gate = next(s for s in ev if s.get("id") == "gate")["run"]
+i_stop, i_gate, i_resume = gate.find("::stop-commands::"), gate.find("check-review-threads.sh"), gate.find('echo "::$stop::"')
+check("the gate runs with workflow commands stopped", -1 < i_stop < i_gate < i_resume)
+check("the step summary prints the gate output HTML-escaped in <pre>",
+      "<pre>" in gate and "s/</\\&lt;/g" in gate and "```" not in gate)
+post = ev[-1]
+check("the verdict step runs always() and posts through post-status.sh",
+      "always()" in post.get("if", "") and "post-status.sh" in post["run"]
+      and post.get("env", {}).get("EVAL_STARTED") == "${{ steps.head.outputs.started }}")
+head = next(s for s in ev if s.get("id") == "head")["run"]
+check("the evaluation start is taken before the PRs on the head are read",
+      -1 < head.find("started=") < head.find("pulls?state=open"))
+check("a blocked verdict fails the job only on pull_request_target",
+      'failure) [ "$GITHUB_EVENT_NAME" != pull_request_target ]' in post["run"])
+check("every status POST in review-gate.yml outside post-status.sh is an error",
+      all("state=error" in m for m in re.findall(r"statuses/\S+\"[^\n]*(?:\n[^\n]*){0,3}", text)))
+rs = wf["jobs"]["resolve"]
+check("pull_request_target is answered for its own head sha",
+      rs.get("env", {}).get("PRT_HEAD_SHA") == "${{ github.event.pull_request.head.sha }}"
+      and any(s.get("id") == "heads" and "shas=$PRT_HEAD_SHA" in (s.get("run") or "") for s in rs["steps"]))
+fb = [s for s in rs["steps"] if "failure()" in s.get("if", "")]
+fbrun = fb[0].get("run") or "" if len(fb) == 1 else ""
+check("a resolve that fails marks the heads it knows as error",
+      "state=error" in fbrun and all(k in fbrun for k in ("PRT_HEAD_SHA", "ISSUE_NUMBER", "RUN_HEAD_SHA", "INPUT_PR")))
+PY
+)
+while IFS=$'\t' read -r verdict wname; do
+  [ -n "$verdict" ] || continue
+  if [ "$verdict" = PASS ]; then echo "  PASS  $wname"; pass=$((pass+1)); else echo "  FAIL  $wname"; fail=$((fail+1)); fi
+done <<<"$wf_out"
+[ "$(grep -c . <<<"$wf_out")" -eq 10 ] || { echo "  FAIL  the workflow structure checks did not all run"; fail=$((fail+1)); }
 
 echo
 echo "passed=$pass failed=$fail"

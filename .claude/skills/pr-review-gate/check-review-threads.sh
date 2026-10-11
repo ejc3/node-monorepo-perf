@@ -859,21 +859,20 @@ def verdict_lines:
              | map(select(length > 0 and . != cr_note))) end;
 def codex_line_re: "^Codex Review: Didn.t find any major issues\\.?( Bravo\\.| Keep it up!| Keep them coming!| Hooray!| Swish!| You.re on a roll\\.| :\\+1:| :rocket:| :tada:| Nice work[.!]| Great job[.!]| 👍)?$";
 def reviewed_re: "^\\*\\*Reviewed commit:\\*\\* `(?<sha>[0-9a-f]{7,40})`$";
-# node-monorepo-perf addition. On this repository Codex closes its verdict with a sentence
-# that changes every time ("Already looking forward to the next diff.", "What shall we delve
-# into next?"), so a list of sign-offs never closes. The tail is accepted as one plain
-# sentence: words, spaces, commas, apostrophes and hyphens, one closing . ! or ?, at most 80
-# characters. That shape cannot carry what a finding is written with (a colon, a backtick,
-# a digit, a link, markup, a second sentence), so "Didn.t find any major issues. P1: drops
-# data" stays a finding. A plain sentence that states a defect ("The error path leaks
-# memory.") has the same shape as one that does not, so what this rule rests on is the
-# author: it is applied only to a comment from the Codex Bot account (CODEX_LOGIN, checked
-# where it is used), whose comment opens by saying it found no major issues. It is accepted
-# only as line one of the two-line verdict, and the reviewed-commit line still binds it.
-def codex_flavor_line_re: "^Codex Review: Didn.t find any major issues\\. [A-Za-z][A-Za-z ,\u0027\u2019-]{0,78}[.!?]$";
+# node-monorepo-perf addition. Codex closes its no-findings verdict with a sign-off that
+# changes from comment to comment. A sign-off is accepted only from a list of the phrases
+# Codex has posted in ejc3/node-monorepo-perf, ejc3/fcvm and ejc3/imagine (collected
+# 2026-10-11; upstream codex_line_re holds the older ones). A pattern for "harmless" text
+# was tried and dropped: "Credentials exposed!" and "Reviewed documentation exclusively!"
+# have the shape of a cheerful sign-off. Anything else keeps the comment a claim, and a
+# claim binds no coverage. The rule applies only to a comment from the Codex Bot account
+# (CODEX_LOGIN, checked where it is used), only as line one of the two-line verdict, and the
+# reviewed-commit line still binds it. An unlisted sign-off costs one disposition; extend
+# the list when Codex says something new.
+def codex_signoff_re: "^Codex Review: Didn.t find any major issues\\. (Already looking forward to the next diff\\.|What shall we delve into next\\?|Chef.s kiss\\.|Delightful!|Breezy!|More of your lovely PRs please\\.|Can.t wait for the next one!|Another round soon, please!)$";
 def is_codex_flavor_verdict:
   verdict_lines as $l
-  | $l != null and ($l | length) == 2 and ($l[0] | test(codex_flavor_line_re)) and ($l[1] | test(reviewed_re));
+  | $l != null and ($l | length) == 2 and ($l[1] | test(reviewed_re)) and ($l[0] | test(codex_signoff_re));
 def is_verdict:
   verdict_lines as $l
   | ($l == ["<details>", "<summary>✅ Action performed</summary>", "Full review finished.", "</details>"])
@@ -1026,28 +1025,57 @@ def is_codex_review_container:
     and $l[1] == "Here are some automated review suggestions for this pull request."
     and ($l[2] | test(reviewed_re));
 # node-monorepo-perf addition. The CodeRabbit summary comment (walkthrough, recent-review
-# block, pre-merge checks, or a notice before any review ran) is not a claim. CodeRabbit
-# posts its findings as a review object and inline threads, which the rules above judge as
-# claims, so the summary that describes the change is exempt as a whole, by policy: what
-# sits INSIDE one of the regions CodeRabbit delimits is its own summary text and is not read.
-# What sits OUTSIDE them is held to the accounting rule. The comment must open with the
-# summarize marker, and every other line outside a region must be blank or one complete
-# HTML comment at column 0 (which GitHub hides). A region opens on a whole line
-# "<!-- NAME_start -->", "<!-- NAME:start -->" or "<!-- This is an auto-generated comment:
-# KIND by coderabbit.ai -->" and closes on its own matching whole line; an unclosed region,
-# an indented or fenced marker, or any text appended outside the regions leaves the
-# comment a claim. Nothing is removed from the body: lines are only classified.
+# block, pre-merge checks, merge risk, or a notice before any review ran) is not a claim
+# when it is in the state the allow-list below describes. CodeRabbit posts its findings as
+# a review object and inline threads, which the rules above judge as claims. Upstream
+# treats this comment as a claim; this is a deliberate divergence.
+#
+# Structure. The comment opens with the summarize marker line. A region opens on a whole
+# line "<!-- NAME_start -->", "<!-- NAME:start -->" or "<!-- This is an auto-generated
+# comment: KIND by coderabbit.ai -->" at column 0 and closes on its own matching whole line.
+# Every line outside a region is blank or one complete HTML comment at column 0 (which
+# GitHub hides); an unclosed region, an indented or fenced marker, or text outside the
+# regions keeps the comment a claim. Nothing is removed from the body: lines are only
+# classified.
+#
+# Allow-list. Every region marker in the comment, nested ones included, must name a region
+# in cr_summary_regions: the ones CodeRabbit emitted in the captured fixtures (the harness
+# checks that the list and the fixtures agree). A region this gate has not seen keeps the
+# comment a claim.
+#
+# Content. Regions that report a result are exempt only when the result is clean, wherever
+# they sit, nested ones included: the recent-review block posts no actionable comments, the
+# pre-merge checks report no failed check or warning, and the merge risk is Minimal or Low.
+# Every such region must close as often as it opens, and nowhere in the comment may
+# "Review failed" or a CAUTION alert appear. Text inside the other regions (the walkthrough prose, tips, the
+# rate-limit notice) is the CodeRabbit description of the change and is not read.
+def cr_summary_regions: ["review_stack_entry", "recent_review", "walkthrough", "change_assessment",
+  "final_review_risk", "pre_merge_checks_walkthrough", "finishing_touch_checkbox", "tips",
+  "autopilot:", "auto:rate limited", "auto:skip review"];
+def cr_result_regions: ["recent_review", "pre_merge_checks_walkthrough", "final_review_risk"];
+def cr_region_ok:
+  .name as $n | .text as $t
+  | (if $n == "recent_review" then ($t | test("Actionable comments posted: *[1-9]") | not)
+         elif $n == "pre_merge_checks_walkthrough" then ($t | test("❌|⚠|[Ff]ailed|[Ww]arning") | not)
+         elif $n == "final_review_risk" then ($t | test("\\*\\*Merge Risk:\\*\\* \\*\\*[^*\n]*(Minimal|Low)\\*\\*"))
+         else true end);
 def cr_region_open_re: "^<!-- (?:(?<a>[a-z_]+)_start|(?<b>[a-z_]+):start|This is an auto-generated comment: (?<c>[a-z ]+) by coderabbit\\.ai) -->[ \t\r]*$";
 def cr_region_close($open):
   ($open | capture(cr_region_open_re)) as $m
   | if $m.a != null then "<!-- \($m.a)_end -->"
     elif $m.b != null then "<!-- \($m.b):end -->"
     else "<!-- end of auto-generated comment: \($m.c) by coderabbit.ai -->" end;
+def cr_region_key($open):
+  ($open | capture(cr_region_open_re)) as $m
+  | if $m.a != null then $m.a elif $m.b != null then "\($m.b):" else "auto:\($m.c)" end;
 def is_cr_summary_comment:
   (. // "") as $b
-  | (($b | split("\n"))[0] | startswith(cr_summarize_marker))
-    and ((($b | split("\n"))[0])[(cr_summarize_marker | length):] | test("^[ \t\r]*$"))
-    and (reduce ($b | split("\n"))[1:][] as $line ({inside: null, ok: true};
+  | ($b | split("\n")) as $lines
+  | ($lines[0] | startswith(cr_summarize_marker))
+    and ($lines[0][(cr_summarize_marker | length):] | test("^[ \t\r]*$"))
+    # every region marker anywhere in the body names an allow-listed region
+    and all($lines[1:][]; (test(cr_region_open_re) | not) or (cr_region_key(.) | IN(cr_summary_regions[])))
+    and (reduce $lines[1:][] as $line ({inside: null, ok: true};
           if .ok | not then .
           elif .inside != null then
             (.inside as $close
@@ -1057,7 +1085,14 @@ def is_cr_summary_comment:
             then .inside = cr_region_close($line)
           elif ($line | test("^[ \t\r]*$")) or ($line | test("^<!--(?:(?!-->)[^\n])*-->[ \t\r]*$")) then .
           else .ok = false end)
-        | .ok and .inside == null);'
+        | .ok and .inside == null)
+    and ($b | test("Review failed|\\[!CAUTION\\]") | not)
+    # every result region, at any depth, closes as often as it opens and reports clean
+    and all(cr_result_regions[]; . as $n
+          | ([$b | match("(?m)^<!-- \($n)_start -->[ \t\r]*$"; "g")] | length)
+            == ([$b | match("(?m)^<!-- \($n)_end -->[ \t\r]*$"; "g")] | length)
+          and all($b | match("<!-- \($n)_start -->(?<t>(?:.|\n)*?)<!-- \($n)_end -->"; "g");
+                  {name: $n, text: .captures[0].string} | cr_region_ok));'
 # Only these bots issue verdicts, and only from the account GitHub types as a Bot.
 # Anyone else posting the same words has written an ordinary comment: claimable like
 # any other, never coverage. Entries are logins; their mention handles (@codex,

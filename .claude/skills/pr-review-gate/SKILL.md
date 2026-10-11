@@ -26,11 +26,13 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 - **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, or a
   top-level PR comment) with no disposition posted after it. Not claims: APPROVED reviews,
   `@codex review` / `@coderabbitai review` and the other documented bot commands, a listed
-  bot's no-findings verdict (Codex's may end with one plain sentence of its own), a listed
-  bot's notice that it did not run, Codex's review that only holds its inline comments,
-  CodeRabbit's command acknowledgements, and CodeRabbit's summary comment when nothing
-  sits outside its delimited regions (each in the exact shapes the gate knows, and only
-  from the bot's own account).
+  bot's no-findings verdict (Codex's may end with a sign-off from the list of ones it has
+  posted), a listed bot's notice that it did not run,
+  Codex's review that only holds its inline comments, CodeRabbit's command
+  acknowledgements, and a clean CodeRabbit summary comment: only regions the gate has seen
+  CodeRabbit emit (`cr_summary_regions`, checked against the fixtures), nothing outside
+  them, no actionable comments, no failed or warning pre-merge check, merge risk Minimal
+  or Low (each only from the bot's own account).
 - **UNREVIEWED HEAD**: nobody but the author reviewed the head commit. An empty review
   object is a reply container, not a review.
 - **MISSING HEAD REVIEW**: a login in `REQUIRE_HEAD_REVIEW_FROM` (here
@@ -68,8 +70,9 @@ gh pr comment <n> --body "@coderabbitai review"
 
 CodeRabbit does not review this repository automatically (its notice says the repository
 has fewer than 10 stars); it reviews when triggered. Its findings arrive as a review
-object and inline threads; its summary comment is not a claim here (upstream treats it as
-one). Codex covers the head with a review object (findings), its "Didn't find any major
+object and inline threads; its summary comment is not a claim here while it reports a
+clean result (upstream treats it as one), and is one when its pre-merge checks fail or
+warn, so answer it then. Codex covers the head with a review object (findings), its "Didn't find any major
 issues" comment naming the head, or its review-summary comment whose row says Completed
 and names the head.
 
@@ -91,5 +94,9 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
 - `test-check-review-threads.sh`: one case per hole the gate has had, plus the fixture
   cases and the cases for this copy's knobs.
 - `gate-discard-sites.sh`: pins every place the classifier discards body text.
-- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, five of
-  them captured from this repository's PRs #46 and #64 to #67.
+- `post-status.sh`: the only way review-gate.yml posts the status: a change only;
+  `pending` only over a `success`; `error` instead of `success` near GitHub's 1000-status
+  cap; no `success` while a newer review-gate run exists; a success this workflow did not
+  post replaced by the real verdict.
+- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, six of
+  them captured from this repository's PRs #46 and #63 to #67.
