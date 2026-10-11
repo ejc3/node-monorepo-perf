@@ -74,7 +74,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `make bench`: one full per-phase record (gen, install, graph-load, cold+warm
   typecheck, focus build, prune) appended to `bench/results.json` (`measure.mjs`).
 - `make sweep`: run `measure.mjs` across the scale matrix; `--from <label>` resumes (`sweep.mjs`).
-- `make chart`: render `bench/charts/*.svg` + `bench/summary.md` from `results.json` (`chart.mjs`).
+- `make chart`: render the three scaling charts (SVG + PNG), their README chart-data tables, and `bench/summary.md` from `results.json` (`chart.mjs`).
 
 ### Decomposition / Axes
 - `node scripts/axis-bench.mjs`: separate the apps axis from the libs axis
@@ -1070,7 +1070,9 @@ bench/turbopack-gym/cache-drift.md against the records.
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
 integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
 lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
-(re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
+(re)generates its three scaling charts (`typecheck-cold-vs-warm`, `focus-vs-full`,
+`lockfile-vs-scale`: SVG + 300 DPI PNG each, real axes, log-log where the range spans
+decades), their README chart-data tables, and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
 names the rows' pnpm version and points at the README for the machine, since the record
@@ -1215,7 +1217,8 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   are committed back). The doc embeds the SVG with the PNG linked below it.
 - **Charts carry a text alternative.** A chart scaled to a phone screen is unreadable,
   and GitHub's mobile views ignore width media queries, so the heat charts
-  (`comparison-chart`, `scale-chart`, `net-cache-chart`) also write the chart's context
+  (`comparison-chart`, `scale-chart`, `net-cache-chart`) and `chart.mjs`'s scaling charts
+  also write the chart's context
   line and numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
   `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
   block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and
