@@ -1,8 +1,9 @@
 name: charts
 
 # Keeps every committed chart in sync with the bench data — the four heat charts
-# (comparison-chart/scale-chart/net-cache-chart/fleet-chart) plus chart.mjs's scaling charts and
-# bench/summary.md — and keeps the high-resolution PNGs (linked from the docs) freshly
+# (comparison-chart/scale-chart/net-cache-chart/fleet-chart) plus chart.mjs's scaling charts,
+# bench/summary.md, and the chart-data text alternatives the generators write into the docs —
+# and keeps the high-resolution PNGs (linked from the docs) freshly
 # rendered rather than hand-maintained.
 #
 # Each SVG (and summary.md) is a deterministic function of the cited bench/*.json, so it is
@@ -22,6 +23,10 @@ on:
       - "bench/charts/*.png"
       - "bench/summary.md"
       - "README.md"
+      - "TYPECHECKERS.md"
+      - "LIMITS.md"
+      - "FLEET.md"
+      - "TOOLING.md"
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
       - "scripts/comparison-chart.mjs"
@@ -39,6 +44,10 @@ on:
       - "bench/charts/*.png"
       - "bench/summary.md"
       - "README.md"
+      - "TYPECHECKERS.md"
+      - "LIMITS.md"
+      - "FLEET.md"
+      - "TOOLING.md"
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
       - "scripts/comparison-chart.mjs"
@@ -87,9 +96,11 @@ jobs:
           # diffing against HEAD (not the index) is what makes that deletion fail the gate.
           # Covers every committed SVG: the four heat charts plus chart.mjs's charts
           # (typecheck-cold-vs-warm, focus-vs-full, lockfile-vs-scale) and its summary.md.
+          # The generators also write each chart's markdown text alternative (the
+          # chart-data blocks) into the docs that embed it; those docs are gated too.
           git add -N --ignore-removal -- bench/charts/ bench/summary.md
-          if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md; then
-            echo "::error::a committed chart SVG or bench/summary.md is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart' and commit the result."
+          if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md README.md TYPECHECKERS.md LIMITS.md FLEET.md TOOLING.md; then
+            echo "::error::a committed chart SVG, bench/summary.md, or a doc's chart-data block is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit the result."
             exit 1
           fi
 

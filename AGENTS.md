@@ -914,13 +914,14 @@ Shared helpers the bench scripts import rather than run directly:
   `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
 - `scripts/_chartstyle.mjs`: the shared chart/figure visual system (diagram-style-spec.md)
-  — palette + box tints, `TOOL_COLORS` (the stable per-tool hues, see the chart
-  conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
-  aria label, system-ui), `box`/`txt`/`arrow`/`dashes`/`footer`/`sectionFrame` (a dashed
+  — palette + box tints, the `TYPE` scale, `TOOL_COLORS` (the stable per-tool hues, see the
+  chart conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
+  aria label, system-ui, tabular numerals), `box`/`txt`/`arrow`/`dashes`/`footer` (a dashed
   edge is explicit segments, not `stroke-dasharray`, which ImageMagick's internal renderer
   underlines with a hairline), the ×1/×2/×10/×100
-  heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
-  painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
+  heat ramp (`rampRGB`/`fmtMult`) with the `heatChart` renderer and its cell, header,
+  section and legend painters, the chart text-alternative writers
+  (`mdTable`/`mdDetails`/`writeDocBlock`), the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
   (the guard a two-record figure calls before drawing the records as one contrast: named
   fields deep-equal, named `versions` equal strings, missing fields throw), `bareVer` (the one
   strip of a recorded version banner — "Version 7.0.2", "v22.23.3" — to the bare version for
@@ -1156,19 +1157,23 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
 
 - **One column order.** Across sections and charts alike, the typically-fastest /
   recommended tool sits leftmost and the alternatives keep one fixed order (bun, pnpm,
-  yarn, npm · tsgo, tsc, Flow · Vite, Next · oxlint, ESLint); the green column must
+  yarn, npm · tsgo, tsc, Flow · Vite, Next · oxlint, ESLint); the recommended column must
   not flip sides between sections.
-- **One visual grammar.** Heat-table sections; per row the FASTEST cell is green and every
-  other cell's headline is its multiple of that best ("×N slower"); the number IS the cell,
-  not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
-  log-multiple space, so ×12 is the same color in every chart.
+- **One visual grammar.** Heat-table sections drawn by the kit's `heatChart` renderer. Each
+  cell's headline is the measured value; its second line is its standing against the row's
+  fastest ("fastest", "+N%", "×N"). The cell is a light `rgba()` tint of the ramp colour
+  (ImageMagick's SVG renderer ignores `fill-opacity`) with a full-strength stripe at its
+  left edge, so the same fill reads on light and dark and the text is plain ink. One
+  green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in log-multiple space, so ×12 is
+  the same colour in every chart. Sections are a heading and a hairline, not tinted panels.
+  One type scale (`TYPE`) for every generator.
 - **One shared skin: `scripts/_chartstyle.mjs`.** Every generator imports the shared kit
   (see Shared Internals) — palette, box tints, system-ui type, the in-SVG dark-mode
   `<style>` block with an explicit light background it retargets (a transparent SVG with
   dark text is unreadable on GitHub dark), the heat ramp + cell painters, and the
   SVG+PNG emit step. No generator redefines a palette constant or ramp anchor locally.
-- **Stable tool colors.** A tool keeps ONE hue in every chart (header chip, series,
-  legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
+- **Stable tool colors.** A tool keeps ONE hue in every chart (the dot beside its column
+  header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
   yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)
   `#b2538f` · Flow `#b28a2f` · Vite `#5865c0` · Next `#a86b32` · oxlint `#2e9e57` ·
   ESLint `#9a6ade`. Validated per co-occurring group for CVD separation and contrast on
@@ -1178,13 +1183,13 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   asserted where the dataset records them, so a re-run under a different major must
   change the label, not silently keep it.
 - **Timeouts render at the ceiling.** A request that outran its budget renders AT that
-  real ceiling with a ≥ ("timed out ≥2m") and, when the row has a measured best, the ≥×
+  real ceiling with a ≥ ("≥2m", "timed out") and, when the row has a measured best, the ≥×
   computed from the floor.
 - **Crashes render as status only.** A CRASH (wedge, panic) never shows a time or
   multiplier; a wedge is not a measurement and a pseudo-number would read as one.
-- **Near-ties render as a percent.** A cell within 5% of the row's fastest keeps its time
-  as the headline with "+N% vs fastest", never "×1.0 slower". "—" cells carry a short
-  reason ("anchor ≤100k").
+- **Near-ties render as a percent.** A cell within 5% of the row's fastest shows "+N%" as
+  its standing, never "×1.0", and keeps the fastest tint. "—" cells carry a short reason
+  ("anchor ≤100k").
 - **Deterministic from the cited bench JSONs**: no hand numbers, no Date; missing fields
   throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
   asserted (e.g. the chart REQUIRES the dataset's flow column to be the flow-main build
@@ -1198,9 +1203,17 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
   delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs
   are committed back). The doc embeds the SVG with the PNG linked below it.
+- **Every chart has a text alternative.** A chart scaled to a phone screen is unreadable,
+  and GitHub's mobile views ignore width media queries, so each generator also writes the
+  chart's numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
+  `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
+  block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and
+  a doc missing its markers fails the generator. Edit the prose around a block, never the
+  block.
 - **New chart generator checklist:** register it here; wire `charts.yml` (paths + render +
   gate + PNG commit-back); add its SVG to `chart.mjs`'s `external` set (else `make chart`
-  deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link.
+  deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link and
+  the chart-data markers; add the doc to `charts.yml`'s paths and byte-gate list.
 - **The commit-back races open PRs.** After any chart run on main, the pushed-back PNG
   binary-conflicts with every open PR that also touches it, and GitHub SILENTLY creates no
   `pull_request` workflow runs for a conflicted PR ("no checks reported" + `mergeable:

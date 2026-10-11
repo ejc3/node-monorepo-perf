@@ -11,30 +11,7 @@
 //   node scripts/comparison-chart.mjs
 
 import { readFileSync } from "node:fs";
-import {
-  MUTED,
-  ACCENT,
-  TYPE,
-  txt,
-  svgDoc,
-  sectionHead,
-  rampLegend,
-  rankedCell,
-  naCell,
-  colHeader,
-  fmtMult,
-  nearTiePct,
-  isFastest,
-  isNearTie,
-  approxW,
-  wrapText,
-  esc,
-  emitChart,
-  bareVer,
-  mdTable,
-  mdDetails,
-  writeDocBlock,
-} from "./_chartstyle.mjs";
+import { heatChart, emitChart, bareVer, mdDetails, writeDocBlock } from "./_chartstyle.mjs";
 import { assertWaveRolloutSpeedText } from "./_install-speed-context.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -397,128 +374,39 @@ const fmtS = (ms) => {
   return Math.round(ms / 1000).toLocaleString("en-US") + "s";
 };
 
-// --- layout --------------------------------------------------------------------------------------
-const PAD = 20; // outer margin
-const LABEL_W = 232;
-const COL_W = 118;
-const ROW_H = 42;
-const ROW_H_DETAIL = 50; // rows whose cells carry a third (materialized-layout) line
-const HEAD_H = 40;
-const MAXCOLS = Math.max(...SECTIONS.map((s) => s.cols.length));
-const W = PAD * 2 + LABEL_W + COL_W * MAXCOLS;
-const INNER_W = W - PAD * 2;
-const NOTE_CHARS = Math.floor(INNER_W / (TYPE.note * 0.52));
-const T = [];
-
-// a cell's display value
-const cellText = (sec, ri, ci) => {
+// --- render -------------------------------------------------------------------------------------
+const cellOf = (sec, ri, ci) => {
   const raw = sec.rows[ri][1][sec.cols[ci].k];
   const v = msOf(raw);
   if (v == null) {
     const why = raw && typeof raw === "object" ? raw.why : null;
     if (!why)
       throw new Error(`section "${sec.title}": a "—" cell (${sec.cols[ci].k}) has no reason`);
-    return { na: why };
+    return { kind: "na", why };
   }
-  return {
-    v,
-    mult: cellMult(sec, ri, ci),
-    detail: raw && typeof raw === "object" ? raw.detail : null,
-  };
+  const detail = raw && typeof raw === "object" ? raw.detail : undefined;
+  return { kind: "ranked", text: fmtS(v), mult: cellMult(sec, ri, ci), detail };
 };
-
-// ---- title block + key ----
-T.push(txt(PAD, 32, "Tooling head-to-head: wall time", { size: TYPE.title, weight: "650" }));
-T.push(
-  txt(
-    PAD,
-    52,
-    `Each cell: the measured time, then its multiple of the row's fastest. ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core).`,
-    { size: TYPE.lede, fill: MUTED },
-  ),
-);
-T.push(...rampLegend(PAD, 74, [{ t: "—  not measured" }]).parts);
-
-let y = 112; // first section heading baseline
-for (const sec of SECTIONS) {
-  const x0 = PAD;
-  const gridX = x0 + LABEL_W;
-  const noteLines = sec.note ? wrapText(sec.note, NOTE_CHARS) : [];
-  const head = sectionHead(x0, y, INNER_W, sec.title);
-  T.push(...head.parts);
-  let sy = head.bodyY;
-  sec.cols.forEach((col, ci) =>
-    T.push(...colHeader(gridX + ci * COL_W, sy, COL_W, HEAD_H, col.label, col)),
-  );
-  sy += HEAD_H + 4;
-  sec.rows.forEach((row, ri) => {
-    const rh = sec.cols.some((_, ci) => cellText(sec, ri, ci).detail) ? ROW_H_DETAIL : ROW_H;
-    T.push(txt(x0, sy + rh / 2 + 4, row[0], { size: TYPE.label }));
-    sec.cols.forEach((col, ci) => {
-      const x = gridX + ci * COL_W;
-      const c = cellText(sec, ri, ci);
-      if (c.na) T.push(...naCell(x, sy, COL_W, rh, c.na));
-      else T.push(...rankedCell(x, sy, COL_W, rh, c.mult, fmtS(c.v), { detail: c.detail }));
-    });
-    sy += rh;
-  });
-  // per-section provenance: the source as a link (relative href — resolves from
-  // bench/charts/ in GitHub's raw view), then the note
-  sy += 18;
-  {
-    let sx = x0;
-    T.push(txt(sx, sy, "source", { size: TYPE.note, fill: MUTED }));
-    sx += 38;
-    sec.source.split(", ").forEach((p) => {
-      T.push(
-        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${sy}" font-size="${TYPE.note}" fill="${ACCENT}">${esc(p.replace("bench/", ""))}</text></a>`,
-      );
-      sx += approxW(p, TYPE.note) + 10;
-    });
-  }
-  for (const ln of noteLines) {
-    sy += 14;
-    T.push(txt(x0, sy, ln, { size: TYPE.note, fill: MUTED }));
-  }
-  y = sy + 44;
-}
-
-const H = y - 18;
-emitChart(
-  "tool-comparison",
-  svgDoc(
-    W,
-    H,
-    "Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); each cell shows its measured time and its multiple of the row's fastest.",
-    T,
-  ),
-);
-
-// ---- the text alternative (README, under the chart) ----
-const mdStanding = (c) =>
-  c.na
-    ? `— (${c.na})`
-    : isFastest(c.mult)
-      ? `**${fmtS(c.v)}**`
-      : `${fmtS(c.v)} (${isNearTie(c.mult) ? nearTiePct(c.mult).replace(" vs fastest", "") : fmtMult(c.mult)})`;
+const { svg, md } = heatChart({
+  title: "Tooling head-to-head: wall time",
+  lede: `Each cell: the measured time, then its multiple of the row's fastest. ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core).`,
+  sections: SECTIONS.map((sec) => ({
+    title: sec.title,
+    cols: sec.cols,
+    rows: sec.rows.map((row, ri) => ({
+      label: row[0],
+      cells: sec.cols.map((_, ci) => cellOf(sec, ri, ci)),
+    })),
+    source: sec.source,
+    note: sec.note,
+  })),
+  aria: "Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); each cell shows its measured time and its multiple of the row's fastest.",
+});
+emitChart("tool-comparison", svg);
 writeDocBlock(
   "README.md",
   "tool-comparison",
-  mdDetails(
-    "The chart's numbers as tables (fastest in bold)",
-    SECTIONS.map(
-      (sec) =>
-        `**${sec.title}**\n\n` +
-        mdTable(
-          ["", ...sec.cols.map((c) => c.label.replace("\n", " "))],
-          sec.rows.map((row, ri) => [
-            row[0],
-            ...sec.cols.map((_, ci) => mdStanding(cellText(sec, ri, ci))),
-          ]),
-        ) +
-        `\n\nSource: [\`${sec.source.split(", ").join("`, `")}\`](${sec.source.split(", ")[0]})`,
-    ).join("\n\n"),
-  ),
+  mdDetails("The chart as tables (fastest in bold)", md),
 );
 console.log(
   `sections: ${SECTIONS.length}, scenario rows: ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)}`,

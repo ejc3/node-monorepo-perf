@@ -61,6 +61,20 @@ The network cost grows with cache **size**. Same-region, both restores sit insid
 
 [High-resolution PNG](bench/charts/cache-network.png)
 
+<!-- chart-data:cache-network -->
+<details>
+<summary>The chart as a table (fastest in bold)</summary>
+
+| task, fresh CI runner | cold compute (no shared cache) | localhost (floor · no network) | same-region (1 Gbps · 2 ms) | cross-region (500 Mbps · 30 ms) |
+| --- | ---: | ---: | ---: | ---: |
+| typecheck (0.2 MB cache · 500 tasks) | 9.8s (×6.9) | 1.4s (+0.8%) | **1.4s** | 1.6s (×1.2) |
+| build (247 MB cache · 400 tasks) | 25s (×7.1) | 3.7s (×1.1) | **3.5s** | 5.5s (×1.6) |
+
+[`bench/ci-cache-network-bench.json`](bench/ci-cache-network-bench.json). turbo 2.9.18, 300:100, restore = median of 3, 192 cores. RTT = 2× the netem delay. Every restore asserted all-cached from the remote. Cold compute carries no cache.
+
+</details>
+<!-- /chart-data:cache-network -->
+
 **It cannot help when an edit changes everything.** A remote cache restores only artifacts an edit did not invalidate (Figure 1; `bench/ci-cache-bench.json`, 300:100 under `--universal 1`, 500 tasks): a leaf edit leaves **486 of 500** restored and 14 recomputed, a foundation edit **0 of 500** restored and all recomputed. This is §3's blast radius from the cache's side: scope an edit and the cache absorbs the rest; touch a foundation and someone pays the full cold rebuild.
 
 ## Editor and Language Server
