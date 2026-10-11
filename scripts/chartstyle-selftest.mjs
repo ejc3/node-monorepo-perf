@@ -12,12 +12,6 @@ import { join } from "node:path";
 import {
   MIN_TEXT,
   TYPE,
-  CELL_INK2,
-  GOOD,
-  BAD,
-  RAMP,
-  rampRGB,
-  tintAlpha,
   fitSize,
   approxW,
   wrapPx,
@@ -123,21 +117,64 @@ test("the markdown twin carries the chart's context line and the same standings"
   assert.ok(/>\+3%</.test(svg), "SVG and markdown print the same near-tie standing");
 });
 
-test("tints separate by multiple and secondary text clears AA on the strongest tint", () => {
-  assert.ok(tintAlpha(1) < tintAlpha(10) && tintAlpha(10) < tintAlpha(100));
+test("rendered cells: tints separate by multiple and every cell text clears AA", () => {
+  // read the colours from a RENDERED chart (cell fills and the text drawn on them),
+  // so a regression in the painters is caught, not only one in the palette constants
   const lum = ([r, g, b]) => {
     const f = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
   };
-  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-  const over = (rgb, a) => rgb.map((c) => c * a + 255 * (1 - a));
   const cr = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
-  for (const [m] of RAMP) {
-    const bg = over(rampRGB(m), tintAlpha(m));
-    assert.ok(cr(hex(CELL_INK2), bg) >= 4.5, `secondary ink on the ×${m} tint`);
+  const c = base({ statusKey: "status" });
+  c.sections[0].cols = [1, 2, 3, 4, 5].map((i) => ({ label: `c${i}` }));
+  c.sections[0].rows = [
+    {
+      label: "every state",
+      cells: [
+        ranked("1.0s", 1),
+        { ...ranked("2.0s", 2), detail: "detail" },
+        ranked("10s", 10),
+        ranked("100s", 100),
+        { kind: "status", main: "wedged", sub: "at cycle 1" },
+      ],
+    },
+  ];
+  const { svg } = heatChart(c);
+  const rects = [
+    ...svg.matchAll(
+      /<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*fill="rgba\((\d+),(\d+),(\d+),([\d.]+)\)"/g,
+    ),
+  ].map((m) => ({
+    x: +m[1],
+    y: +m[2],
+    w: +m[3],
+    h: +m[4],
+    a: +m[8],
+    bg: [+m[5], +m[6], +m[7]].map((ch) => ch * +m[8] + 255 * (1 - +m[8])),
+  }));
+  const cellRects = rects.filter((r) => r.w > 40); // cells, not the legend chips
+  let checked = 0;
+  for (const m of svg.matchAll(
+    /<text x="([\d.]+)" y="([\d.]+)"[^>]*fill="(#[0-9a-f]{6})"[^>]*>([^<]*)<\/text>/g,
+  )) {
+    const [x, y] = [+m[1], +m[2]];
+    const cell = cellRects.find((r) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h);
+    if (!cell) continue;
+    const ink = [1, 3, 5].map((i) => parseInt(m[3].slice(i, i + 2), 16));
+    assert.ok(
+      cr(ink, cell.bg) >= 4.5,
+      `"${m[4]}" (${m[3]}) on its cell: ${cr(ink, cell.bg).toFixed(2)}:1`,
+    );
+    checked++;
   }
-  assert.ok(cr(hex(GOOD), over(rampRGB(1), tintAlpha(1))) >= 4.5, "'fastest' on its tint");
-  assert.ok(cr(hex(BAD), over(rampRGB(100), tintAlpha(100))) >= 4.5, "status text on its tint");
+  const alphas = cellRects.map((r) => r.a);
+  assert.ok(checked >= 10, `checked ${checked} cell texts`);
+  // the five cells' fills, in order: ×1, ×2, ×10, ×100, status (legend chips come first)
+  const cells = alphas.slice(-5);
+  assert.ok(
+    cells[0] < cells[2] && cells[2] < cells[3],
+    `tint alpha grows with the multiple: ${cells}`,
+  );
 });
 
 test("pixel wrapping never exceeds its width", () => {
