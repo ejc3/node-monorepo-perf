@@ -18,28 +18,23 @@ scale (`bench/install-bench.json`, no lockfile, fresh `node_modules`, warm store
 | 1,000 apps / 200 libs | 2.9s | 2.1s / 0.96s | pnpm-hoisted ~3.1× (pnpm-isolated 1.4×) |
 | 2,000 apps / 300 libs | 8.6s | 6.8s / 2.5s | pnpm-hoisted ~3.4× (pnpm-isolated 1.3×) |
 
-Measured to 2,000 apps. bun also wins truly-cold at 200 apps (1.3s vs pnpm-hoisted 2.2s, fresh store + network,
-~1.7×). pnpm-hoisted wins warm at 1,000–2,000 (0.59s/1.1s vs bun's 2.8s/8.8s); at 200 bun and both pnpm linkers are
-within about 8% warm (0.25–0.27s, pnpm-isolated fastest). pnpm 12's Rust CLI removed pnpm 10's cold-resolve wall
-(307.4s → 0.93s at 1,000:200, `bench/pnpm12-bench.json`).
+Measured to 2,000 apps. bun also wins truly-cold at 200 apps (~1.7×); pnpm-hoisted also wins warm at 1,000–2,000
+apps. Per-cell numbers: [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4).
 
 Every fresh container or clone re-materializes from the committed lockfile, and on that CI-runner frozen install bun
-leads: **bun 0.93s vs pnpm 1.03s empty-cache (pnpm +11%); bun 0.42s vs pnpm 0.50s cache-restored (pnpm +19%)**
-(`bench/container-install-bench.json`, 1,000 apps, pnpm on its default isolated linker only). yarn-PnP, yarn-nm and npm
-take 4.5s, 6.5s and 10.4s on a fresh runner and 2.2s / 4.2s / 9.7s cache-restored.
+leads: **bun 0.93s vs pnpm 1.03s on a fresh runner (pnpm +11%); bun 0.42s vs pnpm 0.50s cache-restored (pnpm +19%)**
+(`bench/container-install-bench.json`, 1,000 apps, pnpm on its default isolated linker only).
 
-pnpm 12 is a fully capable driver. The rungs below measure parity on catalog lanes, `workspace:` catalog values
+pnpm 12 runs all five rollout mechanics. The rungs below measure parity on catalog lanes, `workspace:` catalog values
 (which pnpm 10 rejected), and the publish rewrite, and pnpm enables by default one guardrail bun makes you configure:
-auto-frozen in CI. Install cost is no longer the argument against pnpm: the table above has pnpm-hoisted ahead of bun
-at the measured 1,000- and 2,000-app points. The choice between bun and pnpm 12 rests on the scale you install at and
+auto-frozen in CI. The choice between bun and pnpm 12 rests on the scale you install at and
 whose defaults you want, not on a blanket speed gap.
 
 ### yarn as a driver
 
 **yarn** runs all five mechanics natively (`bench/yarn-rollout-bench.json`, yarn 4.18.1, the same temp-scaffold
 rungs), including the CI auto-immutable default bun lacks. Its fastest mode, PnP, does not run this repo's
-stock-tsgo/default-Turbopack path. Native-PnP tsgo is measured green; `next build` under PnP fails on every
-builder on node 22.23.3, and builds via webpack/rspack on node 22.22.0 ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
+stock-tsgo/default-Turbopack path ([TOOLING.md](TOOLING.md#yarn-pnp-toolchain-compatibility)).
 
 ### Adoption safety
 
@@ -64,9 +59,8 @@ closed (pnpm `ERR_PNPM_OUTDATED_LOCKFILE`; bun exit 1). Reproducibility is **com
 everywhere**, not pin every range. Run non-frozen only where you author an advance (the wave) or add/remove a dep; the
 lockfile diff is the change.
 
-Under pnpm 12, freezing buys determinism, not speed: the from-scratch resolve is within 3% of a frozen warm-store
-install (2.9s resolve vs 2.8s frozen-warm; frozen-cold-store 2.8s; `bench/install-modes-bench.json`, 1,000/200, pnpm
-12.8.1).
+Under pnpm 12, freezing buys determinism, not speed: a from-scratch resolve is within 3% of a frozen warm-store install
+at 1,000 apps ([FEASIBILITY.md](FEASIBILITY.md#when-each-orepo-cost-is-paid)).
 
 **Lockfile portability under pnpm 12.** pnpm 12's launcher records the `packageManager` pin in `pnpm-lock.yaml` as a
 two-document YAML stream: a preamble document carrying `packageManagerDependencies` and the `@pnpm/exe`
@@ -96,8 +90,8 @@ the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-lin
 
 ## Two Rules That Hold on Any Tool
 
-1. **A universal core lib advances by republishing its dependents, not by one catalog line.** A published lib bakes a
-   concrete range for its internal deps, and a consumer catalog cannot repoint the `lib→core` edge baked into every
+1. **A foundation lib advances by republishing its dependents, not by one catalog line.** A published lib bakes a
+   concrete range for its internal deps, and a consumer catalog cannot repoint the `lib→foundation` edge baked into every
    dependent's tarball. "Wave = one catalog line" holds only for a directly consumed lib or a non-breaking advance
    ([WORKSPACE-VS-SEMVER.md §3](WORKSPACE-VS-SEMVER.md#3-diamond-resolution-under-semver)).
 2. **A breaking change is expand → migrate → contract, because the gate is global and synchronous.** A breaking
@@ -107,19 +101,18 @@ the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-lin
 
 ## Gating the Artifact
 
-The fast whole-program gate (`bench/optimal-gate-bench.json`, 1.59s, same 4,000/400 tree) checks
+The whole-program gate (`bench/optimal-gate-bench.json`, 1.59s for a non-breaking revision on the same 4,000/400 tree) checks
 `@demo/*`→`packages/*/src` source, which is what a `workspace:`-linked consumer compiles. A registry-pinned cohort
 consumes the published tarball, so the wave gate must also resolve that published version and run the declaration
-build. The fast gate has two limits:
+build. The whole-program gate has two limits:
 
 - It runs `declaration:false` and misses a `.d.ts` portability error that a `declaration:true` check catches
   (`bench/decl-emit-caveat.json`: `TS2883` under both checkers), so add a `tsc --declaration` build. The boundary is
-  `declaration` off vs on, not the checker: typescript@7's native tsc is the shipping compiler, declaration emit
-  included. The caveat bench records the `declaration:true` check, not native declaration-emit output.
+  `declaration` off vs on, not the checker. The caveat bench records the `declaration:true` check, not native declaration-emit output.
 - It is typecheck-only: signature and arity breaks surface (`TS2554` fanout), behavior changes do not. Pair it with a
   post-deploy canary.
 
-The orchestrated turbo path (46.9s / 4,800 tasks cold) is the build-and-emit form, ~30× the fast gate, and is the
+The per-package turbo path (46.9s / 4,800 tasks cold) is the build-and-emit form, ~30× the whole-program gate, and is the
 per-wave CI cost.
 
 ## Codemods, Rollback, Publish Order
