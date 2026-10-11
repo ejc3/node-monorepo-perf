@@ -4,22 +4,12 @@ Day-to-day costs when a pnpm + Turborepo monorepo of **4,000 Next.js apps and 40
 libraries** (4,400 packages; [the workspace under test](README.md#the-workspace-under-test)) runs
 on one native-compiled tool per job. Figures trace to `bench/*.json`; extrapolations are labeled.
 
-**Machines.**
-
-- **arm64, 192-core c8g.48xlarge:** the 4,000:400 gate (`optimal-gate-bench.json`), inner-loop
-  (`dev-loop-bench.json`), editor (`editor-loop-bench.json`), remote-cache (`ci-cache-bench.json`),
-  and Vite Task (`vite-task-bench.json`) records. Each record carries its core count; the
-  instance type is stated in the README's Results section and AGENTS.md's Data of Record.
-- **64-core dedicated c7gd.metal:** the timing records cited here (fleet-gate, sliced-gate,
-  typecheck-parity, install-bench, install-modes, pnpm12, pnp-compat, rspack-pnp, and real-app).
-  `bun-safety-bench.json`, a behavior record with no timings, ran on a shared dev box of the
-  same instance type. The machine and the record list are in the
-  [README](README.md#the-64-core-machine).
-
-**Versions.** The 192-core records: bun 1.4.2, tsgo 7.0.2 (`typescript@7`'s native `tsc`),
-oxlint 1.86.0, turbo 2.9.18, typescript 6.0.3 (the oracle), Node 22. The 64-core fleet-gate
-record ran the same tsgo, oxlint, and turbo with bun 1.3.14. The real-app record's versions are
-under [Real apps](#real-apps).
+**Machines and versions.** The 4,000:400 gate, inner-loop, editor, remote-cache, and Vite Task
+records ran on a 192-core c8g.48xlarge (bun 1.4.2, tsgo 7.0.2, oxlint 1.86.0, turbo 2.9.18,
+typescript 6.0.3 as the oracle, Node 22). The fleet-gate, sliced-gate, parity, install, pnpm 12,
+PnP, and real-app records ran on the dedicated 64-core c7gd.metal (the fleet gate with bun 1.3.14
+and the same tsgo, oxlint, and turbo); `bun-safety-bench.json`, a behavior record with no
+timings, ran on a shared box of the same type ([README](README.md#the-64-core-machine)).
 
 ## The one idea: O(repo) vs O(closure)
 
@@ -34,22 +24,20 @@ Which cost class you pay is decided by what you touch, not by repo size.
   foundation edit selects every dependent.
 
 A developer's day is almost entirely O(closure). The O(repo) operations (first clone, CI install,
-core-lib rev) are infrequent and still fast.
+foundation-lib rev) are infrequent and still fast.
 
 ## The Stack
 
 | job                 | tool       | why                                                    |
 | ------------------- | ---------- | ------------------------------------------------------ |
 | install             | **bun**    | links the 4,400-package workspace in ~2.6s (warm store) |
-| typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.8× tsc 6, same error locations |
+| typecheck / gate    | **tsgo**   | typescript@7's native tsc; 8.8× faster than tsc 6 on the type-heavy 4,000:400 parity corpus, same injected-error locations |
 | lint                | **oxlint** | native Rust; whole tree in 251ms                       |
 | orchestrate + scope | **turbo**  | `--filter`/`--affected` + per-package caching          |
 
-Against Vite+'s task runner (Vite Task), turbo wins whole-repo typecheck by 8.4–10.7× cold and
-3.2–4.1× warm. Vite Task's focused warm run is 1.2× faster at 1,000 apps (0.83s vs 1.01s) and 7%
-slower at 300 (0.81s vs 0.76s). On the 1,200-task test run Vite Task is 2.7× faster warm (1.0s vs
-2.8s) and turbo 2.5× faster cold (7.1s vs 17.6s). Vite Task can't cache `next build`
-(`bench/vite-task-bench.json`, [TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
+Against Vite+'s task runner, turbo wins whole-repo typecheck (8.4–10.7× cold); Vite Task wins the
+warm focused run at 1,000 apps and the warm test run, and can't cache `next build`
+([TOOLING.md](TOOLING.md#vite-vp-task-runner-and-tool-layer)).
 
 ## By role
 
@@ -85,35 +73,26 @@ Full per-role tables in [OPTIMAL-STACK.md](OPTIMAL-STACK.md).
 
 ## What stays expensive
 
-Two operations are O(repo) and cannot be scoped away:
+Two whole-workspace operations are O(repo) and cannot be scoped away; a large app's build adds a
+separate cost:
 
 - **Install** of the whole workspace (~2.6s warm store at 4,000:400), paid on clean clone or CI.
-  pnpm 12.8.1's no-lockfile cold resolve is 2.9s at 1,000:200 and within 3% of a frozen
-  warm-store install (2.8s; `bench/install-modes-bench.json`); the JS CLI paid 307.4s on that
-  resolve (`bench/pnpm12-bench.json`). Against bun (`bench/install-bench.json`), bun cold is
-  ~1.6× faster at 200 apps and ~1.7× faster truly-cold (1.3s vs 2.2s). **pnpm-hoisted is
-  3.1–3.4× faster than bun cold at the measured 1,000- and 2,000-app points** and the fastest
-  configuration cold and warm there (0.96s/2.5s cold, 0.59s/1.1s warm); bun's cold is the
-  slowest configuration at 2,000. yarn-PnP is third cold at 1,000 (2.3s, behind pnpm-isolated's
-  2.1s) and second at 2,000 (3.2s), but PnP can't run stock tsgo or Next's default Turbopack
-  (`bench/pnp-compat-bench.json`). Native-PnP tsgo is the green path for the checker.
-  `next build` under PnP depends on the node version: webpack and rspack build on node 22.22.0,
-  and every builder fails on 22.23.3, per `bench/rspack-pnp-bench.json`. The bun-vs-yarn
-  reconciliation is in [OPTIMAL-STACK.md](OPTIMAL-STACK.md#installing-the-workspace); yarn as a
-  rollout driver is vetted in [ROLLOUT.md](ROLLOUT.md#yarn-as-a-driver).
+  The fastest installer depends on scale and install state: bun is ~1.6× faster than pnpm-isolated
+  cold at 200 apps and leads the fresh CI frozen install, while pnpm-hoisted is 3.1–3.4× faster
+  than bun cold at 1,000–2,000 apps; pnpm 12's Rust CLI removed pnpm 10's 307.4s cold resolve
+  (1,000:200). yarn-PnP is second-fastest cold at 2,000 apps but cannot run stock tsgo or Next's
+  default Turbopack. Numbers: [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4); the
+  bun-vs-yarn reconciliation: [OPTIMAL-STACK.md](OPTIMAL-STACK.md#installing-the-workspace).
 - **A whole-repo dist build** scales with package count.
 - **One large app's `next build`** does not split by package. On a 2,071-route app,
   Turbopack's module graph phase takes <!--v:sc.base.16.graph-->9.62s<!--/v--> at 16 cores and <!--v:sc.base.96.graph-->15.62s<!--/v--> at 96.
   Two Turbopack patches cut it to <!--v:ab.15+22.ratio-->0.360<!--/v-->× on a 24-core lane and the Turbopack compile to
-  <!--v:ab.15+22.guard-->0.713<!--/v-->× ([TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md), `bench/turbopack-graph-ab.json`,
-  `bench/turbopack-graph-scaling.json`; on a 192-core c8g.48xlarge).
+  <!--v:ab.15+22.guard-->0.713<!--/v-->× ([TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md), 192-core c8g.48xlarge).
 
-Whole-repo build and typecheck amortize across a CI fleet via a remote cache: after the first
-runner seeds it, each later runner restores instead of recomputing. Whole-repo typecheck goes 9.9s →
-1.5s (6.8×) at 300:100 and 24.8s → 3.9s (6.4×) at 1,000:200 (`bench/ci-cache-bench.json`). The cache
-helps only the second-and-later consumer of an *unchanged* artifact: at 300:100, a leaf edit lets a
-fresh runner restore 486 of 500 tasks, a universal-foundation edit 0 of 500. Detail in
-[LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start).
+Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
+1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at
+300:100, after a leaf edit a fresh runner restores 486 of 500 tasks, after a universal-foundation
+edit 0 ([LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start)).
 
 Everything else is O(closure) or O(repo)-but-small (whole typecheck 1.6s, whole lint 0.25s).
 
@@ -142,11 +121,9 @@ from real dependency drift). Turbo won't cache taxonomy's red typecheck until it
   proof.
 - **bun ignores pnpm `catalog:`**, so catalogs are resolved to concrete versions before a bun
   install (`workspace:*` stays intact).
-- **bun is adoptable but not a strict safety superset of pnpm** (`bench/bun-safety-bench.json`,
-  vs pnpm 12.8.1). Two gaps: bun runs some registry `postinstall` scripts that pnpm 12 blocks
-  and fails the install on, and bun has no fail-closed strict-peer knob (pnpm 12 exits 1 via its
-  native config surface and ignores the npm-style env surface pnpm 10 honored). One pnpm edge:
-  phantom-dependency isolation in single-package projects. The rest is parity
+- **bun is adoptable but not a strict safety superset of pnpm**: two gaps (registry `postinstall`
+  scripts that pnpm 12 blocks and fails the install on; no fail-closed strict-peer knob) and one
+  pnpm edge (phantom-dependency isolation in single-package projects); the rest is parity
   ([ROLLOUT.md](ROLLOUT.md#adoption-safety)).
 - Focused-gate **warm** numbers carry turbo's per-invocation graph-load over the 4,400-package
   workspace and are noisy (medians of three); the keystroke loop runs tsgo/oxlint directly, not
@@ -155,7 +132,7 @@ from real dependency drift). Turbo won't cache taxonomy's red typecheck until it
 ## Reproducing
 
 `node scripts/dev-loop-bench.mjs 4000:400` (app + lib inner loops),
-`node scripts/optimal-gate-bench.mjs 4000:400` (core-package gate),
+`node scripts/optimal-gate-bench.mjs 4000:400` (foundation-lib gate),
 `node scripts/typecheck-parity-bench.mjs 4000:400:8` (tsgo-vs-tsc parity). Destructive ones run in a
 throwaway git worktree; dev-loop and parity refuse on a loaded box. Side tables draw on
 `scripts/real-app-bench.mjs`, `scripts/install-modes-bench.mjs`, `scripts/install-bench.mjs`, and
