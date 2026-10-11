@@ -1196,7 +1196,8 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   each as a `mark` for lines, bars and dots and a `tint` for areas behind text. They sit
   off the heat ramp's hues, so a whole-repo series never reads as a ×100 cell, and off
   every tool hue; they separate by lightness as well as hue. A neutral single series is
-  `SLATE`.
+  `SLATE`, which also draws the warm bar of `typecheck-cold-vs-warm` beside the `REPO` cold
+  bar (a warm run is still the whole workspace, so it never takes the closure cyan).
 - **Stable tool colors.** A tool keeps ONE hue in every chart (the short rule under its
   column header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
   yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)

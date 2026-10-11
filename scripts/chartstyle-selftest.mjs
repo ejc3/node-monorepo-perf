@@ -278,7 +278,7 @@ test("the audit composites translucent marks over the page and holds them to 3:1
   // the group closes: a mark after </g> is full strength again
   assert.deepEqual(
     auditMini(
-      `<g opacity="0.3"><text x="10" y="30" font-size="13" fill="#1c2330">t</text></g>` +
+      `<g opacity="0.3"><line x1="20" y1="40" x2="200" y2="40" stroke="#e4e8ec"/></g>` +
         `<polyline points="20,20 200,20" fill="none" stroke="#3a4656"/>`,
     ),
     [],
@@ -291,6 +291,26 @@ test("the audit composites translucent marks over the page and holds them to 3:1
         `<rect x="20" y="60" width="200" height="2" fill="#eeeeee"/>` +
         `<rect x="20" y="70" width="3" height="40" fill="#eeeeee"/>`,
     ),
+    [],
+  );
+});
+
+test("text inherits ancestor group opacity before the 4.5:1 check", () => {
+  const t = `<text x="20" y="30" font-size="13" fill="#1c2330">label</text>`;
+  assert.deepEqual(auditMini(t), [], "control: full-opacity ink passes");
+  assert.deepEqual(auditMini(`<g opacity="1">${t}</g>`), [], "opacity 1 group passes");
+  for (const wrapped of [
+    `<g opacity="0.2">${t}</g>`,
+    `<g opacity="0.5"><g opacity="0.4">${t}</g></g>`,
+    `<g><text x="20" y="30" font-size="13" fill="#1c2330" opacity="0.2">label</text></g>`,
+  ])
+    assert.ok(
+      auditMini(wrapped).some((i) => /label/.test(i) && /4\.5:1/.test(i)),
+      `translucent text passed: ${wrapped}`,
+    );
+  // the group closes: text after </g> is full strength again
+  assert.deepEqual(
+    auditMini(`<g opacity="0.2"><line x1="20" y1="40" x2="200" y2="40" stroke="#e4e8ec"/></g>${t}`),
     [],
   );
 });

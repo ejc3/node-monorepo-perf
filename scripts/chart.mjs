@@ -263,7 +263,9 @@ if (
           label: "warm",
           sub: "every task a cache hit",
           value: tcBig.warmMs,
-          color: SERIES.scoped,
+          // still the whole workspace (a cache hit, not a scoped run): the lighter neutral
+          // slate beside the REPO charcoal, never the closure cyan
+          color: SERIES.neutral,
         },
       ],
     }),

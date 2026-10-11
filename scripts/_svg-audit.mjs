@@ -91,13 +91,19 @@ export function auditSvg(svg, { minText, minBoxText }) {
       }
       continue;
     }
-    if (closing || tag === "text") continue;
+    if (closing) continue;
     const a = attrs(body);
     const own = a.opacity === undefined ? 1 : +a.opacity;
-    els.push({ tag, a, opacity: groups.reduce((p, o) => p * o, own) });
+    const opacity = groups.reduce((p, o) => p * o, own);
+    if (tag === "text") {
+      // a text carries its ancestors' opacity too, so translucent ink is composited
+      // before the contrast check
+      const content = /^([^<]*)<\/text>/.exec(svg.slice(m.index + m[0].length));
+      if (content && !selfClose) texts.push({ tag, a, s: content[1], opacity });
+      continue;
+    }
+    els.push({ tag, a, opacity });
   }
-  for (const m of svg.matchAll(/<text\b([^>]*)>([^<]*)<\/text>/g))
-    texts.push({ tag: "text", a: attrs(m[1]), s: m[2] });
   const rules = darkRules(svg);
   const page = { light: [255, 255, 255], dark: null };
   const bgRect = els.find((e) => e.tag === "rect" && !e.a.x && +e.a.width === W);

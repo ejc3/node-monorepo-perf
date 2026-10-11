@@ -47,7 +47,7 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="557.618824" y="111.5" font-size="13" fill="#1c2330" font-weight="650">222.8s</text>
 <text x="20" y="105.5" font-size="11.5" fill="#1c2330">cold</text>
 <text x="20" y="119" font-size="10" fill="#6b7885">empty Turborepo cache</text>
-<rect x="170" y="134" width="40.7" height="26" rx="2" fill="#1b8aa0"/>
+<rect x="170" y="134" width="40.7" height="26" rx="2" fill="#556375"/>
 <text x="218.667664" y="151.5" font-size="13" fill="#1c2330" font-weight="650">23.9s</text>
 <text x="20" y="145.5" font-size="11.5" fill="#1c2330">warm</text>
 <text x="20" y="159" font-size="10" fill="#6b7885">every task a cache hit</text>
