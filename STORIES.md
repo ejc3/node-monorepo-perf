@@ -2,9 +2,9 @@
 
 The independently-published model: every lib is published, and apps consume only published
 packages. Mechanics are in
-[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md), [ROLLOUT.md](ROLLOUT.md), and
-[FEASIBILITY.md](FEASIBILITY.md). The publish and semver mechanics are measured on small AWS
-CodeArtifact scaffolds; the shared-workspace costs they are contrasted with come from
+[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) and [ROLLOUT.md](ROLLOUT.md); the
+shared-workspace alternative is in [FEASIBILITY.md](FEASIBILITY.md). The publish and semver
+mechanics are measured on small AWS CodeArtifact scaffolds; the shared-workspace costs they are contrasted with come from
 [the workspace under test](README.md#the-workspace-under-test).
 The cast: **Maya** (app dev, `checkout-app`); **Sam** (lib dev, `@acme/ui` → `@acme/core`);
 **Priya** (platform).
@@ -16,12 +16,12 @@ The cast: **Maya** (app dev, `checkout-app`); **Sam** (lib dev, `@acme/ui` → `
 isolation blocks importing undeclared core (a "phantom dependency",
 `bench/bun-safety-bench.json` rung D).
 
-**2. Identical CI.** As an app dev, my build today matches yesterday's because my lockfile is
-the freeze. A manifest edited without re-resolving fails the frozen install closed under all
-five package managers measured, each sample in a fresh container
-(`bench/container-install-bench.json`; 0.9–10.4s by tool on an empty cache).
+**2. Identical CI.** As an app dev, my frozen install uses the dependency versions recorded in
+my lockfile. A manifest edited without re-resolving fails the frozen install closed under all
+five package-manager configurations measured, each sample in a fresh container
+(`bench/container-install-bench.json`; 0.9–10.4s by configuration on a fresh runner).
 
-**3. Upgrades on her terms.** As an app dev I take upgrades when I choose. Each is a lockfile
+**3. Upgrades on my terms.** As an app dev I take upgrades when I choose. Each is a lockfile
 diff (`1.8.0 → 1.9.0`, `core 2.5.1 → 2.5.3` riding ui's `^2.5.0`); if it breaks, I stay on 1.8.0.
 
 **4. Hits a lib bug.** As a blocked app dev I can't patch `dist/`. I wait for `1.9.1`, take
@@ -58,13 +58,13 @@ HEAD by flipping `"^1.9.1"` → `"workspace:*"`, reverting before merge
 app on ui's HEAD via `workspace:^` while others keep `"^1.9.0"`, so one lib is consumed both
 ways at once
 ([§5](WORKSPACE-VS-SEMVER.md#5-switching-one-app-without-changing-the-others)). The payoff is a
-permanent pre-merge canary. The cost is that the app can't lag and other teams still wait
+permanent pre-merge canary; the cost is that the app can't lag and other teams still wait
 ([§7](WORKSPACE-VS-SEMVER.md#7-per-app-workspaces)).
 
 **12. Publishes needing an unreleased core.** As a lib dev I want the pipeline to catch this
 case. Core adds `formatPrice()` without a version bump; ui uses it and publishes `1.9.2`
-declaring `"^2.5.0"`, but no published core has the function, so Maya's install breaks.
-The fix is to bump on behavior change, publish deepest-first, and gate the **artifact**
+declaring `"^2.5.0"`, but no published core has the function, so Maya's app fails at build time or
+runtime. The fix is to bump on behavior change, publish deepest-first, and gate the **artifact**
 ([ROLLOUT.md](ROLLOUT.md#gating-the-artifact)).
 
 ---
@@ -90,6 +90,6 @@ its script is allowlisted explicitly (`pnpm.onlyBuiltDependencies` / `trustedDep
 
 Maya changes by lockfile, Sam by release, Priya across both. The shared-workspace model
 ([README.md](README.md), [FEASIBILITY.md](FEASIBILITY.md)) inverts both pains: the lib dev
-sees every app break before merge (whole-workspace gate 1.6s at 4,000 apps,
+sees every app break before merge (whole-program gate 1.6s at 4,000 apps,
 `bench/optimal-gate-bench.json`), and the app dev never waits. The cost is that everyone rides
 HEAD.
