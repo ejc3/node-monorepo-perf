@@ -114,7 +114,7 @@ Deterministic per `--seed` (98043).
 - **Together.** 15 + 22 reach <!--v:ab.15+22.ratio-->0.360<!--/v-->×; the product of their separate ratios is <!--v:prod.15.22-->0.482<!--/v-->.
 - **Not the bound.** An 8 GiB eviction floor gives <!--v:ab.evict-8g.ratio-->0.953<!--/v-->×, with its lane-swapped pairs on both sides of 1: not a win, since the A/A row spreads about as far. Turning off the persistent build
   cache gives <!--v:ab.no-fs-cache.ratio-->1.058<!--/v-->× on the graph phase and <!--v:ab.no-fs-cache.guard-->0.821<!--/v-->× on `run-turbopack`. Its fingerprint
-  differs from base because any changed build setting changes the build's output.
+  differs from base.
 
 ## Scaling
 
@@ -133,10 +133,6 @@ Deterministic per `--seed` (98043).
 Medians over 3 interleaved runs per point.
 <!-- /turbopack-graph:scaling -->
 
-- **Base.** The phase takes <!--v:sc.base.16.graph-->9.62s<!--/v--> at 16 cores and <!--v:sc.base.24-96.graph-->13.24–15.62s<!--/v--> from 24 to
-  96 cores, where cores busy stay at <!--v:sc.base.24-96.cores-->9.7–11.6<!--/v--> and the kernel's share of the
-  phase's CPU time is <!--v:sc.base.24-96.sys-->28.3–44.4%<!--/v--> (<!--v:sc.base.16.sys-->7.4%<!--/v--> at 16 cores). Across both NUMA
-  nodes it takes <!--v:sc.base.192.graph-->38.41s<!--/v-->.
 - **15 + 22** takes <!--v:sc.15+22.24-96.graph-->4.08–4.72s<!--/v--> from 24 to 96 cores while cores busy rise across
   <!--v:sc.15+22.24-96.cores-->18.0–61.1<!--/v--> and the kernel share stays at <!--v:sc.15+22.24-96.sys-->3.6–6.0%<!--/v-->. It is
   <!--v:ratio.sc.base.15+22.96.graph-->0.26<!--/v-->× base at 96 cores (<!--v:sc.base.96.graph-->15.62s<!--/v--> → <!--v:sc.15+22.96.graph-->4.08s<!--/v-->) and
@@ -176,9 +172,8 @@ Then, for N changed feature modules, it builds the edited tree three ways:
 - **cold**: a fresh directory; the cache starts empty and is written;
 - **off**: the persistent cache turned off.
 
-Each N is restored before the next. Warm and cold builds of one tree give the same output.
-A cache-off build's output differs from theirs, as any changed build setting's does, and is
-the same across reps. An edit changes the output. Method, profiles and candidates: [bench/turbopack-gym/cache-drift.md](bench/turbopack-gym/cache-drift.md).
+The tree is restored after each N. Warm and cold builds of one tree give the same output; a
+cache-off build's differs and is the same across reps. Method, profiles and candidates: [bench/turbopack-gym/cache-drift.md](bench/turbopack-gym/cache-drift.md).
 
 The record, `bench/turbopack-graph-drift.json`, ran on a dedicated 192-core c8gd.48xlarge (24
 CPUs per build, one build at a time, 2 reps; the gym root on btrfs over its local NVMe).
@@ -199,7 +194,7 @@ Wall times (`run-turbopack` in the cache-read table below):
   task state read back from the cache.
 - **55 shortens every warm build** (next paragraph), but with new imports it removes 3 to 6s
   of a much longer build. At 10 new imports base's warm build takes <!--v:dr.main.import.base.10.warm.wall-->77.7s<!--/v--> and 55's
-  <!--v:dr.main.import.55-sst-mmap-normal-advice.10.warm.wall-->74.2s<!--/v-->, against <!--v:dr.main.import.base.10.cold.wall-->74.2s<!--/v--> cold; 55's warm build passes its cold one from 100 on.
+  <!--v:dr.main.import.55-sst-mmap-normal-advice.10.warm.wall-->74.2s<!--/v-->, against <!--v:dr.main.import.base.10.cold.wall-->74.2s<!--/v--> cold; 55's warm build exceeds its cold build at the measured 100 and 1,000 new imports.
 - With the cache on, a cold build's `run-turbopack` takes longer than a cache-off build's at
   every N (writing the cache, and the operation counter below); the `no-fs-cache` A/B above
   shows the same. One cache-off build at 1,000 changed strings ran 33s longer than its other
@@ -223,8 +218,8 @@ do. Warm builds with the cache not in the page cache, `run-turbopack`, same outp
 | D | 1 string | <!--v:cr.candidatesD.base.mmap.1.turbopack-->11.3s<!--/v--> | <!--v:cr.candidatesD.55-sst-mmap-normal-advice.mmap.1.turbopack-->5.3s<!--/v--> | <!--v:cr.candidatesD.base.pread.1.turbopack-->7.2s<!--/v--> |
 
 On instances A and B, of the same type (`base-fp` and base), the same build took <!--v:cr.pageCache.base-fp.cold.0.turbopack-->38.7s<!--/v--> and <!--v:cr.accessMode.base.mmap.0.turbopack-->38.6s<!--/v--> where it took 13s on C and D; the cause of that difference is not known.
-55 changes nothing when the page cache already holds the cache, or in cold builds, which do
-not read it (A/B of cold builds: `run-turbopack` ×1.004, same output). Candidates 53 (read a
+55 changes nothing when the page cache already holds the cache. Cold builds do not read the
+cache (A/B of cold builds: `run-turbopack` ×1.004, same output). Candidates 53 (read a
 block's whole range before its first access) and 54 (53 plus the meta files) help less than
 55: a warm start reads most of every SST, and read-ahead also fetches the blocks that follow.
 
@@ -253,9 +248,8 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   as sequential loops inside `turbopack-write-entrypoints`. Candidates 41 and 42
   (`bench/turbopack-gym/next-limit.md`) shorten them on the monolith with the same output
   and do not change vizdash's compile.
-- 55 and 52 are not in the canonical run. Candidate 52's graph phase is slower than base's
-  on the monolith while the probe's is not, and 52 does not help vizdash: it is not ready to
-  propose alone.
+- 55 and 52 are not in the canonical run; 52 is not ready to propose alone (see the counter
+  section).
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
 - New imports rerun the whole-app analyses on restored task state; not re-profiled on a
