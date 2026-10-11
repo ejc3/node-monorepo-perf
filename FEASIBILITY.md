@@ -57,7 +57,7 @@ pnpm 12.8.1; share of a cold resolve):
 - frozen warm-store 2.8s (97%)
 - frozen cold-store 2.8s (97%)
 
-A frozen install in a fresh CI container at 1,000 apps takes bun 0.93s, pnpm 1.03s, and npm
+A frozen install with empty caches in a fresh CI container at 1,000 apps takes bun 0.93s, pnpm 1.03s, and npm
 10.4s ([TOOLING.md](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
 
 Cold typecheck recurs on a shared `tsconfig`/toolchain bump or a foundation-lib edit
@@ -76,7 +76,7 @@ takes 11.9s at 2,000 apps and 39.5s at 20,000.
 
 ## Package-Manager Lever
 
-The fastest installer depends on scale: bun is ~1.6× faster than pnpm at 200 apps (0.28s vs
+For cold installs (no lockfile, warm store), the fastest installer depends on scale: bun is ~1.6× faster than pnpm at 200 apps (0.28s vs
 0.43–0.46s), and pnpm-hoisted is 3.1–3.4× faster than bun at 1,000–2,000 apps
 (`install-bench.json`). yarn-PnP is second-fastest cold at 2,000 apps and removes `node_modules`,
 but cannot run this repo's stock tsgo/`next build` stack (`pnp-compat-bench.json`). bun's
