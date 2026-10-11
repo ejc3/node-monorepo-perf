@@ -11,11 +11,9 @@ Run after editing a script. They catch syntax errors before anything executes.
 
 ## 2. Type-Checking
 
-The semantic gate; `node --check` and `bash -n` check syntax only.
-
 - **Per package:** `tsc --noEmit` (the `typecheck` script).
 - **Workspace:** `turbo run typecheck`, cached, scoped with `--filter` / `--affected`.
-- **Faster:** `tsgo --noEmit` (the native port), ~12x faster on one 3,000-module program ([TYPECHECKERS.md](TYPECHECKERS.md)).
+- **Faster:** `tsgo --noEmit` (the native port), ~12× faster on one 3,000-module program ([TYPECHECKERS.md](TYPECHECKERS.md)).
 
 Lint runs as its own task, not inside `next build`, where it would repeat in every build across thousands of apps. The linter is oxlint (50.5× ESLint on an 800-file synthetic corpus, [TOOLING.md](TOOLING.md#lint-eslint-vs-oxlint)), with ESLint for rules oxlint has not ported.
 
