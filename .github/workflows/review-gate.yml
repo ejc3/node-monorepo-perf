@@ -219,10 +219,27 @@ jobs:
             echo "::error::could not resolve the heads for this $EVENT event; their review-gate status was not refreshed"
             exit 1
           fi
+          # Posted only when it changes the head's status: a failure that persists (the 10-minute
+          # sweep re-hits it) must not add a status per run, since GitHub refuses statuses past
+          # 1000 per commit and context and the last one then stands.
+          desc="The gate could not resolve this event; see the run"
           for sha in $heads; do
+            if [ -r .claude/skills/pr-review-gate/post-status.sh ]; then
+              bash .claude/skills/pr-review-gate/post-status.sh "$sha" error "$desc" \
+                || echo "::error::GitHub refused the error status on ${sha:0:9}"
+              continue
+            fi
+            # The checkout failed too, so the poster is not here: the same change-only rule.
+            cur=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/statuses?per_page=100" \
+                    --jq "[.[] | select(.context == \"$STATUS_CONTEXT\")][0] | \"\(.state // \"\") \(.description // \"\")\"" \
+                    2>/dev/null || true)
+            if [ "$cur" = "error $desc" ]; then
+              echo "$STATUS_CONTEXT on ${sha:0:9} is already error: $desc"
+              continue
+            fi
             gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=error -f context="$STATUS_CONTEXT" \
               -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-              -f description="The gate could not resolve this event; see the run" >/dev/null \
+              -f description="$desc" >/dev/null \
               || echo "::error::GitHub refused the error status on ${sha:0:9}"
           done
           exit 1

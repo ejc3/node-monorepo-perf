@@ -28,6 +28,12 @@
 # context holds STATUS_QUOTA_GUARD statuses a `success` is posted as `error`. A refused
 # POST fails the caller loudly.
 #
+# The success POST cannot be conditional on the reads before it, so after it the same checks
+# run again on fresh reads. If any of them now fails (a blocking status, a newer run, PR
+# activity, a moved head, or a read that fails), the blocking state is posted over the
+# success at once, with the description prefixed "Raced a success:". The newest status is
+# then blocking again; the run or sweep that owns the newer signal posts the verdict.
+#
 # A `success` this workflow did not post (another account, another integration, or another
 # workflow run) is not the gate's verdict; when the current status is one, the gate's
 # verdict is posted over it even if it is the same state. This does not stop someone who
@@ -51,11 +57,14 @@ esac
 # Every status of this context on the commit, newest first (the list endpoint carries the
 # creator, the combined one does not). The first is the current one; the count is what the
 # quota guard reads.
+read_statuses() {
+  gh api --paginate "repos/$repo/commits/$sha/statuses?per_page=100" \
+    --jq ".[] | select(.context == \"$ctx\")
+          | [.state, (.description // \"\"), (.creator.login // \"\"), (.target_url // \"\"), (.created_at // \"\")]
+          | map(gsub(\"[\\u001f\\n]\"; \" \")) | join(\"\\u001f\")"
+}
 list_ok=1
-all=$(gh api --paginate "repos/$repo/commits/$sha/statuses?per_page=100" \
-  --jq ".[] | select(.context == \"$ctx\")
-        | [.state, (.description // \"\"), (.creator.login // \"\"), (.target_url // \"\"), (.created_at // \"\")]
-        | map(gsub(\"[\\u001f\\n]\"; \" \")) | join(\"\\u001f\")") || list_ok=0
+all=$(read_statuses) || list_ok=0
 if [ "$list_ok" = 0 ]; then
   # Nothing about the current status is known, so nothing is skipped: a success becomes an
   # error, and any blocking state is posted as asked.
@@ -109,63 +118,69 @@ if [ "$state" = pending ] && [ "${cur_state:-}" != success ]; then
 fi
 
 # The success rule. Each check either passes or turns the success into a blocking state.
-block() { state=$1; desc=$2; echo "$ctx on ${sha:0:9}: not posting success: $desc"; }
-if [ "$state" = success ]; then
-  if [[ ! ${EVAL_STARTED:-} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
-     || [ -z "${PRS:-}" ] || [ -z "${PRS// /}" ]; then
-    block error "No evaluation snapshot (EVAL_STARTED, PRS) to verify a success against"
-  fi
-fi
-if [ "$state" = success ]; then
-  # Another run's blocking status posted after this evaluation began. EVAL_STARTED is whole
-  # seconds and so are GitHub's timestamps, so the same second counts as after.
-  newer_block=$(awk -F "$(printf '\037')" -v t="$EVAL_STARTED" '$5 >= t && $1 != "success"' <<<"$all" | grep -c . || true)
-  if [ "$newer_block" -gt 0 ]; then
-    block pending "A blocking status was posted after this evaluation began"
-  fi
-fi
-if [ "$state" = success ]; then
-  # Runs of this workflow created after the evaluation began, other than this run and the
-  # sweep. A list that cannot be read is a failed read.
-  if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
-      --jq "[.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
-                                       and .created_at >= \"$EVAL_STARTED\")] | length"); then
-    block error "Could not read the review-gate runs to verify a success; see the run"
-  elif [ "$newer" != 0 ]; then
-    block pending "Re-evaluating after a newer event"
-  fi
-fi
-if [ "$state" = success ]; then
-  # The PRs themselves: head unchanged, nothing newer than the snapshot.
-  for pr in ${PRS:-}; do
-    [[ $pr =~ ^[0-9]+$ ]] || { block error "Not a PR number: ${pr:0:20}"; break; }
-    if ! act=$(gh api graphql -F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}" -f query='
-        query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
-          pullRequest(number: $n) { headRefOid updatedAt
-            comments(last: 100) { nodes { createdAt updatedAt lastEditedAt } }
-            reviews(last: 100) { nodes { submittedAt updatedAt lastEditedAt } }
-            reviewThreads(last: 100) { nodes { comments(last: 1) { nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
-        --jq '.data.repository.pullRequest
-              | if . == null then "unreadable"
-                else .headRefOid + " "
-                     + ([.updatedAt, (.comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt),
-                         (.reviews.nodes[] | .submittedAt, .updatedAt, .lastEditedAt),
-                         (.reviewThreads.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt)]
-                        | map(select(. != null)) | max // "none") end') || [ "$act" = unreadable ]; then
-      block error "Could not read PR #$pr to verify a success; see the run"
-      break
+phase="not posting success"
+block() { state=$1; desc=$2; echo "$ctx on ${sha:0:9}: $phase: $desc"; }
+# The checks run once before the POST and once after a success is posted. Each either passes
+# or turns `state` into a blocking one; they act only while `state` is success.
+verify_snapshot() {
+  if [ "$state" = success ]; then
+    if [[ ! ${EVAL_STARTED:-} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
+       || [ -z "${PRS:-}" ] || [ -z "${PRS// /}" ]; then
+      block error "No evaluation snapshot (EVAL_STARTED, PRS) to verify a success against"
     fi
-    read -r act_head act_last <<<"$act"
-    if [ "$act_head" != "$sha" ]; then
-      block pending "PR #$pr moved off this commit"
-      break
+  fi
+  if [ "$state" = success ]; then
+    # Another run's blocking status posted after this evaluation began. EVAL_STARTED is whole
+    # seconds and so are GitHub's timestamps, so the same second counts as after.
+    newer_block=$(awk -F "$(printf '\037')" -v t="$EVAL_STARTED" '$5 >= t && $1 != "success"' <<<"$all" | grep -c . || true)
+    if [ "$newer_block" -gt 0 ]; then
+      block pending "A blocking status was posted after this evaluation began"
     fi
-    if [[ $act_last > $EVAL_STARTED || $act_last == "$EVAL_STARTED" ]]; then
-      block pending "Re-evaluating: PR #$pr has activity after the snapshot"
-      break
+  fi
+  if [ "$state" = success ]; then
+    # Runs of this workflow created after the evaluation began, other than this run and the
+    # sweep. A list that cannot be read is a failed read.
+    if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
+        --jq "[.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
+                                         and .created_at >= \"$EVAL_STARTED\")] | length"); then
+      block error "Could not read the review-gate runs to verify a success; see the run"
+    elif [ "$newer" != 0 ]; then
+      block pending "Re-evaluating after a newer event"
     fi
-  done
-fi
+  fi
+  if [ "$state" = success ]; then
+    # The PRs themselves: head unchanged, nothing newer than the snapshot.
+    for pr in ${PRS:-}; do
+      [[ $pr =~ ^[0-9]+$ ]] || { block error "Not a PR number: ${pr:0:20}"; break; }
+      if ! act=$(gh api graphql -F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}" -f query='
+          query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
+            pullRequest(number: $n) { headRefOid updatedAt
+              comments(last: 100) { nodes { createdAt updatedAt lastEditedAt } }
+              reviews(last: 100) { nodes { submittedAt updatedAt lastEditedAt } }
+              reviewThreads(last: 100) { nodes { comments(last: 1) { nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
+          --jq '.data.repository.pullRequest
+                | if . == null then "unreadable"
+                  else .headRefOid + " "
+                       + ([.updatedAt, (.comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt),
+                           (.reviews.nodes[] | .submittedAt, .updatedAt, .lastEditedAt),
+                           (.reviewThreads.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt)]
+                          | map(select(. != null)) | max // "none") end') || [ "$act" = unreadable ]; then
+        block error "Could not read PR #$pr to verify a success; see the run"
+        break
+      fi
+      read -r act_head act_last <<<"$act"
+      if [ "$act_head" != "$sha" ]; then
+        block pending "PR #$pr moved off this commit"
+        break
+      fi
+      if [[ $act_last > $EVAL_STARTED || $act_last == "$EVAL_STARTED" ]]; then
+        block pending "Re-evaluating: PR #$pr has activity after the snapshot"
+        break
+      fi
+    done
+  fi
+}
+verify_snapshot
 desc=${desc:0:140}
 
 if [ "$forged" = 0 ] && [ "${cur_state:-}" = "$state" ] && [ "${cur_desc:-}" = "$desc" ]; then
@@ -189,3 +204,21 @@ if ! gh api -X POST "repos/$repo/statuses/$sha" \
   exit 1
 fi
 echo "posted $ctx=$state on ${sha:0:9}: $desc"
+
+# The POST above is unconditional once the checks passed, so a blocking status another run
+# posted between the last read and the write is now older than this success and the PR reads
+# mergeable. Read everything again: if any of it moved since the snapshot, post the blocking
+# state over the success right away, through this script (so a blocking status that is
+# already the newest posts nothing, and a refused POST still fails loudly).
+if [ "$state" = success ]; then
+  phase="success posted; re-verifying"
+  if all=$(read_statuses); then
+    verify_snapshot
+  else
+    block error "Could not re-read the statuses after posting a success"
+  fi
+  if [ "$state" != success ]; then
+    echo "::warning::$ctx on ${sha:0:9}: the snapshot moved while the success was posted; posting $state over it"
+    exec bash "$0" "$sha" "$state" "Raced a success: $desc"
+  fi
+fi

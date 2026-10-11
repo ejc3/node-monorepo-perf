@@ -2168,7 +2168,11 @@ for ((i = 0; i < ${#args[@]}; i++)); do
 done
 if [ "$post" = 1 ]; then printf '%s\n' "$*" >> "$PS_DIR/posts"; exit "${PS_POST_RC:-0}"; fi
 f="$PS_DIR/$(printf '%s' "${endpoint%%\?*}" | tr '/' '_').json"
+# A fixture "<name>.after" replaces <name> once a POST has been recorded: what changed after
+# the write. Its content SHIM_FAIL makes that read fail.
+[ -s "$PS_DIR/posts" ] && [ -r "$f.after" ] && f="$f.after"
 [ -r "$f" ] || { echo "shim: no fixture for $endpoint" >&2; exit 1; }
+[ "$(head -c 9 "$f")" != SHIM_FAIL ] || { echo "shim: read failed for $endpoint" >&2; exit 1; }
 if [ -n "$filter" ]; then jq -r "$filter" "$f"; else cat "$f"; fi
 SHIM
 chmod +x "$TMP/psbin/gh"
@@ -2187,19 +2191,24 @@ gql() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","updated
 # no other run since, PR quiet since 00:03. A case overrides one piece with PS_RUNS, PS_GQL
 # (UNREADABLE makes the read fail) or its env column.
 SNAP="EVAL_STARTED=2026-01-02T00:04:00Z|PRS=7|GITHUB_RUN_ID=88"
+NOW_OK=$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:06:00Z)
 QUIET_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:05:00Z)")
 QUIET_PR=$(gql "$PS_SHA" 2026-01-02T00:03:00Z)
 # $1 name, $2 statuses JSON (newest first, or UNREADABLE), $3 run JSON for run 77 (or ""),
 # $4 env, $5 state, $6 description, $7 expected exit, $8 expected POSTs, $9 text the POST
-# must carry.
+# must carry, $10 text the LAST POST must carry (the newest status is what a merge reads).
 ps_case() {
-  local name=$1 statuses=$2 run=$3 envs=$4 st=$5 de=$6 want_rc=$7 want_posts=$8 want_post_txt=${9:-}
+  local name=$1 statuses=$2 run=$3 envs=$4 st=$5 de=$6 want_rc=$7 want_posts=$8 want_post_txt=${9:-} want_last=${10:-}
   ps_n=$((ps_n + 1)); local d="$TMP/ps.$ps_n"; mkdir "$d"
   [ "$statuses" = UNREADABLE ] || printf '%s' "$statuses" > "$d/repos_o_r_commits_${PS_SHA}_statuses.json"
   [ -z "$run" ] || printf '%s' "$run" > "$d/repos_o_r_actions_runs_77.json"
   local r=${PS_RUNS-$QUIET_RUNS} g=${PS_GQL-$QUIET_PR}
   [ "$r" = UNREADABLE ] || printf '%s' "$r" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json"
   [ "$g" = UNREADABLE ] || printf '%s' "$g" > "$d/graphql.json"
+  # After a success is posted, a status read shows that success as the newest status.
+  printf '%s' "${PS_AFTER_STATUSES:-[$NOW_OK]}" > "$d/repos_o_r_commits_${PS_SHA}_statuses.json.after"
+  [ -z "${PS_AFTER_RUNS:-}" ] || printf '%s' "$PS_AFTER_RUNS" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json.after"
+  [ -z "${PS_AFTER_GQL:-}" ] || printf '%s' "$PS_AFTER_GQL" > "$d/graphql.json.after"
   local envarr=() out rc posts
   [ -z "$envs" ] || IFS='|' read -r -a envarr <<<"$envs"
   out=$(env -u EVAL_STARTED -u PRS -u GITHUB_RUN_ID PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r \
@@ -2207,7 +2216,8 @@ ps_case() {
         bash "$POSTER" "$PS_SHA" "$st" "$de" 2>&1); rc=$?
   posts=$(grep -c . "$d/posts" 2>/dev/null || true)
   if [ "$rc" = "$want_rc" ] && [ "${posts:-0}" = "$want_posts" ] \
-     && { [ -z "$want_post_txt" ] || grep -qF -- "$want_post_txt" "$d/posts"; }; then
+     && { [ -z "$want_post_txt" ] || grep -qF -- "$want_post_txt" "$d/posts"; } \
+     && { [ -z "$want_last" ] || tail -n1 "$d/posts" | grep -qF -- "$want_last"; }; then
     echo "  PASS  $name"; pass=$((pass+1))
   else
     echo "  FAIL  $name (rc=$rc want=$want_rc, posts=${posts:-0} want=$want_posts)"
@@ -2273,6 +2283,30 @@ PS_GQL=UNREADABLE \
   ps_case "a PR that cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
 PS_GQL='{"data":{"repository":{"pullRequest":null}}}' \
   ps_case "a PR the token cannot see turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+# The success POST is unconditional, so what changes after the last pre-POST read is only
+# visible to a re-read: a blocking signal there leaves the newest status blocking again
+# (PR #70's P1 on the success POST). The ".after" fixtures appear once the success is posted.
+RACE_URL=https://github.com/o/r/actions/runs/91
+PS_AFTER_STATUSES="[$NOW_OK,$(st pending 'Re-evaluating after a new event' 'github-actions[bot]' "$RACE_URL" 2026-01-02T00:05:00Z)]" \
+  ps_case "a pending posted just before the success leads to a pending POST after it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=pending" "state=pending"
+PS_AFTER_STATUSES="[$NOW_OK,$(st error 'The gate could not resolve this event' 'github-actions[bot]' "$RACE_URL" 2026-01-02T00:05:00Z)]" \
+  ps_case "an error posted just before the success leads to a pending POST after it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=pending" "state=pending"
+PS_AFTER_STATUSES="[$NOW_OK,$(st pending 'x' 'github-actions[bot]' "$RACE_URL" 2026-01-02T00:05:00Z)]" \
+  ps_case "the post-success pending names the race" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=success" "description=Raced a success"
+PS_AFTER_STATUSES="[$(st pending 'x' 'github-actions[bot]' "$RACE_URL" 2026-01-02T00:07:00Z),$NOW_OK]" \
+  ps_case "a pending newer than the success is not posted again" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success" "state=success"
+PS_AFTER_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 91 issue_comment 2026-01-02T00:05:30Z)") \
+  ps_case "an event run created after the last read leads to a pending POST after the success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=pending" "state=pending"
+PS_AFTER_GQL=$(gql "$PS_SHA" 2026-01-02T00:05:30Z) \
+  ps_case "PR activity after the last read leads to a pending POST after the success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=pending" "state=pending"
+PS_AFTER_GQL=$(gql fedcba9876543210fedcba9876543210fedcba98 2026-01-02T00:03:00Z) \
+  ps_case "a head that moved after the last read leads to a pending POST after the success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=pending" "state=pending"
+PS_AFTER_GQL=SHIM_FAIL \
+  ps_case "a PR re-read that fails after the success leaves an error, not the success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=error" "state=error"
+PS_AFTER_STATUSES=SHIM_FAIL \
+  ps_case "a status re-read that fails after the success leaves an error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=error" "state=error"
+PS_AFTER_STATUSES="[$NOW_OK]" \
+  ps_case "nothing changed after the success: the success stands, one POST" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success" "state=success"
 # A status list that cannot be read: nothing is skipped.
 ps_case "an unreadable status list posts the error asked for" UNREADABLE "" "" error "could not evaluate" 0 1 "state=error"
 ps_case "an unreadable status list posts the pending asked for" UNREADABLE "" "" pending "x" 0 1 "state=pending"
@@ -2433,6 +2467,35 @@ fb_case "workflow_dispatch for every PR: every open head" "EVENT=workflow_dispat
 fb_case "schedule: every open head" "EVENT=schedule" "$H1 $H2"
 fb_case "a delayed workflow_run: the payload head and the head it resolved" \
   "EVENT=workflow_run|RUN_HEAD_SHA=$HF|RESOLVED=[\"$H2\"]" "$HF $H2"
+
+# The fallback must not add a status when the head already shows the same error: a failure that
+# persists on the 10-minute sweep would otherwise exhaust GitHub's 1000 statuses per commit
+# and context (PR #70's P2). Statuses come from fixtures; `fbs_case` has the poster checked out
+# or, with CHECKOUT=0, not (the checkout is what failed).
+FB_DESC="The gate could not resolve this event; see the run"
+fbs_case() {  # $1 name, $2 current statuses JSON, $3 want POSTs, $4 checkout (1|0)
+  local name=$1 statuses=$2 want=$3 checkout=${4:-1} d out rc posts
+  ps_n=$((ps_n + 1)); d="$TMP/fbs.$ps_n"; mkdir "$d"
+  printf '[{"head":{"sha":"%s"}}]' "$H1" > "$d/repos_o_r_pulls.json"
+  printf '%s' "$statuses" > "$d/repos_o_r_commits_${H1}_statuses.json"
+  if [ "$checkout" = 1 ]; then
+    mkdir -p "$d/.claude/skills/pr-review-gate"; cp "$POSTER" "$d/.claude/skills/pr-review-gate/post-status.sh"
+  fi
+  out=$(cd "$d" && env PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://github.com \
+        GITHUB_RUN_ID=5 STATUS_CONTEXT=review-gate RUN_URL=https://github.com/o/r/actions/runs/5 RUN_PRS='[]' RUN_HEAD_SHA= \
+        INPUT_PR= PRT_HEAD_SHA= ISSUE_NUMBER= EVENT=schedule bash -c "$FB_RUN" 2>&1); rc=$?
+  posts=$(grep -c . "$d/posts" 2>/dev/null || true)
+  if [ "$rc" != 0 ] && [ "${posts:-0}" = "$want" ]; then echo "  PASS  $name"; pass=$((pass+1))
+  else echo "  FAIL  $name (rc=$rc, posts=${posts:-0} want=$want)"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1)); fi
+}
+FB_ERR="[$(st error "$FB_DESC" 'github-actions[bot]' "$OURS_URL")]"
+fbs_case "a repeated identical fallback error posts nothing" "$FB_ERR" 0
+fbs_case "a repeated identical fallback error posts nothing without the checkout" "$FB_ERR" 0 0
+fbs_case "the fallback error is posted over a success" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" 1
+fbs_case "the fallback error is posted over a success without the checkout" "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" 1 0
+fbs_case "the fallback error is posted over a different error" "[$(st error 'The gate could not evaluate (exit 2)' 'github-actions[bot]' "$OURS_URL")]" 1
+fbs_case "the fallback error is posted over a different error without the checkout" "[$(st error 'The gate could not evaluate (exit 2)' 'github-actions[bot]' "$OURS_URL")]" 1 0
+fbs_case "the fallback error is posted when the head has no status" '[]' 1
 
 # The invalidation step: a pending GitHub refuses must fail the step, so the failure step
 # runs (PR #70: "Fail closed when the pending status is rejected").
