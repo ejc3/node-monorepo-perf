@@ -1675,6 +1675,12 @@ short list and surface them rather than silently resolving them.
   formatting sweep as its own mechanical commit, separate from logic changes.
 - **Re-running benches is expensive;** get the code reviewed and correct first, then
   run once.
+- **Code someone else owns is not a reason to stop.** When the next bottleneck is in
+  Next.js, Turbopack or any other dependency (including a part outside the crates the gym
+  has patched so far), write the change there as a candidate, in a gym worktree or a
+  personal fork, and measure it like any other. Don't park it as a question for the
+  maintainers. What may be sent upstream (issues, pull requests, comments) is still the
+  owner's call.
 - **Session values stay out of the repository.** A value copied from a working
   session (a shell, an environment variable, a launch command or a transcript) is
   not useful to the repository and goes stale: profile names, account names,
