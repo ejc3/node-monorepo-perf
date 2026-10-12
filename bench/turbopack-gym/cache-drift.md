@@ -468,6 +468,28 @@ monolith's 1,709 page manifests share most of their client references.
   the builds of each not overlapping. The cache is about 5% smaller
   (0.81 → 0.77 GiB after a warm build with one new import).
 
+## More cores
+
+The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
+15 + 22 + 55 + 56 + 57 + 59 + 61, `import` edits, warm and cold, 2 reps, the page-data pool
+matched to the CPUs (`bench/turbopack-graph-drift-cores-{24,48,96,192}.json`, a dedicated
+c8gd.48xlarge; 192 CPUs is both NUMA nodes). Wall time of the whole build, base → stack:
+
+| CPUs | cold | warm, nothing changed | warm, 1 new import | warm, 1,000 new imports |
+|---|---|---|---|---|
+| 24 | <!--v:dr.cores24.import.base.0.cold.wall-->63.3s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.wall-->43.2s<!--/v--> | <!--v:dr.cores24.import.base.0.warm.wall-->48.2s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.warm.wall-->15.3s<!--/v--> | <!--v:dr.cores24.import.base.1.warm.wall-->73.2s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.1.warm.wall-->33.9s<!--/v--> | <!--v:dr.cores24.import.base.1000.warm.wall-->115.4s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.1000.warm.wall-->43.5s<!--/v--> |
+| 48 | <!--v:dr.cores48.import.base.0.cold.wall-->71.6s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.cold.wall-->49.2s<!--/v--> | <!--v:dr.cores48.import.base.0.warm.wall-->50.4s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.warm.wall-->15.9s<!--/v--> | <!--v:dr.cores48.import.base.1.warm.wall-->78.7s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.1.warm.wall-->34.5s<!--/v--> | <!--v:dr.cores48.import.base.1000.warm.wall-->114.4s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.1000.warm.wall-->50.1s<!--/v--> |
+| 96 | <!--v:dr.cores96.import.base.0.cold.wall-->74.8s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.cold.wall-->52.7s<!--/v--> | <!--v:dr.cores96.import.base.0.warm.wall-->52.0s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.warm.wall-->17.2s<!--/v--> | <!--v:dr.cores96.import.base.1.warm.wall-->78.5s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.1.warm.wall-->42.3s<!--/v--> | <!--v:dr.cores96.import.base.1000.warm.wall-->120.9s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.1000.warm.wall-->48.9s<!--/v--> |
+| 192 | <!--v:dr.cores192.import.base.0.cold.wall-->124.6s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.wall-->62.6s<!--/v--> | <!--v:dr.cores192.import.base.0.warm.wall-->54.5s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.warm.wall-->19.3s<!--/v--> | <!--v:dr.cores192.import.base.1.warm.wall-->96.5s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.1.warm.wall-->58.0s<!--/v--> | <!--v:dr.cores192.import.base.1000.warm.wall-->156.4s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.1000.warm.wall-->64.9s<!--/v--> |
+
+- Cold `run-turbopack`, base → stack: 24: <!--v:dr.cores24.import.base.0.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.turbopack-->26.4s<!--/v-->; 48: <!--v:dr.cores48.import.base.0.cold.turbopack-->46.6s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.1s<!--/v-->; 96: <!--v:dr.cores96.import.base.0.cold.turbopack-->48.9s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.7s<!--/v-->; 192: <!--v:dr.cores192.import.base.0.cold.turbopack-->93.0s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.turbopack-->34.1s<!--/v-->.
+- Neither gets faster with more CPUs: every column is fastest at 24 or 48 CPUs and slowest
+  at 192. Base slows most: at 192 CPUs its graph phase alone takes <!--v:dr.cores192.import.base.0.cold.graph-->39.0s<!--/v--> (cold), against
+  <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.graph-->5.6s<!--/v--> with the stack, so the stack's gain grows with the CPU count. The stack's
+  own warm build after one new import goes from <!--v:dr.cores24.import.15+22+55+56+57+59+61.1.warm.wall-->33.9s<!--/v--> at 24 CPUs to <!--v:dr.cores192.import.15+22+55+56+57+59+61.1.warm.wall-->58.0s<!--/v--> at 192
+  (Open, below).
+- Same output in every sweep (each record's outputs match across bindings and modes).
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
