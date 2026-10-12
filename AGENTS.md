@@ -620,6 +620,26 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   - `--host <name>` runs setup, A/B, scaling and record on a machine from the gitignored
     `scripts/turbopack-gym/hosts.local.json`; bindings are built here and shipped as store
     entries.
+  - Dedicated boxes: every published number comes from a machine running nothing else (a
+    `machine.sharedBox: false` record); a shared dev box is for building and testing only.
+    The workflow on such a box:
+    - `hosts.mjs`'s `sync(host, [bindings])` copies the gym scripts, `bench/turbopack-gym/`
+      (patches and `bindings.json`) and the named bindings' store entries.
+    - Launch the sweep or A/B detached on the box (`nohup setsid`), so a dropped ssh does not
+      kill it, and copy its logs back periodically.
+    - Run `record` there: it re-reads the per-run files, which stay on the box.
+    - Stop the box when the record is copied back.
+  - A record refuses a run whose binding is not in `bench/turbopack-gym/bindings.json` with
+    the same head and diff hash (`sha256` of the store entry's `candidate.diff`, 16 hex
+    digits), so add a stacked binding's entry (its patch list, in order) before `record`.
+    The entry ties the record to the patch files, so a measured patch is never edited: a
+    cleaned-up form (formatting, tests) goes in `bench/turbopack-gym/upstream/`. A
+    candidate worktree stays uncommitted on `gym/base`: the warm cache is keyed on the
+    commit, and a commit makes every "warm" build cold.
+  - Drift records other than the main one are named `bench/turbopack-graph-drift-<tag>.json`
+    and listed in `report.mjs`'s `DRIFT` map (`dr.<name>.*` keys). An A/B taken off a box
+    as `ab.jsonl` lines (`bench/turbopack-gym/ab56-cold.json`) drops `host` and
+    `machine.boot`.
   - `record.mjs` writes `bench/turbopack-graph-ab.json` and
     `bench/turbopack-graph-scaling.json` for one canonical run (`--tag`), recomputing every
     number from the per-run files and refusing a run whose binding (head, diff), app tree,
