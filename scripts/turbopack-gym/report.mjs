@@ -52,6 +52,14 @@ const CACHE_READ = join(REPO, "bench", "turbopack-gym", "cache-read-probes.json"
 const cacheRead = existsSync(CACHE_READ) ? JSON.parse(readFileSync(CACHE_READ, "utf8")) : null;
 // optional: route-stats.mjs records (rs.* keys), by name
 const ROUTE_STATS = { c60: "route-stats-60.json" };
+// optional: next-ab.mjs records (na.* keys), by name
+const NEXT_AB = { c62: "next-ab-62.json" };
+const nextAb = Object.fromEntries(
+  Object.entries(NEXT_AB)
+    .map(([k, f]) => [k, join(REPO, "bench", "turbopack-gym", f)])
+    .filter(([, f]) => existsSync(f))
+    .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
+);
 const routeStats = Object.fromEntries(
   Object.entries(ROUTE_STATS)
     .map(([k, f]) => [k, join(REPO, "bench", "turbopack-gym", f)])
@@ -142,6 +150,9 @@ function scalingTable() {
 //   rs.<rec>.<base|candidate>.<s|rssMiB>  route-stats median (seconds, 2 decimals; MiB)
 //   rs.<rec>.ratio                    candidate/base median time (3 decimals)
 //   rs.<rec>.manifests                manifest files and total size
+//   na.<rec>.<mode>.<side>.<wall|turbopack|after>  next-ab median (seconds, 1 decimal); side
+//                                     base|candidate|reference, mode cold|warm
+//   na.<rec>.<mode>.ratio             candidate/base median wall (3 decimals)
 function value(key) {
   const k = key.split(".");
   const fail = (m) => {
@@ -174,6 +185,15 @@ function value(key) {
     if (k[3] === "s") return `${m.s.toFixed(2)}s`;
     if (k[3] === "rssMiB") return `${m.rssMiB.toLocaleString("en-US")} MiB`;
     fail(`field ${k[3]}`);
+  }
+  if (k[0] === "na") {
+    const r = nextAb[k[1]] || fail(`no next-ab record ${k[1]}`);
+    const m = r.median?.[k[2]] || fail(`no mode ${k[2]}`);
+    if (k[3] === "ratio") return m.ratio.toFixed(3);
+    const side = m[k[3]] || fail(`no side ${k[3]}`);
+    const x = side[k[4]];
+    if (typeof x !== "number") fail(`field ${k[4]}`);
+    return `${x.toFixed(1)}s`;
   }
   if (k[0] === "cr") {
     const set = cacheRead && Object.hasOwn(cacheRead, k[1]) ? cacheRead[k[1]] : null;

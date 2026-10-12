@@ -656,6 +656,36 @@ function reportWith(keys, extra = {}, args = []) {
     "report.mjs names a missing route-stats record",
   );
 }
+// na.* keys: a next-ab record's medians and ratio; an error naming a record that is absent
+{
+  const rec = JSON.stringify({
+    median: {
+      cold: {
+        base: { wall: 80, turbopack: 45, after: 35 },
+        candidate: { wall: 60, turbopack: 45, after: 15 },
+        ratio: 0.75,
+      },
+    },
+  });
+  const r = reportWith(
+    ["na.c62.cold.base.after", "na.c62.cold.candidate.wall", "na.c62.cold.ratio"],
+    {
+      "bench/turbopack-gym/next-ab-62.json": rec,
+    },
+  );
+  check(
+    r.status === 0 &&
+      r.doc.includes("<!--v:na.c62.cold.base.after-->35.0s<!--/v-->") &&
+      r.doc.includes("<!--v:na.c62.cold.candidate.wall-->60.0s<!--/v-->") &&
+      r.doc.includes("<!--v:na.c62.cold.ratio-->0.750<!--/v-->"),
+    "report.mjs renders na.* keys from a next-ab record",
+  );
+  const missing = reportWith(["na.c62.cold.ratio"]);
+  check(
+    missing.status !== 0 && missing.stderr.includes("no next-ab record c62"),
+    "report.mjs names a missing next-ab record",
+  );
+}
 // cr.* keys: the median over a cache-read set's reps, a ratio of two medians, and an
 // error naming a set the record does not have.
 {

@@ -468,6 +468,39 @@ monolith's 1,709 page manifests share most of their client references.
   the builds of each not overlapping. The cache is about 5% smaller
   (0.81 → 0.77 GiB after a warm build with one new import).
 
+## After `run-turbopack`: starting the page-data workers
+
+After the compile, `next build` starts its page-data workers (`jest-worker`, one
+`child_process.fork` each). Node's libuv (1.51 in Node 22) starts a child on Linux with
+`fork()` and then `exec()`, and the parent waits until the child has called `exec()`: the
+kernel copies the parent's page tables into the child and the child tears them down again,
+all before the next worker can start. The parent here holds Turbopack's heap, so each start
+costs time in proportion to that heap, on the main thread, once per worker.
+
+`cache-drift-probes.json` (`processStart`; `scripts/turbopack-gym/process-start-cost.{py,mjs}`,
+a dedicated c8gd.48xlarge): starting `/bin/true` from a process holding 0, 1, 4, 8 and 16 GiB
+of touched memory takes 1.1, 25, 108, 176 and 295 ms with fork + exec, and 0.3 ms at every size
+with `posix_spawn` (glibc's uses `clone(CLONE_VM | CLONE_VFORK)`, no page-table copy). Node's
+own `spawnSync` follows fork + exec: 1.0, 24.5, 104, 172 and 291 ms.
+
+Next.js sizes the pool from `os.cpus()` (`experimental.cpus`, the machine's CPUs minus one),
+so a build limited to some of the machine's CPUs still starts one worker per machine CPU:
+191 here, whatever the build's own CPUs.
+
+- **62 `available-parallelism`** (next, JavaScript): the default is
+  `os.availableParallelism() - 1`, the CPUs in the process's affinity mask. Where the
+  process may use every CPU the value is unchanged; `CIRCLE_NODE_TOTAL` still wins.
+- `bench/turbopack-gym/next-ab-62.json` (`scripts/turbopack-gym/next-ab.mjs`, stock binding,
+  drift-monolith on 24 CPUs, 3 reps, warm builds with nothing changed): the worker count is
+  part of the config the build writes, so the candidate's output is compared with base given
+  `CIRCLE_NODE_TOTAL=24` (the same count by setting): the same. Cold builds:
+  <!--v:na.c62.cold.base.wall-->83.7s<!--/v--> → <!--v:na.c62.cold.candidate.wall-->64.2s<!--/v--> (×<!--v:na.c62.cold.ratio-->0.767<!--/v-->), the time after
+  `run-turbopack` <!--v:na.c62.cold.base.after-->39.6s<!--/v--> → <!--v:na.c62.cold.candidate.after-->18.9s<!--/v-->; base's after-compile
+  time was 28.9s in one rep and 39.7s and 39.6s in the others, the candidate's 17.6 to 19.0s.
+  Warm builds: <!--v:na.c62.warm.base.wall-->50.2s<!--/v--> → <!--v:na.c62.warm.candidate.wall-->49.4s<!--/v--> (×<!--v:na.c62.warm.ratio-->0.984<!--/v-->), after
+  `run-turbopack` <!--v:na.c62.warm.base.after-->12.1s<!--/v--> → <!--v:na.c62.warm.candidate.after-->11.1s<!--/v-->. A warm build's peak memory (its cgroup, workers included) was
+  3.5 to 4.9 GiB against 11.6 to 12.9 GiB for a cold one, so each worker start copies less.
+
 ## More cores
 
 The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
