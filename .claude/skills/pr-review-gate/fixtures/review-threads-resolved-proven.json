@@ -30,6 +30,7 @@
               },
               "state": "APPROVED",
               "submittedAt": "2026-08-20T11:30:00Z",
+              "lastEditedAt": null,
               "body": "",
               "commit": {
                 "oid": "f688cc21b85784a9bcd55f0d3d5b5b26bbc9069d"
@@ -63,6 +64,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 196,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "P1: indexing the snapshot mapping can panic inside the fault-handler task and hang the guest."
                   },
                   {
@@ -72,6 +75,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 196,
+                    "createdAt": "2026-08-20T11:20:00Z",
+                    "lastEditedAt": null,
                     "body": "RED-VERIFIED: a_corrupt_working_set_falls_back_to_on_demand_faulting — confirmed failing with the checked get() reverted. Fixed in 7672df92."
                   }
                 ]

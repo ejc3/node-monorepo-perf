@@ -27,6 +27,8 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 
 - **UNRESOLVED**: an open review thread. `isOutdated` does not count as answered.
 - **UNDISPOSED**: a resolved thread with no reply that opens with a disposition.
+- **REOPENED**: a resolved thread whose finding was edited after its last disposition.
+  It needs a new disposition; the old one answered the old text.
 - **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, or a
   top-level PR comment) with no disposition posted after it. Not claims: APPROVED reviews,
   `@codex review` / `@coderabbitai review` and the other documented bot commands, a listed
@@ -47,7 +49,10 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 ## Answering a finding
 
 A disposition opens a reply of its own (thread reply, review, or PR comment) and is newer
-than the claim it answers:
+than the claim it answers. Claims and answers alike are dated by when their current text
+was written: the later of creation and last edit. A thread comment or review body that
+cannot be dated (an unparsable creation time, or a `lastEditedAt` that is absent or does
+not parse) blocks with exit 2.
 
 | Disposition | Use for |
 |---|---|

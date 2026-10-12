@@ -51,7 +51,7 @@ run_case() {
 # the head on a covered commit: a stranger's APPROVED review of deadbeef, spliced in front
 # of the reviews the case supplies. A non-array passes through untouched so the
 # validation cases still reach the parser with it. Cases about coverage use wrap5-8.
-COVER='{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2025-12-31T00:00:00Z","body":"","commit":{"oid":"deadbeef"}}'
+COVER='{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2025-12-31T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"}}'
 covered() { if jq -e 'type == "array"' >/dev/null 2>&1 <<<"${1:-[]}"; then jq -c --argjson c "$COVER" '[$c] + .' <<<"${1:-[]}"; else printf '%s' "$1"; fi; }
 wrap() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":%s},"reviews":{"nodes":%s}}}}}' "$1" "$(covered "${2:-[]}")"; }
 
@@ -61,40 +61,40 @@ run_case "null pullRequest blocks" \
 
 echo "== finding 3: isResolved must be a real boolean =="
 run_case "isResolved null blocks" \
-  "$(wrap '[{"isResolved":null,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this crashes"}]}}]')" \
+  "$(wrap '[{"isResolved":null,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:01:00Z","lastEditedAt":null,"body":"this crashes"}]}}]')" \
   2 "BLOCKED"
 run_case "isResolved string blocks" \
-  "$(wrap '[{"isResolved":"true","comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this crashes"}]}}]')" \
+  "$(wrap '[{"isResolved":"true","comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:02:00Z","lastEditedAt":null,"body":"this crashes"}]}}]')" \
   2 "BLOCKED"
 
 echo "== finding 2: RED-VERIFIED needs an actual test name =="
 run_case "bare RED-VERIFIED: blocks" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this crashes on empty input"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"RED-VERIFIED:"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:03:00Z","lastEditedAt":null,"body":"this crashes on empty input"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:04:00Z","lastEditedAt":null,"body":"RED-VERIFIED:"}]}}]')" \
   1 "BLOCKED"
 run_case "RED-VERIFIED with test name clears" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this crashes on empty input"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"RED-VERIFIED: recommendation.test.ts"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:05:00Z","lastEditedAt":null,"body":"this crashes on empty input"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:06:00Z","lastEditedAt":null,"body":"RED-VERIFIED: recommendation.test.ts"}]}}]')" \
   0 "CLEAR"
 
 echo "== findings 0 + 5: every resolved thread needs an explicit disposition =="
 run_case "defect wording the old regex missed still blocks" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this drops the final game from the schedule"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:07:00Z","lastEditedAt":null,"body":"this drops the final game from the schedule"}]}}]')" \
   1 "BLOCKED"
 run_case "resolved with no reply at all blocks" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"rename this variable"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:08:00Z","lastEditedAt":null,"body":"rename this variable"}]}}]')" \
   1 "BLOCKED"
 run_case "documented disagreement is a valid disposition" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this is broken and crashes"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"DISAGREE: the guard above already rejects that input"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:09:00Z","lastEditedAt":null,"body":"this is broken and crashes"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:10:00Z","lastEditedAt":null,"body":"DISAGREE: the guard above already rejects that input"}]}}]')" \
   0 "CLEAR"
 run_case "non-defect disposition clears" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"rename this variable"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"NOT-A-DEFECT: renamed in 1a2b3c4"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:11:00Z","lastEditedAt":null,"body":"rename this variable"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:12:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed in 1a2b3c4"}]}}]')" \
   0 "CLEAR"
 
 echo "== finding 4: PR-level review bodies must be adjudicated =="
 run_case "undisposed review body blocks" \
-  "$(wrap '[]' '[{"author":{"login":"chatgpt-codex-connector"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: this silently drops events"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"chatgpt-codex-connector"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: this silently drops events"}]')" \
   1 "BLOCKED"
 run_case "disposed review body clears" \
-  "$(wrap '[]' '[{"author":{"login":"chatgpt-codex-connector"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: this silently drops events"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"DISAGREE: the guard above already rejects that input"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"chatgpt-codex-connector"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: this silently drops events"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"DISAGREE: the guard above already rejects that input"}]')" \
   0 "CLEAR"
 run_case "empty review body needs no disposition" \
   "$(wrap '[]' '[{"author":{"login":"someone"},"state":"APPROVED","body":""}]')" \
@@ -104,23 +104,23 @@ echo "== finding 8: a reply ASKING for proof is not a disposition =="
 # "Please add RED-VERIFIED: <test>" contains the marker followed by non-whitespace, so an
 # unanchored substring test counted the person DEMANDING evidence as the one supplying it.
 run_case "reply requesting proof blocks" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"Please add RED-VERIFIED: test-name before resolving this."}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:13:00Z","lastEditedAt":null,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:14:00Z","lastEditedAt":null,"body":"Please add RED-VERIFIED: test-name before resolving this."}]}}]')" \
   1 "BLOCKED"
 run_case "disposition buried after prose blocks" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"we talked about this and\nNOT-A-DEFECT: it is fine"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:15:00Z","lastEditedAt":null,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:16:00Z","lastEditedAt":null,"body":"we talked about this and\nNOT-A-DEFECT: it is fine"}]}}]')" \
   1 "BLOCKED"
 run_case "disposition opening the reply clears" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"NOT-A-DEFECT: renamed only, no behaviour change"}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:17:00Z","lastEditedAt":null,"body":"this corrupts the output"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:18:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed only, no behaviour change"}]}}]')" \
   0 "CLEAR"
 
 echo "== finding 9: an answer must be NEWER than the claim it answers =="
 # One disposition used to zero the whole count, so a review body posted AFTER it was
 # silently treated as answered.
 run_case "claim posted after the disposition blocks" \
-  "$(wrap '[]' '[{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"DISAGREE: answered the first round"},{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","body":"P1: new finding nobody has answered"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"DISAGREE: answered the first round"},{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"P1: new finding nobody has answered"}]')" \
   1 "BLOCKED"
 run_case "two claims, one late disposition clears both" \
-  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: first finding"},{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"P2: second finding"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","body":"RED-VERIFIED: covers both, tests/foo.rs"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: first finding"},{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"P2: second finding"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: covers both, tests/foo.rs"}]')" \
   0 "CLEAR"
 
 echo "== finding 10: review data must be validated like thread data =="
@@ -129,7 +129,7 @@ run_case "reviews.nodes as an object exits 2" \
 run_case "reviews.nodes as a string exits 2" \
   "$(wrap '[]' '"nonsense"')" 2 "BLOCKED"
 run_case "review body of the wrong type exits 2" \
-  "$(wrap '[]' '[{"author":{"login":"x"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":42}]')" \
+  "$(wrap '[]' '[{"author":{"login":"x"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":42}]')" \
   2 "BLOCKED"
 run_case "non-empty review body with no timestamp exits 2" \
   "$(wrap '[]' '[{"author":{"login":"x"},"state":"COMMENTED","body":"P1: this drops events"}]')" \
@@ -139,15 +139,15 @@ echo "== finding 11: PR-level claims answer to the same vocabulary as inline one
 # A bare "REVIEW-ACK: read" used to clear a PR-level defect claim that, posted inline,
 # would have demanded a real disposition. Same finding, two standards.
 run_case "PR-level claim + bare ack blocks" \
-  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: this silently drops the last record"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"REVIEW-ACK: read"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: this silently drops the last record"},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"REVIEW-ACK: read"}]')" \
   1 "BLOCKED"
 
 echo "== finding 6: a disposition past the first comment page must be seen =="
 long=$(python3 -c '
 import json
-n=[{"author":{"login":"bot"},"path":"a.ts","line":1,"body":"this leaks memory"}]
-n+=[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"chatter %d"%i} for i in range(120)]
-n+=[{"author":{"login":"y"},"path":"a.ts","line":1,"body":"RED-VERIFIED: leak.test.ts"}]
+n=[{"author":{"login":"bot"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:19:00Z","lastEditedAt":None,"body":"this leaks memory"}]
+n+=[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:20:00Z","lastEditedAt":None,"body":"chatter %d"%i} for i in range(120)]
+n+=[{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:21:00Z","lastEditedAt":None,"body":"RED-VERIFIED: leak.test.ts"}]
 print(json.dumps([{"isResolved":True,"comments":{"nodes":n,"totalCount":len(n)}}]))')
 run_case "RED-VERIFIED after 100+ comments is found" "$(wrap "$long")" 0 "CLEAR"
 
@@ -155,7 +155,7 @@ echo "== finding 14: ordinary chatter after a disposition must NOT re-block =="
 # A positional "the disposition must be last" rule was tried and withdrawn: it could not
 # tell a new defect claim from "Thanks, confirmed", so it blocked adjudicated threads.
 run_case "reviewer confirmation after a disposition clears" \
-  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"this drops a record"},{"author":{"login":"y"},"path":"a.ts","line":1,"body":"RED-VERIFIED: a.test.ts"},{"author":{"login":"x"},"path":"a.ts","line":1,"body":"Thanks, confirmed."}]}}]')" \
+  "$(wrap '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:22:00Z","lastEditedAt":null,"body":"this drops a record"},{"author":{"login":"y"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:23:00Z","lastEditedAt":null,"body":"RED-VERIFIED: a.test.ts"},{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:24:00Z","lastEditedAt":null,"body":"Thanks, confirmed."}]}}]')" \
   0 "CLEAR"
 
 echo "== finding 13: findings in top-level PR comments count too =="
@@ -167,7 +167,7 @@ run_case "disposed top-level PR comment clears" \
   "$(wrap3 '[]' '[]' '[{"author":{"login":"codex"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","body":"P1: this silently drops the last row"},{"author":{"login":"me"},"createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","body":"DISAGREE: the guard above rejects that input"}]')" \
   0 "CLEAR"
 run_case "a PR comment can answer a review body" \
-  "$(wrap3 '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: drops a row"}]' '[{"author":{"login":"me"},"createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","body":"RED-VERIFIED: row.test.ts"}]')" \
+  "$(wrap3 '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: drops a row"}]' '[{"author":{"login":"me"},"createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","body":"RED-VERIFIED: row.test.ts"}]')" \
   0 "CLEAR"
 run_case "malformed PR comment data exits 2" \
   "$(wrap3 '[]' '[]' '"nonsense"')" 2 "BLOCKED"
@@ -185,19 +185,19 @@ run_case "a human finding in a top-level comment still blocks" \
   "$(wrap4 me '[]' '[]' '[{"author":{"login":"reviewer","__typename":"User"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","body":"P1: this drops the last row"}]')" \
   1 "BLOCKED"
 run_case "a reviewing bot's top-level comment still blocks" \
-  "$(wrap4 me '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":""}]' '[{"author":{"login":"codex","__typename":"Bot"},"createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","body":"P1: this drops the last row"}]')" \
+  "$(wrap4 me '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":""}]' '[{"author":{"login":"codex","__typename":"Bot"},"createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z","body":"P1: this drops the last row"}]')" \
   1 "BLOCKED"
 run_case "a bot REVIEW body still blocks" \
-  "$(wrap4 me '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: this drops the last row"}]' '[]')" \
+  "$(wrap4 me '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: this drops the last row"}]' '[]')" \
   1 "BLOCKED"
 
 echo "== finding 16: the head commit must actually have been reviewed =="
 wrap5() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","reviewThreads":{"nodes":[]},"reviews":{"nodes":%s},"comments":{"nodes":[]}}}}}' "$1" "$2"; }
 run_case "reviews exist but none cover the head blocks" \
-  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"0ldc0mm1t"}}]')" \
+  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"0ldc0mm1t"}}]')" \
   1 "UNREVIEWED HEAD"
 run_case "a review covering the head clears" \
-  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]')" \
+  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]')" \
   0 "CLEAR"
 # Flipped by finding 29: this case expected CLEAR, which was the fail-open itself.
 run_case "no reviews at all is an unreviewed head, not a clear one (was CLEAR)" \
@@ -211,10 +211,10 @@ run_case "a standalone bot finding with no review history is claimable" \
   "$(wrap4 me '[]' '[]' '[{"author":{"login":"codex","__typename":"Bot"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","body":"P1: this drops the last row"}]')" \
   1 "BLOCKED"
 run_case "an APPROVED review body is not a finding" \
-  "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2026-01-01T00:00:00Z","body":"LGTM, nice work"}]' '[]')" \
+  "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"LGTM, nice work"}]' '[]')" \
   0 "CLEAR"
 run_case "a COMMENTED review body still is" \
-  "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"LGTM, nice work"}]' '[]')" \
+  "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"LGTM, nice work"}]' '[]')" \
   1 "BLOCKED"
 run_case "a bare @codex trigger is not a finding" \
   "$(wrap4 me '[]' '[]' '[{"author":{"login":"anyone","__typename":"User"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","body":"@codex review"}]')" \
@@ -225,10 +225,10 @@ run_case "a finding that merely mentions @codex still blocks" \
 
 echo "== finding 18: the author reviewing their own push is not coverage =="
 run_case "only the author reviewed the head" \
-  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"0ldc0mm1t"}},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"NOT-A-DEFECT: fixed","commit":{"oid":"deadbeef"}}]')" \
+  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"0ldc0mm1t"}},{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: fixed","commit":{"oid":"deadbeef"}}]')" \
   1 "UNREVIEWED HEAD"
 run_case "someone else reviewed the head" \
-  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]')" \
+  "$(wrap5 deadbeef '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]')" \
   0 "CLEAR"
 
 echo "== finding 19: a reviewer with nothing to say posts no review object =="
@@ -242,7 +242,7 @@ echo "== finding 19: a reviewer with nothing to say posts no review object =="
 # #873). The verdict must be the whole comment, in the shape the bot actually posts (the
 # builders below copy live comments): a body carrying the phrase plus finding text is a
 # finding, claimable and not coverage.
-wrap6() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"},{"createdAt":"2026-01-02T00:31:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":%s},"recheck":{"comments":{"nodes":%s}}}}}}' "$1" "${2:-$1}"; }
+wrap6() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"},{"createdAt":"2026-01-02T00:31:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":%s},"recheck":{"comments":{"nodes":%s}}}}}}' "$1" "${2:-$1}"; }
 # One top-level PR comment as GraphQL returns it: login, __typename, createdAt, a body
 # that is already a JSON string literal, and updatedAt ($5, defaulting to createdAt as
 # GitHub does for a comment nobody has edited).
@@ -254,7 +254,7 @@ cmt() { printf '{"author":{"login":"%s","__typename":"%s"},"createdAt":"%s","upd
 #
 # wrap9 is the wrap6 head with a review object already on it, for cases about whether a
 # comment needs a disposition rather than about what covers the head.
-wrap9() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' "$1" "${2:-$1}"; }
+wrap9() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' "$1" "${2:-$1}"; }
 # Codex's no-findings comment as posted: the phrase with sign-off $1, the reviewed commit
 # $2, and the folded About Codex block. Emits a JSON string literal.
 codex_body() { jq -n --arg s "$1" --arg sha "$2" '"Codex Review: Didn\u0027t find any major issues.\($s)\n\n**Reviewed commit:** `\($sha)`\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>"'; }
@@ -284,7 +284,7 @@ run_case "the author saying no findings is not coverage" \
   "$(wrap6 "[$(cmt me User 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")]")" \
   1 "UNREVIEWED HEAD"
 run_case "a verdict cannot cover a head that has no check suite (arrival unknown)" \
-  "$(printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")" "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")")" \
+  "$(printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")" "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")")" \
   1 "UNREVIEWED HEAD"
 run_case "a no-findings verdict is not a finding that needs a disposition" \
   "$(wrap9 "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body '' deadbeef)")")" \
@@ -390,7 +390,7 @@ HEAD40=5f8a63e13cd9fdc777d23165ecd5f149fb93f848
 BASE40=1aa0e96276e5500e60fc93f56d3c74298b4a2ba3
 OLD40=eb7fa388b1685edcb70514be82f072d7d6525819
 # wrap6 with a full-length head, which the walkthrough range names in full.
-wrap7() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":%s},"recheck":{"comments":{"nodes":%s}}}}}}' "$HEAD40" "$1" "${2:-$1}"; }
+wrap7() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"0ldc0mm1t"}}]},"comments":{"nodes":%s},"recheck":{"comments":{"nodes":%s}}}}}}' "$HEAD40" "$1" "${2:-$1}"; }
 # CodeRabbit's walkthrough after a review that produced no comments (#815): the block
 # between the recent_review markers names the range reviewed, from $1 to $2.
 cr_walkthrough() { jq -n --arg from "$1" --arg to "$2" '"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- recent_review_start -->\n\nNo actionable comments were generated in the recent review. 🎉\n\n<details>\n<summary>ℹ️ Recent review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: defaults\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `80692642-637e-46d1-bd3e-dea6682a1c78`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between \($from) and \($to).\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (1)</summary>\n\n* `scripts/check-review-threads.sh`\n\n</details>\n\n</details>\n\n---\n\n\n\n<!-- recent_review_end -->\n<!-- walkthrough_start -->\n\n<details>\n<summary>📝 Walkthrough</summary>\n\n## Walkthrough\n\nThe review gate binds a CodeRabbit result to the head it names.\n\n</details>\n\n<!-- walkthrough_end -->"'; }
@@ -680,7 +680,7 @@ run_case "a check-suite timestamp that will not parse blocks" \
   "$(wrap8 '[{"createdAt":"2026-01-02T00:30"}]' "$(cmt "$CODEX" Bot 2026-01-02T01:00:00Z "$(codex_body ' Bravo.' deadbeef)")")" \
   2 "check-suite timestamp"
 run_case "a review body whose timestamp will not parse blocks" \
-  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"a while ago","body":"P1: this drops the last row"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"a while ago","lastEditedAt":null,"body":"P1: this drops the last row"}]')" \
   2 "no parsable submittedAt"
 run_case "an answer whose timestamp will not parse answers nothing" \
   "$(wrap4 me '[]' '[]' "[$(cmt codex Bot 2026-01-02T00:30:00Z '"P1: this drops the last row"'),$(cmt me User yesterday '"RED-VERIFIED: tests/row.rs"')]")" \
@@ -786,8 +786,8 @@ mkdir -p "$TMP/bin"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/comments.json"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/comments2.json"
 printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/threads.json"
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":false,"comments":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"body":"P1: this landed while the gate was paging"}]}}]}}}}}' > "$TMP/threads2.json"
-review_payload() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"prcommits":{"totalCount":1,"nodes":[{"commit":{"oid":"deadbeef"}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","body":%s,"commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' "$1"; }
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":false,"comments":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:25:00Z","lastEditedAt":null,"body":"P1: this landed while the gate was paging"}]}}]}}}}}' > "$TMP/threads2.json"
+review_payload() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"prcommits":{"totalCount":1,"nodes":[{"commit":{"oid":"deadbeef"}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","lastEditedAt":null,"body":%s,"commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' "$1"; }
 review_payload '""' > "$TMP/reviews.json"
 review_payload '"P1: this landed while the gate was paging"' > "$TMP/reviews2.json"
 cat > "$TMP/bin/gh" <<'SHIM'
@@ -890,7 +890,7 @@ run_case "a check-suite timestamp of 2026-04-31 blocks (April has 30 days)" \
   "$(wrap8 '[{"createdAt":"2026-04-31T00:30:00Z"}]' "$(cmt "$CODEX" Bot 2026-05-04T01:00:00Z "$(codex_body ' Bravo.' deadbeef)")")" \
   2 "check-suite timestamp"
 run_case "a review submittedAt of 2026-02-31 blocks" \
-  "$(wrap '[]' '[{"author":{"login":"x"},"state":"COMMENTED","submittedAt":"2026-02-31T00:00:00Z","body":"P1: this drops the last row"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"x"},"state":"COMMENTED","submittedAt":"2026-02-31T00:00:00Z","lastEditedAt":null,"body":"P1: this drops the last row"}]')" \
   2 "no parsable submittedAt"
 # Guards, green before and after: real dates still parse, including a leap day.
 run_case "2028-02-29 is a real date and still orders" \
@@ -902,7 +902,7 @@ run_case "2026-02-28 is a real date and still orders" \
 
 echo "== regression: the original behaviours still hold =="
 run_case "unresolved thread blocks" \
-  "$(wrap '[{"isResolved":false,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"body":"something"}]}}]')" \
+  "$(wrap '[{"isResolved":false,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:26:00Z","lastEditedAt":null,"body":"something"}]}}]')" \
   1 "UNRESOLVED"
 # This case expected CLEAR until finding 29: a payload with no threads, no reviews and no
 # head names nothing this gate can certify as reviewed, so it is BLOCKED, not CLEAR. The
@@ -919,8 +919,8 @@ echo "== finding 19: a 128 KiB thread body must not kill the live-path merge =="
 # Reached through the live path with a gh shim, since --from-file skips the merge.
 mkdir -p "$TMP/bin"
 big_body=$(printf 'x%.0s' $(seq 1 200000))
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"databaseId":1,"author":{"login":"reviewer"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:00:00Z","body":"%s"},{"databaseId":2,"author":{"login":"me"},"path":"a.ts","line":1,"createdAt":"2026-01-02T00:00:00Z","body":"NOT-A-DEFECT: fixture padding, not a finding"}]}}]}}}}}' "$big_body" > "$TMP/threads.json"
-printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"databaseId":1,"author":{"login":"reviewer"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"%s"},{"databaseId":2,"author":{"login":"me"},"path":"a.ts","line":1,"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: fixture padding, not a finding"}]}}]}}}}}' "$big_body" > "$TMP/threads.json"
+printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/comments.json"
 # Quoted delimiter: nothing in the shim expands at write time; GATE_TEST_DIR
 # arrives via the environment when the gate execs gh.
@@ -950,8 +950,8 @@ echo "== finding 20: an OVERSIZED thread's paged comments ride an fd too =="
 # same MAX_ARG_STRLEN hazard as finding 19, reachable only when one thread's
 # totalCount exceeds COMMENTS_PAGE_SIZE. Shrunk to 2 here so three comments,
 # one of them ~200 KiB, walk the paging loop.
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"databaseId":1,"author":{"login":"reviewer"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:00:00Z","body":"%s"},{"databaseId":2,"author":{"login":"someone"},"path":"a.ts","line":1,"createdAt":"2026-01-01T01:00:00Z","body":"discussion"}]}}]}}}}}' "$big_body" > "$TMP/threads.json"
-printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"me"},"path":"a.ts","line":1,"body":"NOT-A-DEFECT: fixture padding, not a finding"}]}}}}' > "$TMP/threadpage.json"
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"databaseId":1,"author":{"login":"reviewer"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"%s"},{"databaseId":2,"author":{"login":"someone"},"path":"a.ts","line":1,"createdAt":"2026-01-01T01:00:00Z","lastEditedAt":null,"body":"discussion"}]}}]}}}}}' "$big_body" > "$TMP/threads.json"
+printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"me"},"path":"a.ts","line":1,"createdAt":"2026-01-01T00:27:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: fixture padding, not a finding"}]}}}}' > "$TMP/threadpage.json"
 cat > "$TMP/bin/gh" <<'SHIM'
 #!/bin/bash
 case "$*" in
@@ -1070,16 +1070,16 @@ echo "== finding 40: the thread comparison must read the comment BODIES =="
 mkdir -p "$TMP/bin"
 thread_read() {  # $1 the reply on the thread, $2 totalCount, $3.. the page-1 comments
   local reply=$1
-  printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":2,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"body":"this drops the last row"},{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"body":%s}]}}]}}}}}' "$reply"
+  printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":2,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:28:00Z","lastEditedAt":null,"body":"this drops the last row"},{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:29:00Z","lastEditedAt":null,"body":%s}]}}]}}}}}' "$reply"
 }
 thread_read '"NOT-A-DEFECT: renamed only, no behaviour change"' > "$TMP/threads.json"
 thread_read '"Actually the rename changed behaviour, this still drops the row"' > "$TMP/threads2.json"
-printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
+printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/comments.json"
 # An oversized thread: page 1 holds the finding and one line of chatter, page 2 holds the
 # reply, and the reply is what gets edited between the reads.
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"body":"this drops the last row"},{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"body":"discussion"}]}}]}}}}}' > "$TMP/paged.json"
-threadpage() { printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"body":%s}]}}}}' "$1"; }
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:30:00Z","lastEditedAt":null,"body":"this drops the last row"},{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:31:00Z","lastEditedAt":null,"body":"discussion"}]}}]}}}}}' > "$TMP/paged.json"
+threadpage() { printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:32:00Z","lastEditedAt":null,"body":%s}]}}}}' "$1"; }
 threadpage '"NOT-A-DEFECT: renamed only, no behaviour change"' > "$TMP/threadpage.json"
 threadpage '"Actually the rename changed behaviour, this still drops the row"' > "$TMP/threadpage2.json"
 printf '%s' "$PRCOMMITS_LIVE" > "$TMP/prcommits.json"
@@ -1130,9 +1130,9 @@ echo "== finding 41: an acknowledgement is not a new obligation =="
 # reason. Everyone else's review body is claimable exactly as before, and the vocabulary is
 # unchanged: REVIEW-ACK is still not a disposition and still answers nothing, it merely stops
 # being a claim itself.
-AUTHOR_ACK='{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","body":"REVIEW-ACK: round 3, three findings closed in abc1234"}'
-BOT_CLAIM='{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","body":"P1: this drops the last row"}'
-AUTHOR_DISP='{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","body":"RED-VERIFIED: tests/row.rs"}'
+AUTHOR_ACK='{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"REVIEW-ACK: round 3, three findings closed in abc1234"}'
+BOT_CLAIM='{"author":{"login":"codex"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"P1: this drops the last row"}'
+AUTHOR_DISP='{"author":{"login":"me"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: tests/row.rs"}'
 run_case "an author review body with no disposition does not block" \
   "$(wrap '[]' "[$AUTHOR_ACK]")" 0 "CLEAR"
 run_case "an author ack posted after the last disposition does not re-block" \
@@ -1144,15 +1144,15 @@ run_case "an author ack posted after the last disposition does not re-block" \
 # login; what IS reachable is an empty or absent one, and matching "" against "" would exempt
 # every unattributed body on such a payload.)
 run_case "a non-author review body with no disposition still blocks" \
-  "$(wrap '[]' '[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","body":"REVIEW-ACK: round 3, three findings closed in abc1234"}]')" \
+  "$(wrap '[]' '[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"REVIEW-ACK: round 3, three findings closed in abc1234"}]')" \
   1 "carry no disposition"
 run_case "an author disposition still answers a claim dated before it" \
   "$(wrap '[]' "[$BOT_CLAIM,$AUTHOR_DISP]")" 0 "CLEAR"
 run_case "a review naming no author is not the author's" \
-  "$(wrap '[]' '[{"author":null,"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","body":"P1: this drops the last row"}]')" \
+  "$(wrap '[]' '[{"author":null,"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"P1: this drops the last row"}]')" \
   1 "carry no disposition"
 run_case "a payload naming no author exempts nobody" \
-  "$(printf '{"data":{"repository":{"pullRequest":{"author":{"login":""},"headRefOid":"deadbeef","reviewThreads":{"nodes":[]},"reviews":{"nodes":[%s,{"author":null,"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","body":"P1: this drops the last row"}]}}}}}' "$COVER")" \
+  "$(printf '{"data":{"repository":{"pullRequest":{"author":{"login":""},"headRefOid":"deadbeef","reviewThreads":{"nodes":[]},"reviews":{"nodes":[%s,{"author":null,"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"P1: this drops the last row"}]}}}}}' "$COVER")" \
   1 "carry no disposition"
 # And the author's TOP-LEVEL COMMENT stays claimable: that is where a self-reported defect
 # lands, and finding 17 pins it. Only the review body, which is the channel this gate names
@@ -1183,16 +1183,16 @@ printf '{"data":{"node":null}}' > "$TMP/nullnode.json"
 printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/threads.json"
 # One resolved thread whose comments do not fit a page: the finding and its disposition on
 # page 1, one more comment on page 2. With COMMENTS_PAGE_SIZE=2 the gate pages it.
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"body":"this drops the last row"},{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"body":"NOT-A-DEFECT: renamed only, no behaviour change"}]}}]}}}}}' > "$TMP/pagedthreads.json"
-printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"body":"discussion"}]}}}}' > "$TMP/threadpage.json"
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":"CUR1"},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:33:00Z","lastEditedAt":null,"body":"this drops the last row"},{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:34:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed only, no behaviour change"}]}}]}}}}}' > "$TMP/pagedthreads.json"
+printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:35:00Z","lastEditedAt":null,"body":"discussion"}]}}}}' > "$TMP/threadpage.json"
 # The same comments page, claiming a page after it and naming no cursor to fetch that page
 # with. Folded in and read for hasNextPage, it ends the loop on a thread nobody finished.
-printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":true,"endCursor":null},"nodes":[{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"body":"discussion"}]}}}}' > "$TMP/nodenocursor.json"
+printf '{"data":{"node":{"comments":{"pageInfo":{"hasNextPage":true,"endCursor":null},"nodes":[{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:36:00Z","lastEditedAt":null,"body":"discussion"}]}}}}' > "$TMP/nodenocursor.json"
 # A resolved thread of 3 comments whose FIRST page (the one that arrives with the thread
 # list) already says another page follows and names no cursor. The disposition is on the
 # page nobody can ask for, so a run that skips the paging judges the thread undisposed.
-printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"body":"this drops the last row"},{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"body":"discussion"}]}}]}}}}}' > "$TMP/pagednocursor.json"
-printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
+printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":3,"pageInfo":{"hasNextPage":true,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:37:00Z","lastEditedAt":null,"body":"this drops the last row"},{"author":{"login":"onlooker"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:38:00Z","lastEditedAt":null,"body":"discussion"}]}}]}}}}}' > "$TMP/pagednocursor.json"
+printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/reviews.json"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[%s]}}}}}' "$CLAIM42" > "$TMP/comments.json"
 printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/nocomments.json"
 printf '%s' "$PRCOMMITS_LIVE" > "$TMP/prcommits.json"
@@ -1584,14 +1584,14 @@ CR_REVIEW='**Actionable comments posted: 2**\n\n<details>\n<summary>scripts/x.sh
 # A review object as GraphQL returns it: $1 login, $2 state, $3 submittedAt, $4 commit,
 # $5 body, $6 the comments connection (default: none, the shape of a fixture captured
 # before the gate read them).
-rev() { printf '{"author":{"login":"%s"},"state":"%s","submittedAt":"%s","commit":{"oid":"%s"},"body":"%s"%s}' \
+rev() { printf '{"author":{"login":"%s"},"state":"%s","submittedAt":"%s","lastEditedAt":null,"commit":{"oid":"%s"},"body":"%s"%s}' \
   "$1" "$2" "$3" "$4" "$5" "${6:+,\"comments\":$6}"; }
 REPLY_CONTAINER='{"totalCount":1,"nodes":[{"replyTo":{"id":"PRRC_reply"}}]}'
 INLINE_FINDING='{"totalCount":1,"nodes":[{"replyTo":null}]}'
 # The #897 payload: findings raised on the OLD head, both threads answered and resolved,
 # the author's disposition review, and two empty bot containers on the current head.
 wrap11() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":%s},"reviews":{"nodes":%s},"comments":{"nodes":[]},"recheck":{"comments":{"nodes":[]}}}}}}' "${2:-$ANSWERED_THREADS}" "$1"; }
-ANSWERED_THREADS='[{"id":"PRRT_1","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"coderabbitai"},"path":"scripts/x.sh","line":10,"originalLine":10,"body":"P1: this drops the last row"},{"author":{"login":"me"},"path":"scripts/x.sh","line":10,"originalLine":10,"body":"RED-VERIFIED: tests/row.rs"}]}},{"id":"PRRT_2","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"coderabbitai"},"path":"scripts/x.sh","line":20,"originalLine":20,"body":"P2: the count is off by one"},{"author":{"login":"me"},"path":"scripts/x.sh","line":20,"originalLine":20,"body":"NOT-A-DEFECT: reworded the message only"}]}}]'
+ANSWERED_THREADS='[{"id":"PRRT_1","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"coderabbitai"},"path":"scripts/x.sh","line":10,"originalLine":10,"createdAt":"2026-01-01T00:39:00Z","lastEditedAt":null,"body":"P1: this drops the last row"},{"author":{"login":"me"},"path":"scripts/x.sh","line":10,"originalLine":10,"createdAt":"2026-01-01T00:40:00Z","lastEditedAt":null,"body":"RED-VERIFIED: tests/row.rs"}]}},{"id":"PRRT_2","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"coderabbitai"},"path":"scripts/x.sh","line":20,"originalLine":20,"createdAt":"2026-01-01T00:41:00Z","lastEditedAt":null,"body":"P2: the count is off by one"},{"author":{"login":"me"},"path":"scripts/x.sh","line":20,"originalLine":20,"createdAt":"2026-01-01T00:42:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: reworded the message only"}]}}]'
 PR897=$(printf '[%s,%s,%s,%s]' \
   "$(rev coderabbitai COMMENTED 2026-01-02T00:10:00Z 0ldc0mm1t "$CR_REVIEW")" \
   "$(rev me COMMENTED 2026-01-02T01:00:00Z deadbeef 'RED-VERIFIED: tests/row.rs — both findings answered')" \
@@ -1640,7 +1640,7 @@ run_case "a PENDING review with a non-empty body on the head is not coverage" \
 # A review object this gate cannot read must block, not be waved past as coverage and not
 # be silently dropped from the count.
 run_case "a review on the head with a non-string state exits 2" \
-  "$(wrap5 deadbeef '[{"author":{"login":"reviewer"},"state":null,"submittedAt":"2026-01-02T00:50:00Z","commit":{"oid":"deadbeef"},"body":""}]')" \
+  "$(wrap5 deadbeef '[{"author":{"login":"reviewer"},"state":null,"submittedAt":"2026-01-02T00:50:00Z","lastEditedAt":null,"commit":{"oid":"deadbeef"},"body":""}]')" \
   2 "BLOCKED"
 run_case "a review whose comments connection is truncated exits 2" \
   "$(wrap5 deadbeef "[$(rev reviewer COMMENTED 2026-01-02T00:50:00Z deadbeef '' '{"totalCount":7,"nodes":[{"replyTo":{"id":"PRRC_reply"}}]}')]")" \
@@ -1852,14 +1852,16 @@ shape_problems=$(for f in "$FIXTURES"/review-threads-*.json; do
       elif ([ "reviews", "comments", "reviewThreads" ] | any(. as $k | ($pr[$k].nodes | type) != "array"))
         then "\($f): reviews/comments/reviewThreads.nodes is not an array"
       elif ($pr.reviews.nodes | any((.state | type) != "string" or (.body | type) != "string"
+              or (has("lastEditedAt") | not)
               or (.comments.totalCount | type) != "number" or (.comments.nodes | type) != "array"
               or any(.comments.nodes[]; has("replyTo") | not)))
-        then "\($f): a review lacks state/body/comments.totalCount/comments.nodes[].replyTo"
+        then "\($f): a review lacks state/body/lastEditedAt/comments.totalCount/comments.nodes[].replyTo"
       elif ($pr.reviewThreads.nodes | any((.id | type) != "string" or (.isResolved | type) != "boolean"
               or (.isOutdated | type) != "boolean"
               or any(.comments.nodes[]; (.author.login | type) != "string" or (.body | type) != "string"
-                     or (.path | type) != "string")))
-        then "\($f): a thread lacks id/isResolved/isOutdated or a comment lacks author/body/path"
+                     or (.path | type) != "string" or (.createdAt | type) != "string"
+                     or (has("lastEditedAt") | not))))
+        then "\($f): a thread lacks id/isResolved/isOutdated or a comment lacks author/body/path/createdAt/lastEditedAt"
       else empty end' "$f" 2>&1 || echo "$(basename "$f"): not JSON"
 done)
 nfix=$(find "$FIXTURES" -maxdepth 1 -name 'review-threads-*.json' | wc -l)
@@ -1908,7 +1910,7 @@ repo_case "a GITHUB_REPOSITORY that is not owner/name blocks" "GITHUB_REPOSITORY
 
 echo "== addition 2: EXPECT_HEAD binds the verdict to the commit CI posts it on =="
 H40=0123456789abcdef0123456789abcdef01234567
-wrapH() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2026-01-01T00:00:00Z","body":"","commit":{"oid":"%s"}}]},"comments":{"nodes":[]}}}}}' "$1" "$1"; }
+wrapH() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","reviewThreads":{"nodes":[]},"reviews":{"nodes":[{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"%s"}}]},"comments":{"nodes":[]}}}}}' "$1" "$1"; }
 run_env_case "EXPECT_HEAD equal to the head clears" "EXPECT_HEAD=$H40" "$(wrapH "$H40")" 0 "CLEAR"
 run_env_case "EXPECT_HEAD compares case-insensitively" "EXPECT_HEAD=${H40^^}" "$(wrapH "$H40")" 0 "CLEAR"
 run_env_case "a head other than EXPECT_HEAD blocks" \
@@ -1919,11 +1921,11 @@ echo "== addition 3: REQUIRE_HEAD_REVIEW_FROM needs EVERY listed reviewer on the
 REQ="REQUIRE_HEAD_REVIEW_FROM=chatgpt-codex-connector,coderabbitai"
 # One review object: $1 login, $2 __typename, $3 commit, $4 body (a JSON string literal),
 # $5 state, $6 its inline comments connection.
-rv() { printf '{"author":{"login":"%s","__typename":"%s"},"state":"%s","submittedAt":"2026-01-02T02:00:00Z","body":%s,"commit":{"oid":"%s"},"comments":%s}' \
+rv() { printf '{"author":{"login":"%s","__typename":"%s"},"state":"%s","submittedAt":"2026-01-02T02:00:00Z","lastEditedAt":null,"body":%s,"commit":{"oid":"%s"},"comments":%s}' \
   "$1" "$2" "${5:-COMMENTED}" "$4" "$3" "${6:-{\"totalCount\":0,\"nodes\":[]\}}"; }
 # The author's answer to every bot review body, dated after them (a review body from the
 # author is an answer, never a claim).
-ANS='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","body":"NOT-A-DEFECT: answered","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
+ANS='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: answered","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
 # $1 reviews (a JSON array body, without brackets), $2 top-level comments (likewise).
 wrapQ() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviewThreads":{"nodes":[]},"reviews":{"nodes":[%s]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' "$1" "${2:-}" "${2:-}"; }
 CODEX_RV=$(rv chatgpt-codex-connector Bot deadbeef '"### Codex Review\n\nP2: a finding"')
@@ -2113,13 +2115,113 @@ echo "== addition 6b: a review body is dated by its last edit =="
 # Finding submitted 01-02, answered 01-03, then edited 01-04 to add a second finding: the
 # 01-03 answer predates what the body now says.
 EDITED_RV='{"author":{"login":"coderabbitai","__typename":"Bot"},"state":"COMMENTED","submittedAt":"2026-01-02T00:00:00Z","lastEditedAt":"%s","body":"P1: drops a row. P1: and the index","commit":{"oid":"0ldc0mm1t"},"comments":{"totalCount":0,"nodes":[]}}'
-ANSWER_RV='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","body":"RED-VERIFIED: row.test.ts","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
+ANSWER_RV='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-03T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: row.test.ts","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
 run_env_case "a review edited after its answer is unanswered again" \
   "" "$(wrapQ "$(printf "$EDITED_RV" 2026-01-04T00:00:00Z),$ANSWER_RV,$APPROVE")" 1 "UNANSWERED coderabbitai"
 run_env_case "a review edited before its answer stays answered" \
   "" "$(wrapQ "$(printf "$EDITED_RV" 2026-01-02T12:00:00Z),$ANSWER_RV,$APPROVE")" 0 "CLEAR"
-run_env_case "a review never edited is dated by its submission" \
-  "" "$(wrapQ "$(printf "$EDITED_RV" '' | sed 's/"lastEditedAt":"",//'),$ANSWER_RV,$APPROVE")" 0 "CLEAR"
+run_env_case "a review never edited (lastEditedAt null) is dated by its submission" \
+  "" "$(wrapQ "$(printf "$EDITED_RV" '' | sed 's/"lastEditedAt":""/"lastEditedAt":null/'),$ANSWER_RV,$APPROVE")" 0 "CLEAR"
+
+echo "== addition 6c: an inline finding is dated by its last edit, like every other claim =="
+# A thread's finding is its FIRST comment, and GitHub lets it be edited in place. The thread
+# rule asked only that a disposition reply exist, so a nit answered NOT-A-DEFECT and resolved,
+# then edited into a P1, stayed CLEAR on the old answer. Review bodies and top-level comments
+# were already dated by their last edit; this is the same rule (written_at in the gate), so
+# a disposition answers the finding only when it was written after the finding's current
+# text. $1 is the finding's lastEditedAt member (with its trailing comma, or empty for a
+# payload that omits the field), $2 any further replies (each with a leading comma).
+# Guards, green before and after: edited before the answer, answered again after the edit,
+# never edited, and an answer rewritten after the edit.
+EDITED_TH='[{"id":"PRRT_edited","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"codex"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-01T00:00:00Z",%s"body":"P1: this drops the final row"},{"author":{"login":"me"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed only"}%s]}}]'
+edited_th() { printf "$EDITED_TH" "$1" "${2:-}"; }
+LATE_ANSWER=',{"author":{"login":"me"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-04T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: row.test.ts"}'
+run_case "an inline finding edited after its disposition is reopened" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",')")" 1 "REOPENED" "src/row.ts:7"
+run_case "an inline finding edited half a second after its disposition is reopened" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-02T00:00:00.5Z",')")" 1 "REOPENED" "src/row.ts:7"
+run_case "an inline finding edited before its disposition stays answered" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-01T12:00:00Z",')")" 0 "CLEAR"
+run_case "a new disposition after the edit answers the edited finding" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' "$LATE_ANSWER")")" 0 "CLEAR"
+run_case "an inline finding never edited (lastEditedAt null) is dated by its creation" \
+  "$(wrap "$(edited_th '"lastEditedAt":null,')")" 0 "CLEAR"
+# A disposition is dated by its own last edit, as an answering review or comment is.
+run_case "a disposition rewritten after the finding's edit answers it" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' | sed 's/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":"2026-01-05T00:00:00Z"/')")" 0 "CLEAR"
+# Fail closed: a resolved thread whose comments cannot be dated cannot be shown answered.
+run_case "an inline finding with no lastEditedAt field blocks" \
+  "$(wrap "$(edited_th '')")" 2 "lastEditedAt"
+run_case "an inline finding with an unparsable lastEditedAt blocks" \
+  "$(wrap "$(edited_th '"lastEditedAt":"yesterday",')")" 2 "lastEditedAt"
+run_case "an inline finding with no createdAt blocks" \
+  "$(wrap "$(edited_th '"lastEditedAt":null,' | sed 's/"createdAt":"2026-01-01T00:00:00Z",//')")" 2 "createdAt"
+run_case "a disposition reply with an unparsable createdAt blocks" \
+  "$(wrap "$(edited_th '"lastEditedAt":null,' | sed 's/"createdAt":"2026-01-02T00:00:00Z"/"createdAt":"2026-02-31T00:00:00Z"/')")" 2 "createdAt"
+
+# One rule for the review body as well: it is dated by the LATER of its submission and its
+# last edit. Dated by lastEditedAt alone, a review whose body was edited while it was still a
+# pending draft (lastEditedAt 01-02) and submitted 01-04 read as written before an answer
+# posted 01-03, an answer to an earlier round that could not have seen it.
+PENDING_RV='{"author":{"login":"coderabbitai","__typename":"Bot"},"state":"COMMENTED","submittedAt":"2026-01-04T00:00:00Z",%s"body":"P1: drops a row","commit":{"oid":"0ldc0mm1t"},"comments":{"totalCount":0,"nodes":[]}}'
+run_env_case "a review edited while pending is dated by its later submission" \
+  "" "$(wrapQ "$(printf "$PENDING_RV" '"lastEditedAt":"2026-01-02T00:00:00Z",'),$ANSWER_RV,$APPROVE")" 1 "UNANSWERED coderabbitai"
+# Answered on 01-05, after everything: only the missing or unparsable date can block these.
+LATE_ANSWER_RV='{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"2026-01-05T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: row.test.ts","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}'
+run_env_case "an answered review with no lastEditedAt field blocks" \
+  "" "$(wrapQ "$(printf "$PENDING_RV" ''),$LATE_ANSWER_RV,$APPROVE")" 2 "lastEditedAt"
+run_env_case "an answered review with an unparsable lastEditedAt blocks" \
+  "" "$(wrapQ "$(printf "$PENDING_RV" '"lastEditedAt":"2026-13-01T00:00:00Z",'),$LATE_ANSWER_RV,$APPROVE")" 2 "lastEditedAt"
+
+# The live path must FETCH what the rule reads: every thread-comment selection in the gate
+# asks for createdAt and lastEditedAt. Without them every finding reads as never edited.
+sel_total=$(grep -c 'path line originalLine' "$GATE")
+sel_dated=$(grep 'path line originalLine' "$GATE" | grep -c 'createdAt lastEditedAt')
+if [ "$sel_total" -ge 2 ] && [ "$sel_total" = "$sel_dated" ]; then
+  echo "  PASS  every thread-comment selection fetches createdAt and lastEditedAt"; pass=$((pass+1))
+else
+  echo "  FAIL  every thread-comment selection fetches createdAt and lastEditedAt ($sel_dated of $sel_total)"; fail=$((fail+1))
+fi
+
+# And the two reads of the threads are compared on the dates too: an edit landing between
+# them that leaves the body byte-identical still moves lastEditedAt, and the verdict must not
+# be taken from the earlier date.
+mkdir -p "$TMP/bin"
+dated_read() {
+  printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"id":"T1","isResolved":true,"isOutdated":false,"comments":{"totalCount":2,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T00:00:00Z","lastEditedAt":%s,"body":"this drops the last row"},{"author":{"login":"me"},"path":"a.ts","line":1,"originalLine":1,"createdAt":"2026-01-01T01:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed only, no behaviour change"}]}}]}}}}}' "$1"
+}
+dated_read 'null' > "$TMP/dthreads.json"
+dated_read '"2026-01-01T00:30:00Z"' > "$TMP/dthreads2.json"
+printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/dreviews.json"
+printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/dcomments.json"
+printf '%s' "$PRCOMMITS_LIVE" > "$TMP/prcommits.json"
+cat > "$TMP/bin/gh" <<'SHIM'
+#!/bin/bash
+nth() { local f=$GATE_TEST_DIR/$1.count n; n=$(cat "$f" 2>/dev/null || echo 0); n=$((n+1)); printf '%s' "$n" > "$f"; printf '%s' "$n"; }
+case "$*" in
+  *"commits(first"*)   cat "$GATE_TEST_DIR/prcommits.json" ;;
+  *reviewThreads*)
+    if [ "$(nth dthreads)" -le 1 ]; then cat "$GATE_TEST_DIR/dthreads.json"
+    else cat "$GATE_TEST_DIR/${GATE_TEST_DTHREADS2:-dthreads}.json"; fi ;;
+  *"reviews(first"*)   cat "$GATE_TEST_DIR/dreviews.json" ;;
+  *"comments(first"*)  cat "$GATE_TEST_DIR/dcomments.json" ;;
+  *headRefOid*)        printf 'deadbeef\n' ;;  # the recheck passes --jq
+esac
+SHIM
+chmod +x "$TMP/bin/gh"
+dated_case() {
+  local name=$1 want_rc=$2 want_txt=$3 out rc
+  rm -f "$TMP/dthreads.count"
+  out=$(GATE_TEST_DIR="$TMP" PATH="$TMP/bin:$PATH" bash "$GATE" 1 2>&1); rc=$?
+  if [ "$rc" = "$want_rc" ] && grep -qF "$want_txt" <<<"$out"; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc)"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1))
+  fi
+}
+GATE_TEST_DTHREADS2=dthreads2 \
+  dated_case "a finding's edit date moving between the two reads blocks" 2 "review threads on this PR changed"
+dated_case "two identically dated thread reads still reach a verdict" 0 "CLEAR"
 
 echo "== addition 7: the live PRs these rules were written against =="
 # #46: CodeRabbit's three review bodies (actionable comments, nitpicks) and six open threads

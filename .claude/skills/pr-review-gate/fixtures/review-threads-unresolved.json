@@ -30,6 +30,7 @@
               },
               "state": "APPROVED",
               "submittedAt": "2026-08-20T11:30:00Z",
+              "lastEditedAt": null,
               "body": "",
               "commit": {
                 "oid": "2ea0c9d5b2f7399d33667ae3dbeaacef47191d22"
@@ -63,6 +64,8 @@
                     "path": "src/uffd/server.rs",
                     "line": 216,
                     "originalLine": 210,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "Already handled in a follow-up commit."
                   }
                 ]
@@ -81,6 +84,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 179,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "P1: indexing the mapping can panic inside the fault handler and hang the guest."
                   }
                 ]
@@ -99,6 +104,8 @@
                     "path": "tests/test_snapshot_clone.rs",
                     "line": 2413,
                     "originalLine": 2413,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "Leaks two clone VMs when an assertion trips."
                   }
                 ]

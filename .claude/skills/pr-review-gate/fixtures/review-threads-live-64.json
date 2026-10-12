@@ -87,6 +87,8 @@
                     "path": "scripts/comparison-chart.mjs",
                     "line": null,
                     "originalLine": 394,
+                    "createdAt": "2026-10-11T13:49:10Z",
+                    "lastEditedAt": null,
                     "body": "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Describe the column-relative comparison accurately**\n\nThe `pnpm 12 install situations` section deliberately uses `compareAxis: \"col\"`, so its standings compare different rows down the column—for example, the sole frozen-install cell is shown as ×2.8 while “add one dependency” is fastest. This new lede, and the matching aria text below, instead state that every multiplier is relative to the row’s fastest; with one cell per row, that would make every cell fastest. Use section-specific wording or change the comparison axis so both the SVG and generated phone table identify the actual denominator.\n\nAGENTS.md reference: [AGENTS.md:L1168-L1170](https://github.com/ejc3/node-monorepo-perf/blob/ada54670e8aebf96a7944f10cd066f284b70da5a/AGENTS.md#L1168-L1170)\n\nUseful? React with 👍 / 👎."
                   },
                   {
@@ -96,6 +98,8 @@
                     "path": "scripts/comparison-chart.mjs",
                     "line": null,
                     "originalLine": 394,
+                    "createdAt": "2026-10-11T13:55:59Z",
+                    "lastEditedAt": null,
                     "body": "RED-VERIFIED: chartstyle-selftest \"tool-comparison's stated denominator names its column-compared section (README block)\" — fails on ada5467's README (lede said \"the row's fastest\"), passes on bc8f6f8, where the standing wording is derived from each section's compareAxis and names install situations as column-compared (SVG, aria label, README table)."
                   }
                 ]
@@ -113,6 +117,7 @@
               "state": "COMMENTED",
               "body": "\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `ada54670e8`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
               "submittedAt": "2026-10-11T13:49:10Z",
+              "lastEditedAt": null,
               "commit": {
                 "oid": "ada54670e8aebf96a7944f10cd066f284b70da5a"
               },
@@ -133,6 +138,7 @@
               "state": "COMMENTED",
               "body": "",
               "submittedAt": "2026-10-11T13:55:59Z",
+              "lastEditedAt": null,
               "commit": {
                 "oid": "ada54670e8aebf96a7944f10cd066f284b70da5a"
               },

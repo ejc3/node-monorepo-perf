@@ -18,7 +18,8 @@
 # the bot traffic on this repository (Codex's changing no-findings sign-off, Codex's
 # inline-comment container review, CodeRabbit's summary comment and two more of its
 # command acknowledgements). The summary-comment rule is a deliberate divergence: upstream
-# treats that comment as a claim.
+# treats that comment as a claim. It also dates every claim and answer by the later of its
+# creation and its last edit (written_at); upstream reads no lastEditedAt.
 #
 # Why GraphQL and not `created_at` heuristics: an earlier version of the docs
 # said "comment older than your fix commit => already addressed". That is wrong
@@ -121,16 +122,40 @@ TS_JQ='def ts:
               - (if $c.zsign == "-" then -1 else 1 end) * ($zh * 3600 + $zm * 60)
          end
     end
-  end;'
+  end;
+  # node-monorepo-perf addition. When the text the gate is reading was WRITTEN: the later
+  # of its creation and its last edit. Every claim and every answer is dated by this one
+  # rule, whatever kind it is (an inline finding, a review body, a top-level comment). A
+  # claim is mutable and its creation time does not move when it is edited, so a claim
+  # dated by creation inherits answers to what it used to say: a resolved nit edited into a
+  # P1 read as answered by the NOT-A-DEFECT on the nit. Dating by the edit alone is wrong
+  # the other way: a review body edited while it was a pending draft carries a lastEditedAt
+  # older than its submission.
+  # `edited` null means never edited. A creation or edit time that does not parse yields
+  # null, and a null answers nothing and is answered by nothing.
+  def written_at(created; edited):
+    (created | ts) as $c
+    | if $c == null then null
+      elif edited == null then $c
+      else (edited | ts) as $e
+           | if $e == null then null elif $e > $c then $e else $c end
+      end;
+  # The one-argument form is for objects that carry the GitHub field `lastEditedAt`, which
+  # is null when the object was never edited. An object WITHOUT the field was read by a
+  # query that did not ask for it and cannot be shown unedited: null, like a bad date.
+  def written_at(created):
+    if has("lastEditedAt") then written_at(created; .lastEditedAt) else null end;'
 
 # What a thread contributes to the verdict, in a form the two reads can be compared in.
 # The comment bodies are IN it: they are what the disposition and unresolved-listing rules
-# read, and an in-place edit moves neither the thread's flags nor its comment count. pageInfo
-# is deliberately out, since a cursor is not content and one differing between two reads of
-# the same threads would block on nothing.
+# read, and an in-place edit moves neither the thread's flags nor its comment count. So are
+# the comments' dates, which decide whether a disposition postdates the finding it answers.
+# pageInfo is deliberately out, since a cursor is not content and one differing between two
+# reads of the same threads would block on nothing.
 THREAD_FP_JQ='[ .[] | {id, isResolved, isOutdated, total: (.comments.totalCount // null),
                        comments: [ .comments.nodes[]? | {author: (.author.login // null), path,
-                                                         line, originalLine, body: (.body // null)} ]} ]
+                                                         line, originalLine, createdAt, lastEditedAt,
+                                                         body: (.body // null)} ]} ]
   | sort_by(.id | tostring)'
 
 # Every paging loop below folds a page in with `<connection>.nodes // []` and then reads
@@ -204,7 +229,7 @@ fetch_threads() {
                 comments(first: $COMMENTS_PAGE_SIZE) {
                   totalCount
                   pageInfo { hasNextPage endCursor }
-                  nodes { author { login } path line originalLine body }
+                  nodes { author { login } path line originalLine createdAt lastEditedAt body }
                 }
               } } } } }" 2>/dev/null) || return 1
 
@@ -255,7 +280,7 @@ fetch_threads() {
         { node(id: \"$tid\") { ... on PullRequestReviewThread {
             comments(first: $COMMENTS_PAGE_SIZE, after: \"$ccursor\") {
               pageInfo { hasNextPage endCursor }
-              nodes { author { login } path line originalLine body } } } } }" 2>/dev/null) || {
+              nodes { author { login } path line originalLine createdAt lastEditedAt body } } } } }" 2>/dev/null) || {
         # NOT `break`. A transient API/auth/rate-limit failure mid-thread used to return
         # the pages fetched so far as though they were the whole conversation — so an
         # early disposition could certify a thread nobody finished reading.
@@ -519,6 +544,22 @@ if ! jq -e 'all((.isResolved | type) == "boolean" and (.comments.nodes | type ==
   echo "an answer, and a thread that matches neither selector must not slip through." >&2
   exit 2
 fi
+# A resolved thread is CLEAR only when a disposition was written after the finding's current
+# text (written_at, below), so every comment on it must be datable: a parsable createdAt, and
+# a lastEditedAt that is null (never edited) or parsable. A comment without the field came
+# from a query that did not ask for it, and reading it as unedited is how a finding edited
+# after its answer stayed answered. Unresolved threads block whatever their dates say.
+if ! jq -e "$TS_JQ"'all(.[] | select(.isResolved == true) | .comments.nodes[]; written_at(.createdAt) != null)' \
+     >/dev/null 2>&1 <<<"$threads"; then
+  jq -r "$TS_JQ"'.[] | select(.isResolved == true) | .comments.nodes[]
+    | select(written_at(.createdAt) == null)
+    | "  UNDATED    \(.author.login // "?")  \(.path // "?"):\(.line // .originalLine // "?")  createdAt=\(.createdAt | tojson) lastEditedAt=\(if has("lastEditedAt") then (.lastEditedAt | tojson) else "(absent)" end)"' \
+    <<<"$threads" >&2 2>/dev/null
+  echo "verdict: BLOCKED — a comment on a resolved review thread has no parsable createdAt, or" >&2
+  echo "a lastEditedAt that is absent or does not parse, so this gate cannot tell whether its" >&2
+  echo "disposition was written after the finding it answers. Re-run, or re-capture the fixture." >&2
+  exit 2
+fi
 # Review data gets the SAME scrutiny as thread data. It did not, originally: `reviews` was
 # added in the commit that hardened `threads` and simply missed the validation, so a
 # malformed reviews array made the later jq fail, hit its `|| echo 0` fallback, and
@@ -538,6 +579,14 @@ if ! jq -e "$TS_JQ"'all(((.body // "") | test("[^[:space:]]") | not) or ((.submi
      >/dev/null 2>&1 <<<"$reviews"; then
   echo "verdict: BLOCKED — a non-empty review body has no parsable submittedAt timestamp, so" >&2
   echo "this gate cannot tell whether the answer came before or after the claim." >&2
+  exit 2
+fi
+# A review body is edited in place like a thread comment, and is dated the same way
+# (written_at): a non-empty body needs a lastEditedAt that is null or parsable.
+if ! jq -e "$TS_JQ"'all(((.body // "") | test("[^[:space:]]") | not) or (written_at(.submittedAt) != null))' \
+     >/dev/null 2>&1 <<<"$reviews"; then
+  echo "verdict: BLOCKED — a non-empty review body has a lastEditedAt that is absent or does" >&2
+  echo "not parse, so this gate cannot date the text it is reading against the answers to it." >&2
   exit 2
 fi
 if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$prcomments"; then
@@ -587,8 +636,9 @@ fi
 
 # Reviews and top-level comments are two containers for the same thing: a PR-level
 # statement. Judge them as one list, so an answer posted either way settles a claim posted
-# either way. `at` normalises submittedAt/updatedAt: a review is dated by its submission and
-# a comment by its last edit, which is when its current body came to say what it says.
+# either way. `when` normalises the dates through written_at: a review is dated by the later
+# of its submission and its last edit, and a comment by its updatedAt, which is when its
+# current body came to say what it says.
 #
 # `claimable` — what needs an answer — took several tries, and every wrong version made
 # the same mistake: inferring whether something is a FINDING from who wrote it.
@@ -1198,12 +1248,13 @@ fi
 # arrival, so a comment carrying several results is judged row by row.
 bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" --arg bots "$VERDICT_BOTS" \
    --arg codex "$CODEX_LOGIN" --arg cr "$CODERABBIT_LOGIN" --arg me "$prauthor" \
-   "$VERDICT_JQ"'($ignore | split(",")) as $skip
+   "$TS_JQ""$VERDICT_JQ"'($ignore | split(",")) as $skip
   | ($bots | split(",")) as $botlogins
-  # node-monorepo-perf addition: a review body is dated by its last edit (lastEditedAt), as a
-  # comment is by updatedAt. Dated by submittedAt, a finding added by editing a review after
-  # it was answered inherited that older answer.
-  | (.[0] | map({author, state, body, at: (.lastEditedAt // .submittedAt),
+  # `when` is the instant the text was written (written_at, shared with the thread rule): a
+  # review by the later of its submission and its last edit, a comment by the later of its
+  # creation and its updatedAt. Dated by submittedAt, a finding added by editing a review
+  # after it was answered inherited that older answer.
+  | (.[0] | map({author, state, body, when: written_at(.submittedAt),
                  claimable: (((.state // "COMMENTED") != "APPROVED")
                              and (($me == "") or ((.author.login // "") != $me))
                              # node-monorepo-perf addition: is_codex_review_container
@@ -1220,7 +1271,7 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
                       or (($c.author.login // "") == $cr and ($c.body | is_cr_notice)))) as $notice
       # node-monorepo-perf addition: is_cr_summary_comment, from the CodeRabbit Bot only.
       | ($listed and (($c.author.login // "") == $cr) and ($c.body | is_cr_summary_comment)) as $crsum
-      | {author, state: "COMMENT", body, at: .updatedAt,
+      | {author, state: "COMMENT", body, when: written_at(.createdAt; .updatedAt),
          verdict: ($v or $sum), notice: $notice,
          reviewed_rows: ((if $notice then []
                           elif $v then [{sha: ($c.body | verdict_sha), at: .createdAt}]
@@ -1292,28 +1343,41 @@ disposition_re='\A[[:space:]]*(RED-VERIFIED|NOT-A-DEFECT|DISAGREE):[[:space:]]*[
 # for a routine fail-closed, which is the worse of the two: a gate that cries wolf on normal
 # conversation gets switched off, and then it catches nothing at all.
 #
-# What remains is that a disposition must EXIST as a reply. Resolving is a deliberate act;
+# What remains is that a disposition must EXIST as a reply, written after the finding's
+# current text. The finding is the thread's first comment, and it is a claim like a review
+# body or a top-level comment: GitHub lets it be edited in place, so it is dated by
+# written_at (the later of its creation and its last edit), and a disposition counts only
+# when its own written_at is later. A resolved nit edited into a P1 after its NOT-A-DEFECT
+# is REOPENED until someone answers what it now says. Resolving is a deliberate act;
 # resolving a thread whose latest message you have not answered is a human failure this
 # script does not try to model.
-undisposed=$(jq -r --arg re "$disposition_re" '[ .[] | select(.isResolved == true)
-  | select(any(.comments.nodes[1:][]; (.body // "") | test($re)) | not) ] | length' \
+THREAD_OPEN_JQ="$TS_JQ"'def answered($re):
+    (.comments.nodes[0] | written_at(.createdAt)) as $cat
+    | $cat != null
+      and any(.comments.nodes[1:][];
+              ((.body // "") | test($re)) and ((written_at(.createdAt)) as $w | $w != null and $w > $cat));
+  def disposed($re): any(.comments.nodes[1:][]; (.body // "") | test($re));
+  [ .[] | select(.isResolved == true) | select(answered($re) | not) ]'
+undisposed=$(jq -r --arg re "$disposition_re" "$THREAD_OPEN_JQ"' | length' \
   <<<"$threads") || {
   echo "verdict: BLOCKED — could not evaluate thread dispositions." >&2; exit 2; }
 
 if [ "${undisposed:-0}" -gt 0 ]; then
   echo
-  jq -r --arg re "$disposition_re" '.[] | select(.isResolved == true)
-    | select(any(.comments.nodes[1:][]; (.body // "") | test($re)) | not)
+  jq -r --arg re "$disposition_re" "$THREAD_OPEN_JQ"' | .[]
+    | (if disposed($re) then "REOPENED  " else "UNDISPOSED" end) as $label
+    | (if disposed($re) then "  (edited after its last disposition; answer what it says now)" else "" end) as $why
     | .comments.nodes[0]
-    | "  UNDISPOSED \(.author.login)  \(.path):\(.line // .originalLine // "?")\n    \(.body | split("\n")[0][0:150])"' \
+    | "  \($label) \(.author.login)  \(.path):\(.line // .originalLine // "?")\($why)\n    \(.body | split("\n")[0][0:150])"' \
     <<<"$threads"
   echo
-  echo "verdict: BLOCKED — $undisposed resolved thread(s) carry no disposition reply."
+  echo "verdict: BLOCKED — $undisposed resolved thread(s) carry no disposition reply written after the finding."
   echo "Reply in the thread with one of:"
   echo "  RED-VERIFIED: <test>    after watching that test fail with the fix reverted"
   echo "  NOT-A-DEFECT: <reason>  for naming/docs/style findings"
   echo "  DISAGREE: <reason>      to reject a defect claim, with the reasoning"
-  echo "Resolving without replying closes a finding without answering it."
+  echo "Resolving without replying closes a finding without answering it, and a finding"
+  echo "edited after its disposition needs a new one: the old reply answered the old text."
   rc=1
 fi
 
@@ -1335,11 +1399,11 @@ fi
 # have been answered, so it stays outstanding; the validation above blocks both shapes
 # first, and this keeps the comparison itself fail-closed rather than resting on that.
 unanswered=$(jq -r --arg re "$disposition_re" "$TS_JQ"'
-  [ .[] | select((.body // "") | test($re)) | (.at | ts) | select(. != null) ] as $answers
+  [ .[] | select((.body // "") | test($re)) | .when | select(. != null) ] as $answers
   | [ .[] | select(.claimable)
           | select((.body // "") | test("[^[:space:]]"))
           | select(((.body // "") | test($re)) | not)
-          | (.at | ts) as $cat
+          | .when as $cat
           | select($cat == null or ([ $answers[] | select(. > $cat) ] | length == 0)) ]
   | length' <<<"$bodies") || {
   echo "verdict: BLOCKED — could not evaluate PR-level bodies." >&2; exit 2; }
@@ -1347,11 +1411,11 @@ unanswered=$(jq -r --arg re "$disposition_re" "$TS_JQ"'
 if [ "${unanswered:-0}" -gt 0 ]; then
   echo
   jq -r --arg re "$disposition_re" "$TS_JQ"'
-    [ .[] | select((.body // "") | test($re)) | (.at | ts) | select(. != null) ] as $answers
+    [ .[] | select((.body // "") | test($re)) | .when | select(. != null) ] as $answers
     | .[] | select(.claimable)
     | select((.body // "") | test("[^[:space:]]"))
     | select(((.body // "") | test($re)) | not)
-    | (.at | ts) as $cat
+    | .when as $cat
     | select($cat == null or ([ $answers[] | select(. > $cat) ] | length == 0))
     | "  UNANSWERED \(.author.login) (\(.state))\n    \(.body | split("\n")[0][0:150])"' <<<"$bodies"
   echo

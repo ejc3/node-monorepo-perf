@@ -1404,7 +1404,8 @@ a re-run of the gate.
 The gate blocks on:
 
 - an unresolved review thread (outdated ones included);
-- a resolved thread with no reply that opens with a disposition;
+- a resolved thread with no reply that opens with a disposition and was written after the
+  finding's last edit (a finding edited after its disposition needs a new one);
 - a PR-level finding (a review body from anyone but the PR author, or a top-level PR
   comment, the author's included) with no disposition posted after it;
 - a head commit nobody but the author reviewed (an empty review object is a reply
@@ -1413,7 +1414,9 @@ The gate blocks on:
   (`REQUIRE_HEAD_REVIEW_FROM`): a covering review object from that bot on the head, or its
   no-findings result naming the head and dated after the head arrived.
 
-Dispositions open a reply of their own and are newer than the claim they answer:
+Dispositions open a reply of their own and are newer than the claim they answer. Every
+claim and every answer (an inline finding, a review body, a top-level comment) is dated by
+when its current text was written: the later of its creation and its last edit.
 
 | Disposition | Use for |
 |---|---|

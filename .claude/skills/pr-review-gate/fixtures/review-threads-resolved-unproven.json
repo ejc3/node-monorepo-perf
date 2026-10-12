@@ -30,6 +30,7 @@
               },
               "state": "APPROVED",
               "submittedAt": "2026-08-20T11:30:00Z",
+              "lastEditedAt": null,
               "body": "",
               "commit": {
                 "oid": "cb226f8d3418b51af89484d7bfc5387fed6c5114"
@@ -63,6 +64,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 196,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "P1: indexing the snapshot mapping can panic inside the fault-handler task and hang the guest."
                   },
                   {
@@ -72,6 +75,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 196,
+                    "createdAt": "2026-08-20T11:20:00Z",
+                    "lastEditedAt": null,
                     "body": "Fixed in 7672df92 — now uses a checked get()."
                   }
                 ]

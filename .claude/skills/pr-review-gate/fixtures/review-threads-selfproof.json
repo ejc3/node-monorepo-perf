@@ -30,6 +30,7 @@
               },
               "state": "APPROVED",
               "submittedAt": "2026-08-20T11:30:00Z",
+              "lastEditedAt": null,
               "body": "",
               "commit": {
                 "oid": "800c03843fe060b6ec0cb3661614577b7f85bde1"
@@ -63,6 +64,8 @@
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
                     "originalLine": 196,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "P1: this can panic inside the fault handler and hang the guest. Policy note: resolutions require a RED-VERIFIED: <test> reply."
                   }
                 ]

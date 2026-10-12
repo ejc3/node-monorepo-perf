@@ -30,6 +30,7 @@
               },
               "state": "APPROVED",
               "submittedAt": "2026-08-20T11:30:00Z",
+              "lastEditedAt": null,
               "body": "",
               "commit": {
                 "oid": "dff10de24c30fe5c61175fe8d355af2a01a0ef46"
@@ -63,6 +64,8 @@
                     "path": "src/uffd/server.rs",
                     "line": 216,
                     "originalLine": 210,
+                    "createdAt": "2026-08-20T11:05:00Z",
+                    "lastEditedAt": null,
                     "body": "Nit: `srv` reads as an abbreviation of server here."
                   },
                   {
@@ -72,6 +75,8 @@
                     "path": "src/uffd/server.rs",
                     "line": 216,
                     "originalLine": 210,
+                    "createdAt": "2026-08-20T11:20:00Z",
+                    "lastEditedAt": null,
                     "body": "NOT-A-DEFECT: naming only, no behavior claimed."
                   }
                 ]
