@@ -42,7 +42,7 @@ import {
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { bench } from "./bench.mjs";
-import { APPS, REPO, ROOT, ensureDir, machine, median, parseArgs, withCpus } from "./lib.mjs";
+import { APPS, REPO, ROOT, ensureDir, publicMachine, median, parseArgs, withCpus } from "./lib.mjs";
 import { transpile } from "./route-stats.mjs";
 
 const HOOK = join(dirname(new URL(import.meta.url).pathname), "next-overlay.cjs");
@@ -259,7 +259,7 @@ export async function nextAb({
     const record = {
       description:
         "whole builds (next build --experimental-build-mode=compile), base against a candidate: a patch to Next.js sources as of v16.4.0 loaded over the app's next/dist files, or another node binary; see scripts/turbopack-gym/next-ab.mjs",
-      machine: machine(),
+      machine: publicMachine(),
       app: basename(appDir),
       binding,
       cpus,

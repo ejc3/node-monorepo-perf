@@ -32,10 +32,10 @@ import {
   ROOT,
   checkAborted,
   ensureDir,
-  machine,
   median,
   onAbort,
   parseArgs,
+  publicMachine,
   withCpus,
 } from "./lib.mjs";
 
@@ -184,7 +184,7 @@ export async function routeStats({
     const record = {
       description:
         "writeRouteBundleStats on one build's output, Next.js's route-bundle-stats.ts against a candidate's, each run a fresh node process on one CPU; see scripts/turbopack-gym/route-stats.mjs",
-      machine: machine(),
+      machine: publicMachine(),
       app: basename(app),
       cpu,
       reps,

@@ -24,6 +24,7 @@ import {
   RUNS,
   median,
   parseArgs,
+  publicMachine,
   publishedBinding,
   readJsonl,
 } from "./lib.mjs";
@@ -125,10 +126,6 @@ const common = {
   bindingBuild:
     "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
 };
-const publicMachine = () => {
-  const { boot, ...m } = recordMachine; // the boot hash stays in the raw logs
-  return m;
-};
 const write = (rec) => {
   const path = a.out || join(REPO, "bench", OUT); // --out: elsewhere (selftest, --host)
   mkdirSync(dirname(path), { recursive: true });
@@ -193,7 +190,7 @@ if (kind === "scaling") {
     sweep,
     tag: manifest.tag,
     app: { name: runs[0].app, appHash: runs[0].appHash, ...app(runs[0].app).shape },
-    machine: publicMachine(),
+    machine: publicMachine(recordMachine),
     bindings: bindingsUsed(runs.map((r) => r.binding)),
     points,
   });
@@ -281,7 +278,7 @@ if (kind === "scaling") {
   );
   write({
     ...common,
-    machine: publicMachine(),
+    machine: publicMachine(recordMachine),
     apps,
     bindings: bindingsUsed(rows.flatMap((r) => [r.a.binding, r.b.binding])),
     rows,

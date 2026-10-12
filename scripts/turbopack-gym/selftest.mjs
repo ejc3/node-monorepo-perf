@@ -894,6 +894,20 @@ function reportWith(keys, extra = {}, args = []) {
   } else check(false, "the quick app has typescript (next-ab.mjs overlay test)");
 }
 
+// --- published records carry no boot id ----------------------------------------------
+{
+  // the boot id is for raw logs only; records written straight to bench/ take the machine
+  // fields without it
+  const pub = lib.publicMachine ? lib.publicMachine() : lib.machine();
+  const writers = ["route-stats.mjs", "next-ab.mjs"].filter((f) =>
+    /machine: machine\(\)/.test(readFileSync(new URL(`./${f}`, import.meta.url), "utf8")),
+  );
+  check(
+    !("boot" in pub) && pub.instanceType !== undefined && writers.length === 0,
+    `records written by route-stats.mjs and next-ab.mjs leave out the boot id (${writers.join(", ") || "none embed machine()"})`,
+  );
+}
+
 // --- bench.mjs --node ----------------------------------------------------------------
 {
   // a build with another node binary records that binary's version and hash

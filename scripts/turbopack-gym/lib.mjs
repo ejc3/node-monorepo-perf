@@ -319,6 +319,13 @@ export function machine() {
   return machineCache;
 }
 
+// Machine fields without the boot id (this machine's, or a run's), for a published record:
+// the boot id stays in the raw logs.
+export function publicMachine(fields = machine()) {
+  const { boot, ...rest } = fields;
+  return rest;
+}
+
 // Per-CPU locks: a run holds a lock for every CPU it uses, so any two runs whose CPU
 // sets overlap exclude each other, whatever lanes they were given.
 export function expandCpus(list) {

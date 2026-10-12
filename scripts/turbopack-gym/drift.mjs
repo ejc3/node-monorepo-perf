@@ -58,6 +58,7 @@ import {
   median,
   pageWorkersEnv,
   parseArgs,
+  publicMachine,
   publishedBinding,
   readJsonl,
   withCpus,
@@ -629,7 +630,7 @@ function record(o) {
       throw new Error(`run ${r.id} ran on a different machine or boot than the record's first run`);
   };
   const out = plans.map((p) => series(p, check));
-  const { boot, ...publicMachine } = machine;
+  const published = publicMachine(machine);
   const { out: _, ...shape } = JSON.parse(readFileSync(join(app, "monolith.json"), "utf8"));
   const map = BINDING_MAP();
   const rec = {
@@ -639,7 +640,7 @@ function record(o) {
       "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
     tag: first.tag,
     pageWorkers: first.pageWorkers || "default",
-    note: publicMachine.sharedBox
+    note: published.sharedBox
       ? "shared box: other tenants' processes ran beside these builds (outside their CPU set); compare within this record only"
       : "dedicated box",
     method: {
@@ -660,7 +661,7 @@ function record(o) {
         "startup = run-turbopack's start offset; preEmit = emit start - run-turbopack start; afterCompile = wall - run-turbopack end; lowCoreS = whole seconds inside run-turbopack using under 1.5 cores (the scope's cpu.stat), leadLowCoreS = those from its start before the first busier second. A warm build emits no module-graph or write-entrypoints span for its recomputation, so its graph/entrypoints fields are null",
     },
     app: { name: first.app, appHash: first.pristine, ...shape },
-    machine: publicMachine,
+    machine: published,
     cpus: first.cpus,
     reps: first.reps,
     bindings: Object.fromEntries(first.bindings.map((b) => [b, publishedBinding(map, b)])),
