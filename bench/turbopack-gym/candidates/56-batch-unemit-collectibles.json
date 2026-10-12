@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks + turbo-tasks-backend: drop_collectibles/take_collectibles (unemit_collectibles) remove a task's collectibles as one UpdateCollectibleOperation (new Backend::unemit_collectibles, defaulting to the old per-collectible loop) instead of one operation per collectible; each change is applied to the task as before, invalidations are issued once per collectible type, and the task's uppers get one aggregated data update for the batch, so the aggregation graph above the task is walked once instead of once per collectible",
+  "patch": "bench/turbopack-gym/candidates/56-batch-unemit-collectibles.patch",
+  "base": "vercel/next.js v16.4.0"
+}

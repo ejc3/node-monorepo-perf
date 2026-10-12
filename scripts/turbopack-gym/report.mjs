@@ -28,7 +28,7 @@ const abRecords = Object.fromEntries(
     .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
 );
 // optional: the persistent-cache drift records (dr.* keys), by name
-const DRIFT = { main: "turbopack-graph-drift.json" };
+const DRIFT = { main: "turbopack-graph-drift.json", c56: "turbopack-graph-drift-56.json" };
 const drift = Object.fromEntries(
   Object.entries(DRIFT)
     .map(([k, f]) => [k, join(REPO, "bench", f)])
@@ -111,7 +111,7 @@ function scalingTable() {
 //   sc.<binding>.<lo>-<hi>.<graph|cores|sys|tp|entry>        range over points lo..hi
 //   ratio.sc.<b1>.<b2>.<cores>.graph  scaling graph ratio b2/b1 at a size (2 decimals)
 //   machine                           instance, CPUs, NUMA nodes, memory, node
-//   dr.<rec>.<edit>.<binding>.<N>.<mode>.<wall|turbopack|preEmit>
+//   dr.<rec>.<edit>.<binding>.<N>.<mode>.<wall|turbopack|emit|preEmit|lowCoreS>
 //                                     drift median (seconds, 1 decimal); rec names a drift
 //                                     record (DRIFT), mode warm|cold|off
 //   dr.<rec>.<edit>.<binding>.<N>.<mode>.over.<mode2>  ratio of the two modes' wall medians
