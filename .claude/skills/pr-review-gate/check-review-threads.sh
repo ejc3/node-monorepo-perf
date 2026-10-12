@@ -151,7 +151,66 @@ TS_JQ='def ts:
   # disposition edited after a newer claim does not stretch over that claim. Its current
   # text still decides whether it is a disposition. An unparsable creation time is null, and
   # a null answers nothing.
-  def answered_at(created): created | ts;'
+  def answered_at(created): created | ts;
+  # node-monorepo-perf addition. CodeRabbit edits its own finding seconds after it is
+  # answered, and those edits are acknowledgements, not new claims. Observed on #65 and #67:
+  # the closing marker "<!-- This is an auto-generated comment by CodeRabbit -->" becomes
+  # "<!-- This is an auto-generated reply by CodeRabbit -->", and on #65 a second edit then
+  # appends "\n\n✅ Confirmed as addressed by @<login>\n\n" and the comment marker. Input:
+  # the current body; true when it is $base after at most one marker swap and at most one
+  # such acknowledgement, and nothing else. (#46 shows a third form, "✅ Addressed in commit
+  # <sha>", appended to a finding nobody answered; it is not on this list.)
+  def is_cr_ack_of($base):
+    . as $cur
+    | "<!-- This is an auto-generated comment by CodeRabbit -->" as $mc
+    | "<!-- This is an auto-generated reply by CodeRabbit -->" as $mr
+    | (if ($base | endswith($mc)) then ($base | .[0:(length - ($mc | length))]) + $mr
+       else $base end) as $swapped
+    | if $cur == $base or $cur == $swapped then true
+      elif ($swapped | endswith($mr)) | not then false
+      else ($cur | split("\n\n✅ Confirmed as addressed by @")) as $p
+           | if ($p | length) != 2 or $p[0] != $swapped then false
+             else ($p[1] | split("\n\n")) as $q
+                  | ($q | length) == 2 and $q[1] == $mc
+                    and ($q[0] | test("\\A[A-Za-z0-9][A-Za-z0-9-]{0,38}\\z"))
+             end
+      end;
+  # Input: a claim (a thread finding). True when every edit made at or after instant $t was
+  # an acknowledgement by the $cr Bot, proven from the edit history (userContentEdits, whose
+  # `diff` is the body as that revision left it): the finding is the bot account own, the
+  # history is complete (one page, totalCount revisions, none deleted, every editedAt
+  # parsable and distinct), its oldest revision is the original (dated at creation) and its
+  # newest is the current body, every revision at or after $t is by the bot, and the body
+  # as it stood before $t becomes the current one by is_cr_ack_of alone. Anything else is
+  # false, and the claim stands as edited.
+  def ack_only_since($t; $cr):
+    . as $c | ($c.userContentEdits) as $h
+    | if (($c.author.login // "") == $cr) and (($c.author.__typename // "") == "Bot")
+         and ($h | type) == "object" and ($h.nodes | type) == "array"
+         and ($h.nodes | length) > 0 and $h.totalCount == ($h.nodes | length)
+         and $h.pageInfo.hasNextPage == false
+         and all($h.nodes[]; .deletedAt == null and (.diff | type) == "string"
+                             and (.editedAt | ts) != null)
+      then ([ $h.nodes[] | {at: (.editedAt | ts), diff,
+                            bot: (((.editor.login // "") == $cr)
+                                  and ((.editor.__typename // "") == "Bot"))} ]
+            | sort_by(.at)) as $e
+           | ([ $e[] | select(.at < $t) ] | last) as $base
+           | ($e | map(.at) | unique | length) == ($e | length)
+             and $e[0].at == ($c.createdAt | ts) and $e[-1].diff == $c.body
+             and $base != null and all($e[] | select(.at >= $t); .bot)
+             and ($c.body | is_cr_ack_of($base.diff))
+      else false end;
+  # THE comparison of a claim against an answer created at $w (answered_at): the answer
+  # stands when it postdates what the claim says now (written_at), or when it postdates the
+  # claim and every later edit was an acknowledgement (ack_only_since).
+  def answers_claim($claim; $cr):
+    . as $w
+    | ($claim | written_at(.createdAt)) as $cat
+    | $w != null and $cat != null
+      and ($w > $cat
+           or ((($claim.createdAt | ts) as $born | $born != null and $w > $born)
+               and ($claim | ack_only_since($w; $cr))));'
 
 # What a thread contributes to the verdict, in a form the two reads can be compared in.
 # The comment bodies are IN it: they are what the disposition and unresolved-listing rules
@@ -167,8 +226,9 @@ TS_JQ='def ts:
 THREAD_FP_JQ='def keep($ks): with_entries(select(.key | IN($ks[])));
   [ .[] | keep(["id", "isResolved", "isOutdated"])
           + {total: (.comments.totalCount // null),
-             comments: [ .comments.nodes[]? | {author: (.author.login // null)}
-                         + keep(["path", "line", "originalLine", "createdAt", "lastEditedAt", "body"]) ]} ]
+             comments: [ .comments.nodes[]? | {author: (.author // null)}
+                         + keep(["id", "path", "line", "originalLine", "createdAt", "lastEditedAt",
+                                 "body"]) ]} ]
   | sort_by(.id | tostring)'
 
 # Every paging loop below folds a page in with `<connection>.nodes // []` and then reads
@@ -242,7 +302,7 @@ fetch_threads() {
                 comments(first: $COMMENTS_PAGE_SIZE) {
                   totalCount
                   pageInfo { hasNextPage endCursor }
-                  nodes { author { login } path line originalLine createdAt lastEditedAt body }
+                  nodes { id author { login __typename } path line originalLine createdAt lastEditedAt body }
                 }
               } } } } }" 2>/dev/null) || return 1
 
@@ -293,7 +353,7 @@ fetch_threads() {
         { node(id: \"$tid\") { ... on PullRequestReviewThread {
             comments(first: $COMMENTS_PAGE_SIZE, after: \"$ccursor\") {
               pageInfo { hasNextPage endCursor }
-              nodes { author { login } path line originalLine createdAt lastEditedAt body } } } } }" 2>/dev/null) || {
+              nodes { id author { login __typename } path line originalLine createdAt lastEditedAt body } } } } }" 2>/dev/null) || {
         # NOT `break`. A transient API/auth/rate-limit failure mid-thread used to return
         # the pages fetched so far as though they were the whole conversation — so an
         # early disposition could certify a thread nobody finished reading.
@@ -318,6 +378,36 @@ fetch_threads() {
     # string, so they ride an fd too.
     threads=$(jq --arg id "$tid" --slurpfile c <(printf '%s' "$all_comments") \
       'map(if .id == $id then .comments.nodes = $c[0] else . end)' <<<"$threads")
+  done
+  printf '%s' "$threads"
+}
+
+# node-monorepo-perf addition. The edit history of every EDITED finding on a resolved
+# thread, which ack_only_since reads to tell a CodeRabbit acknowledgement from a new claim.
+# It cannot ride the thread query: 100 threads x 100 comments x 100 revisions is past
+# GitHub's 500,000-node limit, so each such finding is read by its node id, one page of 100
+# revisions. A request that fails is a read failure (return 1). A response without the
+# connection (a null node) is attached as it came, and ack_only_since reads a history that
+# is not there, or that has a further page, as unproven, so the finding stays reopened.
+# The history is read after both thread reads, so an edit landing in between makes its
+# newest revision differ from the body the verdict reads, which also leaves it reopened.
+attach_edit_histories() {
+  local threads=$1 cid eresp
+  for cid in $(jq -r '.[] | select(.isResolved == true) | .comments.nodes[0]
+                      | select(.lastEditedAt != null) | .id // empty' <<<"$threads"); do
+    eresp=$(gh api graphql -f query="
+      { node(id: \"$cid\") { ... on PullRequestReviewComment {
+          userContentEdits(first: 100) {
+            totalCount
+            pageInfo { hasNextPage endCursor }
+            nodes { editedAt deletedAt editor { login __typename } diff } } } } }" 2>/dev/null) || {
+      echo "verdict: BLOCKED. Could not read the edit history of review comment $cid." >&2
+      return 1
+    }
+    threads=$(jq --arg id "$cid" --slurpfile e <(printf '%s' "$eresp") '
+      map(if (.comments.nodes[0].id // "") == $id
+          then .comments.nodes[0].userContentEdits = ($e[0].data.node.userContentEdits // null)
+          else . end)' <<<"$threads") || return 1
   done
   printf '%s' "$threads"
 }
@@ -476,6 +566,8 @@ fetch_payload() {
     echo "against a PR that is holding still." >&2
     return 2
   fi
+
+  threads=$(attach_edit_histories "$threads") || return $?
 
   # Re-read the head AFTER all paging. A push landing mid-evaluation would otherwise leave
   # $headoid describing the commit captured by the first query, and the coverage check
@@ -1363,24 +1455,25 @@ disposition_re='\A[[:space:]]*(RED-VERIFIED|NOT-A-DEFECT|DISAGREE):[[:space:]]*[
 # current text. The finding is the thread's first comment, and it is a claim like a review
 # body or a top-level comment: GitHub lets it be edited in place, so it is dated by
 # written_at (the later of its creation and its last edit), and a disposition counts only
-# when it was CREATED later (answered_at): its own edits do not move it. A resolved nit edited into a P1 after its NOT-A-DEFECT
+# when it was CREATED later (answered_at): its own edits do not move it. An edit to the
+# finding after the answer reopens it unless the edit history proves it was only the
+# CodeRabbit Bot acknowledging the answer (answers_claim / ack_only_since). A resolved nit edited into a P1 after its NOT-A-DEFECT
 # is REOPENED until someone answers what it now says. Resolving is a deliberate act;
 # resolving a thread whose latest message you have not answered is a human failure this
 # script does not try to model.
 THREAD_OPEN_JQ="$TS_JQ"'def answered($re):
-    (.comments.nodes[0] | written_at(.createdAt)) as $cat
-    | $cat != null
-      and any(.comments.nodes[1:][];
-              ((.body // "") | test($re)) and (answered_at(.createdAt) as $w | $w != null and $w > $cat));
+    .comments.nodes[0] as $f
+    | any(.comments.nodes[1:][];
+          ((.body // "") | test($re)) and (answered_at(.createdAt) | answers_claim($f; $cr)));
   def disposed($re): any(.comments.nodes[1:][]; (.body // "") | test($re));
   [ .[] | select(.isResolved == true) | select(answered($re) | not) ]'
-undisposed=$(jq -r --arg re "$disposition_re" "$THREAD_OPEN_JQ"' | length' \
+undisposed=$(jq -r --arg re "$disposition_re" --arg cr "$CODERABBIT_LOGIN" "$THREAD_OPEN_JQ"' | length' \
   <<<"$threads") || {
   echo "verdict: BLOCKED — could not evaluate thread dispositions." >&2; exit 2; }
 
 if [ "${undisposed:-0}" -gt 0 ]; then
   echo
-  jq -r --arg re "$disposition_re" "$THREAD_OPEN_JQ"' | .[]
+  jq -r --arg re "$disposition_re" --arg cr "$CODERABBIT_LOGIN" "$THREAD_OPEN_JQ"' | .[]
     | (if disposed($re) then "REOPENED  " else "UNDISPOSED" end) as $label
     | (if disposed($re) then "  (edited after its last disposition; answer what it says now)" else "" end) as $why
     | .comments.nodes[0]

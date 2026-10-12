@@ -58,8 +58,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_resolved-proven_0",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
@@ -69,8 +71,10 @@
                     "body": "P1: indexing the snapshot mapping can panic inside the fault-handler task and hang the guest."
                   },
                   {
+                    "id": "PRRC_fixture_1_fixture_resolved-proven_0",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,

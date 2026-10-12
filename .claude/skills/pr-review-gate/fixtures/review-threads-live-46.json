@@ -71,15 +71,44 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7axUIA",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "Makefile",
                     "line": 73,
                     "originalLine": 67,
                     "createdAt": "2026-07-29T01:42:46Z",
                     "lastEditedAt": "2026-07-29T23:14:06Z",
-                    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 99e4925"
+                    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 99e4925",
+                    "userContentEdits": {
+                      "totalCount": 2,
+                      "pageInfo": {
+                        "hasNextPage": false,
+                        "endCursor": "Y3Vyc29yOnYyOpHOJ65_dw=="
+                      },
+                      "nodes": [
+                        {
+                          "editedAt": "2026-07-29T23:14:06Z",
+                          "deletedAt": null,
+                          "editor": {
+                            "login": "coderabbitai",
+                            "__typename": "Bot"
+                          },
+                          "diff": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 99e4925"
+                        },
+                        {
+                          "editedAt": "2026-07-29T01:42:46Z",
+                          "deletedAt": null,
+                          "editor": {
+                            "login": "coderabbitai",
+                            "__typename": "Bot"
+                          },
+                          "diff": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -96,8 +125,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7axUID",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "README.md",
                     "line": null,
@@ -121,8 +152,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7axUIO",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "scripts/optimal-gate-bench.mjs",
                     "line": 253,
@@ -146,8 +179,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7bRC4T",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "FLEET.md",
                     "line": 86,
@@ -171,8 +206,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7bRC4U",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "OPTIMAL-STACK.md",
                     "line": 57,
@@ -196,8 +233,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7bRC4V",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "scripts/fleet-chart.mjs",
                     "line": 70,
@@ -221,8 +260,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M7bRC4a",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "scripts/optimal-gate-bench.mjs",
                     "line": 336,

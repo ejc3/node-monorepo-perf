@@ -81,8 +81,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M781NeY",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "scripts/comparison-chart.mjs",
                     "line": null,
@@ -92,8 +94,10 @@
                     "body": "**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Describe the column-relative comparison accurately**\n\nThe `pnpm 12 install situations` section deliberately uses `compareAxis: \"col\"`, so its standings compare different rows down the column—for example, the sole frozen-install cell is shown as ×2.8 while “add one dependency” is fastest. This new lede, and the matching aria text below, instead state that every multiplier is relative to the row’s fastest; with one cell per row, that would make every cell fastest. Use section-specific wording or change the comparison axis so both the SVG and generated phone table identify the actual denominator.\n\nAGENTS.md reference: [AGENTS.md:L1168-L1170](https://github.com/ejc3/node-monorepo-perf/blob/ada54670e8aebf96a7944f10cd066f284b70da5a/AGENTS.md#L1168-L1170)\n\nUseful? React with 👍 / 👎."
                   },
                   {
+                    "id": "PRRC_kwDOS6_t2M781Smg",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "scripts/comparison-chart.mjs",
                     "line": null,

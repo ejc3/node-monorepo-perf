@@ -1866,10 +1866,15 @@ shape_problems=$(for f in "$FIXTURES"/review-threads-*.json; do
         then "\($f): a review lacks state/body/lastEditedAt/comments.totalCount/comments.nodes[].replyTo"
       elif ($pr.reviewThreads.nodes | any((.id | type) != "string" or (.isResolved | type) != "boolean"
               or (.isOutdated | type) != "boolean"
-              or any(.comments.nodes[]; (.author.login | type) != "string" or (.body | type) != "string"
+              or any(.comments.nodes[]; (.id | type) != "string" or (.author.login | type) != "string"
+                     or (.author.__typename | type) != "string" or (.body | type) != "string"
                      or (.path | type) != "string" or (.createdAt | type) != "string"
                      or (has("lastEditedAt") | not))))
-        then "\($f): a thread lacks id/isResolved/isOutdated or a comment lacks author/body/path/createdAt/lastEditedAt"
+        then "\($f): a thread lacks id/isResolved/isOutdated or a comment lacks id/author/__typename/body/path/createdAt/lastEditedAt"
+      elif ($pr.reviewThreads.nodes | any(. as $t | .comments.nodes | to_entries | any(
+              (.value | has("userContentEdits"))
+              != ($t.isResolved and .key == 0 and .value.lastEditedAt != null))))
+        then "\($f): userContentEdits is not on exactly the edited findings of resolved threads"
       else empty end' "$f" 2>&1 || echo "$(basename "$f"): not JSON"
 done)
 nfix=$(find "$FIXTURES" -maxdepth 1 -name 'review-threads-*.json' | wc -l)
@@ -2263,6 +2268,106 @@ run_env_case "an author review created after the review body's edit answers it" 
   "" "$(wrapQ "$CLAIM_RV,$(answer_rv 2026-01-04T00:00:00Z 2026-01-05T00:00:00Z),$APPROVE")" 0 "CLEAR"
 run_env_case "a PR comment answer created after the comment claim's edit answers it" \
   "" "$(wrapQ "$APPROVE" "$CLAIM_CMT,$(cmt me User 2026-01-04T00:00:00Z '"NOT-A-DEFECT: renamed only"' 2026-01-05T00:00:00Z)")" 0 "CLEAR"
+
+echo "== addition 6e: a CodeRabbit acknowledgement edit does not reopen an answered finding =="
+# CodeRabbit edits its own finding seconds after it is answered: it swaps the closing marker
+# "<!-- This is an auto-generated comment by CodeRabbit -->" for "...reply by CodeRabbit -->"
+# and, on #65, appends "✅ Confirmed as addressed by @<login>" plus the comment marker again.
+# Under 6c every addressed CodeRabbit finding read as edited after its answer and reopened.
+# The gate now rebuilds the finding as it stood when the answer was created from GitHub's
+# edit history (userContentEdits) and lets the answer stand only when every later edit was
+# made by the CodeRabbit Bot and turned that body into the current one by those observed
+# steps alone. The fixtures are the live #65 and #67 payloads with the edit histories the
+# gate fetches.
+run_env_case "#65: CodeRabbit's acknowledgement edits leave its three answered findings answered" \
+  "" "$(cat "$FIXTURES/review-threads-live-65-cr-ack.json")" 0 "CLEAR" "REOPENED"
+run_env_case "#67: CodeRabbit's marker-swap edit leaves its answered finding answered" \
+  "" "$(cat "$FIXTURES/review-threads-live-67-cr-ack.json")" 0 "CLEAR" "REOPENED"
+# Guards, BLOCKED before and after: anything but the observed acknowledgement, by anyone but
+# the bot, or a history the gate cannot read in full, reopens the finding. Each varies the
+# #65 finding on FEASIBILITY.md:42 (thread PRRT_kwDOS6_t2M6rRnNY); the edit history lists the
+# newest revision first, so nodes[0] is the current body.
+ack_guard() {
+  local name=$1 filter=$2 varied
+  varied=$(jq --arg nl $'\n' "$ACK_THREAD_FILTER_PRE($filter)$ACK_THREAD_FILTER_POST" \
+    "$FIXTURES/review-threads-live-65-cr-ack.json")
+  if [ "$(jq -cS . <<<"$varied")" = "$(jq -cS . "$FIXTURES/review-threads-live-65-cr-ack.json")" ]; then
+    echo "  FAIL  $name (the variation did not change the fixture)"; fail=$((fail+1)); return
+  fi
+  run_env_case "$name" "" "$varied" 1 "REOPENED   coderabbitai  FEASIBILITY.md:42"
+}
+ACK_THREAD_FILTER_PRE='.data.repository.pullRequest.reviewThreads.nodes |= map(if .id == "PRRT_kwDOS6_t2M6rRnNY" then .comments.nodes[0] |= '
+ACK_THREAD_FILTER_POST=' else . end)'
+ack_guard "the acknowledgement plus another text change reopens" \
+  '(.body |= sub("Quick win"; "Trivial")) | (.userContentEdits.nodes[0].diff |= sub("Quick win"; "Trivial"))'
+ack_guard "an edit that rewrites the finding reopens" \
+  '("P1: this deletes the lockfile." + $nl + $nl + "<!-- This is an auto-generated reply by CodeRabbit -->" + $nl + $nl + "✅ Confirmed as addressed by @ejc3" + $nl + $nl + "<!-- This is an auto-generated comment by CodeRabbit -->") as $b | .body = $b | .userContentEdits.nodes[0].diff = $b'
+ack_guard "two acknowledgements reopen" \
+  '($nl + $nl + "✅ Confirmed as addressed by @ejc3" + $nl + $nl + "<!-- This is an auto-generated comment by CodeRabbit -->") as $a | .body += $a | .userContentEdits.nodes[0].diff += $a'
+ack_guard "the acknowledgement added by a user account reopens" \
+  '.userContentEdits.nodes[0].editor = {"login":"ejc3","__typename":"User"}'
+ack_guard "the acknowledgement added by a user account named like the bot reopens" \
+  '.userContentEdits.nodes[0].editor = {"login":"coderabbitai","__typename":"User"}'
+ack_guard "a finding from a user account named like the bot reopens" \
+  '.author.__typename = "User"'
+ack_guard "a finding with no edit history reopens" \
+  'del(.userContentEdits)'
+ack_guard "an edit history with a further page reopens" \
+  '.userContentEdits.pageInfo.hasNextPage = true'
+ack_guard "an edit history shorter than its totalCount reopens" \
+  '.userContentEdits.totalCount = 4'
+ack_guard "a deleted revision in the edit history reopens" \
+  '.userContentEdits.nodes[1].deletedAt = "2026-10-11T21:30:00Z"'
+ack_guard "an edit history whose newest revision is not the body reopens" \
+  '.userContentEdits.nodes[0].diff = "P2: something else"'
+ack_guard "an edit history with an unparsable editedAt reopens" \
+  '.userContentEdits.nodes[1].editedAt = "soon"'
+ack_guard "an edit history missing the original revision reopens" \
+  '.userContentEdits.nodes |= .[0:2] | .userContentEdits.totalCount = 2'
+
+# The live path FETCHES the history: the thread query carries each comment's id and author
+# type, and an edited finding on a resolved thread has its userContentEdits read by node id.
+# A history the query cannot return (a null node) reopens the finding; a failed request is a
+# read failure and exits 2.
+mkdir -p "$TMP/bin"
+ACK_B0=$'P2: tighten the wording.\n\n<!-- This is an auto-generated comment by CodeRabbit -->'
+ACK_B1=$'P2: tighten the wording.\n\n<!-- This is an auto-generated reply by CodeRabbit -->\n\n✅ Confirmed as addressed by @me\n\n<!-- This is an auto-generated comment by CodeRabbit -->'
+jq -n --arg b "$ACK_B1" '{data:{repository:{pullRequest:{reviewThreads:{pageInfo:{hasNextPage:false,endCursor:null},nodes:[{id:"T1",isResolved:true,isOutdated:false,comments:{totalCount:2,pageInfo:{hasNextPage:false,endCursor:null},nodes:[
+  {id:"C1",author:{login:"coderabbitai",__typename:"Bot"},path:"a.ts",line:1,originalLine:1,createdAt:"2026-01-01T00:00:00Z",lastEditedAt:"2026-01-01T02:00:00Z",body:$b},
+  {id:"C2",author:{login:"me",__typename:"User"},path:"a.ts",line:1,originalLine:1,createdAt:"2026-01-01T01:00:00Z",lastEditedAt:null,body:"NOT-A-DEFECT: reworded"}]}}]}}}}}' > "$TMP/athreads.json"
+jq -n --arg b0 "$ACK_B0" --arg b1 "$ACK_B1" '{data:{node:{userContentEdits:{totalCount:2,pageInfo:{hasNextPage:false,endCursor:"E2"},nodes:[
+  {editedAt:"2026-01-01T02:00:00Z",deletedAt:null,editor:{login:"coderabbitai",__typename:"Bot"},diff:$b1},
+  {editedAt:"2026-01-01T00:00:00Z",deletedAt:null,editor:{login:"coderabbitai",__typename:"Bot"},diff:$b0}]}}}}' > "$TMP/aedits.json"
+printf '{"data":{"node":null}}' > "$TMP/aedits-null.json"
+printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"deadbeef","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"reviews":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-02T01:00:00Z","lastEditedAt":null,"body":"","commit":{"oid":"deadbeef"},"comments":{"totalCount":1,"nodes":[{"replyTo":null}]}}]}}}}}' > "$TMP/areviews.json"
+printf '{"data":{"repository":{"pullRequest":{"comments":{"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' > "$TMP/acomments.json"
+printf '%s' "$PRCOMMITS_LIVE" > "$TMP/prcommits.json"
+cat > "$TMP/bin/gh" <<'SHIM'
+#!/bin/bash
+case "$*" in
+  *userContentEdits*)
+    [ "${GATE_TEST_EDITS:-aedits}" = fail ] && exit 1
+    cat "$GATE_TEST_DIR/${GATE_TEST_EDITS:-aedits}.json" ;;
+  *"commits(first"*)   cat "$GATE_TEST_DIR/prcommits.json" ;;
+  *reviewThreads*)     cat "$GATE_TEST_DIR/athreads.json" ;;
+  *"reviews(first"*)   cat "$GATE_TEST_DIR/areviews.json" ;;
+  *"comments(first"*)  cat "$GATE_TEST_DIR/acomments.json" ;;
+  *headRefOid*)        printf 'deadbeef\n' ;;  # the recheck passes --jq
+esac
+SHIM
+chmod +x "$TMP/bin/gh"
+ack_live_case() {
+  local name=$1 want_rc=$2 want_txt=$3 out rc
+  out=$(GATE_TEST_DIR="$TMP" PATH="$TMP/bin:$PATH" bash "$GATE" 1 2>&1); rc=$?
+  if [ "$rc" = "$want_rc" ] && grep -qF "$want_txt" <<<"$out"; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc)"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1))
+  fi
+}
+ack_live_case "the live path reads an edited finding's history and keeps its answer" 0 "CLEAR"
+GATE_TEST_EDITS=aedits-null ack_live_case "an edit history the query cannot return reopens the finding" 1 "REOPENED"
+GATE_TEST_EDITS=fail ack_live_case "a failed edit-history request exits 2" 2 "edit history"
 
 echo "== addition 7: the live PRs these rules were written against =="
 # #46: CodeRabbit's three review bodies (actionable comments, nitpicks) and six open threads

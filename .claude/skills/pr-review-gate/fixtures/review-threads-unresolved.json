@@ -58,8 +58,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_unresolved_0",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "src/uffd/server.rs",
                     "line": 216,
@@ -78,8 +80,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_unresolved_1",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,
@@ -98,8 +102,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_unresolved_2",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "tests/test_snapshot_clone.rs",
                     "line": 2413,

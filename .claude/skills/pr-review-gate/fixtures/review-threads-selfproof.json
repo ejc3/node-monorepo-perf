@@ -58,8 +58,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_selfproof_0",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "src/uffd/prefetch.rs",
                     "line": 196,

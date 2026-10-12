@@ -126,8 +126,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M781SJR",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "README.md",
                     "line": null,
@@ -137,8 +139,10 @@
                     "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Distinguish the config-load crash from Turbopack failure**\n\nOn Node 22.23.3, the benchmark shows all three builders crashing while loading `next.config`, before any bundler is selected; only Node 22.22.0 reaches Turbopack and demonstrates its `next/package.json` resolution failure. Saying the default Turbopack fails on both versions therefore misattributes the newer-node failure and obscures the measured node-versus-bundler boundary; retain the split explanation.\n\nAGENTS.md reference: [AGENTS.md:L252-L255](https://github.com/ejc3/node-monorepo-perf/blob/1165190a831a4de1ada0fa09ead775da6a483b9a/AGENTS.md#L252-L255)\n\nUseful? React with 👍 / 👎."
                   },
                   {
+                    "id": "PRRC_kwDOS6_t2M781dl2",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "README.md",
                     "line": null,

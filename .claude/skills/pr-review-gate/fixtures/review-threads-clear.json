@@ -58,8 +58,10 @@
               "comments": {
                 "nodes": [
                   {
+                    "id": "PRRC_fixture_0_fixture_clear_0",
                     "author": {
-                      "login": "coderabbitai"
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
                     },
                     "path": "src/uffd/server.rs",
                     "line": 216,
@@ -69,8 +71,10 @@
                     "body": "Nit: `srv` reads as an abbreviation of server here."
                   },
                   {
+                    "id": "PRRC_fixture_1_fixture_clear_0",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "src/uffd/server.rs",
                     "line": 216,

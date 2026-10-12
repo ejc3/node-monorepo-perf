@@ -1405,7 +1405,8 @@ The gate blocks on:
 
 - an unresolved review thread (outdated ones included);
 - a resolved thread with no reply that opens with a disposition and was written after the
-  finding's last edit (a finding edited after its disposition needs a new one);
+  finding's last edit (a finding edited after its disposition needs a new one, unless its
+  edit history shows only the CodeRabbit Bot acknowledging the answer);
 - a PR-level finding (a review body from anyone but the PR author, or a top-level PR
   comment, the author's included) with no disposition posted after it;
 - a head commit nobody but the author reviewed (an empty review object is a reply

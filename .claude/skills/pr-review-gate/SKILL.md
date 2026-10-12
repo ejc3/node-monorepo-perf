@@ -28,7 +28,10 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 - **UNRESOLVED**: an open review thread. `isOutdated` does not count as answered.
 - **UNDISPOSED**: a resolved thread with no reply that opens with a disposition.
 - **REOPENED**: a resolved thread whose finding was edited after its last disposition.
-  It needs a new disposition; the old one answered the old text.
+  It needs a new disposition; the old one answered the old text. The exception is
+  CodeRabbit acknowledging the answer on its own finding (the closing marker turned into
+  its reply marker, then "✅ Confirmed as addressed by @<login>"): when the edit history
+  proves every later edit was that and only that, by the CodeRabbit Bot, the answer stands.
 - **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, or a
   top-level PR comment) with no disposition posted after it. Not claims: APPROVED reviews,
   `@codex review` / `@coderabbitai review` and the other documented bot commands, a listed

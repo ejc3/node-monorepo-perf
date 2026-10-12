@@ -113,8 +113,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M781UQX",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "LIMITS.md",
                     "line": 29,
@@ -124,8 +126,10 @@
                     "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Restore the documented 60-project Pro limit**\n\nThe linked [Vercel limits table](https://vercel.com/docs/limits) currently caps **Vercel Projects Connected per Git Repository** at 60 for Pro, not 150. Leaving 150 here overstates how far a monorepo can scale before it must split across repositories or teams; restore 60 or avoid hard-coding the value.\n\nUseful? React with 👍 / 👎."
                   },
                   {
+                    "id": "PRRC_kwDOS6_t2M781dnw",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "LIMITS.md",
                     "line": 29,
@@ -149,8 +153,10 @@
                 },
                 "nodes": [
                   {
+                    "id": "PRRC_kwDOS6_t2M781UQb",
                     "author": {
-                      "login": "chatgpt-codex-connector"
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
                     },
                     "path": "TURBOPACK-GRAPH.md",
                     "line": 200,
@@ -160,8 +166,10 @@
                     "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Sync the corrected outlier delta across the docs**\n\nThis correction to 37s matches the raw wall times (107.528s − 70.392s), but `bench/turbopack-gym/cache-drift.md:89` still describes the same run as only 33s longer. Update the companion methodology note too so the two records do not publish contradictory deltas for the same samples.\n\nAGENTS.md reference: [AGENTS.md:L1404-L1406](https://github.com/ejc3/node-monorepo-perf/blob/aea05233624088fca3a6ec451c2deb12c283747b/AGENTS.md#L1404-L1406)\n\nUseful? React with 👍 / 👎."
                   },
                   {
+                    "id": "PRRC_kwDOS6_t2M781dnB",
                     "author": {
-                      "login": "ejc3"
+                      "login": "ejc3",
+                      "__typename": "User"
                     },
                     "path": "TURBOPACK-GRAPH.md",
                     "line": 200,
