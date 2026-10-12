@@ -1,0 +1,361 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+index 282cca967e..e5bceb4363 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+@@ -3418,6 +3418,36 @@ impl TurboTasksBackend {
+         );
+     }
+ 
++    fn unemit_collectibles(
++        &self,
++        collectible_type: TraitTypeId,
++        collectibles: &[(RawVc, u32)],
++        task_id: TaskId,
++        turbo_tasks: &TurboTasks<TurboTasksBackend>,
++    ) {
++        let collectibles = collectibles.iter().map(|&(collectible, count)| {
++            self.assert_valid_collectible(task_id, collectible);
++            let Some((collectible_task, cell)) = collectible.as_task_cell() else {
++                panic!("Collectibles need to be resolved");
++            };
++            (
++                CollectibleRef {
++                    collectible_type,
++                    cell: CellRef {
++                        task: collectible_task,
++                        cell,
++                    },
++                },
++                -(i32::try_from(count).unwrap()),
++            )
++        });
++        operation::UpdateCollectibleOperation::run_many(
++            task_id,
++            collectibles,
++            self.execute_context(turbo_tasks),
++        );
++    }
++
+     fn update_task_cell(
+         &self,
+         task_id: TaskId,
+@@ -3921,6 +3951,16 @@ impl Backend for TurboTasksBackend {
+         self.unemit_collectible(collectible_type, collectible, count, task_id, turbo_tasks)
+     }
+ 
++    fn unemit_collectibles(
++        &self,
++        collectible_type: TraitTypeId,
++        collectibles: &[(RawVc, u32)],
++        task_id: TaskId,
++        turbo_tasks: &TurboTasks<Self>,
++    ) {
++        self.unemit_collectibles(collectible_type, collectibles, task_id, turbo_tasks)
++    }
++
+     fn update_task_cell(
+         &self,
+         task_id: TaskId,
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_collectible.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_collectible.rs
+index c72c2ce497..cfa79c1d40 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_collectible.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_collectible.rs
+@@ -1,7 +1,7 @@
+ use std::cmp::min;
+ 
+ use smallvec::SmallVec;
+-use turbo_tasks::TaskId;
++use turbo_tasks::{TaskId, TraitTypeId};
+ 
+ use crate::{
+     backend::{
+@@ -17,14 +17,26 @@ use crate::{
+ pub struct UpdateCollectibleOperation;
+ 
+ impl UpdateCollectibleOperation {
+-    pub fn run(
++    pub fn run(task_id: TaskId, collectible: CollectibleRef, count: i32, ctx: ExecuteContext<'_>) {
++        Self::run_many(task_id, [(collectible, count)], ctx);
++    }
++
++    /// Applies several collectible count changes of one task as one operation.
++    ///
++    /// Each change is applied to the task exactly as [`Self::run`] applies a single one. The
++    /// changes then reach the task's uppers as one aggregated data update, so the aggregation
++    /// graph above the task is walked once for the batch instead of once per collectible.
++    pub fn run_many(
+         task_id: TaskId,
+-        collectible: CollectibleRef,
+-        mut count: i32,
++        collectibles: impl IntoIterator<Item = (CollectibleRef, i32)>,
+         mut ctx: ExecuteContext<'_>,
+     ) {
++        let collectibles: SmallVec<[(CollectibleRef, i32); 1]> = collectibles.into_iter().collect();
++        if collectibles.is_empty() {
++            return;
++        }
+         let mut task = ctx.task(task_id, TaskDataCategory::All);
+-        if count < 0
++        if collectibles.iter().any(|&(_, count)| count < 0)
+             && task
+                 .get_persistent_task_type()
+                 .is_some_and(|t| !t.native_fn.is_root)
+@@ -38,38 +50,53 @@ impl UpdateCollectibleOperation {
+             );
+         }
+         let mut queue = AggregationUpdateQueue::new();
+-        let outdated = task.get_outdated_collectibles(&collectible).copied();
+-        if let Some(outdated) = outdated {
+-            if count > 0 && outdated > 0 {
+-                let shared = min(count, outdated);
+-                let _ = task.update_outdated_collectibles_positive_crossing(collectible, -shared);
+-                count -= shared;
+-            } else if count < 0 && outdated < 0 {
+-                let shared = min(-count, -outdated);
+-                let _ = task.update_outdated_collectibles_positive_crossing(collectible, shared);
+-                count += shared;
+-            } else {
+-                // Not reduced from outdated
++        let mut update = Vec::with_capacity(collectibles.len());
++        let mut crossed: SmallVec<[TraitTypeId; 1]> = SmallVec::new();
++        for (collectible, mut count) in collectibles {
++            let outdated = task.get_outdated_collectibles(&collectible).copied();
++            if let Some(outdated) = outdated {
++                if count > 0 && outdated > 0 {
++                    let shared = min(count, outdated);
++                    let _ =
++                        task.update_outdated_collectibles_positive_crossing(collectible, -shared);
++                    count -= shared;
++                } else if count < 0 && outdated < 0 {
++                    let shared = min(-count, -outdated);
++                    let _ =
++                        task.update_outdated_collectibles_positive_crossing(collectible, shared);
++                    count += shared;
++                } else {
++                    // Not reduced from outdated
++                }
+             }
+-        }
+-        if count != 0 {
+-            if task.update_collectibles_positive_crossing(collectible, count) {
+-                let ty = collectible.collectible_type;
+-                let dependent: SmallVec<[TaskId; 4]> = task
+-                    .iter_collectibles_dependents()
+-                    .filter_map(|(collectible_type, task)| (collectible_type == ty).then_some(task))
+-                    .collect();
+-                if !dependent.is_empty() {
+-                    queue.push(AggregationUpdateJob::InvalidateDueToCollectiblesChange {
+-                        task_ids: dependent,
+-                        collectibles_task: task_id,
+-                        collectible_type: ty,
+-                    })
++            if count != 0 {
++                if task.update_collectibles_positive_crossing(collectible, count)
++                    && !crossed.contains(&collectible.collectible_type)
++                {
++                    crossed.push(collectible.collectible_type);
+                 }
++                update.push((collectible, count));
++            }
++        }
++        // Dependents of a collectible type are invalidated once per batch, as
++        // `cleanup_old_edges` does for a task's outdated collectibles.
++        for ty in crossed {
++            let dependent: SmallVec<[TaskId; 4]> = task
++                .iter_collectibles_dependents()
++                .filter_map(|(collectible_type, task)| (collectible_type == ty).then_some(task))
++                .collect();
++            if !dependent.is_empty() {
++                queue.push(AggregationUpdateJob::InvalidateDueToCollectiblesChange {
++                    task_ids: dependent,
++                    collectibles_task: task_id,
++                    collectible_type: ty,
++                })
+             }
++        }
++        if !update.is_empty() {
+             queue.extend(AggregationUpdateJob::data_update(
+                 &mut task,
+-                AggregatedDataUpdate::new().collectibles_update(vec![(collectible, count)]),
++                AggregatedDataUpdate::new().collectibles_update(update),
+             ));
+         }
+ 
+diff --git a/turbopack/crates/turbo-tasks/src/backend.rs b/turbopack/crates/turbo-tasks/src/backend.rs
+index 516d18ade0..08681b290c 100644
+--- a/turbopack/crates/turbo-tasks/src/backend.rs
++++ b/turbopack/crates/turbo-tasks/src/backend.rs
+@@ -702,6 +702,22 @@ pub trait Backend: Sized + Sync + Send {
+         turbo_tasks: &TurboTasks<Self>,
+     );
+ 
++    /// Lowers `task`'s count of several collectibles of one type, each by its `u32`, as
++    /// [`Backend::unemit_collectible`] does for one. `task` need not have emitted them: taking
++    /// the collectibles of a subgraph records them this way on the taking task. A backend may
++    /// apply the whole slice as one update.
++    fn unemit_collectibles(
++        &self,
++        trait_type: TraitTypeId,
++        collectibles: &[(RawVc, u32)],
++        task: TaskId,
++        turbo_tasks: &TurboTasks<Self>,
++    ) {
++        for &(collectible, count) in collectibles {
++            self.unemit_collectible(trait_type, collectible, count, task, turbo_tasks);
++        }
++    }
++
+     fn update_task_cell(
+         &self,
+         task: TaskId,
+diff --git a/turbopack/crates/turbo-tasks/src/manager.rs b/turbopack/crates/turbo-tasks/src/manager.rs
+index 4e8053b4e8..ed5c56ba5a 100644
+--- a/turbopack/crates/turbo-tasks/src/manager.rs
++++ b/turbopack/crates/turbo-tasks/src/manager.rs
+@@ -1902,17 +1902,20 @@ impl<B: Backend + 'static> TurboTasksApi for TurboTasks<B> {
+     }
+ 
+     fn unemit_collectibles(&self, trait_type: TraitTypeId, collectibles: &TaskCollectiblesMap) {
+-        for (&collectible, &count) in collectibles {
+-            if count > 0 {
+-                self.backend.unemit_collectible(
+-                    trait_type,
+-                    collectible,
+-                    count as u32,
+-                    current_task("emitting collectible"),
+-                    self,
+-                );
+-            }
++        let collectibles: SmallVec<[(RawVc, u32); 4]> = collectibles
++            .iter()
++            .filter(|&(_, &count)| count > 0)
++            .map(|(&collectible, &count)| (collectible, count as u32))
++            .collect();
++        if collectibles.is_empty() {
++            return;
+         }
++        self.backend.unemit_collectibles(
++            trait_type,
++            &collectibles,
++            current_task("emitting collectible"),
++            self,
++        );
+     }
+ 
+     fn read_own_task_cell(&self, task: TaskId, index: CellId) -> Result<TypedCellContent> {
+diff --git a/turbopack/crates/turbo-tasks-backend/tests/take_many_collectibles.rs b/turbopack/crates/turbo-tasks-backend/tests/take_many_collectibles.rs
+new file mode 100644
+index 0000000000..6ca2e986dc
+--- /dev/null
++++ b/turbopack/crates/turbo-tasks-backend/tests/take_many_collectibles.rs
+@@ -0,0 +1,110 @@
++#![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
++#![allow(clippy::needless_return)] // clippy bug causes false positive
++
++use anyhow::Result;
++use turbo_rcstr::RcStr;
++use turbo_tasks::{CollectiblesSource, ResolvedVc, State, ValueToString, Vc, emit};
++use turbo_tasks_testing::{Registration, register, run_once};
++
++static REGISTRATION: Registration = register!();
++
++// A task that takes many collectibles at once removes them all from its own collectibles in one
++// call. Re-running it with a different set must leave its count of each collectible right: the
++// taker sees exactly the current set, and nothing it took is visible in a task above it.
++#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++async fn take_many_collectibles() {
++    run_once(&REGISTRATION, async || {
++        let input = ChangingInput {
++            state: State::new(5),
++        }
++        .resolved_cell();
++        let output = outer(input);
++        for n in [5, 8, 3, 0, 6, 6, 1, 9] {
++            input.await?.state.set(n);
++            let read = output.read_strongly_consistent().await?;
++            assert_eq!(
++                (read.taken, read.taken_sum, read.above),
++                (n, (0..n).sum(), 0),
++                "after emitting {n}"
++            );
++        }
++        anyhow::Ok(())
++    })
++    .await
++    .unwrap()
++}
++
++#[turbo_tasks::value]
++struct ChangingInput {
++    state: State<u32>,
++}
++
++#[turbo_tasks::value]
++struct Output {
++    taken: u32,
++    taken_sum: u32,
++    above: u32,
++}
++
++#[turbo_tasks::value]
++struct Collectible {
++    value: u32,
++}
++
++#[turbo_tasks::value_impl]
++impl ValueToString for Collectible {
++    #[turbo_tasks::function]
++    fn to_string(&self) -> Vc<RcStr> {
++        Vc::cell(self.value.to_string().into())
++    }
++}
++
++/// Emits `n` collectibles, the first of them twice, so one count is above 1.
++#[turbo_tasks::function(operation, root)]
++async fn emitter(input: ResolvedVc<ChangingInput>) -> Result<Vc<()>> {
++    let n = *input.await?.state.get();
++    for value in 0..n {
++        let collectible: ResolvedVc<Box<dyn ValueToString>> =
++            ResolvedVc::upcast(Collectible { value }.resolved_cell());
++        emit(collectible);
++        if value == 0 {
++            emit(collectible);
++        }
++    }
++    Ok(Vc::cell(()))
++}
++
++#[turbo_tasks::value(transparent)]
++struct Taken((u32, u32));
++
++#[turbo_tasks::function(operation, root)]
++async fn taker(input: ResolvedVc<ChangingInput>) -> Result<Vc<Taken>> {
++    let op = emitter(input);
++    op.connect().await?;
++    let mut sum = 0;
++    let taken = op.take_collectibles::<Box<dyn ValueToString>>();
++    for collectible in &taken {
++        sum += collectible.to_string().await?.parse::<u32>()?;
++    }
++    Ok(Vc::cell((taken.len() as u32, sum)))
++}
++
++/// Passes the taker's result through, so the taker's collectibles reach it as an upper.
++#[turbo_tasks::function(operation, root)]
++async fn middle(input: ResolvedVc<ChangingInput>) -> Result<Vc<Taken>> {
++    Ok(taker(input).connect())
++}
++
++#[turbo_tasks::function(operation, root)]
++async fn outer(input: ResolvedVc<ChangingInput>) -> Result<Vc<Output>> {
++    let op = middle(input);
++    let (taken, taken_sum) = *op.connect().await?;
++    let above = op.peek_collectibles::<Box<dyn ValueToString>>().len() as u32;
++    Ok(Output {
++        taken,
++        taken_sum,
++        above,
++    }
++    .cell())
++}
