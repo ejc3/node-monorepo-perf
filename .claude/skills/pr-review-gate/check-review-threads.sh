@@ -159,10 +159,16 @@ TS_JQ='def ts:
 # the comments' dates, which decide whether a disposition postdates the finding it answers.
 # pageInfo is deliberately out, since a cursor is not content and one differing between two
 # reads of the same threads would block on nothing.
-THREAD_FP_JQ='[ .[] | {id, isResolved, isOutdated, total: (.comments.totalCount // null),
-                       comments: [ .comments.nodes[]? | {author: (.author.login // null), path,
-                                                         line, originalLine, createdAt, lastEditedAt,
-                                                         body: (.body // null)} ]} ]
+#
+# The fields are KEPT, not projected: `{lastEditedAt}` on an object without the field yields
+# null, so a second read missing it compared equal to a first read saying null (never
+# edited). Absence and null mean different things to written_at, and only the first read's
+# dates are validated, so the comparison has to see the difference.
+THREAD_FP_JQ='def keep($ks): with_entries(select(.key | IN($ks[])));
+  [ .[] | keep(["id", "isResolved", "isOutdated"])
+          + {total: (.comments.totalCount // null),
+             comments: [ .comments.nodes[]? | {author: (.author.login // null)}
+                         + keep(["path", "line", "originalLine", "createdAt", "lastEditedAt", "body"]) ]} ]
   | sort_by(.id | tostring)'
 
 # Every paging loop below folds a page in with `<connection>.nodes // []` and then reads

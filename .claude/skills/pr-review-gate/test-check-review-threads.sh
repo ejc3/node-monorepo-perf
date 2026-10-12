@@ -2227,6 +2227,15 @@ dated_case() {
 GATE_TEST_DTHREADS2=dthreads2 \
   dated_case "a finding's edit date moving between the two reads blocks" 2 "review threads on this PR changed"
 dated_case "two identically dated thread reads still reach a verdict" 0 "CLEAR"
+# A field ABSENT from the second read is not the same as a field that is null in the first:
+# null says never edited, absence says the read did not ask, and the gate validates the dates
+# of the first read only. A fingerprint that projects the absent field to null compares the
+# two as equal and judges from the first read alone.
+sed '0,/"lastEditedAt":null,/s///' "$TMP/dthreads.json" > "$TMP/dthreads3.json"
+grep -qF '"originalLine":1,"createdAt":"2026-01-01T00:00:00Z","body"' "$TMP/dthreads3.json" \
+  || { echo "  FAIL  dthreads3 fixture edit did not apply"; fail=$((fail+1)); }
+GATE_TEST_DTHREADS2=dthreads3 \
+  dated_case "a second read missing a finding's lastEditedAt field blocks" 2 "review threads on this PR changed"
 
 echo "== addition 6d: an answer is dated by its creation, never by its own edits =="
 # A claim is dated by when its current text was written (written_at). An ANSWER is dated by
