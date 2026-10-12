@@ -1,0 +1,79 @@
+{
+  "description": "Paired A/B of cold builds (fresh output directory, cache on) for candidate 57 on 15+22+55+56: ab.mjs --app monolith --reps 6 --lanes 0-23:24-47 --metric turbopack, on a dedicated c8gd.48xlarge (the drift-57 sweep's instance type; Next.js page-data workers at its default). The line as ab.mjs wrote it, without the host name and boot id; not re-verified by record.mjs, which must run on the host that holds the runs.",
+  "abs": [
+    {
+      "when": "2026-10-12T07:32:19.630Z",
+      "label": "cold-15+22+55+56+57",
+      "tag": null,
+      "a": {
+        "binding": "15+22+55+56",
+        "env": {}
+      },
+      "b": {
+        "binding": "15+22+55+56+57",
+        "env": {}
+      },
+      "reps": 6,
+      "guardMetric": "turbopack",
+      "threshold": 0.06,
+      "guard": 0.02,
+      "app": "monolith",
+      "lanes": [
+        "0-23",
+        "24-47"
+      ],
+      "metric": "turbopack",
+      "ratio": 0.989,
+      "swapRatios": [
+        0.9763,
+        0.9771,
+        1.014
+      ],
+      "guardRatio": 0.989,
+      "sameOutput": true,
+      "consistent": false,
+      "win": false,
+      "aMedian": 32.657,
+      "bMedian": 32.298,
+      "aCores": 14.77,
+      "bCores": 14.555,
+      "runs": [
+        [
+          "mv4xbiws-a371bf",
+          "mv4xbix3-7d13a8"
+        ],
+        [
+          "mv4xduf1-35267c",
+          "mv4xdufl-85051e"
+        ],
+        [
+          "mv4xg44l-09fd6f",
+          "mv4xg440-1b31ec"
+        ],
+        [
+          "mv4xij95-005fe7",
+          "mv4xij8j-9f5294"
+        ],
+        [
+          "mv4xkuyt-fd33e0",
+          "mv4xkuzg-dc5729"
+        ],
+        [
+          "mv4xn3c6-b63240",
+          "mv4xn3cs-c58b19"
+        ]
+      ],
+      "machine": {
+        "arch": "arm64",
+        "cpuModel": "Neoverse-V2",
+        "cores": 192,
+        "numaNodes": 2,
+        "memGiB": 371,
+        "instanceType": "c8gd.48xlarge",
+        "node": "v22.23.3",
+        "sharedBox": false,
+        "buildNode": "v22.23.3"
+      }
+    }
+  ]
+}

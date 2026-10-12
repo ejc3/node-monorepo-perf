@@ -256,6 +256,9 @@ another dedicated c8gd.48xlarge, same output at every point). Warm builds on top
 | 10 | <!--v:dr.c57.import.15+22+55+56.10.warm.turbopack-->38.5s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.10.warm.emit-->8.4s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.10.warm.turbopack-->36.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.10.warm.emit-->5.5s<!--/v--> |
 | 1,000 | <!--v:dr.c57.import.15+22+55+56.1000.warm.turbopack-->62.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1000.warm.turbopack-->52.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> |
 
+Cold builds: a paired A/B gives `run-turbopack` ×0.989, same output
+(`bench/turbopack-gym/ab57-cold.json`).
+
 ## A Counter Every Operation Writes
 
 In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of

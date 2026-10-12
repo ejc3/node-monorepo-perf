@@ -10,6 +10,7 @@ candidates that came out of it. Every number here was measured on dedicated 192-
   c8gd.48xlarge, one build at a time on 24 of its CPUs, the gym root on btrfs over the
   instance's local NVMe drives.
 - `ab56-cold.json`: paired A/Bs of cold builds for candidate 56, on another c8gd.48xlarge.
+- `ab57-cold.json`: the same for candidate 57 on 15 + 22 + 55 + 56, on another c8gd.48xlarge.
 - `bench/turbopack-graph-drift-56.json`: the `import` sweep for candidate 56, base and 56
   alone and on top of 15 + 22 + 55, on another c8gd.48xlarge set up the same way, with
   Next.js's page-data workers matched to the build's CPUs (below).
@@ -336,7 +337,9 @@ dedicated box, not in a record) show where it goes:
   one new import and with nothing changed, no difference outside the spread between reps.
 - Cold builds here are single builds per rep. Their medians differ by -1.0 to +1.7s, the
   +1.7s at 10 new imports with the reps barely overlapping (31.8 to 32.7s against 32.6 to
-  34.4s).
+  34.4s). A paired A/B of cold builds (`ab57-cold.json`: 6 reps on two 24-CPU lanes, same
+  instance type) puts it in the noise: `run-turbopack` ×0.989 for 15 + 22 + 55 + 56 → + 57
+  (swap pairs 0.976, 0.977, 1.014), same output.
 - `cargo test -p turbo-tasks-backend` passes 275 of 275 and clippy (`--tests -D warnings`)
   is clean. `upstream/57-merge-new-follower-data.patch` is the measured code (it passes the
   project's nightly `rustfmt --check` as measured) plus a new test,
