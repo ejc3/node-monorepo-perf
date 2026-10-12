@@ -12,29 +12,34 @@
 //   - markup: elements with double-quoted attributes, nothing else (no comments, no
 //     processing instructions, no CDATA); text only inside <text> and <style>; entities
 //     &amp; &lt; &gt; only.
-//   - svg: xmlns, width, height, viewBox "0 0 W H", role="img", aria-label,
-//     font-family (the kit's FONT), style="font-variant-numeric:tabular-nums".
+//   - svg: the root element only (a nested one would open a new viewport); xmlns, width,
+//     height, viewBox "0 0 W H" with the same W and H (another would scale every size),
+//     role="img", aria-label, font-family (the kit's FONT),
+//     style="font-variant-numeric:tabular-nums".
 //   - style: one `@media (prefers-color-scheme: dark){...}` block of
-//     `tag[fill|stroke="value"]` selectors (tag: rect, text, line, path, polyline, circle)
-//     setting fill, stroke (colours) or fill-opacity (a number).
+//     `tag[fill|stroke="value"]` selectors (tag: rect, text, line, path, polyline, circle),
+//     each rule setting only the property its selector reads: fill (a colour) and
+//     fill-opacity (a number) on a [fill] selector, stroke (a colour) on a [stroke] one.
 //   - g: transform; a: href (a link around a text).
-//   - rect: x y width height rx fill stroke stroke-width transform.
+//   - rect: x y width height rx fill stroke stroke-width transform; fill required (SVG
+//     fills an element without one black, a paint no dark rule can select).
 //   - text: x y font-size fill font-weight (a number) text-anchor (start, middle, end)
 //     transform; its content plain text (no tspan).
 //   - line: x1 y1 x2 y2 stroke stroke-width transform.
 //   - polyline: points, fill="none" (a filled polyline is unsupported), stroke,
 //     stroke-width, stroke-linejoin="round", stroke-linecap="round", transform.
-//   - path: d of absolute M/L moves and segments, optionally closed by z; fill, stroke,
-//     stroke-width, transform.
-//   - circle: cx cy r fill stroke stroke-width transform.
+//   - path: d of absolute M/L moves and segments, optionally closed by z; fill (required),
+//     stroke, stroke-width, transform.
+//   - circle: cx cy r fill (required) stroke stroke-width transform.
 //   - values: numbers; colours #rgb, #rrggbb, rgb(r,g,b), rgba(r,g,b,a) or none;
 //     transform translate(x[ y]) only.
 // No opacity, fill-opacity or stroke-opacity attribute, no clip-path, mask, filter,
 // marker, dash array or other transform: each is unsupported, not modelled.
 // Every position is read through one placement primitive, place(), that applies the
-// translate() of the element and of its groups. An SVG without a full-canvas, opaque
-// background rect is reported, and the rest of the audit then runs against white; with
-// one, each theme's page colour is its fill in that theme.
+// translate() of the element and of its groups. The page is the first painted element
+// when that is a full-canvas rect, opaque in both themes; each theme's page colour is its
+// fill in that theme. An SVG without one is reported, and the rest of the audit then runs
+// against white. A full-canvas rect painted later is ordinary paint.
 //
 // A text is judged over its glyph box, never its anchor point: the box runs from its
 // placed anchor by its text-anchor over the kit's advance-width estimate (approxW in
@@ -154,6 +159,11 @@ const darkRules = (css) => {
     for (const sel of sels.split(",")) {
       const m = DARK_SEL.exec(sel.trim());
       if (!m) unsupported(`dark rule selector "${sel.trim()}"`);
+      // a rule restyles only the property its selector reads (fill-opacity goes with
+      // fill): paint() looks a rule up by the element's value of that same property
+      for (const k of Object.keys(props))
+        if (k.replace(/-opacity$/, "") !== m[2])
+          unsupported(`dark rule "${sel.trim()}{${body}}": it sets ${k} on a [${m[2]}] selector`);
       const key = `${m[1]}|${m[2]}|${m[3]}`;
       rules.set(key, { ...(rules.get(key) || {}), ...props });
     }
@@ -170,6 +180,7 @@ const parse = (svg) => {
   const els = [];
   const texts = [];
   let css = null;
+  let root = null; // the <svg> element's attributes
   const open = []; // { tag, dx, dy }
   let text = null; // the <text> being read
   let ord = 0; // paint order
@@ -198,6 +209,13 @@ const parse = (svg) => {
     }
     if (text) unsupported(`element <${tag}> inside <text>`);
     const a = attrs(tag, body);
+    // one <svg>, the root: a nested one would open a new viewport
+    if ((tag === "svg") !== (ord === 0 && !open.length))
+      unsupported(`markup "${tok.slice(0, 40)}"`);
+    if (tag === "svg") root = a;
+    // an element with no fill attribute is filled black, a paint no dark rule can select
+    if (["rect", "circle", "path"].includes(tag) && !("fill" in a))
+      unsupported(`<${tag}> with no fill (SVG fills it black)`);
     const parent = open[open.length - 1] || { dx: 0, dy: 0 };
     const t = a.transform ? TRANSLATE.exec(a.transform) : null;
     const dx = parent.dx + (t ? +t[1] : 0);
@@ -210,7 +228,8 @@ const parse = (svg) => {
     if (!selfClose) open.push({ tag, dx, dy });
   }
   if (open.length) unsupported(`unclosed <${open[open.length - 1].tag}>`);
-  return { els, texts, css };
+  if (!root) unsupported("document: no <svg>");
+  return { root, els, texts, css };
 };
 
 // effective paint of `attr` (fill/stroke) on an element in a theme: its colour, with the
@@ -236,36 +255,44 @@ const paint = (el, attr, theme, rules) => {
 // positions through it.
 const place = (e, x, y) => [x + e.dx, y + e.dy];
 
-// The page: the rect that covers the whole W x H canvas from its origin (after place())
-// with an opaque fill in both themes. Without one the reader's own surface shows through
-// (a transparent SVG with dark text is unreadable on GitHub dark), which is an issue.
-const pageRect = (els, W, H, rules) =>
-  els.find((e) => {
-    if (e.tag !== "rect") return false;
-    const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
-    return (
-      x === 0 &&
-      y === 0 &&
-      +e.a.width === W &&
-      +e.a.height === H &&
-      ["light", "dark"].every((t) => paint(e, "fill", t, rules)?.a === 1)
-    );
-  });
+// The page: the first painted element, when it is a rect that covers the whole W x H
+// canvas from its origin (after place()) with an opaque fill in both themes. Without one
+// the reader's own surface shows through (a transparent SVG with dark text is unreadable
+// on GitHub dark), which is an issue. A full-canvas rect painted after any text or mark is
+// ordinary paint: it covers what is under it.
+const pageRect = (els, texts, W, H, rules) => {
+  const e = [els[0], texts[0]].filter(Boolean).sort((p, q) => p.ord - q.ord)[0];
+  if (!e || e.tag !== "rect") return undefined;
+  const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
+  const full =
+    x === 0 &&
+    y === 0 &&
+    +e.a.width === W &&
+    +e.a.height === H &&
+    ["light", "dark"].every((t) => paint(e, "fill", t, rules)?.a === 1);
+  return full ? e : undefined;
+};
 
 const GRID = "#e4e8ec";
 const sameRgb = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.5);
 
 export function auditSvg(svg, { minText, minBoxText }) {
-  const W = +(/^\s*<svg\b[^>]*\swidth="([\d.]+)"/.exec(svg) ||
-    unsupported("document: no <svg width>"))[1];
-  const H = +(/^\s*<svg\b[^>]*\sheight="([\d.]+)"/.exec(svg) ||
-    unsupported("document: no <svg height>"))[1];
-  const { els, texts, css } = parse(svg);
+  const { root, els, texts, css } = parse(svg);
+  if (!root.width || !root.height) unsupported("document: no <svg width> and height");
+  const W = +root.width;
+  const H = +root.height;
+  // every size and position is read in CSS pixels: a viewBox other than the canvas would
+  // scale them
+  if (
+    root.viewBox !== undefined &&
+    root.viewBox.split(" ").map(Number).join(" ") !== `0 0 ${W} ${H}`
+  )
+    unsupported(`viewBox "${root.viewBox}" on a ${W}x${H} <svg>`);
   const rules = css === null ? new Map() : darkRules(css);
   const out = [];
   // each theme's page colour is the page rect's fill in that theme; without a page rect
   // the rest of the audit runs against white in both themes
-  const bgRect = pageRect(els, W, H, rules);
+  const bgRect = pageRect(els, texts, W, H, rules);
   if (!bgRect)
     out.push(
       `no full-canvas background rect: the page colour is unknown (white assumed in both themes)`,
@@ -359,23 +386,31 @@ export function auditSvg(svg, { minText, minBoxText }) {
       if (c < 4.5) out.push(`${theme}: "${t.s}" ${t.a.fill} at ${c.toFixed(2)}:1 (needs 4.5:1)`);
     }
   }
-  // non-text marks, each composited over the page of the theme and held to 3:1: series
-  // lines, arrows and edges (lines, polylines, paths and arrowheads), dots (filled or
-  // hollow), and every rect that is not a text-framing box. A rect frames text only if it
-  // holds a rendered text's glyph box inside its inner edge (heat cells, figure boxes) or
-  // sits beside its label (a legend swatch); one with neither is a bar and its fill and
-  // stroke are marks.
-  // Stripes of 3px or less, GRID hairlines and page-coloured strokes are not marks. A
-  // page-coloured fill is not a mark only inside a visible stroke (a hollow dot's centre):
-  // a painted stroke of width above 0, alpha above 0, at 3:1 against the page itself.
+  // Non-text marks, each held to 3:1 as drawn: series lines, arrows and edges (lines,
+  // polylines, paths and arrowheads), dots (filled or hollow), and every rect that is not a
+  // text-framing box. A rect frames text only if it holds a rendered text's glyph box
+  // inside its inner edge (heat cells, figure boxes) or sits beside its label (a legend
+  // swatch); one with neither is a bar and its fill and stroke are marks.
+  // A mark is judged over its extent (its bounding box, stroke included): its backdrop is
+  // the page plus every filled rect painted before it that holds the extent inside its
+  // inner edge, composited in document order, and every filled rect or circle painted after
+  // it whose fill holds the extent is composited over both the mark and its backdrop. An
+  // opaque one hides it, which is reported.
+  // Stripes of 3px or less and GRID hairlines are not marks. A channel (fill or stroke)
+  // coloured like its backdrop is not a mark only when the element's other channel is
+  // painted (a colour of alpha above 0; a stroke also of width above 0) and itself passes
+  // as a mark: the page-coloured halo around a filled dot, the page-coloured centre of a
+  // hollow ring. A page-coloured series line, edge, ring or outline with nothing else
+  // painted is reported.
   const framesText = (r) => [...boxes.values()].some((b) => b && holds(r, b));
   // A labeled swatch (a legend key): a rect of at most 32x20 whose meaning is carried by
-  // the text that starts within 12px to its right with its baseline inside the rect's
+  // the inked text that starts within 12px to its right with its baseline inside the rect's
   // vertical extent (+-4px). The information is the adjacent text, not the tint (WCAG 1.4.11).
   const labelsSwatch = (r) =>
     r.w <= 32 &&
     r.h <= 20 &&
     texts.some((t) => {
+      if (!boxes.get(t)) return false;
       const [x, y] = place(t, +t.a.x, +t.a.y);
       const gap = x - (r.x + r.w);
       return (
@@ -386,10 +421,98 @@ export function auditSvg(svg, { minText, minBoxText }) {
         y <= r.y + r.h + 4
       );
     });
-  const hollow = (e, theme) => {
-    if (!e.a.stroke || e.a.stroke === "none" || !(+(e.a["stroke-width"] ?? 1) > 0)) return false;
-    const st = paint(e, "stroke", theme, rules);
-    return Boolean(st && st.a > 0 && contrast(over(st, page[theme]), page[theme]) >= 3);
+  // a mark's extent [x0, y0, x1, y1]: the bounding box of its geometry, grown by half its
+  // stroke width when a stroke is set
+  const extent = (e) => {
+    const hw = e.a.stroke && e.a.stroke !== "none" ? +(e.a["stroke-width"] ?? 1) / 2 : 0;
+    let pts;
+    if (e.tag === "circle")
+      pts = [
+        [+e.a.cx - +e.a.r, +e.a.cy - +e.a.r],
+        [+e.a.cx + +e.a.r, +e.a.cy + +e.a.r],
+      ];
+    else if (e.tag === "rect") {
+      const [x, y] = [+e.a.x || 0, +e.a.y || 0];
+      pts = [
+        [x, y],
+        [x + +e.a.width, y + +e.a.height],
+      ];
+    } else if (e.tag === "line")
+      pts = [
+        [+e.a.x1, +e.a.y1],
+        [+e.a.x2, +e.a.y2],
+      ];
+    else if (e.tag === "polyline") pts = e.a.points.split(" ").map((p) => p.split(",").map(Number));
+    else
+      pts = [...e.a.d.matchAll(new RegExp(`(${NUM_SRC}) (${NUM_SRC})`, "g"))].map((m) => [
+        +m[1],
+        +m[2],
+      ]);
+    pts = pts.map(([x, y]) => place(e, x, y));
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    return [Math.min(...xs) - hw, Math.min(...ys) - hw, Math.max(...xs) + hw, Math.max(...ys) + hw];
+  };
+  // does the fill of a rect or circle s hold box b? A rect's fill is its box less the rx
+  // corner squares; a circle's is its disk.
+  const fillHolds = (s, b) => {
+    if (s.tag === "circle") {
+      const [cx, cy] = place(s, +s.a.cx, +s.a.cy);
+      return [
+        [b[0], b[1]],
+        [b[2], b[1]],
+        [b[0], b[3]],
+        [b[2], b[3]],
+      ].every(([x, y]) => Math.hypot(x - cx, y - cy) <= +s.a.r);
+    }
+    const { x, y, w, h } = geom(s);
+    if (!(b[0] >= x && b[1] >= y && b[2] <= x + w && b[3] <= y + h)) return false;
+    const c = Math.min(+s.a.rx || 0, w / 2, h / 2);
+    return !(
+      c > 0 &&
+      [
+        [x, y, x + c, y + c],
+        [x + w - c, y, x + w, y + c],
+        [x, y + h - c, x + c, y + h],
+        [x + w - c, y + h - c, x + w, y + h],
+      ].some((sq) => meets(sq, b))
+    );
+  };
+  const fillers = els.filter(
+    (e) => e !== bgRect && (e.tag === "rect" || e.tag === "circle") && e.a.fill !== "none",
+  );
+  // channel `attr` of mark e as drawn in a theme: its paint c0, its backdrop bg, then the
+  // mark (ink) and its backdrop (back) under every filled shape painted after it that holds
+  // its extent; hiddenBy is the first opaque one
+  const drawn = (e, attr, theme) => {
+    const ext = extent(e);
+    let bg = page[theme];
+    for (const r of rects)
+      if (r.e !== e && r.e.ord < e.ord && holds(r, ext)) {
+        const f = paint(r.e, "fill", theme, rules);
+        if (f) bg = over(f, bg);
+      }
+    const c0 = paint(e, attr, theme, rules);
+    let ink = c0 ? over(c0, bg) : bg;
+    let back = bg;
+    let hiddenBy = null;
+    for (const s of fillers)
+      if (s.ord > e.ord && fillHolds(s, ext)) {
+        const f = paint(s, "fill", theme, rules);
+        if (!f) continue;
+        ink = over(f, ink);
+        back = over(f, back);
+        if (f.a === 1) hiddenBy ??= s;
+      }
+    return { c0, bg, ink, back, hiddenBy };
+  };
+  // does channel attr of e pass as a mark in a theme?
+  const passes = (e, attr, theme) => {
+    const raw = e.a[attr];
+    if (!raw || raw === "none") return false;
+    if (attr === "stroke" && !(+(e.a["stroke-width"] ?? 1) > 0)) return false;
+    const v = drawn(e, attr, theme);
+    return Boolean(v.c0 && v.c0.a > 0 && !v.hiddenBy && contrast(v.ink, v.back) >= 3);
   };
   const check = (e, attr, theme) => {
     const raw = e.a[attr];
@@ -397,13 +520,18 @@ export function auditSvg(svg, { minText, minBoxText }) {
     // a dot is a mark like any other
     const hairline = attr === "stroke" && ["line", "path", "polyline"].includes(e.tag);
     if (!raw || raw === "none" || (hairline && raw.toLowerCase() === GRID)) return;
-    const c0 = paint(e, attr, theme, rules);
-    if (!c0 || c0.a === 0)
+    const v = drawn(e, attr, theme);
+    if (!v.c0 || v.c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
-    if (sameRgb(c0.rgb, page[theme]) && (attr === "stroke" || hollow(e, theme))) return;
-    const c = contrast(over(c0, page[theme]), page[theme]);
+    if (v.hiddenBy)
+      return out.push(
+        `${theme}: ${e.tag} ${attr} ${raw} is hidden by a ${v.hiddenBy.tag} drawn after it (fill ${v.hiddenBy.a.fill})`,
+      );
+    const other = attr === "fill" ? "stroke" : "fill";
+    if (sameRgb(v.c0.rgb, v.bg) && passes(e, other, theme)) return;
+    const c = contrast(v.ink, v.back);
     if (c < 3) {
-      const alpha = c0.a < 1 ? ` (alpha ${+c0.a.toFixed(3)})` : "";
+      const alpha = v.c0.a < 1 ? ` (alpha ${+v.c0.a.toFixed(3)})` : "";
       out.push(`${theme}: ${e.tag} ${attr} ${raw}${alpha} at ${c.toFixed(2)}:1 (marks need 3:1)`);
     }
   };

@@ -938,8 +938,16 @@ Shared helpers the bench scripts import rather than run directly:
   at the 9px floor and 11px inside a figure box, 4.5:1 for every text against what is
   drawn behind it, taken over its glyph box rather than its anchor point (a filled rect
   under part of the box, or drawn after the text over any of it, is reported), 3:1 for
-  every series mark against the page (a page-coloured fill is exempt only inside a visible
-  stroke: a hollow dot). A chart not yet on the
+  every series mark as drawn: against the page and the filled rects painted under it that
+  hold it, and under any filled rect or circle painted after it that holds it (an opaque
+  one hides it, reported). A fill or stroke in its backdrop's colour is exempt only when
+  the element's other channel is painted and passes as a mark (the page-coloured halo
+  around a filled dot, the centre of a hollow ring). The page is the first painted
+  element when that is an opaque full-canvas rect; a full-canvas rect painted later is
+  ordinary paint. The audit refuses (throws "unsupported" on) any SVG construct outside
+  the subset it models, including a nested `<svg>`, a viewBox other than the canvas, a
+  rect, circle or path without a fill, and a dark rule that sets a property other than
+  the one its selector reads. A chart not yet on the
   shared grammar is listed in the test's `LEGACY` set; the PR that redraws it removes it.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold

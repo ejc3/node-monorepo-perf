@@ -315,6 +315,13 @@ test("the audit exempts a legend swatch only when its label sits beside it", () 
   assert.ok(auditMini(swatch + label(80, 30)).length > 0, "far label exempted the swatch");
   // a label on a different line does not label it
   assert.ok(auditMini(swatch + label(45, 60)).length > 0, "off-line label exempted the swatch");
+  // a label with no ink (spaces only) carries nothing: the swatch is a bare tint
+  assert.ok(
+    auditMini(swatch + `<text x="45" y="30" font-size="13" fill="#1c2330">   </text>`).some((i) =>
+      /rect fill/.test(i),
+    ),
+    "a blank label exempted the swatch",
+  );
   // a larger rect is a bar, label or not
   assert.ok(
     auditMini(
@@ -652,6 +659,228 @@ test("a page-coloured fill is exempt only inside a visible stroke (a hollow mark
     [],
   );
 });
+// A page-coloured channel (fill or stroke) is not a mark only when the element's other
+// channel is painted and itself passes as a mark: the white halo around a filled dot, the
+// page-coloured centre of a hollow ring. A page-coloured series line, edge or ring with
+// nothing else painted is invisible, and is reported. Both channels, both themes.
+const themed = (rules, body) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+  `<style>@media (prefers-color-scheme: dark){rect[fill="#ffffff"]{fill:#0d1117}${rules}}</style>` +
+  `<rect width="400" height="200" fill="#ffffff"/>${body}</svg>`;
+const auditThemed = (rules, body) =>
+  auditSvg(themed(rules, body), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+test("a page-coloured channel is exempt only when the other channel is painted and passes as a mark", () => {
+  // light: a page-coloured stroke with nothing else painted
+  for (const [mark, tag] of [
+    [`<polyline points="20,20 200,20" fill="none" stroke="#ffffff"/>`, "polyline"],
+    [`<line x1="20" y1="20" x2="200" y2="20" stroke="#ffffff"/>`, "line"],
+    [`<path d="M20 20L200 20" fill="none" stroke="#ffffff"/>`, "path"],
+    [`<circle cx="50" cy="50" r="4" fill="none" stroke="#ffffff"/>`, "circle"],
+    [`<rect x="20" y="20" width="200" height="12" fill="none" stroke="#ffffff"/>`, "rect"],
+    // the other channel painted but itself too faint to be a mark
+    [`<circle cx="50" cy="50" r="4" fill="#f4f4f4" stroke="#ffffff"/>`, "circle"],
+  ])
+    assert.ok(
+      auditMini(mark).some((i) => new RegExp(`^light: ${tag} stroke #ffffff at 1\\.00:1`).test(i)),
+      `a page-coloured stroke with no visible mark under it passed: ${mark} → ${JSON.stringify(auditMini(mark))}`,
+    );
+  // both channels page-coloured: both reported
+  const both = auditMini(`<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#ffffff"/>`);
+  assert.ok(
+    both.some((i) => /^light: circle fill #ffffff at 1\.00:1/.test(i)) &&
+      both.some((i) => /^light: circle stroke #ffffff at 1\.00:1/.test(i)),
+    `a dot page-coloured in both channels passed: ${JSON.stringify(both)}`,
+  );
+  // controls: the halo around a filled dot, the centre of a hollow ring
+  assert.deepEqual(
+    auditMini(`<circle cx="50" cy="50" r="4" fill="#3a4656" stroke="#ffffff" stroke-width="1.5"/>`),
+    [],
+  );
+  assert.deepEqual(
+    auditMini(`<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656"/>`),
+    [],
+  );
+  // dark: a series stroke a dark rule turns into the dark page colour
+  const line = auditThemed(
+    `polyline[stroke="#3a4656"]{stroke:#0d1117}`,
+    `<polyline points="20,20 200,20" fill="none" stroke="#3a4656"/>`,
+  );
+  assert.ok(
+    line.some((i) => /^dark: polyline stroke #3a4656 at 1\.00:1/.test(i)) &&
+      !line.some((i) => /^light:/.test(i)),
+    `a series line in the dark page colour passed: ${JSON.stringify(line)}`,
+  );
+  // dark: the halo's dot fill turns faint, so the page-coloured halo is no longer exempt
+  const halo = auditThemed(
+    `circle[stroke="#ffffff"]{stroke:#0d1117}circle[fill="#3a4656"]{fill:#161b22}`,
+    `<circle cx="50" cy="50" r="4" fill="#3a4656" stroke="#ffffff"/>`,
+  );
+  assert.ok(
+    halo.some((i) => /^dark: circle stroke #ffffff at 1\.00:1/.test(i)) &&
+      !halo.some((i) => /^light:/.test(i)),
+    `a dark-theme halo around a faint dot passed: ${JSON.stringify(halo)}`,
+  );
+  // dark: the ring's stroke turns faint, so the page-coloured centre is no longer exempt
+  const ring = auditThemed(
+    `circle[fill="#ffffff"]{fill:#0d1117}circle[stroke="#3a4656"]{stroke:#161b22}`,
+    `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656"/>`,
+  );
+  assert.ok(
+    ring.some((i) => /^dark: circle fill #ffffff at 1\.00:1/.test(i)) &&
+      !ring.some((i) => /^light:/.test(i)),
+    `a dark-theme ring with a faint stroke passed: ${JSON.stringify(ring)}`,
+  );
+  // dark controls: the same halo and ring with dark colours that pass
+  assert.deepEqual(
+    auditThemed(
+      `circle[stroke="#ffffff"]{stroke:#0d1117}circle[fill="#3a4656"]{fill:#a7b6c8}`,
+      `<circle cx="50" cy="50" r="4" fill="#3a4656" stroke="#ffffff"/>`,
+    ),
+    [],
+  );
+  assert.deepEqual(
+    auditThemed(
+      `circle[fill="#ffffff"]{fill:#0d1117}circle[stroke="#3a4656"]{stroke:#a7b6c8}`,
+      `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656"/>`,
+    ),
+    [],
+  );
+});
+
+// The page is the first painted element. A full-canvas rect painted after a text or a mark
+// is ordinary paint: it covers what is under it.
+test("the page rect is the first painted element; a later full-canvas rect covers what is under it", () => {
+  const doc = (body) =>
+    auditSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">${body}</svg>`,
+      { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT },
+    );
+  const full = (fill) => `<rect width="400" height="200" fill="${fill}"/>`;
+  // white text, then a full-canvas black rect: the text is covered, and there is no page
+  const late = doc(ink(20, 60, "under the page", "#ffffff") + full("#000000"));
+  assert.ok(
+    late.some((i) =>
+      /"under the page" is covered by a rect drawn after it \(fill #000000\)/.test(i),
+    ),
+    `a text under a later full-canvas rect passed: ${JSON.stringify(late)}`,
+  );
+  assert.ok(
+    late.some((i) => /no full-canvas background rect/.test(i)),
+    `a full-canvas rect painted after a text was taken as the page: ${JSON.stringify(late)}`,
+  );
+  // a page first, then dark text, then a second full-canvas rect over it
+  const second = doc(
+    full("#ffffff") + ink(20, 60, "under a second page", "#1c2330") + full("#ffffff"),
+  );
+  assert.ok(
+    second.some((i) => /"under a second page" is covered by a rect drawn after it/.test(i)),
+    `a text under a second full-canvas rect passed: ${JSON.stringify(second)}`,
+  );
+  // a mark painted before the only full-canvas rect is hidden by it
+  const mark = doc(`<circle cx="50" cy="50" r="4" fill="#3a4656"/>` + full("#ffffff"));
+  assert.ok(
+    mark.some((i) => /circle fill #3a4656 is hidden by a rect drawn after it/.test(i)),
+    `a dot under a later full-canvas rect passed: ${JSON.stringify(mark)}`,
+  );
+  // control: the page first
+  assert.deepEqual(doc(full("#ffffff") + ink(20, 60, "on the page", "#1c2330")), []);
+});
+
+// A mark is judged as drawn: over the rects painted under it that hold it (its backdrop)
+// and under the rects painted after it that hold it (an opaque one hides it).
+test("a mark wholly under a later opaque rect is hidden; one inside a frame is judged against it", () => {
+  const cover = `<rect x="20" y="20" width="200" height="100" fill="#5a6b80"/>`;
+  for (const [mark, tag, attr] of [
+    [`<circle cx="50" cy="50" r="4" fill="#3a4656"/>`, "circle", "fill"],
+    [`<polyline points="30,30 200,90" fill="none" stroke="#3a4656"/>`, "polyline", "stroke"],
+    [`<line x1="30" y1="30" x2="200" y2="90" stroke="#3a4656"/>`, "line", "stroke"],
+    [`<path d="M40 40L60 50L40 60z" fill="#3a4656"/>`, "path", "fill"],
+  ]) {
+    const issues = auditMini(mark + cover);
+    for (const th of ["light", "dark"])
+      assert.ok(
+        issues.some((i) =>
+          new RegExp(`^${th}: ${tag} ${attr} #3a4656 is hidden by a rect drawn after it`).test(i),
+        ),
+        `${th}: a mark under a later opaque rect passed: ${mark} → ${JSON.stringify(issues)}`,
+      );
+  }
+  // a dark dot inside a dark box painted under it: invisible, whatever the page shows
+  const inBox = auditMini(
+    `<rect x="20" y="20" width="200" height="100" fill="#1c2330"/><circle cx="50" cy="50" r="4" fill="#1c2330"/>`,
+  );
+  assert.ok(
+    inBox.some((i) => /^light: circle fill #1c2330 at 1\.00:1/.test(i)),
+    `a dark dot on a dark box passed: ${JSON.stringify(inBox)}`,
+  );
+  // controls: an edge running under a box at one end only, a white dot drawn over the box
+  // (judged against the box, where it would fail against the page), a dot beside the box
+  assert.deepEqual(
+    auditMini(`<line x1="0" y1="50" x2="60" y2="50" stroke="#3a4656"/>${cover}`),
+    [],
+  );
+  assert.deepEqual(auditMini(`${cover}<circle cx="50" cy="50" r="4" fill="#ffffff"/>`), []);
+  assert.deepEqual(auditMini(`<circle cx="300" cy="150" r="4" fill="#3a4656"/>${cover}`), []);
+});
+
+test("dark rules: a declaration on a property other than the selector's attribute is unsupported", () => {
+  const style = (css) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<style>@media (prefers-color-scheme: dark){${css}}</style><rect width="400" height="200" fill="#ffffff"/>` +
+    `<circle cx="50" cy="50" r="4" fill="#ff0000" stroke="#3a4656"/></svg>`;
+  const audit = (css) => auditSvg(style(css), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  for (const css of [
+    `circle[fill="#ff0000"]{stroke:#000000}`,
+    `circle[stroke="#3a4656"]{fill:#0d1117}`,
+    `circle[stroke="#3a4656"]{fill-opacity:.2}`,
+    `circle[fill="#ff0000"]{fill:#ff4444;stroke:#000000}`,
+  ])
+    assert.throws(() => audit(css), /unsupported dark rule/, css);
+  // controls: the same property as the selector's attribute
+  assert.deepEqual(audit(`circle[fill="#ff0000"]{fill:#ff4444;fill-opacity:.9}`), []);
+  assert.deepEqual(audit(`circle[stroke="#3a4656"]{stroke:#1c2330}`), []);
+});
+
+test("the svg's viewBox must match its width and height; rect, circle and path need a fill", () => {
+  const doc = (svgAttrs, body = "") =>
+    `<svg xmlns="http://www.w3.org/2000/svg" ${svgAttrs}><rect width="400" height="200" fill="#ffffff"/>${body}</svg>`;
+  const audit = (s) => auditSvg(s, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  // a 13px text in a viewBox twice the canvas renders at 6.5px
+  assert.throws(
+    () =>
+      audit(
+        doc(`width="400" height="200" viewBox="0 0 800 400"`, ink(20, 60, "scaled", "#1c2330")),
+      ),
+    /unsupported viewBox/,
+  );
+  assert.deepEqual(
+    audit(doc(`width="400" height="200" viewBox="0 0 400 200"`, ink(20, 60, "1:1", "#1c2330"))),
+    [],
+  );
+  // a nested <svg> opens a new viewport (its own viewBox scales what it holds)
+  assert.throws(
+    () =>
+      audit(
+        doc(
+          `width="400" height="200" viewBox="0 0 400 200"`,
+          `<svg width="400" height="200" viewBox="0 0 800 400">${ink(20, 60, "nested", "#1c2330")}</svg>`,
+        ),
+      ),
+    /unsupported markup "<svg/,
+  );
+  // an element without a fill attribute is filled black, which no dark rule can select
+  for (const body of [
+    `<rect x="20" y="20" width="50" height="20"/>`,
+    `<circle cx="50" cy="50" r="4" stroke="#3a4656"/>`,
+    `<path d="M20 20L200 20" stroke="#3a4656"/>`,
+  ])
+    assert.throws(
+      () => audit(doc(`width="400" height="200" viewBox="0 0 400 200"`, body)),
+      /unsupported .*no fill/,
+      body,
+    );
+});
+
 test("an SVG without a full-canvas background rect is reported, not thrown on", () => {
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
