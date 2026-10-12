@@ -84,8 +84,8 @@ with `ERR_PNPM_BROKEN_LOCKFILE` (the negative control in `bench/wave-rollout-ben
 
 Consumers **partition**. The fleet is registry-pinned (`catalog:*`/semver, pinned by the lockfile) and gets waves. The
 co-dev team is workspace-linked (`workspace:*`/`workspace:^`, pinned by the git SHA) and tracks HEAD. The registry half
-needs `.npmrc` `link-workspace-packages`/`prefer-workspace-packages` set to `false` so a published semver resolves from
-the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-link-workspace-packages),
+needs `linkWorkspacePackages`/`preferWorkspacePackages` left at `false`, pnpm's default (pnpm 12 reads them from
+`pnpm-workspace.yaml`, not `.npmrc`), so a published semver resolves from the registry ([WORKSPACE-VS-SEMVER.md §1](WORKSPACE-VS-SEMVER.md#1-the-gate-link-workspace-packages),
 [§2](WORKSPACE-VS-SEMVER.md#2-workspacerange)).
 
 ## Two Rules That Hold on Any Tool

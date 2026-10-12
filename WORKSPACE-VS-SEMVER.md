@@ -4,14 +4,14 @@ Internal packages are independently versioned and normally consumed by plain sem
 
 ## 1. The Gate: `link-workspace-packages`
 
-Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to:
+Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to. pnpm 12 reads the gate as `linkWorkspacePackages` in `pnpm-workspace.yaml` and ignores the `.npmrc` key:
 
 | `link-workspace-packages` | `"b": "^1.2.0"` resolves to |
 |---|---|
 | `false` (pnpm 8+ default) | the registry, even if a matching local `b` exists |
 | `true` | the local `b` if its version satisfies `^1.2.0`, else the registry |
 
-Only `workspace:` forces local linking unconditionally. The two halves of this repo sit on opposite sides of the gate. The benchmark workspace references its internal packages with `workspace:*`, so they always link local; its root `.npmrc` also sets `link-workspace-packages=true` + `prefer-workspace-packages=true`, which links a plain-semver dependency only when the local version satisfies its range. The independently-published model this doc describes runs with the gate closed: the demo scaffolds (§§3–7) either write `link-workspace-packages=false` in their own `.npmrc` or keep pnpm's `false` default in their standalone roots. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
+Only `workspace:` forces local linking unconditionally, and that is what separates the two halves of this repo. The benchmark workspace references its internal packages with `workspace:*`, so they always link local; the `link-workspace-packages=true` and `prefer-workspace-packages=true` lines in its root `.npmrc` are not read by pnpm 12. The independently-published model this doc describes runs with the gate closed, at pnpm's `false` default: the demo scaffolds (§§3–7) either keep that default in their standalone roots or write `link-workspace-packages=false` in their own `.npmrc`, a key pnpm 12 ignores. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
 
 ## 2. `workspace:<range>`
 
