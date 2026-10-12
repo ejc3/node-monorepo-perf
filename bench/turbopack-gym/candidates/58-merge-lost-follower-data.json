@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks-backend, on top of 57: when an upper loses several followers in one job (a task dropping many old children), the data of every follower that loses its last edge to the upper is removed from the upper under one lock and what that changes is sent to the upper's uppers as one merged update, instead of locking the upper and pushing one update per follower; 57's merge moves into a shared helper used by both paths",
+  "patch": "bench/turbopack-gym/candidates/58-merge-lost-follower-data.patch",
+  "base": "vercel/next.js v16.4.0"
+}

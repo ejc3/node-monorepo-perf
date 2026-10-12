@@ -1,0 +1,193 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+index b38faa504e..f2fc94f5c6 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+@@ -610,6 +610,33 @@ impl AggregatedDataUpdate {
+         result
+     }
+ 
++    /// Adds `other` to this update, with the same effect on a task as applying this update and
++    /// then `other`: collectible changes are appended and dirty container counts of the same
++    /// container are summed. Returns `other` unchanged when both carry a dirty container update
++    /// for different containers, which one update cannot hold.
++    fn merge(&mut self, other: Self) -> Option<Self> {
++        let dirty_container_update =
++            match (self.dirty_container_update, other.dirty_container_update) {
++                (Some(a), Some(b)) if a.task_id != b.task_id => return Some(other),
++                (Some(a), Some(b)) => {
++                    let dirty_count = a.dirty_count + b.dirty_count;
++                    let current_session_clean_count =
++                        a.current_session_clean_count + b.current_session_clean_count;
++                    (dirty_count != 0 || current_session_clean_count != 0).then_some(
++                        DirtyContainerUpdate {
++                            task_id: a.task_id,
++                            dirty_count,
++                            current_session_clean_count,
++                        },
++                    )
++                }
++                (a, b) => a.or(b),
++            };
++        self.dirty_container_update = dirty_container_update;
++        self.collectibles_update.extend(other.collectibles_update);
++        None
++    }
++
+     /// Returns true, when the update is empty resp. a no-op.
+     fn is_empty(&self) -> bool {
+         let Self {
+@@ -2266,6 +2293,7 @@ impl AggregationUpdateQueue {
+         )
+         .entered();
+ 
++        let mut lost_data = Vec::new();
+         // see documentation of `retry_loop` for more information why this is needed
+         let result = retry_loop(retry, || {
+             swap_retain(&mut lost_follower_ids, |&mut lost_follower_id| {
+@@ -2304,25 +2332,9 @@ impl AggregationUpdateQueue {
+                     drop(follower);
+ 
+                     // STEP 5
++                    // the data is removed from the upper below, for all lost followers at once
+                     if !data.is_empty() {
+-                        // remove data from upper
+-                        let mut upper = ctx.task(
+-                            upper_id,
+-                            // For performance reasons this should stay `Meta` and not `All`
+-                            AGGREGATION_UPDATE_CATEGORY,
+-                        );
+-                        // STEP 6
+-                        let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
+-                        if !diff.is_empty() {
+-                            let upper_ids = get_uppers(&upper);
+-                            self.push(
+-                                AggregatedDataUpdateJob {
+-                                    upper_ids,
+-                                    update: diff,
+-                                }
+-                                .into(),
+-                            )
+-                        }
++                        lost_data.push(data);
+                     }
+                     // STEP 7
+                     if !followers.is_empty() {
+@@ -2338,6 +2350,21 @@ impl AggregationUpdateQueue {
+                 not_an_upper
+             });
+ 
++            // STEP 6
++            if !lost_data.is_empty() {
++                // remove data from upper
++                let upper = ctx.task(
++                    upper_id,
++                    // For performance reasons this should stay `Meta` and not `All`
++                    AGGREGATION_UPDATE_CATEGORY,
++                );
++                self.apply_and_push_to_uppers(
++                    ctx.should_track_activeness(),
++                    upper,
++                    lost_data.drain(..),
++                );
++            }
++
+             // STEP 8
+             if lost_follower_ids.is_empty() {
+                 return ControlFlow::Break(());
+@@ -2446,6 +2473,52 @@ impl AggregationUpdateQueue {
+         }
+     }
+ 
++    /// Applies `updates` to `upper`, then sends what they changed there to `upper`'s uppers.
++    /// The changes all go to the same uppers, so they are merged into as few updates as
++    /// [`AggregatedDataUpdate::merge`] allows: the graph above `upper` is walked once for all of
++    /// them instead of once per update.
++    fn apply_and_push_to_uppers(
++        &mut self,
++        should_track_activeness: bool,
++        mut upper: TaskGuard<'_>,
++        updates: impl IntoIterator<Item = AggregatedDataUpdate>,
++    ) {
++        let mut merged: Option<AggregatedDataUpdate> = None;
++        let mut unmerged = Vec::new();
++        for data in updates {
++            let diff = data.apply(&mut upper, should_track_activeness, self);
++            if diff.is_empty() {
++                continue;
++            }
++            match &mut merged {
++                None => merged = Some(diff),
++                Some(merged) => {
++                    if let Some(diff) = merged.merge(diff) {
++                        unmerged.push(diff);
++                    }
++                }
++            }
++        }
++        let diffs: SmallVec<[AggregatedDataUpdate; 1]> = merged
++            .into_iter()
++            .chain(unmerged)
++            .filter(|diff| !diff.is_empty())
++            .collect();
++        if !diffs.is_empty() {
++            let upper_ids = get_uppers(&upper);
++            drop(upper);
++            for diff in diffs {
++                self.push(
++                    AggregatedDataUpdateJob {
++                        upper_ids: upper_ids.clone(),
++                        update: diff,
++                    }
++                    .into(),
++                );
++            }
++        }
++    }
++
+     /// Batched version of `inner_of_upper_has_new_follower`.
+     /// See detailed comments in that function, follow the STEP numbers.
+     fn inner_of_uppers_has_new_follower<T: TaskIdWithOptionalCount + Clone, const N: usize>(
+@@ -2900,41 +2973,12 @@ impl AggregationUpdateQueue {
+         }
+         if !upper_data_updates.is_empty() {
+             // add data to upper
+-            let mut upper = ctx.task(
++            let upper = ctx.task(
+                 upper_id,
+                 // For performance reasons this should stay `Meta` and not `All`
+                 AGGREGATION_UPDATE_CATEGORY,
+             );
+-            let diffs = upper_data_updates
+-                .into_iter()
+-                .filter_map(|data| {
+-                    let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
+-                    (!diff.is_empty()).then_some(diff)
+-                })
+-                .collect::<Vec<_>>();
+-            let mut iter = diffs.into_iter();
+-            if let Some(mut diff) = iter.next() {
+-                let upper_ids = get_uppers(&upper);
+-                drop(upper);
+-                // TODO merge AggregatedDataUpdate
+-                for next_diff in iter {
+-                    self.push(
+-                        AggregatedDataUpdateJob {
+-                            upper_ids: upper_ids.clone(),
+-                            update: diff,
+-                        }
+-                        .into(),
+-                    );
+-                    diff = next_diff;
+-                }
+-                self.push(
+-                    AggregatedDataUpdateJob {
+-                        upper_ids,
+-                        update: diff,
+-                    }
+-                    .into(),
+-                );
+-            }
++            self.apply_and_push_to_uppers(ctx.should_track_activeness(), upper, upper_data_updates);
+         }
+         if !inner_tasks.is_empty() {
+             // STEP 6f

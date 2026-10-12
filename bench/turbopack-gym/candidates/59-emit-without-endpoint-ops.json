@@ -1,0 +1,5 @@
+{
+  "description": "next-napi-bindings: the build's emit step (emit_all_output_assets_once_with_issues_operation) keeps only issues and effects, so it collects them from the emit operation directly instead of wrapping it in an EntrypointsOperation, which created one root pick_endpoint operation per endpoint, each an aggregation root over the whole emit graph, and then discarded them",
+  "patch": "bench/turbopack-gym/candidates/59-emit-without-endpoint-ops.patch",
+  "base": "vercel/next.js v16.4.0"
+}

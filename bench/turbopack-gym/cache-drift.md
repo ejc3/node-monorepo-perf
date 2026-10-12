@@ -17,6 +17,8 @@ candidates that came out of it. Every number here was measured on dedicated 192-
 - `bench/turbopack-graph-drift-52w.json` and `bench/turbopack-graph-drift-57.json`: the
   `import` sweeps for candidates 52 and 57, each against 15 + 22 + 55 + 56, 3 reps, set up as
   the drift-56 sweep, each on its own c8gd.48xlarge.
+- `bench/turbopack-graph-drift-58.json` and `bench/turbopack-graph-drift-59.json`: the same
+  for candidates 58 and 59, each against 15 + 22 + 55 + 56 + 57.
 - `cache-read-probes.json`: single warm builds that locate where a warm start waits (page
   cache, access mode, candidates 53 to 55, profiles), set up the same way, on four instances
   (A, B and D are c8gd.48xlarge, C an m8gd.48xlarge). The same build's time differed between
@@ -347,18 +349,71 @@ they are not quoted here) show where it goes:
   two levels above must see exactly the current children's collectibles. It fails when the
   merge keeps only the first diff.
 
+## Removed children: one update per upper (no gain)
+
+- **58 `merge-lost-follower-data`** (on top of 57): when one job takes several followers
+  away from an upper (a task dropping many old children), the data of every follower that
+  loses its last edge to the upper is removed from the upper under one lock, and what that
+  changes goes to the upper's uppers as one merged update, instead of one lock and one
+  update per follower. 57's merge moves into a helper both paths use.
+  `upstream/58-merge-lost-follower-data.patch` carries 57's test, whose steps already drop
+  children; with 58 it also fails when only the first removed follower's data is applied
+  (49 collectibles of removed children stay visible). `cargo test -p
+  turbo-tasks-backend` passes 276 of 276; clippy is clean.
+- `bench/turbopack-graph-drift-58.json` (15 + 22 + 55 + 56 + 57 against 15 + 22 + 55 + 56 +
+  58, `import` edits, 3 reps, same output at every point): no difference outside the spread
+  between reps. Warm emit at 1,000 new imports <!--v:dr.c58.import.15+22+55+56+57.1000.warm.emit-->16.7s<!--/v--> against <!--v:dr.c58.import.15+22+55+56+58.1000.warm.emit-->16.8s<!--/v-->, `run-turbopack`
+  <!--v:dr.c58.import.15+22+55+56+57.1000.warm.turbopack-->52.6s<!--/v--> against <!--v:dr.c58.import.15+22+55+56+58.1000.warm.turbopack-->52.2s<!--/v-->; at 10, emit <!--v:dr.c58.import.15+22+55+56+57.10.warm.emit-->5.6s<!--/v--> against <!--v:dr.c58.import.15+22+55+56+58.10.warm.emit-->5.7s<!--/v-->. The removed children's updates are
+  not where the rest of emit's time goes; the fan-out below is.
+
+## The endpoint roots over emit
+
+The 3,789 `pick_endpoint` roots above the collectibles' taker (above) come from the emit
+step of `next build`. `emit_all_output_assets_once_with_issues_operation`
+(`crates/next-napi-bindings/src/next_api/project.rs`) wraps the emit operation in
+`EntrypointsOperation::new`, which creates one root `pick_endpoint` operation per endpoint,
+each reading the whole (collectible-free) emit operation strongly consistently, and so each
+an aggregation root over all of it. The step keeps only the issues and effects
+(`let (_, issues, effects) = ...`): the `EntrypointsOperation` value is discarded. In the
+diagnostic build above, each of the 908 `emit_rebase` tasks that completed with new children
+queued 3,794 update jobs (one per root), 3.4 M in all, and their completions took 29s of
+worker time.
+
+- **59 `emit-without-endpoint-ops`**: the emit step collects issues and effects from the emit
+  operation itself, without the wrapper. The issues and effects are the same: the wrapper's
+  collectibles were the emit operation's, which it connects directly, while the
+  collectible-free copy under the `pick_endpoint` roots adds none. The write phase's
+  `EntrypointsOperation`, whose value goes to JavaScript, is unchanged.
+
+`bench/turbopack-graph-drift-59.json` (15 + 22 + 55 + 56 + 57 against the same with 59,
+`import` edits, 3 reps, same output at every point). `run-turbopack` / `turbopack-emit`:
+
+| new imports | warm, 15 + 22 + 55 + 56 + 57 | warm, + 59 | cold, 15 + 22 + 55 + 56 + 57 | cold, + 59 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c59.import.15+22+55+56+57.0.warm.turbopack-->5.1s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.0.warm.emit-->1.3s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.0.warm.turbopack-->5.2s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.0.warm.emit-->1.4s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.0.cold.turbopack-->33.7s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.0.cold.emit-->16.8s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.0.cold.turbopack-->31.4s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.0.cold.emit-->14.5s<!--/v--> |
+| 1 | <!--v:dr.c59.import.15+22+55+56+57.1.warm.turbopack-->29.0s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.1.warm.emit-->1.8s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.turbopack-->30.2s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.emit-->1.4s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.1.cold.turbopack-->33.0s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.1.cold.emit-->15.7s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1.cold.turbopack-->29.0s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.1.cold.emit-->12.7s<!--/v--> |
+| 10 | <!--v:dr.c59.import.15+22+55+56+57.10.warm.turbopack-->36.8s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.10.warm.emit-->5.5s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.10.warm.turbopack-->29.5s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.10.warm.emit-->1.3s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.10.cold.turbopack-->33.3s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.10.cold.emit-->16.5s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.10.cold.turbopack-->30.2s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.10.cold.emit-->13.6s<!--/v--> |
+| 1,000 | <!--v:dr.c59.import.15+22+55+56+57.1000.warm.turbopack-->52.7s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.1000.warm.emit-->16.5s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.turbopack-->34.2s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.emit-->1.2s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.1000.cold.turbopack-->34.6s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.1000.cold.emit-->17.3s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1000.cold.turbopack-->29.9s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.1000.cold.emit-->12.9s<!--/v--> |
+
+- Warm builds with new imports: emit no longer grows with them (<!--v:dr.c59.import.15+22+55+56+57+59.10.warm.emit-->1.3s<!--/v--> at 10, <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.emit-->1.2s<!--/v--> at
+  1,000); `run-turbopack` is 7s shorter at 10 and 18s at 1,000, the three builds of each
+  not overlapping. With 1,000 new imports the warm build's `run-turbopack` (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.turbopack-->34.2s<!--/v-->) is now
+  within 5s of a cold one (<!--v:dr.c59.import.15+22+55+56+57+59.1000.cold.turbopack-->29.9s<!--/v-->); what is left of it is the recomputation before emit
+  (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v-->). With one new import, no difference outside the spread.
+- Cold builds: `run-turbopack` 2.3 to 4.6s shorter at every N (emit 2.3 to 4.4s), the
+  three builds of each not overlapping at any N. A cold build creates the 3,789 roots and
+  connects each to the finished emit graph; with 59 it does neither.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
   run: on instances C and D (`candidatesC`, `candidatesD`), wall minus `run-turbopack` is
   11.4 to 23.1s, most builds near 12s or near 21s, the same configuration landing on either,
   in every access mode. Not explained yet.
-- After 57, a warm build with 1,000 new imports still spends <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> in emit. Two parts
-  are known from the counters above: the updates `cleanup_old_edges` queues for a task's
-  removed children are still pushed per follower (the same merge would apply, but that path
-  locks each upper once per follower, so a merged update must read the upper's uppers under
-  one lock with the applied diffs), and each collectible change is applied on every
-  `pick_endpoint` root, which no change to the queue removes.
+- After 59, a warm build's emit stays near <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.emit-->1.2s<!--/v--> with 1,000 new imports. What is left of the
+  warm build's `run-turbopack` is the recomputation before emit (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v--> at 1,000, <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.preEmit-->27.5s<!--/v--> with
+  one new import). The write phase builds a second set of `pick_endpoint` roots, over the
+  compile; its value goes to JavaScript, and nothing measured so far puts time on it.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not

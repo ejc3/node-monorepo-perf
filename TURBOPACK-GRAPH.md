@@ -259,6 +259,23 @@ another dedicated c8gd.48xlarge, same output at every point). Warm builds on top
 Cold builds: a paired A/B gives `run-turbopack` ×0.989, same output
 (`bench/turbopack-gym/ab57-cold.json`).
 
+Those 3,789 roots come from the build's emit step, which wraps the emit operation in
+`EntrypointsOperation::new` only to keep its issues and effects; the per-endpoint operations
+it creates are discarded. Candidate 59 collects the issues and effects from the emit
+operation directly (`bench/turbopack-graph-drift-59.json`, another dedicated c8gd.48xlarge,
+same output at every point). On top of 15 + 22 + 55 + 56 + 57, `run-turbopack` /
+`turbopack-emit`:
+
+| new imports | warm | warm, + 59 | cold | cold, + 59 |
+|---|---|---|---|---|
+| 10 | <!--v:dr.c59.import.15+22+55+56+57.10.warm.turbopack-->36.8s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.10.warm.emit-->5.5s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.10.warm.turbopack-->29.5s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.10.warm.emit-->1.3s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.10.cold.turbopack-->33.3s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.10.cold.turbopack-->30.2s<!--/v--> |
+| 1,000 | <!--v:dr.c59.import.15+22+55+56+57.1000.warm.turbopack-->52.7s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57.1000.warm.emit-->16.5s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.turbopack-->34.2s<!--/v--> / <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.emit-->1.2s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57.1000.cold.turbopack-->34.6s<!--/v--> | <!--v:dr.c59.import.15+22+55+56+57+59.1000.cold.turbopack-->29.9s<!--/v--> |
+
+Emit no longer grows with the number of new imports, and cold builds are 2.3 to 4.6s
+shorter at every point. With 1,000 new imports the warm build is now within 5s of a cold
+one; the rest is recomputation before emit. Candidate 58 (the same merge as 57 for removed
+children) made no difference (`bench/turbopack-graph-drift-58.json`).
+
 ## A Counter Every Operation Writes
 
 In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of
@@ -292,9 +309,8 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   section).
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
-- New imports rerun the whole-app analyses on restored task state, on many cores; after 57,
-  part of a warm build's emit after many new imports is still collectible updates: those for
-  removed children, and each change applied on every endpoint's root
+- New imports rerun the whole-app analyses on restored task state, on many cores; after 59
+  that recomputation is what is left of a warm build's extra time
   (bench/turbopack-gym/cache-drift.md, Open).
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.
