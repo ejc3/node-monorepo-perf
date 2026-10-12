@@ -22,7 +22,9 @@ import {
   logScale,
   MIN_BOX_TEXT,
 } from "./_chartstyle.mjs";
-import { auditSvg } from "./_svg-audit.mjs";
+import * as svgAudit from "./_svg-audit.mjs";
+
+const { auditSvg } = svgAudit;
 
 // every test runs and reports; a failure is listed and the run exits 1 at the end, so one
 // regression does not hide the next (the committed-chart sweep names every failing chart)
@@ -969,6 +971,397 @@ test("the audit certifies only the allowlisted SVG subset; anything else is unsu
       css,
     );
 });
+// ---- one geometry model per shape ----
+// Every predicate reads a shape's geometry through one primitive (shapeOf in _svg-audit.mjs):
+// where its fill paints, where its stroke's ring paints, and what lies inside its stroke's
+// inner edge. The concrete cases below each broke a predicate that carried its own idea of
+// a shape; the matrix after them runs every predicate over every shape kind in both themes,
+// so a predicate that bypasses the primitive fails here.
+const GEO_RULES =
+  `rect[fill="#ffffff"]{fill:#0d1117}` +
+  `rect[fill="#1c2330"],circle[fill="#1c2330"],path[fill="#1c2330"],text[fill="#1c2330"]{fill:#e6edf3}` +
+  `text[fill="#ffffff"],circle[fill="#ffffff"],path[fill="#ffffff"]{fill:#0d1117}` +
+  `rect[fill="#f2f2f2"],circle[fill="#f2f2f2"],path[fill="#f2f2f2"]{fill:#161b22}` +
+  `rect[stroke="#1c2330"],circle[stroke="#1c2330"],path[stroke="#1c2330"]{stroke:#e6edf3}` +
+  `rect[stroke="#f2f2f2"],circle[stroke="#f2f2f2"],path[stroke="#f2f2f2"]{stroke:#161b22}`;
+// the page (white, #0d1117 in dark) unless `page` is false; the body after it
+const geoSvg = (body, page = true) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+  `<style>@media (prefers-color-scheme: dark){${GEO_RULES}}</style>` +
+  `${page ? `<rect width="400" height="200" fill="#ffffff"/>` : ""}${body}</svg>`;
+const auditGeo = (body, page) =>
+  auditSvg(geoSvg(body, page), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+const label = (x, y, fill, { size = 13, anchor = "start", s = "ab" } = {}) =>
+  `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}"${anchor === "start" ? "" : ` text-anchor="${anchor}"`}>${s}</text>`;
+const dot = ([cx, cy], fill) => `<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}"/>`;
+const strokeAttr = (stroke) => (stroke ? ` stroke="${stroke}"` : "");
+// Each kind: draw(fill, stroke), and probe points in its own coordinates. `centre` (a
+// middle-anchored text baseline and a dot centre) lies inside every kind's fill; `corner`
+// (a text baseline) and `cornerDot` lie inside the kind's bounding box, inside a square
+// rect's fill and an outline's inner edge, and clear of a rounded rect's, a circle's and a
+// diamond's fill; `edge` (a text baseline) puts the glyph box across the fill's boundary.
+const KINDS = {
+  square: {
+    draw: (fill, stroke) =>
+      `<rect x="60" y="20" width="280" height="160" fill="${fill}"${strokeAttr(stroke)}/>`,
+    tag: "rect",
+    filled: true,
+    cornerFilled: true,
+    figureBox: true,
+    corner: [63, 33],
+    cornerDot: [68, 28],
+    edge: [55, 104],
+  },
+  rounded: {
+    draw: (fill, stroke) =>
+      `<rect x="60" y="20" width="280" height="160" rx="70" fill="${fill}"${strokeAttr(stroke)}/>`,
+    tag: "rect",
+    filled: true,
+    cornerFilled: false,
+    figureBox: true,
+    corner: [63, 33],
+    cornerDot: [68, 28],
+    edge: [74, 44],
+  },
+  circle: {
+    draw: (fill, stroke) =>
+      `<circle cx="200" cy="100" r="80" fill="${fill}"${strokeAttr(stroke)}/>`,
+    tag: "circle",
+    filled: true,
+    cornerFilled: false,
+    figureBox: false,
+    corner: [123, 33],
+    cornerDot: [128, 28],
+    edge: [137, 47],
+  },
+  diamond: {
+    draw: (fill, stroke) =>
+      `<path d="M200 20L340 100L200 180L60 100z" fill="${fill}"${strokeAttr(stroke)}/>`,
+    tag: "path",
+    filled: true,
+    cornerFilled: false,
+    figureBox: false,
+    corner: [63, 33],
+    cornerDot: [68, 28],
+    edge: [124, 62],
+  },
+  // an outline-only rect: no fill, a visible border
+  outline: {
+    draw: (_fill, stroke) =>
+      `<rect x="60" y="20" width="280" height="160" fill="none" stroke="${stroke || "#1c2330"}" stroke-width="2"/>`,
+    tag: "rect",
+    filled: false,
+    cornerFilled: false,
+    figureBox: true,
+    corner: [63, 33],
+    cornerDot: [68, 28],
+    edge: [55, 104],
+  },
+};
+const CENTRE = [200, 104];
+const CENTRE_DOT = [200, 100];
+const both = (issues, re) => ["light", "dark"].every((th) => issues.some((i) => re(th).test(i)));
+const none = (issues, re) => !issues.some((i) => re.test(i));
+
+test("finding 1: a dark filled circle is the backdrop of the text and the dot painted over it", () => {
+  // a dark circle, then text in its colour: unreadable, though it would pass on the page
+  const txt = auditGeo(
+    KINDS.circle.draw("#1c2330") + label(...CENTRE, "#1c2330", { anchor: "middle" }),
+  );
+  assert.ok(
+    both(txt, (th) => new RegExp(`^${th}: "ab" #1c2330 at 1\\.00:1`)),
+    `text the colour of the circle under it passed: ${JSON.stringify(txt)}`,
+  );
+  // a smaller dot of the same colour wholly inside it
+  const inner = auditGeo(KINDS.circle.draw("#1c2330") + dot(CENTRE_DOT, "#1c2330"));
+  assert.ok(
+    both(inner, (th) => new RegExp(`^${th}: circle fill #1c2330 at 1\\.00:1`)),
+    `a dot the colour of the circle under it passed: ${JSON.stringify(inner)}`,
+  );
+});
+
+test("finding 2: a canvas-sized rect with rounded corners is not the page", () => {
+  // a black canvas-sized rect with rx: its corners are transparent, so white text in a
+  // corner sits on the reader's surface, not on black
+  const issues = auditSvg(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+      `<rect width="400" height="200" rx="60" fill="#000000"/>${label(2, 11, "#ffffff")}</svg>`,
+    { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT },
+  );
+  assert.ok(
+    issues.some((i) => /no full-canvas background rect/.test(i)),
+    `a rounded canvas-sized rect was taken as the page: ${JSON.stringify(issues)}`,
+  );
+  assert.ok(
+    issues.some((i) => /^light: "ab" #ffffff/.test(i)),
+    `white text in a transparent corner passed: ${JSON.stringify(issues)}`,
+  );
+});
+
+test("finding 3: text in a rounded rect's clipped corner is not framed by the rect", () => {
+  // white text in the corner of a dark rounded rect, clear of its fill: on the page
+  const corner = auditGeo(
+    KINDS.rounded.draw("#1c2330") + label(...KINDS.rounded.corner, "#ffffff"),
+  );
+  assert.ok(
+    both(corner, (th) => new RegExp(`^${th}: "ab" #ffffff at 1\\.00:1`)),
+    `white text in a clipped corner was judged against the rect: ${JSON.stringify(corner)}`,
+  );
+  // text across the corner's arc crosses the fill's edge
+  const arc = auditGeo(KINDS.rounded.draw("#1c2330") + label(...KINDS.rounded.edge, "#1c2330"));
+  assert.ok(
+    arc.some((i) => /"ab" crosses the edge of the rect painted under it/.test(i)),
+    `text across a rounded corner's arc was framed by the rect: ${JSON.stringify(arc)}`,
+  );
+});
+
+test("finding 4: an outline-only rect with a visible border is a figure box", () => {
+  const box = (stroke) =>
+    `<rect x="60" y="20" width="280" height="160" fill="none" stroke="${stroke}"/>` +
+    label(...CENTRE, "#1c2330", { size: 10, anchor: "middle" });
+  assert.ok(
+    auditGeo(box("#1c2330")).some((i) => /"ab" is 10px inside a figure box/.test(i)),
+    "10px text inside an outline-only box passed the box floor",
+  );
+  // a border of alpha 0 is not visible: no box
+  assert.ok(
+    none(auditGeo(box("rgba(0,0,0,0)")), /figure box/),
+    "an invisible border made a figure box",
+  );
+});
+
+test("the shape primitive: fill, stroke ring and inner edge per shape kind", () => {
+  const { shapeOf } = svgAudit;
+  assert.equal(typeof shapeOf, "function", "_svg-audit.mjs exports shapeOf");
+  const el = (tag, a) => ({ tag, a, dx: 0, dy: 0 });
+  // a rounded rect: corners clamped per axis (rx 30 on a 100x20 rect is 30 by 10)
+  const rr = shapeOf(
+    el("rect", { x: "0", y: "0", width: "100", height: "20", rx: "30", fill: "#000" }),
+  );
+  assert.ok(rr.fillContains([30, 0, 70, 20]), "the straight middle is filled");
+  assert.ok(!rr.fillContains([0, 0, 4, 4]), "a clipped corner is not filled");
+  assert.ok(!rr.fillMeets([0, 0, 2, 2]), "a box in the clipped corner meets no fill");
+  assert.ok(rr.fillMeets([0, 8, 4, 12]), "the corner's arc reaches the left edge at mid-height");
+  assert.ok(!rr.fillCoversCanvas(100, 20), "a rounded rect does not cover its own bounds");
+  // a circle: its disk, and its stroke's ring
+  const c = shapeOf(
+    el("circle", {
+      cx: "50",
+      cy: "50",
+      r: "20",
+      fill: "none",
+      stroke: "#000",
+      "stroke-width": "2",
+    }),
+  );
+  assert.ok(!c.fillMeets([45, 45, 55, 55]), "an unfilled circle has no fill");
+  assert.ok(c.holds([45, 45, 55, 55]), "the ring's hole holds a box at the centre");
+  assert.ok(!c.strokeMeets([45, 45, 55, 55]), "the ring does not reach the centre");
+  assert.ok(c.strokeMeets([65, 45, 75, 55]), "the ring crosses a box on its edge");
+  assert.ok(!c.holds([60, 45, 70, 55]), "a box under the ring is not inside the inner edge");
+  // a path's fill (nonzero, implicitly closed) and its outline
+  const tri = shapeOf(el("path", { d: "M0 0L100 0L0 100", fill: "#000" }));
+  assert.ok(tri.fillContains([5, 5, 20, 20]) && !tri.fillMeets([60, 60, 90, 90]));
+  // an outline-only rect: no fill; inside its inner edge; its ring
+  const o = shapeOf(
+    el("rect", {
+      x: "0",
+      y: "0",
+      width: "100",
+      height: "50",
+      fill: "none",
+      stroke: "#000",
+      "stroke-width": "4",
+    }),
+  );
+  assert.ok(!o.fillMeets([10, 10, 20, 20]) && o.holds([10, 10, 20, 20]));
+  assert.ok(!o.holds([1, 10, 20, 20]), "a box under the border is not inside the inner edge");
+  assert.ok(o.strokeMeets([-5, 10, 1, 20]) && !o.strokeMeets([10, 10, 20, 20]));
+  // a canvas-covering circle and a canvas-sized square rect cover the canvas
+  assert.ok(
+    shapeOf(el("circle", { cx: "200", cy: "100", r: "230", fill: "#fff" })).fillCoversCanvas(
+      400,
+      200,
+    ),
+  );
+  assert.ok(
+    !shapeOf(el("circle", { cx: "200", cy: "100", r: "200", fill: "#fff" })).fillCoversCanvas(
+      400,
+      200,
+    ),
+  );
+});
+
+// the matrix: [predicate, kind] → one test, each asserting both themes where the outcome
+// is a contrast
+const MATRIX = {
+  // page selection: the first painted element is the page when its fill covers the canvas
+  page: (k) => {
+    const canvas = {
+      square: `<rect width="400" height="200" fill="#ffffff"/>`,
+      rounded: `<rect width="400" height="200" rx="30" fill="#ffffff"/>`,
+      circle: `<circle cx="200" cy="100" r="230" fill="#ffffff"/>`,
+      diamond: `<path d="M200 0L400 100L200 200L0 100z" fill="#ffffff"/>`,
+      outline: `<rect width="400" height="200" fill="none" stroke="#1c2330"/>`,
+    }[k];
+    const covers = k === "square" || k === "circle";
+    const issues = auditGeo(canvas + label(...CENTRE, "#1c2330", { anchor: "middle" }), false);
+    if (covers) assert.deepEqual(issues, [], "a canvas-covering fill is the page in both themes");
+    else
+      assert.ok(
+        issues.some((i) => /no full-canvas background rect/.test(i)),
+        `a fill that leaves the canvas's corners bare was taken as the page: ${JSON.stringify(issues)}`,
+      );
+    if (k === "circle")
+      assert.ok(
+        auditGeo(
+          `<circle cx="200" cy="100" r="200" fill="#ffffff"/>${label(...CENTRE, "#1c2330", { anchor: "middle" })}`,
+          false,
+        ).some((i) => /no full-canvas background rect/.test(i)),
+        "a circle short of the canvas's corners was taken as the page",
+      );
+  },
+  // text frame: the backdrop of a text inside the fill is the fill
+  frame: (k, K) => {
+    const same = auditGeo(K.draw("#1c2330") + label(...CENTRE, "#1c2330", { anchor: "middle" }));
+    const white = auditGeo(K.draw("#1c2330") + label(...CENTRE, "#ffffff", { anchor: "middle" }));
+    const fails = (issues, ink) =>
+      both(issues, (th) => new RegExp(`^${th}: "ab" ${ink} at 1\\.00:1`));
+    if (K.filled) {
+      assert.ok(
+        fails(same, "#1c2330"),
+        `same-coloured text on the ${k} passed: ${JSON.stringify(same)}`,
+      );
+      assert.deepEqual(white, [], `white text on the ${k} was not judged against it`);
+    } else {
+      assert.deepEqual(same, [], "an outline is not a backdrop");
+      assert.ok(
+        fails(white, "#ffffff"),
+        `white text in an outline was not judged against the page`,
+      );
+    }
+  },
+  // text in the bounding box's corner: framed only where the fill reaches
+  corner: (k, K) => {
+    const issues = auditGeo(K.draw("#1c2330") + label(...K.corner, "#ffffff"));
+    if (K.cornerFilled)
+      assert.deepEqual(issues, [], `the ${k}'s filled corner is not the backdrop`);
+    else {
+      assert.ok(
+        both(issues, (th) => new RegExp(`^${th}: "ab" #ffffff at 1\\.00:1`)),
+        `white text in the ${k}'s bare corner was judged against its fill: ${JSON.stringify(issues)}`,
+      );
+      assert.ok(none(issues, /crosses the edge/), `text clear of the ${k}'s fill crossed it`);
+    }
+  },
+  // a glyph box across the fill's boundary, the fill painted before the text
+  crossing: (k, K) => {
+    const issues = auditGeo(K.draw("#1c2330") + label(...K.edge, "#1c2330"));
+    const re = new RegExp(`"ab" crosses the edge of the ${K.tag} painted under it`);
+    if (K.filled)
+      assert.ok(
+        issues.some((i) => re.test(i)),
+        `text across the ${k}'s edge passed: ${JSON.stringify(issues)}`,
+      );
+    else assert.ok(none(issues, /crosses the edge/), "an outline has no fill to cross");
+  },
+  // a fill painted after a text over its glyph box covers it; one clear of it does not
+  cover: (k, K) => {
+    const over = auditGeo(label(...CENTRE, "#1c2330", { anchor: "middle" }) + K.draw("#f2f2f2"));
+    const corner = auditGeo(label(...K.corner, "#1c2330") + K.draw("#f2f2f2"));
+    const re = new RegExp(`"ab" is covered by a ${K.tag} drawn after it`);
+    assert.equal(
+      over.some((i) => re.test(i)),
+      K.filled,
+      `${k} over a text: ${JSON.stringify(over)}`,
+    );
+    assert.equal(
+      corner.some((i) => /is covered by/.test(i)),
+      K.cornerFilled,
+      `${k} over a text in its corner: ${JSON.stringify(corner)}`,
+    );
+  },
+  // a mark's backdrop: the fill painted under it that holds it
+  markBackdrop: (k, K) => {
+    const same = auditGeo(K.draw("#1c2330") + dot(CENTRE_DOT, "#1c2330"));
+    const cornerWhite = auditGeo(K.draw("#1c2330") + dot(K.cornerDot, "#ffffff"));
+    const fails = (issues, fill) =>
+      both(issues, (th) => new RegExp(`^${th}: circle fill ${fill} at 1\\.00:1`));
+    if (K.filled)
+      assert.ok(
+        fails(same, "#1c2330"),
+        `a dot the colour of the ${k} under it passed: ${JSON.stringify(same)}`,
+      );
+    else assert.deepEqual(same, [], "an outline is not a mark's backdrop");
+    if (K.cornerFilled)
+      assert.deepEqual(cornerWhite, [], `a white dot on the ${k}'s filled corner failed`);
+    else
+      assert.ok(
+        fails(cornerWhite, "#ffffff"),
+        `a white dot in the ${k}'s bare corner was judged against its fill: ${JSON.stringify(cornerWhite)}`,
+      );
+  },
+  // a mark under a later opaque fill that holds it is hidden
+  markCover: (k, K) => {
+    const hid = (issues) =>
+      both(
+        issues,
+        (th) => new RegExp(`^${th}: circle fill #1c2330 is hidden by a ${K.tag} drawn after it`),
+      );
+    const centre = auditGeo(dot(CENTRE_DOT, "#1c2330") + K.draw("#f2f2f2"));
+    const corner = auditGeo(dot(K.cornerDot, "#1c2330") + K.draw("#f2f2f2"));
+    assert.equal(hid(centre), K.filled, `${k} over a dot: ${JSON.stringify(centre)}`);
+    assert.equal(
+      hid(corner),
+      K.cornerFilled,
+      `${k} over a dot in its corner: ${JSON.stringify(corner)}`,
+    );
+  },
+  // a shape holding a text is that text's frame, not a mark; one holding none is a mark
+  markExempt: (k, K) => {
+    const attr = K.filled ? "fill" : "stroke";
+    const re = (th) => new RegExp(`^${th}: ${K.tag} ${attr} #f2f2f2 at`);
+    const framing = auditGeo(
+      K.draw("#f2f2f2", K.filled ? undefined : "#f2f2f2") +
+        label(...CENTRE, "#1c2330", { anchor: "middle" }),
+    );
+    const corner = auditGeo(
+      K.draw("#f2f2f2", K.filled ? undefined : "#f2f2f2") + label(...K.corner, "#1c2330"),
+    );
+    assert.ok(
+      none(framing, /#f2f2f2 at/),
+      `the ${k} framing a text was judged as a mark: ${JSON.stringify(framing)}`,
+    );
+    if (K.cornerFilled || !K.filled)
+      assert.ok(none(corner, /#f2f2f2 at/), `the ${k} holding a corner text was judged as a mark`);
+    else
+      assert.ok(
+        both(corner, re),
+        `the ${k} with a text clear of its fill was exempt: ${JSON.stringify(corner)}`,
+      );
+  },
+  // a figure box: a rect, filled or not, with a visible border holding the glyph box
+  figureBox: (k, K) => {
+    const bordered = K.draw(K.filled ? "#ffffff" : "none", "#1c2330");
+    const centre = auditGeo(bordered + label(...CENTRE, "#1c2330", { size: 10, anchor: "middle" }));
+    const corner = auditGeo(bordered + label(...K.corner, "#1c2330", { size: 10 }));
+    const boxed = (issues) => issues.some((i) => /"ab" is 10px inside a figure box/.test(i));
+    assert.equal(
+      boxed(centre),
+      K.figureBox,
+      `10px text centred in the bordered ${k}: ${JSON.stringify(centre)}`,
+    );
+    assert.equal(
+      boxed(corner),
+      K.figureBox && (K.cornerFilled || !K.filled),
+      `10px text in the bordered ${k}'s corner: ${JSON.stringify(corner)}`,
+    );
+  },
+};
+for (const [pred, fn] of Object.entries(MATRIX))
+  for (const [k, K] of Object.entries(KINDS))
+    test(`geometry matrix: ${pred} x ${k}`, () => fn(k, K));
+
 test("every committed chart, LEGACY ones included, is inside the audit's allowlist", () => {
   for (const f of readdirSync(chartsDir).filter((f) => f.endsWith(".svg")))
     assert.doesNotThrow(

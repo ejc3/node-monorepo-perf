@@ -329,14 +329,14 @@ export const naCell = (x, y, w, h, why) => {
     `<rect x="${x + CELL_GAP / 2}" y="${y + CELL_GAP / 2}" width="${w - CELL_GAP}" height="${h - CELL_GAP}" rx="3" fill="none" stroke="${GRID}"/>`,
     txt(cx, cy + (why ? -1 : 4.5), "—", { size: TYPE.value, fill: MUTED, anchor: "middle" }),
   ];
-  if (why)
-    parts.push(
-      txt(cx, cy + 13, why, {
-        size: fitSize(why, w - 14, TYPE.note),
-        fill: MUTED,
-        anchor: "middle",
-      }),
-    );
+  if (why) {
+    // the bordered outline makes the cell a figure box: its reason holds the box floor
+    if (approxW(why, MIN_BOX_TEXT) > w - 14)
+      throw new Error(
+        `"—" cell reason "${why}" needs ${Math.round(approxW(why, MIN_BOX_TEXT))}px at the ${MIN_BOX_TEXT}px box floor but has ${Math.round(w - 14)}px — shorten it or widen the column`,
+      );
+    parts.push(txt(cx, cy + 13, why, { size: MIN_BOX_TEXT, fill: MUTED, anchor: "middle" }));
+  }
   return parts;
 };
 // column headers: every header in a section sits in one band whose height fits the

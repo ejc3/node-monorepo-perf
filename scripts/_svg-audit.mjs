@@ -36,19 +36,26 @@
 // No opacity, fill-opacity or stroke-opacity attribute, no clip-path, mask, filter,
 // marker, dash array or other transform: each is unsupported, not modelled.
 // Every position is read through one placement primitive, place(), that applies the
-// translate() of the element and of its groups. The page is the first painted element
-// when that is a full-canvas rect, opaque in both themes; each theme's page colour is its
-// fill in that theme. An SVG without one is reported, and the rest of the audit then runs
-// against white. A full-canvas rect painted later is ordinary paint.
+// translate() of the element and of its groups, and every shape's geometry through one
+// geometry primitive, shapeOf(), built on it: where its fill paints (a rect less its
+// rounded corners, a circle's disk, a filled path's subpaths), what lies inside its
+// stroke's inner edge, and where its stroke's ring paints. The page is the first painted
+// element when its fill covers the whole canvas, opaque in both themes; each theme's page
+// colour is its fill in that theme. An SVG without one is reported, and the rest of the
+// audit then runs against white. A canvas-covering fill painted later is ordinary paint.
 //
 // A text is judged over its glyph box, never its anchor point: the box runs from its
 // placed anchor by its text-anchor over the kit's advance-width estimate (approxW in
 // _chartstyle.mjs, the estimate its layout uses), 0.75em above the baseline and 0.21em
-// below it. Every filled rect that meets the box was painted either before the text, where
-// it holds the whole box inside its inner edge (inset by half its stroke: a frame) or
+// below it. Every fill (rect, circle or path) that meets the box was painted either before
+// the text, where it holds the whole box inside its stroke's inner edge (a frame) or
 // crosses the box's edge (reported), or after it (reported as covering it). The text's
-// backdrop is the page plus its frames composited in document order; a crossing rect
-// painted under an opaque frame is hidden by it and not reported.
+// backdrop is the page plus its frames composited in document order; a crossing fill
+// painted under an opaque frame is hidden by it and not reported. Text is at least
+// minText, and at least minBoxText inside a figure box: the topmost rect painted under it,
+// filled or fill="none", that holds its glyph box, when that rect has a visible border (a
+// stroke of width above 0 whose colour has alpha above 0 in a theme) and is wider than
+// 40px and taller than 20px.
 
 import { approxW } from "./_chartstyle.mjs";
 
@@ -255,20 +262,223 @@ const paint = (el, attr, theme, rules) => {
 // positions through it.
 const place = (e, x, y) => [x + e.dx, y + e.dy];
 
-// The page: the first painted element, when it is a rect that covers the whole W x H
-// canvas from its origin (after place()) with an opaque fill in both themes. Without one
-// the reader's own surface shows through (a transparent SVG with dark text is unreadable
-// on GitHub dark), which is an issue. A full-canvas rect painted after any text or mark is
-// ordinary paint: it covers what is under it.
+// ---- shape geometry: the one model of where an element paints ----
+// Boxes are [x0, y0, x1, y1]. A region is a set of points with two tests: contains(b) (the
+// closed box lies inside it) and meets(b) (it shares interior with the box; touching edges
+// do not meet).
+const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+const grow = (b, d) => [b[0] - d, b[1] - d, b[2] + d, b[3] + d];
+const corners = (b) => [
+  [b[0], b[1]],
+  [b[2], b[1]],
+  [b[0], b[3]],
+  [b[2], b[3]],
+];
+const EMPTY = { contains: () => false, meets: () => false };
+// a rect [x0, y0, x1, y1] with elliptical corners of radii rx, ry (0 for square corners)
+const roundRect = (r, rx, ry) => {
+  if (!(r[2] > r[0] && r[3] > r[1])) return EMPTY;
+  const round = rx > 0 && ry > 0;
+  const inside = ([x, y]) => {
+    if (!(x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3])) return false;
+    if (!round) return true;
+    // the nearest corner's ellipse centre, when the point is in that corner's square
+    const cx = x < r[0] + rx ? r[0] + rx : x > r[2] - rx ? r[2] - rx : null;
+    const cy = y < r[1] + ry ? r[1] + ry : y > r[3] - ry ? r[3] - ry : null;
+    return cx === null || cy === null || ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  };
+  return {
+    // the region is convex: it holds a box when it holds the box's corners
+    contains: (b) => corners(b).every(inside),
+    meets: (b) => {
+      if (!meets(r, b)) return false;
+      if (!round) return true;
+      // scale y by rx/ry so the corners are circles of radius rx: the region is then the
+      // core rect grown by rx, and a box meets it when it is nearer than rx to the core
+      const k = rx / ry;
+      const core = [r[0] + rx, r[1] * k + rx, r[2] - rx, r[3] * k - rx];
+      const dx = Math.max(0, core[0] - b[2], b[0] - core[2]);
+      const dy = Math.max(0, core[1] - b[3] * k, b[1] * k - core[3]);
+      return Math.hypot(dx, dy) < rx;
+    },
+  };
+};
+const disk = (cx, cy, r) =>
+  r > 0
+    ? {
+        contains: (b) => corners(b).every(([x, y]) => Math.hypot(x - cx, y - cy) <= r),
+        meets: (b) =>
+          Math.hypot(
+            cx - Math.max(b[0], Math.min(cx, b[2])),
+            cy - Math.max(b[1], Math.min(cy, b[3])),
+          ) < r,
+      }
+    : EMPTY;
+// does the segment p-q pass through the open box b (Liang-Barsky against b shrunk by a
+// hair, so a segment along an edge does not count)?
+const segMeets = ([px, py], [qx, qy], box) => {
+  const b = grow(box, -1e-9);
+  let t0 = 0;
+  let t1 = 1;
+  const dx = qx - px;
+  const dy = qy - py;
+  for (const [p, q] of [
+    [-dx, px - b[0]],
+    [dx, b[2] - px],
+    [-dy, py - b[1]],
+    [dy, b[3] - py],
+  ]) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else {
+      const t = q / p;
+      if (p < 0) t0 = Math.max(t0, t);
+      else t1 = Math.min(t1, t);
+      if (t0 > t1) return false;
+    }
+  }
+  return true;
+};
+// the closed edges of each subpath (a fill closes every subpath)
+const ringEdges = (polys) =>
+  polys.flatMap((pts) => pts.map((p, i) => [p, pts[(i + 1) % pts.length]]));
+// the region a path fills: its subpaths, each closed, under SVG's default nonzero rule
+const polygons = (polys) => {
+  const edges = ringEdges(polys.filter((p) => p.length > 2));
+  if (!edges.length) return EMPTY;
+  const inside = ([x, y]) => {
+    let wind = 0;
+    for (const [[x0, y0], [x1, y1]] of edges) {
+      const side = (x1 - x0) * (y - y0) - (x - x0) * (y1 - y0);
+      if (y0 <= y && y1 > y && side > 0) wind++;
+      else if (y0 > y && y1 <= y && side < 0) wind--;
+    }
+    return wind !== 0;
+  };
+  const crosses = (b) => edges.some(([p, q]) => segMeets(p, q, b));
+  return {
+    // inside where no edge enters the box and its corners are inside
+    contains: (b) => !crosses(b) && corners(b).every(inside),
+    meets: (b) => crosses(b) || inside([(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]),
+  };
+};
+const painted = (v) => Boolean(v) && v !== "none";
+// The geometry primitive: shapeOf(e) for every painted element, in canvas coordinates
+// (through place()). Every check that asks where an element paints asks it here.
+//   bounds          its geometry's bounding box, stroke excluded
+//   extent          its bounding box grown by half its stroke width when a stroke is set
+//   hasFill         it paints a fill (a rect, circle or path with a fill other than none)
+//   fillContains(b) its fill holds box b (a rounded rect less its corners, a disk, a path's
+//                   subpaths filled nonzero)
+//   fillMeets(b)    its fill shares interior with box b
+//   fillCoversCanvas(W, H)  its fill holds the whole canvas
+//   holds(b)        b lies inside its area within the inner edge of its stroke (inset by
+//                   half the stroke width when a stroke is set), filled or not: a frame
+//   strokeMeets(b)  its stroke's painted outline (a rect's or circle's ring, a line's,
+//                   polyline's or path's segments widened by half the stroke) meets box b
+// A rect's corner radius is rx clamped to half its width and, as ry (which follows rx),
+// to half its height. Lines and polylines have no area: they hold nothing.
+export const shapeOf = (e) => {
+  const sw = painted(e.a.stroke) ? +(e.a["stroke-width"] ?? 1) : 0;
+  const hw = sw / 2;
+  let area = null; // the geometry's own region
+  let inner = null; // the region inside the stroke's inner edge
+  let outer = null; // the region inside the stroke's outer edge
+  let lines = null; // the segments a stroke follows, for lines, polylines and paths
+  let bounds;
+  if (e.tag === "rect") {
+    const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
+    const w = +e.a.width;
+    const h = +e.a.height;
+    const r = Math.max(0, +e.a.rx || 0);
+    const rx = Math.min(r, w / 2);
+    const ry = Math.min(r, h / 2);
+    bounds = [x, y, x + w, y + h];
+    area = roundRect(bounds, rx, ry);
+    inner = roundRect(grow(bounds, -hw), Math.max(0, rx - hw), Math.max(0, ry - hw));
+    outer = roundRect(grow(bounds, hw), rx > 0 ? rx + hw : 0, ry > 0 ? ry + hw : 0);
+  } else if (e.tag === "circle") {
+    const [cx, cy] = place(e, +e.a.cx, +e.a.cy);
+    const r = +e.a.r;
+    bounds = [cx - r, cy - r, cx + r, cy + r];
+    area = disk(cx, cy, r);
+    inner = disk(cx, cy, r - hw);
+    outer = disk(cx, cy, r + hw);
+  } else {
+    let polys;
+    if (e.tag === "line")
+      polys = [
+        [
+          [+e.a.x1, +e.a.y1],
+          [+e.a.x2, +e.a.y2],
+        ],
+      ];
+    else if (e.tag === "polyline")
+      polys = [e.a.points.split(" ").map((p) => p.split(",").map(Number))];
+    else
+      polys = e.a.d
+        .split("M")
+        .filter(Boolean)
+        .map((sub) =>
+          [...sub.matchAll(new RegExp(`(${NUM_SRC}) (${NUM_SRC})`, "g"))].map((m) => [
+            +m[1],
+            +m[2],
+          ]),
+        );
+    polys = polys.map((pts) => pts.map(([x, y]) => place(e, x, y)));
+    const xs = polys.flat().map((p) => p[0]);
+    const ys = polys.flat().map((p) => p[1]);
+    bounds = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+    // only a filled path has an area; a stroked one is its segments
+    if (e.tag === "path" && painted(e.a.fill)) {
+      area = polygons(polys);
+      // conservatively, inside the inner edge where the box grown by hw is inside the fill
+      inner = { contains: (b) => area.contains(grow(b, hw)), meets: () => false };
+    }
+    const closed =
+      e.tag === "path"
+        ? e.a.d
+            .split("M")
+            .filter(Boolean)
+            .map((sub) => /z$/.test(sub))
+        : [];
+    lines = polys.flatMap((pts, i) => {
+      const segs = pts.slice(1).map((q, j) => [pts[j], q]);
+      if (closed[i] && pts.length > 2) segs.push([pts[pts.length - 1], pts[0]]);
+      return segs;
+    });
+  }
+  const hasFill = ["rect", "circle", "path"].includes(e.tag) && painted(e.a.fill);
+  const fill = hasFill ? area : EMPTY;
+  return {
+    e,
+    tag: e.tag,
+    bounds,
+    extent: grow(bounds, hw),
+    hasFill,
+    fillContains: (b) => fill.contains(b),
+    fillMeets: (b) => fill.meets(b),
+    fillCoversCanvas: (W, H) => fill.contains([0, 0, W, H]),
+    holds: (b) => Boolean(inner) && inner.contains(b),
+    strokeMeets: (b) => {
+      if (!(sw > 0)) return false;
+      if (lines) return lines.some(([p, q]) => segMeets(p, q, grow(b, hw)));
+      return outer.meets(b) && !inner.contains(b);
+    },
+  };
+};
+
+// The page: the first painted element, when its fill covers the whole W x H canvas (after
+// place()) and is opaque in both themes (a rect with rounded corners leaves the canvas's
+// corners bare, so it is not the page). Without one the reader's own surface shows
+// through (a transparent SVG with dark text is unreadable on GitHub dark), which is an
+// issue. A canvas-covering fill painted after any text or mark is ordinary paint: it
+// covers what is under it.
 const pageRect = (els, texts, W, H, rules) => {
   const e = [els[0], texts[0]].filter(Boolean).sort((p, q) => p.ord - q.ord)[0];
-  if (!e || e.tag !== "rect") return undefined;
-  const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
+  if (!e || e.tag === "text") return undefined;
   const full =
-    x === 0 &&
-    y === 0 &&
-    +e.a.width === W &&
-    +e.a.height === H &&
+    shapeOf(e).fillCoversCanvas(W, H) &&
     ["light", "dark"].every((t) => paint(e, "fill", t, rules)?.a === 1);
   return full ? e : undefined;
 };
@@ -290,8 +500,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
     unsupported(`viewBox "${root.viewBox}" on a ${W}x${H} <svg>`);
   const rules = css === null ? new Map() : darkRules(css);
   const out = [];
-  // each theme's page colour is the page rect's fill in that theme; without a page rect
-  // the rest of the audit runs against white in both themes
+  // each theme's page colour is the page's fill in that theme; without a page the rest of
+  // the audit runs against white in both themes
   const bgRect = pageRect(els, texts, W, H, rules);
   if (!bgRect)
     out.push(
@@ -303,15 +513,18 @@ export function auditSvg(svg, { minText, minBoxText }) {
       bgRect ? paint(bgRect, "fill", t, rules).rgb : [255, 255, 255],
     ]),
   );
-  const geom = (e) => {
-    const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
-    return { e, x, y, w: +e.a.width, h: +e.a.height };
+  // every element's geometry, from the one primitive
+  const shapes = new Map(els.map((e) => [e, shapeOf(e)]));
+  const S = (e) => shapes.get(e);
+  // a stripe: 3px or less across in either direction
+  const stripe = (e) => {
+    const b = S(e).bounds;
+    return b[2] - b[0] <= 3 || b[3] - b[1] <= 3;
   };
-  // filled rects (wider and taller than a 3px stripe), in paint order
-  const rects = els
-    .filter((e) => e.tag === "rect" && e !== bgRect && e.a.fill && e.a.fill !== "none")
-    .map(geom)
-    .filter((r) => r.w > 3 && r.h > 3);
+  // every fill painted over the page, in paint order; stripes are never a backdrop nor a
+  // crossing
+  const fills = els.filter((e) => e !== bgRect && S(e).hasFill);
+  const backdrops = fills.filter((e) => !stripe(e));
   // a text's glyph box [x0, y0, x1, y1] (spaces at either end carry no ink); null if none
   const glyphBox = (t) => {
     const size = +(t.a["font-size"] || 16);
@@ -329,31 +542,27 @@ export function auditSvg(svg, { minText, minBoxText }) {
       y + 0.21 * size,
     ];
   };
-  // boxes are [x0, y0, x1, y1]
-  const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-  const outer = (r) => [r.x, r.y, r.x + r.w, r.y + r.h];
-  // does rect r hold box b inside its inner edge (inset by half its stroke, if painted)?
-  const holds = (r, b) => {
-    const hw = r.e.a.stroke && r.e.a.stroke !== "none" ? +(r.e.a["stroke-width"] ?? 1) / 2 : 0;
-    return b[0] >= r.x + hw && b[1] >= r.y + hw && b[2] <= r.x + r.w - hw && b[3] <= r.y + r.h - hw;
-  };
-  const opaque = (r) => ["light", "dark"].every((th) => paint(r.e, "fill", th, rules)?.a === 1);
+  const opaque = (e) => ["light", "dark"].every((th) => paint(e, "fill", th, rules)?.a === 1);
   // The paint-order model, the one place backdrops, crossings and covers are decided, over
-  // a text's glyph box b. Of the filled rects meeting b: painted before the text, those
-  // holding b are its frames (its backdrop stack, bottom first) and the rest cross its
-  // edge, unless an opaque frame painted after them hides them; painted after the text,
-  // they cover it.
+  // a text's glyph box b. Of the fills meeting b: painted before the text, those holding b
+  // inside their stroke's inner edge are its frames (its backdrop stack, bottom first) and
+  // the rest cross its edge, unless an opaque frame painted after them hides them; painted
+  // after the text, they cover it.
   const paintAround = (t, b) => {
-    const meeting = rects.filter((r) => meets(outer(r), b));
-    const before = meeting.filter((r) => r.e.ord < t.ord);
-    const frames = before.filter((r) => holds(r, b));
+    const meeting = backdrops.filter((e) => S(e).fillMeets(b));
+    const before = meeting.filter((e) => e.ord < t.ord);
+    const frames = before.filter((e) => S(e).holds(b));
     const floor = frames.filter(opaque).pop();
     return {
       frames,
-      crossing: before.filter((r) => !holds(r, b) && !(floor && r.e.ord < floor.e.ord)),
-      above: meeting.filter((r) => r.e.ord > t.ord),
+      crossing: before.filter((e) => !S(e).holds(b) && !(floor && e.ord < floor.ord)),
+      above: meeting.filter((e) => e.ord > t.ord),
     };
   };
+  // a visible border: a stroke of width above 0 whose colour has alpha above 0 in a theme
+  const bordered = (e) =>
+    +(e.a["stroke-width"] ?? 1) > 0 &&
+    ["light", "dark"].some((th) => (paint(e, "stroke", th, rules)?.a ?? 0) > 0);
   const boxes = new Map(texts.map((t) => [t, glyphBox(t)]));
   for (const t of texts) {
     const size = +(t.a["font-size"] || 16);
@@ -361,14 +570,18 @@ export function auditSvg(svg, { minText, minBoxText }) {
     const b = boxes.get(t);
     if (!b) continue;
     const { frames, crossing, above } = paintAround(t, b);
-    for (const r of crossing)
-      out.push(`"${t.s}" crosses the edge of the rect painted under it (fill ${r.e.a.fill})`);
-    for (const r of above)
-      out.push(`"${t.s}" is covered by a rect drawn after it (fill ${r.e.a.fill})`);
-    // the topmost frame painted under the text
-    const under = frames[frames.length - 1];
-    const isBox =
-      under && under.e.a.stroke && under.e.a.stroke !== "none" && under.w > 40 && under.h > 20;
+    for (const e of crossing)
+      out.push(`"${t.s}" crosses the edge of the ${e.tag} painted under it (fill ${e.a.fill})`);
+    for (const e of above)
+      out.push(`"${t.s}" is covered by a ${e.tag} drawn after it (fill ${e.a.fill})`);
+    // a figure box: the topmost rect painted under the text, filled or outline-only, that
+    // holds its glyph box, when it has a visible border and is wider than 40px and taller
+    // than 20px
+    const under = els
+      .filter((e) => e.tag === "rect" && e !== bgRect && e.ord < t.ord && S(e).holds(b))
+      .pop();
+    const box = under && S(under).bounds;
+    const isBox = under && bordered(under) && box[2] - box[0] > 40 && box[3] - box[1] > 20;
     if (isBox && size < minBoxText)
       out.push(`"${t.s}" is ${size}px inside a figure box (floor ${minBoxText}px)`);
     for (const theme of ["light", "dark"]) {
@@ -378,8 +591,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
       };
       // the page, then every frame in paint order
       let bg = page[theme];
-      for (const r of frames) {
-        const f = paint(r.e, "fill", theme, rules);
+      for (const e of frames) {
+        const f = paint(e, "fill", theme, rules);
         if (f) bg = over(f, bg);
       }
       const c = contrast(over(ink, bg), bg);
@@ -387,117 +600,63 @@ export function auditSvg(svg, { minText, minBoxText }) {
     }
   }
   // Non-text marks, each held to 3:1 as drawn: series lines, arrows and edges (lines,
-  // polylines, paths and arrowheads), dots (filled or hollow), and every rect that is not a
-  // text-framing box. A rect frames text only if it holds a rendered text's glyph box
-  // inside its inner edge (heat cells, figure boxes) or sits beside its label (a legend
-  // swatch); one with neither is a bar and its fill and stroke are marks.
+  // polylines, paths and arrowheads), dots (filled or hollow), and every rect, circle or
+  // filled path that does not frame text. A shape frames text if it holds a rendered
+  // text's glyph box inside its stroke's inner edge (heat cells, figure boxes, a badge) or,
+  // for a rect, sits beside its label (a legend swatch); one with neither is a mark (a
+  // bar, a dot, an arrowhead) and its fill and stroke are judged.
   // A mark is judged over its extent (its bounding box, stroke included): its backdrop is
-  // the page plus every filled rect painted before it that holds the extent inside its
-  // inner edge, composited in document order, and every filled rect or circle painted after
-  // it whose fill holds the extent is composited over both the mark and its backdrop. An
-  // opaque one hides it, which is reported.
+  // the page plus every fill painted before it that holds the extent inside its stroke's
+  // inner edge, composited in document order, and every fill painted after it that holds
+  // the extent is composited over both the mark and its backdrop. An opaque one hides it,
+  // which is reported.
   // Stripes of 3px or less and GRID hairlines are not marks. A channel (fill or stroke)
   // coloured like its backdrop is not a mark only when the element's other channel is
   // painted (a colour of alpha above 0; a stroke also of width above 0) and itself passes
   // as a mark: the page-coloured halo around a filled dot, the page-coloured centre of a
   // hollow ring. A page-coloured series line, edge, ring or outline with nothing else
   // painted is reported.
-  const framesText = (r) => [...boxes.values()].some((b) => b && holds(r, b));
+  const framesText = (e) => [...boxes.values()].some((b) => b && S(e).holds(b));
   // A labeled swatch (a legend key): a rect of at most 32x20 whose meaning is carried by
   // the inked text that starts within 12px to its right with its baseline inside the rect's
   // vertical extent (+-4px). The information is the adjacent text, not the tint (WCAG 1.4.11).
-  const labelsSwatch = (r) =>
-    r.w <= 32 &&
-    r.h <= 20 &&
-    texts.some((t) => {
-      if (!boxes.get(t)) return false;
-      const [x, y] = place(t, +t.a.x, +t.a.y);
-      const gap = x - (r.x + r.w);
-      return (
-        (t.a["text-anchor"] || "start") === "start" &&
-        gap >= 0 &&
-        gap <= 12 &&
-        y >= r.y - 4 &&
-        y <= r.y + r.h + 4
-      );
-    });
-  // a mark's extent [x0, y0, x1, y1]: the bounding box of its geometry, grown by half its
-  // stroke width when a stroke is set
-  const extent = (e) => {
-    const hw = e.a.stroke && e.a.stroke !== "none" ? +(e.a["stroke-width"] ?? 1) / 2 : 0;
-    let pts;
-    if (e.tag === "circle")
-      pts = [
-        [+e.a.cx - +e.a.r, +e.a.cy - +e.a.r],
-        [+e.a.cx + +e.a.r, +e.a.cy + +e.a.r],
-      ];
-    else if (e.tag === "rect") {
-      const [x, y] = [+e.a.x || 0, +e.a.y || 0];
-      pts = [
-        [x, y],
-        [x + +e.a.width, y + +e.a.height],
-      ];
-    } else if (e.tag === "line")
-      pts = [
-        [+e.a.x1, +e.a.y1],
-        [+e.a.x2, +e.a.y2],
-      ];
-    else if (e.tag === "polyline") pts = e.a.points.split(" ").map((p) => p.split(",").map(Number));
-    else
-      pts = [...e.a.d.matchAll(new RegExp(`(${NUM_SRC}) (${NUM_SRC})`, "g"))].map((m) => [
-        +m[1],
-        +m[2],
-      ]);
-    pts = pts.map(([x, y]) => place(e, x, y));
-    const xs = pts.map((p) => p[0]);
-    const ys = pts.map((p) => p[1]);
-    return [Math.min(...xs) - hw, Math.min(...ys) - hw, Math.max(...xs) + hw, Math.max(...ys) + hw];
-  };
-  // does the fill of a rect or circle s hold box b? A rect's fill is its box less the rx
-  // corner squares; a circle's is its disk.
-  const fillHolds = (s, b) => {
-    if (s.tag === "circle") {
-      const [cx, cy] = place(s, +s.a.cx, +s.a.cy);
-      return [
-        [b[0], b[1]],
-        [b[2], b[1]],
-        [b[0], b[3]],
-        [b[2], b[3]],
-      ].every(([x, y]) => Math.hypot(x - cx, y - cy) <= +s.a.r);
-    }
-    const { x, y, w, h } = geom(s);
-    if (!(b[0] >= x && b[1] >= y && b[2] <= x + w && b[3] <= y + h)) return false;
-    const c = Math.min(+s.a.rx || 0, w / 2, h / 2);
-    return !(
-      c > 0 &&
-      [
-        [x, y, x + c, y + c],
-        [x + w - c, y, x + w, y + c],
-        [x, y + h - c, x + c, y + h],
-        [x + w - c, y + h - c, x + w, y + h],
-      ].some((sq) => meets(sq, b))
+  const labelsSwatch = (e) => {
+    const [x0, y0, x1, y1] = S(e).bounds;
+    return (
+      e.tag === "rect" &&
+      x1 - x0 <= 32 &&
+      y1 - y0 <= 20 &&
+      texts.some((t) => {
+        if (!boxes.get(t)) return false;
+        const [x, y] = place(t, +t.a.x, +t.a.y);
+        const gap = x - x1;
+        return (
+          (t.a["text-anchor"] || "start") === "start" &&
+          gap >= 0 &&
+          gap <= 12 &&
+          y >= y0 - 4 &&
+          y <= y1 + 4
+        );
+      })
     );
   };
-  const fillers = els.filter(
-    (e) => e !== bgRect && (e.tag === "rect" || e.tag === "circle") && e.a.fill !== "none",
-  );
   // channel `attr` of mark e as drawn in a theme: its paint c0, its backdrop bg, then the
-  // mark (ink) and its backdrop (back) under every filled shape painted after it that holds
-  // its extent; hiddenBy is the first opaque one
+  // mark (ink) and its backdrop (back) under every fill painted after it that holds its
+  // extent; hiddenBy is the first opaque one
   const drawn = (e, attr, theme) => {
-    const ext = extent(e);
+    const ext = S(e).extent;
     let bg = page[theme];
-    for (const r of rects)
-      if (r.e !== e && r.e.ord < e.ord && holds(r, ext)) {
-        const f = paint(r.e, "fill", theme, rules);
+    for (const r of backdrops)
+      if (r !== e && r.ord < e.ord && S(r).holds(ext)) {
+        const f = paint(r, "fill", theme, rules);
         if (f) bg = over(f, bg);
       }
     const c0 = paint(e, attr, theme, rules);
     let ink = c0 ? over(c0, bg) : bg;
     let back = bg;
     let hiddenBy = null;
-    for (const s of fillers)
-      if (s.ord > e.ord && fillHolds(s, ext)) {
+    for (const s of fills)
+      if (s.ord > e.ord && S(s).fillContains(ext)) {
         const f = paint(s, "fill", theme, rules);
         if (!f) continue;
         ink = over(f, ink);
@@ -538,13 +697,10 @@ export function auditSvg(svg, { minText, minBoxText }) {
   for (const e of els) {
     if (e === bgRect) continue;
     const attrsToCheck = [];
-    if (e.tag === "circle") attrsToCheck.push("fill", "stroke");
-    else if (e.tag === "polyline" || e.tag === "line") attrsToCheck.push("stroke");
-    else if (e.tag === "path")
-      attrsToCheck.push("stroke", "fill"); // edges and arrowheads
-    else if (e.tag === "rect") {
-      const r = geom(e);
-      if (r.w <= 3 || r.h <= 3 || framesText(r) || labelsSwatch(r)) continue;
+    if (e.tag === "polyline" || e.tag === "line") attrsToCheck.push("stroke");
+    else if (["rect", "circle", "path"].includes(e.tag)) {
+      // a rect stripe is not a mark; a shape framing text is that text's backdrop
+      if ((e.tag === "rect" && stripe(e)) || framesText(e) || labelsSwatch(e)) continue;
       attrsToCheck.push("fill", "stroke");
     } else continue;
     for (const attr of attrsToCheck) for (const theme of ["light", "dark"]) check(e, attr, theme);

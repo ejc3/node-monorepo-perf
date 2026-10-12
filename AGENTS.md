@@ -935,16 +935,21 @@ Shared helpers the bench scripts import rather than run directly:
   secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers,
   log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
   committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text
-  at the 9px floor and 11px inside a figure box, 4.5:1 for every text against what is
-  drawn behind it, taken over its glyph box rather than its anchor point (a filled rect
-  under part of the box, or drawn after the text over any of it, is reported), 3:1 for
-  every series mark as drawn: against the page and the filled rects painted under it that
-  hold it, and under any filled rect or circle painted after it that holds it (an opaque
-  one hides it, reported). A fill or stroke in its backdrop's colour is exempt only when
-  the element's other channel is painted and passes as a mark (the page-coloured halo
-  around a filled dot, the centre of a hollow ring). The page is the first painted
-  element when that is an opaque full-canvas rect; a full-canvas rect painted later is
-  ordinary paint. The audit refuses (throws "unsupported" on) any SVG construct outside
+  at the 9px floor and 11px inside a figure box (a rect wider than 40px and taller than
+  20px, filled or `fill="none"`, with a visible border, holding the text's glyph box),
+  4.5:1 for every text against what is drawn behind it, taken over its glyph box rather
+  than its anchor point (a fill under part of the box, or drawn after the text over any
+  of it, is reported), 3:1 for every series mark as drawn: against the page and the fills
+  painted under it that hold it, and under any fill painted after it that holds it (an
+  opaque one hides it, reported). A fill or stroke in its backdrop's colour is exempt
+  only when the element's other channel is painted and passes as a mark (the
+  page-coloured halo around a filled dot, the centre of a hollow ring). Every check reads
+  a shape's geometry through one primitive, `shapeOf`: a rect's fill less its rounded
+  corners (rx, and ry following it, each clamped to half the side), a circle's disk, a
+  filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
+  stroke's ring. The page is the first painted element when its fill covers the whole
+  canvas and is opaque in both themes (a canvas-sized rect with rounded corners is not
+  the page); a canvas-covering fill painted later is ordinary paint. The audit refuses (throws "unsupported" on) any SVG construct outside
   the subset it models, including a nested `<svg>`, a viewBox other than the canvas, a
   rect, circle or path without a fill, and a dark rule that sets a property other than
   the one its selector reads. A chart not yet on the
