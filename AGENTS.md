@@ -1489,8 +1489,9 @@ The gate blocks on:
 - a head commit nobody but the author reviewed (an empty review object is a reply
   container, not a review);
 - a head commit not reviewed by each login in `REQUIRE_HEAD_REVIEW_FROM` (here
-  `chatgpt-codex-connector`): a covering review object from that bot on the head, or its
-  no-findings result naming the head and dated after the head arrived.
+  `chatgpt-codex-connector`): a covering review object from that bot on the head, its
+  no-findings result naming the head and dated after the head arrived, or a
+  `HEAD-REVIEW-OVERRIDE` for that login and head (below).
 
 Dispositions open a reply of their own and are newer than the claim they answer. A claim
 (an inline finding, a review body, a top-level comment) is dated by when its current text
@@ -1528,6 +1529,28 @@ gh pr comment <n> --body "@coderabbitai review"
 CodeRabbit does not review this repository automatically: its summary comment says the
 repository has fewer than 10 stars and offers a "Trigger review" checkbox. The comment
 command or the checkbox starts a review.
+
+When a required reviewer cannot review the head (Codex out of quota, with its usage-limit
+notice on the PR), record what was done instead with an override rather than merging
+around the gate:
+
+```bash
+gh pr comment <n> --body "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector <sha>: local \`codex exec -s read-only\` review of <base>..<head>, no findings"
+```
+
+The first line of a top-level comment or a review body is
+`HEAD-REVIEW-OVERRIDE: <reviewer-login> <sha>: <what was done instead>`, from anyone, the
+PR author included. It covers that one login on that one head: `<sha>` names the current
+head (the full sha, or a prefix of 7 or more characters no other commit on the PR shares),
+the comment is written after the head arrived (dated like a claim, by its last edit), and
+the text states concretely what replaced the review, at least 20 letters or digits and not
+a placeholder such as `n/a` or `skip`. It answers no thread or review-body finding, counts
+only for a login `REQUIRE_HEAD_REVIEW_FROM` lists, and a push needs a new one. The gate
+prints `HEAD OVERRIDDEN  <login> on <sha>: <text> (by <commenter>, <date>)`, prints an
+override it does not accept as `OVERRIDE REJECTED` with the reason, and ends with
+`verdict: CLEAR (with N head-review override(s))`; the `review-gate` status description
+names the override too. A comment that is the override line alone needs no disposition;
+text below that line is an ordinary comment and does.
 
 Merge through the gate, not around it:
 

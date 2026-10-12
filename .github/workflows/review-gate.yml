@@ -378,8 +378,15 @@ jobs:
         run: |
           set -uo pipefail
           blocked=$(grep -m1 '^verdict: BLOCKED' gate.log 2>/dev/null | sed 's/^verdict: //' || true)
+          # A head cleared by a HEAD-REVIEW-OVERRIDE says so in its status (the gate's verdict
+          # line counts them per PR; the HEAD OVERRIDDEN lines in the run hold the text).
+          overrides=$(sed -n 's/^verdict: CLEAR (with \([0-9][0-9]*\) head-review override.*/\1/p' gate.log 2>/dev/null \
+                        | awk '{ n += $1 } END { print n + 0 }')
           case "${RC:-}" in
-            0) state=success; desc="CLEAR: findings adjudicated, head reviewed" ;;
+            0) state=success; desc="CLEAR: findings adjudicated, head reviewed"
+               if [ "${overrides:-0}" -gt 0 ]; then
+                 desc="CLEAR with $overrides head-review override(s): findings adjudicated, head reviewed or overridden; see the run"
+               fi ;;
             1) state=failure; desc=${blocked:-BLOCKED} ;;
             *) state=error; desc="The gate could not evaluate (exit ${RC:-none}); see the run" ;;
           esac

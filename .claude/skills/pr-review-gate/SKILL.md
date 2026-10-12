@@ -46,8 +46,8 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
   object is a reply container, not a review.
 - **MISSING HEAD REVIEW**: a login in `REQUIRE_HEAD_REVIEW_FROM` (here
   `chatgpt-codex-connector`) has not reviewed the head: no covering review
-  object from it on the head, and no no-findings result from it that names the head and is
-  dated after the head arrived.
+  object from it on the head, no no-findings result from it that names the head and is
+  dated after the head arrived, and no accepted `HEAD-REVIEW-OVERRIDE` for it (below).
 
 ## Answering a finding
 
@@ -91,6 +91,36 @@ warn, so answer it then. Codex covers the head with a review object (findings), 
 issues" comment naming the head, or its review-summary comment whose row says Completed
 and names the head.
 
+### When a required reviewer cannot review
+
+If a login in `REQUIRE_HEAD_REVIEW_FROM` cannot review the head (Codex out of quota: its
+"You have reached your Codex usage limits" notice is on the PR), do the review another way
+and record it, rather than merging outside the gate. Post a top-level comment (or a review
+body) whose first line is:
+
+```
+HEAD-REVIEW-OVERRIDE: <reviewer-login> <sha>: <what was done instead>
+```
+
+for example
+
+```bash
+gh pr comment <n> --body "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector 1a2b3c4: local \`codex exec -s read-only\` review of main..1a2b3c4, no findings"
+```
+
+Anyone may post it, the PR author included. It covers that one login on that one head, and
+only when `<sha>` names the current head (the full sha, or a prefix of 7 or more characters
+no other commit on the PR shares), the comment was written after the head arrived (dated
+like a claim: the later of its creation and its last edit), and the text says concretely
+what was done: at least 20 letters or digits, not only placeholders such as `n/a`, `none`,
+`skip` or `-`. It answers no thread or review-body finding, it counts only for a login
+`REQUIRE_HEAD_REVIEW_FROM` lists, and a push needs a new one. The gate prints
+`HEAD OVERRIDDEN  <login> on <sha>: <text> (by <commenter>, <date>)` and the verdict
+`CLEAR (with N head-review override(s))`; an override it does not accept is printed as
+`OVERRIDE REJECTED` with the reason. The `review-gate` status description names the
+override too. A comment that is only the override line is not a claim; text below the line
+is an ordinary comment and needs a disposition.
+
 ## Status updates
 
 The status is re-evaluated on PR open/push/reopen/ready/edit (`pull_request_target`), any
@@ -104,8 +134,9 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
 - `check-review-threads.sh`: the gate. A port of ejc3/fcvm's
   `scripts/check-review-threads.sh`; fixes go upstream first. This copy adds three knobs
   (the repository from `GITHUB_REPOSITORY`, default `ejc3/node-monorepo-perf`;
-  `EXPECT_HEAD`; `REQUIRE_HEAD_REVIEW_FROM`) and three classifier rules for this
-  repository's bot traffic, each marked "node-monorepo-perf addition".
+  `EXPECT_HEAD`; `REQUIRE_HEAD_REVIEW_FROM`), three classifier rules for this
+  repository's bot traffic, and the `HEAD-REVIEW-OVERRIDE` line, each marked
+  "node-monorepo-perf addition".
 - `test-check-review-threads.sh`: one case per hole the gate has had, plus the fixture
   cases and the cases for this copy's knobs.
 - `gate-discard-sites.sh`: pins every place the classifier discards body text.
