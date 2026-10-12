@@ -21,6 +21,8 @@ import {
   logDomain,
   logScale,
   MIN_BOX_TEXT,
+  labelBaseline,
+  LABEL_GAP,
 } from "./_chartstyle.mjs";
 import * as svgAudit from "./_svg-audit.mjs";
 
@@ -189,6 +191,49 @@ test("rendered cells: tints separate by multiple and every cell text clears AA",
     cells[0] < cells[2] && cells[2] < cells[3],
     `tint alpha grows with the multiple: ${cells}`,
   );
+});
+
+test("a value label clears a vertical neighbour segment with a finite baseline", () => {
+  // two points on one screen x (equal workspace totals) make a vertical segment; the
+  // interpolation along it must not divide by zero and emit y="NaN"
+  for (const [pts, i] of [
+    [
+      [
+        [100, 80],
+        [100, 40],
+      ],
+      0,
+    ],
+    [
+      [
+        [100, 40],
+        [100, 80],
+      ],
+      1,
+    ],
+    [
+      [
+        [60, 90],
+        [100, 80],
+        [100, 40],
+      ],
+      1,
+    ],
+  ]) {
+    const y = labelBaseline(pts, i, "12.3s", TYPE.note);
+    assert.ok(Number.isFinite(y), `baseline ${y} for ${JSON.stringify(pts)} at ${i}`);
+    const bottom = y + 0.21 * TYPE.note;
+    const [cx, cy] = pts[i];
+    for (const j of [i - 1, i + 1]) {
+      const p = pts[j];
+      if (!p || p[0] !== cx) continue;
+      const top = Math.min(cy, p[1]) - 2.25 / 2;
+      assert.ok(
+        bottom <= top - LABEL_GAP,
+        `label bottom ${bottom} not clear of the segment top ${top}`,
+      );
+    }
+  }
 });
 
 test("pixel wrapping never exceeds its width", () => {

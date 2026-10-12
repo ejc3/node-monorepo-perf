@@ -695,6 +695,34 @@ export function seriesLine(points, sx, sy, color, { width = 2.25, r = 3.25 } = {
   return parts;
 }
 
+// The baseline of a value label centred above point i of a series: 9px above the point,
+// raised until the label's box (its measured width; 0.75 em above the baseline, 0.21 em
+// below) clears the point's dot and each series segment that meets the point by
+// LABEL_GAP px past the stroke's edge. `pts` are the series' screen points in order, null
+// where the series breaks (no segment crosses a break). Stroke width and dot radius are
+// seriesLine's defaults.
+export const LABEL_GAP = 2;
+export const labelBaseline = (pts, i, label, size, { stroke = 2.25, r = 3.25 } = {}) => {
+  const [cx, cy] = pts[i];
+  const half = approxW(label, size) / 2;
+  const down = 0.21 * size;
+  let bottom = Math.min(cy - 9 + down, cy - r - LABEL_GAP);
+  for (const j of [i - 1, i + 1]) {
+    if (!pts[j]) continue;
+    const [bx, by] = pts[j];
+    if (bx === cx) {
+      // a vertical segment (two points on one x): the label clears its upper end
+      bottom = Math.min(bottom, Math.min(cy, by) - stroke / 2 - LABEL_GAP);
+      continue;
+    }
+    const lo = Math.max(Math.min(cx, bx), cx - half);
+    const hi = Math.min(Math.max(cx, bx), cx + half);
+    const yAt = (x) => cy + ((by - cy) * (x - cx)) / (bx - cx);
+    for (const x of [lo, hi]) bottom = Math.min(bottom, yAt(x) - stroke / 2 - LABEL_GAP);
+  }
+  return bottom - down;
+};
+
 // --- text measurement / wrapping --------------------------------------------------
 // Rough advance-width estimate (px) so canvases widen to fit prose, never clip.
 export const approxW = (str, px, bold = false) => str.length * px * (bold ? 0.58 : 0.53);
