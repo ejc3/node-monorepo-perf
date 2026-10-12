@@ -9,6 +9,7 @@ candidates that came out of it. Every number here was measured on dedicated 192-
 - `bench/turbopack-graph-drift.json`: the drift sweeps, base and candidate 55, on a
   c8gd.48xlarge, one build at a time on 24 of its CPUs, the gym root on btrfs over the
   instance's local NVMe drives.
+- `ab56-cold.json`: paired A/Bs of cold builds for candidate 56, on another c8gd.48xlarge.
 - `bench/turbopack-graph-drift-56.json`: the `import` sweep for candidate 56, base and 56
   alone and on top of 15 + 22 + 55, on another c8gd.48xlarge set up the same way, with
   Next.js's page-data workers matched to the build's CPUs (below).
@@ -251,8 +252,10 @@ the task.
   are not comparable to the sweeps above; compare within this record.
 - Cold builds here are single builds per rep, not A/Bs. Their medians lean slower with 56:
   56's cold `run-turbopack` is 0.0 to 1.9s longer than base's at every N, and 15 + 22 + 55 +
-  56's is 0.9s shorter to 2.6s longer than 15 + 22 + 55's. Whether 56 costs a cold build
-  anything needs a paired A/B of cold builds.
+  56's is 0.9s shorter to 2.6s longer than 15 + 22 + 55's. Paired A/Bs of cold builds
+  (`ab56-cold.json`: 6 reps on two 24-CPU lanes, same instance type) put it in the noise:
+  `run-turbopack` ×1.005 for base → 56 (swap pairs 0.985, 1.014, 1.016) and ×1.008 for
+  15 + 22 + 55 → 15 + 22 + 55 + 56 (0.990, 1.009, 1.026), same output.
 
 **Page-data workers.** Next.js sizes its page-data worker pool from `os.cpus()`, every CPU of
 the machine rather than the build's CPU set, so on these boxes a build pinned to 24 CPUs

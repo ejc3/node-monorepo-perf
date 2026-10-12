@@ -241,7 +241,9 @@ matched to the build's CPUs; same output at every point). Warm builds, `run-turb
 
 Base's warm builds on that instance read the cache as slowly as on A and B above, so compare
 within the table. With one new import the stacked warm build spends <!--v:dr.c56.import.15+22+55+56.1.warm.turbopack-->27.8s<!--/v--> in `run-turbopack`
-against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<!--/v-->; the rest is the whole-app analyses rerunning, on many cores.
+against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<!--/v-->; the rest is the whole-app analyses rerunning, on many cores. Cold builds: paired A/Bs give
+`run-turbopack` ×1.005 (base → 56) and ×1.008 (stacked), same output
+(`bench/turbopack-gym/ab56-cold.json`).
 
 ## A Counter Every Operation Writes
 
