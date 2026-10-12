@@ -24,11 +24,19 @@ import {
 } from "./_chartstyle.mjs";
 import { auditSvg } from "./_svg-audit.mjs";
 
+// every test runs and reports; a failure is listed and the run exits 1 at the end, so one
+// regression does not hide the next (the committed-chart sweep names every failing chart)
 let n = 0;
+const failed = [];
 const test = (name, fn) => {
-  fn();
   n++;
-  console.log(`ok ${n} - ${name}`);
+  try {
+    fn();
+    console.log(`ok ${n} - ${name}`);
+  } catch (e) {
+    failed.push(`${n} - ${name}`);
+    console.log(`not ok ${n} - ${name}\n  ${String(e.message).split("\n").join("\n  ")}`);
+  }
 };
 
 // font sizes of every <text> in an SVG, with its content
@@ -438,4 +446,78 @@ test("the audit checks arrow and edge paths: a faint path stroke and a faint arr
   assert.deepEqual(hair, [], "a GRID-coloured hairline path is decoration, not a mark");
 });
 
+// Placement: every check places an element through the accumulated translate() of its
+// groups, so a text or rect inside a translated group is checked where it is drawn.
+const ink = (x, y, s, fill) => `<text x="${x}" y="${y}" font-size="13" fill="${fill}">${s}</text>`;
+test("the contrast check uses a translated text's backdrop", () => {
+  const dark = `<rect x="200" y="40" width="160" height="40" fill="#1c2330"/>`;
+  // white ink at x=20, translated to x=220: over the dark rect, readable
+  assert.deepEqual(
+    auditMini(dark + `<g transform="translate(200 0)">${ink(20, 64, "on dark", "#ffffff")}</g>`),
+    [],
+  );
+  // dark ink translated onto the dark rect: unreadable, whatever its untranslated spot shows
+  assert.ok(
+    auditMini(
+      dark + `<g transform="translate(200 0)">${ink(20, 64, "dark on dark", "#1c2330")}</g>`,
+    ).some((i) => /dark on dark/.test(i) && /4\.5:1/.test(i)),
+    "dark ink over the translated dark backdrop passed",
+  );
+  // nested groups add up: translate(150) + translate(50) lands at x=220
+  assert.deepEqual(
+    auditMini(
+      dark +
+        `<g transform="translate(150 0)"><g transform="translate(50,0)">${ink(20, 64, "nested", "#ffffff")}</g></g>`,
+    ),
+    [],
+  );
+});
+test("the framing exemption uses a translated text's anchor", () => {
+  // a bar from x=100: a text translated into it frames it, so its faint fill is exempt
+  const bar = `<rect x="100" y="40" width="200" height="40" fill="#f2f2f2"/>`;
+  assert.deepEqual(
+    auditMini(bar + `<g transform="translate(100 0)">${ink(20, 64, "framed", "#1c2330")}</g>`),
+    [],
+  );
+  // a text translated out of the bar does not frame it, though its own x lies inside
+  assert.ok(
+    auditMini(bar + `<g transform="translate(300 0)">${ink(20, 64, "beside", "#1c2330")}</g>`).some(
+      (i) => /rect fill/.test(i),
+    ),
+    "a text translated away from the bar exempted it",
+  );
+  // a rect inside a translated group is framed where it is drawn
+  assert.deepEqual(
+    auditMini(
+      `<g transform="translate(100 0)"><rect x="0" y="40" width="200" height="40" fill="#f2f2f2"/></g>` +
+        ink(120, 64, "framed", "#1c2330"),
+    ),
+    [],
+  );
+});
+test("an SVG without a full-width background rect is reported, not thrown on", () => {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `${ink(20, 60, "no page", "#1c2330")}</svg>`;
+  let issues;
+  assert.doesNotThrow(() => {
+    issues = auditSvg(svg, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  });
+  assert.ok(
+    issues.some((i) => /background/.test(i)),
+    `missing background not reported: ${JSON.stringify(issues)}`,
+  );
+  // the rest of the audit still runs, against white
+  assert.ok(
+    auditSvg(svg.replace("#1c2330", "#f4f4f4"), {
+      minText: MIN_TEXT,
+      minBoxText: MIN_BOX_TEXT,
+    }).some((i) => /no page/.test(i) && /4\.5:1/.test(i)),
+  );
+});
+
 console.log(`1..${n}`);
+if (failed.length) {
+  console.log(`# ${failed.length} of ${n} failed:\n#   ${failed.join("\n#   ")}`);
+  process.exit(1);
+}

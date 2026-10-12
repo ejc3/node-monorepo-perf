@@ -2,7 +2,9 @@
 // every text's contrast against what is drawn behind it, and every non-text mark's
 // contrast against the page. The dark theme is the SVG's own
 // `@media (prefers-color-scheme: dark)` rules applied to the elements they select,
-// so the audit checks what a GitHub dark-mode reader sees. Used by
+// so the audit checks what a GitHub dark-mode reader sees. Every position is read through
+// one placement primitive that applies the translate() of the element's groups, and an
+// SVG without a full-width background rect is reported. Used by
 // scripts/chartstyle-selftest.mjs over every committed bench/charts/*.svg.
 
 const lum = ([r, g, b]) => {
@@ -79,46 +81,74 @@ export function auditSvg(svg, { minText, minBoxText }) {
   const W = +/<svg[^>]*width="([\d.]+)"/.exec(svg)[1];
   const els = [];
   const texts = [];
-  // walk the tags in order so each mark carries the product of its ancestors' opacity
+  // walk the tags in order so each element carries the product of its ancestors' opacity
+  // and the sum of their translate()s (the only transform the generators write; any other
+  // throws, since the audit could not place what it draws)
   const groups = [];
   for (const m of svg.matchAll(/<(\/?)(g|rect|circle|polyline|line|path|text)\b([^>]*?)(\/?)>/g)) {
     const [, closing, tag, body, selfClose] = m;
     if (tag === "g") {
       if (closing) groups.pop();
       else if (!selfClose) {
-        const o = attrs(body).opacity;
-        groups.push(o === undefined ? 1 : +o);
+        const ga = attrs(body);
+        const tr = ga.transform;
+        const t = tr && /^translate\(\s*(-?[\d.]+)(?:[\s,]+(-?[\d.]+))?\s*\)$/.exec(tr);
+        if (tr && !t) throw new Error(`unsupported transform "${tr}" (translate only)`);
+        groups.push({
+          opacity: ga.opacity === undefined ? 1 : +ga.opacity,
+          dx: t ? +t[1] : 0,
+          dy: t ? +(t[2] ?? 0) : 0,
+        });
       }
       continue;
     }
     if (closing) continue;
     const a = attrs(body);
     const own = a.opacity === undefined ? 1 : +a.opacity;
-    const opacity = groups.reduce((p, o) => p * o, own);
+    const opacity = groups.reduce((p, g) => p * g.opacity, own);
+    const dx = groups.reduce((p, g) => p + g.dx, 0);
+    const dy = groups.reduce((p, g) => p + g.dy, 0);
     if (tag === "text") {
       // a text carries its ancestors' opacity too, so translucent ink is composited
       // before the contrast check
       const content = /^([^<]*)<\/text>/.exec(svg.slice(m.index + m[0].length));
-      if (content && !selfClose) texts.push({ tag, a, s: content[1], opacity });
+      if (content && !selfClose) texts.push({ tag, a, s: content[1], opacity, dx, dy });
       continue;
     }
-    els.push({ tag, a, opacity });
+    els.push({ tag, a, opacity, dx, dy });
   }
+  // The one placement primitive: a point in an element's own coordinates, moved by the
+  // accumulated translate() of its groups. Every check reads positions through it.
+  const place = (e, x, y) => [x + e.dx, y + e.dy];
   const rules = darkRules(svg);
   const page = { light: [255, 255, 255], dark: null };
-  const bgRect = els.find((e) => e.tag === "rect" && !e.a.x && +e.a.width === W);
-  page.dark = (paint(bgRect, "fill", "dark", rules) || { rgb: [255, 255, 255] }).rgb;
-  const geom = (e) => ({ e, x: +e.a.x || 0, y: +e.a.y || 0, w: +e.a.width, h: +e.a.height });
+  const out = [];
+  // the page: a full-width rect at x=0. Without one the reader's page shows through (a
+  // transparent SVG with dark text is unreadable on GitHub dark), so that is an issue; the
+  // rest of the audit then runs against white in both themes.
+  const bgRect = els.find(
+    (e) => e.tag === "rect" && place(e, +e.a.x || 0, 0)[0] === 0 && +e.a.width === W,
+  );
+  if (!bgRect)
+    out.push(
+      `no full-width background rect: the page colour is unknown (white assumed in both themes)`,
+    );
+  page.dark = ((bgRect && paint(bgRect, "fill", "dark", rules)) || { rgb: [255, 255, 255] }).rgb;
+  const geom = (e) => {
+    const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
+    return { e, x, y, w: +e.a.width, h: +e.a.height };
+  };
   const rects = els
     .filter((e) => e.tag === "rect" && e !== bgRect && e.a.fill && e.a.fill !== "none")
     .map(geom)
     .filter((r) => r.w > 3 && r.h > 3);
   // a text's anchor point (x, mid-height of the glyphs)
-  const anchor = (t) => ({ x: +t.a.x, y: +t.a.y - +(t.a["font-size"] || 16) * 0.35 });
-  const out = [];
+  const anchor = (t) => {
+    const [x, y] = place(t, +t.a.x, +t.a.y);
+    return { x, y: y - +(t.a["font-size"] || 16) * 0.35 };
+  };
   for (const t of texts) {
-    const x = +t.a.x;
-    const y = +t.a.y;
+    const [x, y] = place(t, +t.a.x, +t.a.y);
     const size = +(t.a["font-size"] || 16);
     if (size < minText) out.push(`"${t.s}" is ${size}px (floor ${minText}px)`);
     // the smallest filled rect drawn under the text's anchor point
@@ -163,8 +193,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
     r.w <= 32 &&
     r.h <= 20 &&
     texts.some((t) => {
-      const gap = +t.a.x - (r.x + r.w);
-      const y = +t.a.y;
+      const [x, y] = place(t, +t.a.x, +t.a.y);
+      const gap = x - (r.x + r.w);
       return (
         (t.a["text-anchor"] || "start") === "start" &&
         gap >= 0 &&
