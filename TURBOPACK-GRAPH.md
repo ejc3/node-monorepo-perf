@@ -276,6 +276,14 @@ shorter at every point. With 1,000 new imports the warm build is now within 5s o
 one; the rest is recomputation before emit. Candidate 58 (the same merge as 57 for removed
 children) made no difference (`bench/turbopack-graph-drift-58.json`).
 
+**Client reference manifests repeat per-reference work in every page.** After 59, most of
+a warm build's recomputation is `build_manifest`, which for every page re-reads each client
+reference's module ids and chunk components although they do not depend on the page.
+Candidate 61 computes them once, as turbo-tasks functions every page reads
+(`bench/turbopack-graph-drift-61.json`, on top of 15 + 22 + 55 + 56 + 57 + 59, same output at
+every point): warm `run-turbopack` with one new import <!--v:dr.c61.import.15+22+55+56+57+59.1.warm.turbopack-->27.1s<!--/v--> → <!--v:dr.c61.import.15+22+55+56+57+59+61.1.warm.turbopack-->22.8s<!--/v-->, with 1,000
+<!--v:dr.c61.import.15+22+55+56+57+59.1000.warm.turbopack-->34.5s<!--/v--> → <!--v:dr.c61.import.15+22+55+56+57+59+61.1000.warm.turbopack-->29.1s<!--/v-->; cold builds <!--v:dr.c61.import.15+22+55+56+57+59.0.cold.turbopack-->30.4s<!--/v--> → <!--v:dr.c61.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.9s<!--/v-->.
+
 **After `run-turbopack`, one core reads 775 MB of manifests as JavaScript.** Every
 Turbopack build runs Next.js's route bundle stats step, which `require()`s each app page's
 client reference manifest (<!--v:rs.c60.manifests-->2,073 files, 774.6 MB<!--/v--> on the monolith) to read one field.
@@ -318,8 +326,12 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
 - New imports rerun the whole-app analyses on restored task state, on many cores; after 59
-  that recomputation is what is left of a warm build's extra time
+  and 61 that recomputation is what is left of a warm build's extra time, and each page's
+  client reference manifest whose chunk names changed is still rebuilt whole
   (bench/turbopack-gym/cache-drift.md, Open).
+- After `run-turbopack`, forking Next.js's page-data workers from a process holding
+  Turbopack's heap copies its page tables once per worker (bench/turbopack-gym/cache-drift.md,
+  Open).
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.
 - The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a

@@ -1,0 +1,5 @@
+{
+  "description": "next-core: the parts of a client reference manifest entry that do not depend on the page, a client reference's server path and its client, SSR and RSC module ids, and a merged chunk's component chunks, are computed by turbo-tasks functions (client_reference_ids, client_chunk_components) shared by every page's build_manifest, instead of inline in each page's build_manifest for every client reference it uses",
+  "patch": "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch",
+  "base": "vercel/next.js v16.4.0"
+}

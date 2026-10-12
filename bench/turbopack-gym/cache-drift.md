@@ -18,7 +18,8 @@ candidates that came out of it. Every number here was measured on dedicated 192-
   `import` sweeps for candidates 52 and 57, each against 15 + 22 + 55 + 56, 3 reps, set up as
   the drift-56 sweep, each on its own c8gd.48xlarge.
 - `bench/turbopack-graph-drift-58.json` and `bench/turbopack-graph-drift-59.json`: the same
-  for candidates 58 and 59, each against 15 + 22 + 55 + 56 + 57.
+  for candidates 58 and 59, each against 15 + 22 + 55 + 56 + 57;
+  `bench/turbopack-graph-drift-61.json` for 61 against 15 + 22 + 55 + 56 + 57 + 59.
 - `cache-read-probes.json`: single warm builds that locate where a warm start waits (page
   cache, access mode, candidates 53 to 55, profiles), set up the same way, on four instances
   (A, B and D are c8gd.48xlarge, C an m8gd.48xlarge). The same build's time differed between
@@ -434,6 +435,41 @@ overlapping; the process's peak RSS <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--
 build's. The step runs on the main thread after `run-turbopack` in every build, warm or
 cold, and the build awaits it before finishing; whole builds with 60 were not measured.
 
+## Client reference manifests: shared parts computed once
+
+After 59, profiles of warm builds put most of the recomputation before emit in
+`client_reference_manifest::build_manifest` (Open, below). For every client reference a
+page uses, `build_manifest` reads the reference's server path and looks up three module
+ids (client, SSR, RSC), each lookup going through the chunking context's id strategy, the
+module's ident and a keyed read of the id map, and for every JavaScript chunk of it the
+chunk's component chunks (`client_chunk_components`, which reads the chunk's runtime
+info and each component's path and content). None of these depend on the page, and the
+monolith's 1,709 page manifests share most of their client references.
+
+- **61 `shared-manifest-entry-parts`**: the server path and the three module ids of a
+  client reference (`client_reference_ids`) and a chunk's components
+  (`client_chunk_components`) are turbo-tasks functions, so each is computed once and read
+  by every page's `build_manifest`; after an edit only those whose inputs changed run
+  again. The manifests are built from the same values in the same order. Clippy on
+  `next-core` (`-D warnings`) is clean.
+
+`bench/turbopack-graph-drift-61.json` (15 + 22 + 55 + 56 + 57 + 59 against the same with 61,
+`import` edits, 3 reps, same output at every point). Warm `run-turbopack`, then cold
+`run-turbopack` / `turbopack-emit`:
+
+| new imports | warm | warm, + 61 | cold | cold, + 61 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c61.import.15+22+55+56+57+59.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59.0.cold.turbopack-->30.4s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59.0.cold.emit-->13.8s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.9s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59+61.0.cold.emit-->9.5s<!--/v--> |
+| 1 | <!--v:dr.c61.import.15+22+55+56+57+59.1.warm.turbopack-->27.1s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.1.warm.turbopack-->22.8s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59.1.cold.turbopack-->30.2s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59.1.cold.emit-->13.7s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.1.cold.turbopack-->26.6s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59+61.1.cold.emit-->10.0s<!--/v--> |
+| 10 | <!--v:dr.c61.import.15+22+55+56+57+59.10.warm.turbopack-->29.6s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.10.warm.turbopack-->25.5s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59.10.cold.turbopack-->28.9s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59.10.cold.emit-->12.7s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.10.cold.turbopack-->26.5s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59+61.10.cold.emit-->10.0s<!--/v--> |
+| 1,000 | <!--v:dr.c61.import.15+22+55+56+57+59.1000.warm.turbopack-->34.5s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.1000.warm.turbopack-->29.1s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59.1000.cold.turbopack-->29.4s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59.1000.cold.emit-->13.0s<!--/v--> | <!--v:dr.c61.import.15+22+55+56+57+59+61.1000.cold.turbopack-->26.7s<!--/v--> / <!--v:dr.c61.import.15+22+55+56+57+59+61.1000.cold.emit-->9.4s<!--/v--> |
+
+- Warm builds with new imports: `run-turbopack` 4 to 5.5s shorter, the three builds of each
+  not overlapping at 1, 10 and 1,000; with nothing changed, the same.
+- Cold builds: `run-turbopack` 2.4 to 4.5s shorter and emit 2.7 to 4.3s shorter at every N,
+  the builds of each not overlapping. The cache is about 5% smaller
+  (0.81 → 0.77 GiB after a warm build with one new import).
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
@@ -444,16 +480,21 @@ cold, and the build awaits it before finishing; whole builds with 60 were not me
   warm build's `run-turbopack` is the recomputation before emit (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v--> at 1,000, <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.preEmit-->27.5s<!--/v--> with
   one new import). The write phase builds a second set of `pick_endpoint` roots, over the
   compile; its value goes to JavaScript, and nothing measured so far puts time on it.
-- That recomputation is mostly `client_reference_manifest::build_manifest`: about 72% of
-  the CPU time of the parallel part with one new import (profile, not a record). One new
-  import renames 382 content-hashed chunks, and 991 of the 2,073 client reference
-  manifests change, each by those chunk names (a probe comparing two cold builds, not a
-  record); `build_manifest` rebuilds a whole page's manifest, with several task reads per
-  client module, to pick up a renamed chunk.
+- That recomputation was mostly `client_reference_manifest::build_manifest`: about 72% of
+  the CPU time of its parallel part with one new import (profile, not a record). One new
+  import renames 382 content-hashed chunks, and 991 of the 2,073 client reference manifests
+  change, each by those chunk names (a probe comparing two cold builds, not a record). 61
+  (above) shares the per-reference parts; each changed page's manifest is still rebuilt
+  whole.
 - The rest of the single-core JavaScript after `run-turbopack` is mostly forking the
   page-data workers: `child_process.fork` from a process holding Turbopack's heap copies
   its page tables once per worker (about 3s on the main thread, and 4s more in the
   children before `exec`, in the profile with 24 workers).
+  Letting mimalloc use transparent huge pages (`MIMALLOC_ALLOW_LARGE_OS_PAGES=1`, a probe:
+  a paired cold A/B of 15 + 22 + 55 + 56 + 57 + 59 on the monolith, 6 reps, not a record)
+  changed neither `run-turbopack` (×1.018) nor the time after it. In those builds, with
+  Next.js's default page-data pool (191 workers on this instance), the time after
+  `run-turbopack` was about 35s in some builds and about 52s in others, on both sides.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
