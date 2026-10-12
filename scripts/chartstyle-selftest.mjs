@@ -284,11 +284,11 @@ test("the audit composites translucent marks over the page and holds them to 3:1
     `<circle cx="50" cy="50" r="4" fill="#3a4656" opacity="0.15"/>`,
   ])
     assert.throws(() => auditMini(mark), /unsupported/, `translucent mark accepted: ${mark}`);
-  // exemptions: GRID hairlines, page-coloured fills, stripes of 3px or less
+  // exemptions: GRID hairlines, a hollow dot's page-coloured centre, stripes of 3px or less
   assert.deepEqual(
     auditMini(
       `<line x1="20" y1="20" x2="200" y2="20" stroke="#e4e8ec"/>` +
-        `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="none"/>` +
+        `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656"/>` +
         `<rect x="20" y="60" width="200" height="2" fill="#eeeeee"/>` +
         `<rect x="20" y="70" width="3" height="40" fill="#eeeeee"/>`,
     ),
@@ -455,7 +455,7 @@ test("the contrast check uses a translated text's backdrop", () => {
     [],
   );
 });
-test("the framing exemption uses a translated text's anchor", () => {
+test("the framing exemption uses a translated text's glyph box", () => {
   // a bar from x=100: a text translated into it frames it, so its faint fill is exempt
   const bar = `<rect x="100" y="40" width="200" height="40" fill="#f2f2f2"/>`;
   assert.deepEqual(
@@ -513,7 +513,7 @@ test("both themes' page colours come from the page rect", () => {
   );
   assert.ok(!issues.some((i) => /^dark:/.test(i)), "dark theme: black text on the white page");
 });
-test("a text's backdrop is the paint stack under its anchor, in document order", () => {
+test("a text's backdrop is the paint stack under its glyph box, in document order", () => {
   // a covering rect painted after the label hides it: reported, and the label is judged
   // against what was painted before it (the white page)
   const covered = auditMini(
@@ -546,6 +546,109 @@ test("a text's backdrop is the paint stack under its anchor, in document order",
         `<rect x="15" y="45" width="90" height="20" fill="#ffffff"/>` +
         ink(20, 60, "on white", "#1c2330"),
     ),
+    [],
+  );
+});
+// A text's backdrop and its collisions are taken over its glyph box (its anchor, its
+// text-anchor and its estimated width), never its anchor point alone.
+test("a rect holding the anchor but not the glyph box is not the text's backdrop", () => {
+  // long white text anchored inside a narrow dark box, its glyphs running onto the page
+  const box = `<rect x="20" y="40" width="60" height="30" fill="#1c2330"/>`;
+  const long = auditMini(box + ink(70, 60, "white text past the box", "#ffffff"));
+  assert.ok(
+    long.some((i) => /^light: "white text past the box"/.test(i) && /4\.5:1/.test(i)),
+    `white glyphs on the white page passed: ${JSON.stringify(long)}`,
+  );
+  assert.ok(
+    long.some((i) => /"white text past the box" crosses the edge of the rect/.test(i)),
+    `a label crossing its backdrop's edge passed: ${JSON.stringify(long)}`,
+  );
+  // dark text anchored on the page whose glyphs run onto a dark rect painted before it
+  const into = auditMini(
+    `<rect x="100" y="40" width="200" height="30" fill="#1c2330"/>` +
+      ink(60, 60, "dark ink into the bar", "#1c2330"),
+  );
+  assert.ok(
+    into.some((i) => /"dark ink into the bar" crosses the edge of the rect/.test(i)),
+    `dark glyphs over a dark rect passed: ${JSON.stringify(into)}`,
+  );
+  // text-anchor is honoured: anchored at its end on the page, its glyphs run left into
+  // the dark rect
+  const end = auditMini(
+    `<rect x="20" y="40" width="100" height="30" fill="#1c2330"/>` +
+      `<text x="180" y="60" font-size="13" fill="#1c2330" text-anchor="end">end-anchored label</text>`,
+  );
+  assert.ok(
+    end.some((i) => /"end-anchored label" crosses the edge of the rect/.test(i)),
+    `an end-anchored label running into a rect passed: ${JSON.stringify(end)}`,
+  );
+  // a rect painted after the text over part of its glyphs, though not its anchor
+  const cover = auditMini(
+    ink(20, 60, "partly covered label", "#1c2330") +
+      `<rect x="80" y="40" width="200" height="30" fill="#e8ecf0"/>`,
+  );
+  assert.ok(
+    cover.some((i) => /"partly covered label" is covered by a rect drawn after it/.test(i)),
+    `a rect painted over the label's glyphs passed: ${JSON.stringify(cover)}`,
+  );
+  // a rect crossing the glyph box under an opaque frame that holds the box is hidden by
+  // the frame; under a translucent frame it shows through and crosses the glyphs
+  const band = `<rect x="0" y="50" width="60" height="40" fill="#1c2330"/>`;
+  assert.deepEqual(
+    auditMini(
+      band +
+        `<rect x="20" y="40" width="200" height="30" fill="#ffffff"/>` +
+        ink(30, 60, "over a band", "#1c2330"),
+    ),
+    [],
+  );
+  assert.ok(
+    auditMini(
+      band +
+        `<rect x="20" y="40" width="200" height="30" fill="rgba(255,255,255,0.5)"/>` +
+        ink(30, 60, "over a band", "#1c2330"),
+    ).some((i) =>
+      /"over a band" crosses the edge of the rect painted under it \(fill #1c2330\)/.test(i),
+    ),
+    "a band under a translucent frame was hidden",
+  );
+  // controls: the same white text wholly inside a wide dark box, and dark text clear of it
+  assert.deepEqual(
+    auditMini(
+      `<rect x="20" y="40" width="300" height="30" fill="#1c2330"/>` +
+        ink(30, 60, "white text past the box", "#ffffff"),
+    ),
+    [],
+  );
+  assert.deepEqual(
+    auditMini(
+      `<rect x="250" y="40" width="100" height="30" fill="#1c2330"/>` +
+        ink(20, 60, "dark ink into the bar", "#1c2330"),
+    ),
+    [],
+  );
+});
+test("a page-coloured fill is exempt only inside a visible stroke (a hollow mark)", () => {
+  // a white dot with no stroke on the white page: invisible, a mark at 1:1
+  for (const dot of [
+    `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="none"/>`,
+    `<circle cx="50" cy="50" r="4" fill="#ffffff"/>`,
+    `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656" stroke-width="0"/>`,
+    `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="rgba(58,70,86,0)"/>`,
+    `<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#f4f4f4"/>`,
+    `<rect x="20" y="20" width="200" height="12" fill="#ffffff"/>`,
+  ])
+    assert.ok(
+      auditMini(dot).some((i) => /^light: (circle|rect) fill #ffffff at 1\.00:1/.test(i)),
+      `a page-coloured fill without a visible stroke passed: ${dot}`,
+    );
+  // a hollow ring: page-coloured centre inside a 3:1 stroke
+  assert.deepEqual(
+    auditMini(`<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656" stroke-width="1.5"/>`),
+    [],
+  );
+  assert.deepEqual(
+    auditMini(`<circle cx="50" cy="50" r="4" fill="#ffffff" stroke="#3a4656"/>`),
     [],
   );
 });

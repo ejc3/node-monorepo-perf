@@ -936,7 +936,10 @@ Shared helpers the bench scripts import rather than run directly:
   log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
   committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text
   at the 9px floor and 11px inside a figure box, 4.5:1 for every text against what is
-  drawn behind it, 3:1 for every series mark against the page. A chart not yet on the
+  drawn behind it, taken over its glyph box rather than its anchor point (a filled rect
+  under part of the box, or drawn after the text over any of it, is reported), 3:1 for
+  every series mark against the page (a page-coloured fill is exempt only inside a visible
+  stroke: a hollow dot). A chart not yet on the
   shared grammar is listed in the test's `LEGACY` set; the PR that redraws it removes it.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold

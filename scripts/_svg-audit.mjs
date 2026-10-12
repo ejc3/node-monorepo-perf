@@ -34,9 +34,18 @@
 // Every position is read through one placement primitive, place(), that applies the
 // translate() of the element and of its groups. An SVG without a full-canvas, opaque
 // background rect is reported, and the rest of the audit then runs against white; with
-// one, each theme's page colour is its fill in that theme. A text's backdrop is the page
-// plus the filled rects under its anchor painted before it, composited in document order;
-// a filled rect painted after it over its anchor is reported as covering it.
+// one, each theme's page colour is its fill in that theme.
+//
+// A text is judged over its glyph box, never its anchor point: the box runs from its
+// placed anchor by its text-anchor over the kit's advance-width estimate (approxW in
+// _chartstyle.mjs, the estimate its layout uses), 0.75em above the baseline and 0.21em
+// below it. Every filled rect that meets the box was painted either before the text, where
+// it holds the whole box inside its inner edge (inset by half its stroke: a frame) or
+// crosses the box's edge (reported), or after it (reported as covering it). The text's
+// backdrop is the page plus its frames composited in document order; a crossing rect
+// painted under an opaque frame is hidden by it and not reported.
+
+import { approxW } from "./_chartstyle.mjs";
 
 const lum = ([r, g, b]) => {
   const f = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -276,27 +285,61 @@ export function auditSvg(svg, { minText, minBoxText }) {
     .filter((e) => e.tag === "rect" && e !== bgRect && e.a.fill && e.a.fill !== "none")
     .map(geom)
     .filter((r) => r.w > 3 && r.h > 3);
-  // The paint-order model, the one place backdrops and covers are decided: the filled
-  // rects whose interior holds a text's anchor point, split into those painted before the
-  // text (its backdrop stack, bottom first) and those painted after it (covering it).
-  // a text's anchor point (x, mid-height of the glyphs)
-  const anchor = (t) => {
+  // a text's glyph box [x0, y0, x1, y1] (spaces at either end carry no ink); null if none
+  const glyphBox = (t) => {
+    const size = +(t.a["font-size"] || 16);
+    const bold = +(t.a["font-weight"] || 400) >= 600;
+    const s = t.text;
+    if (!s.trim()) return null;
+    const share = { start: 0, middle: 0.5, end: 1 }[t.a["text-anchor"] || "start"];
     const [x, y] = place(t, +t.a.x, +t.a.y);
-    return { x, y: y - +(t.a["font-size"] || 16) * 0.35 };
+    const x0 = x - approxW(s, size, bold) * share;
+    const lead = s.length - s.trimStart().length;
+    return [
+      x0 + approxW(s.slice(0, lead), size, bold),
+      y - 0.75 * size,
+      x0 + approxW(s.trimEnd(), size, bold),
+      y + 0.21 * size,
+    ];
   };
-  const stackAt = (t) => {
-    const p = anchor(t);
-    const all = rects.filter((r) => p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h);
-    return { below: all.filter((r) => r.e.ord < t.ord), above: all.filter((r) => r.e.ord > t.ord) };
+  // boxes are [x0, y0, x1, y1]
+  const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  const outer = (r) => [r.x, r.y, r.x + r.w, r.y + r.h];
+  // does rect r hold box b inside its inner edge (inset by half its stroke, if painted)?
+  const holds = (r, b) => {
+    const hw = r.e.a.stroke && r.e.a.stroke !== "none" ? +(r.e.a["stroke-width"] ?? 1) / 2 : 0;
+    return b[0] >= r.x + hw && b[1] >= r.y + hw && b[2] <= r.x + r.w - hw && b[3] <= r.y + r.h - hw;
   };
+  const opaque = (r) => ["light", "dark"].every((th) => paint(r.e, "fill", th, rules)?.a === 1);
+  // The paint-order model, the one place backdrops, crossings and covers are decided, over
+  // a text's glyph box b. Of the filled rects meeting b: painted before the text, those
+  // holding b are its frames (its backdrop stack, bottom first) and the rest cross its
+  // edge, unless an opaque frame painted after them hides them; painted after the text,
+  // they cover it.
+  const paintAround = (t, b) => {
+    const meeting = rects.filter((r) => meets(outer(r), b));
+    const before = meeting.filter((r) => r.e.ord < t.ord);
+    const frames = before.filter((r) => holds(r, b));
+    const floor = frames.filter(opaque).pop();
+    return {
+      frames,
+      crossing: before.filter((r) => !holds(r, b) && !(floor && r.e.ord < floor.e.ord)),
+      above: meeting.filter((r) => r.e.ord > t.ord),
+    };
+  };
+  const boxes = new Map(texts.map((t) => [t, glyphBox(t)]));
   for (const t of texts) {
     const size = +(t.a["font-size"] || 16);
     if (size < minText) out.push(`"${t.s}" is ${size}px (floor ${minText}px)`);
-    const { below, above } = stackAt(t);
+    const b = boxes.get(t);
+    if (!b) continue;
+    const { frames, crossing, above } = paintAround(t, b);
+    for (const r of crossing)
+      out.push(`"${t.s}" crosses the edge of the rect painted under it (fill ${r.e.a.fill})`);
     for (const r of above)
       out.push(`"${t.s}" is covered by a rect drawn after it (fill ${r.e.a.fill})`);
-    // the topmost rect painted under the text's anchor point
-    const under = below[below.length - 1];
+    // the topmost frame painted under the text
+    const under = frames[frames.length - 1];
     const isBox =
       under && under.e.a.stroke && under.e.a.stroke !== "none" && under.w > 40 && under.h > 20;
     if (isBox && size < minBoxText)
@@ -306,9 +349,9 @@ export function auditSvg(svg, { minText, minBoxText }) {
         rgb: theme === "light" ? [0, 0, 0] : [0, 0, 0],
         a: 1,
       };
-      // the page, then every rect under the anchor in paint order
+      // the page, then every frame in paint order
       let bg = page[theme];
-      for (const r of below) {
+      for (const r of frames) {
         const f = paint(r.e, "fill", theme, rules);
         if (f) bg = over(f, bg);
       }
@@ -318,15 +361,14 @@ export function auditSvg(svg, { minText, minBoxText }) {
   }
   // non-text marks, each composited over the page of the theme and held to 3:1: series
   // lines, arrows and edges (lines, polylines, paths and arrowheads), dots (filled or
-  // hollow), and every rect that is not a text-framing box. A rect
-  // frames text only if a rendered text's anchor point lies inside it (heat cells, figure
-  // boxes) or sits beside its label (a legend swatch); one with neither is a bar and its fill
-  // and stroke are marks.
-  // Stripes of 3px or less, GRID hairlines and page-coloured fills (a hollow dot's centre)
-  // are not marks.
-  const anchors = texts.map(anchor);
-  const framesText = (r) =>
-    anchors.some((p) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h);
+  // hollow), and every rect that is not a text-framing box. A rect frames text only if it
+  // holds a rendered text's glyph box inside its inner edge (heat cells, figure boxes) or
+  // sits beside its label (a legend swatch); one with neither is a bar and its fill and
+  // stroke are marks.
+  // Stripes of 3px or less, GRID hairlines and page-coloured strokes are not marks. A
+  // page-coloured fill is not a mark only inside a visible stroke (a hollow dot's centre):
+  // a painted stroke of width above 0, alpha above 0, at 3:1 against the page itself.
+  const framesText = (r) => [...boxes.values()].some((b) => b && holds(r, b));
   // A labeled swatch (a legend key): a rect of at most 32x20 whose meaning is carried by
   // the text that starts within 12px to its right with its baseline inside the rect's
   // vertical extent (+-4px). The information is the adjacent text, not the tint (WCAG 1.4.11).
@@ -344,6 +386,11 @@ export function auditSvg(svg, { minText, minBoxText }) {
         y <= r.y + r.h + 4
       );
     });
+  const hollow = (e, theme) => {
+    if (!e.a.stroke || e.a.stroke === "none" || !(+(e.a["stroke-width"] ?? 1) > 0)) return false;
+    const st = paint(e, "stroke", theme, rules);
+    return Boolean(st && st.a > 0 && contrast(over(st, page[theme]), page[theme]) >= 3);
+  };
   const check = (e, attr, theme) => {
     const raw = e.a[attr];
     // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
@@ -353,7 +400,7 @@ export function auditSvg(svg, { minText, minBoxText }) {
     const c0 = paint(e, attr, theme, rules);
     if (!c0 || c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
-    if (sameRgb(c0.rgb, page[theme])) return;
+    if (sameRgb(c0.rgb, page[theme]) && (attr === "stroke" || hollow(e, theme))) return;
     const c = contrast(over(c0, page[theme]), page[theme]);
     if (c < 3) {
       const alpha = c0.a < 1 ? ` (alpha ${+c0.a.toFixed(3)})` : "";
