@@ -479,7 +479,28 @@ test("the framing exemption uses a translated text's anchor", () => {
     [],
   );
 });
-test("an SVG without a full-width background rect is reported, not thrown on", () => {
+test("only an opaque rect covering the whole canvas from 0,0 is the page", () => {
+  const page = (rect) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `${rect}${ink(20, 60, "dark text", "#1c2330")}</svg>`;
+  const audit = (rect) => auditSvg(page(rect), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  // the full canvas: the page
+  assert.deepEqual(audit(`<rect width="400" height="200" fill="#ffffff"/>`), []);
+  for (const rect of [
+    `<rect width="400" height="1" fill="#ffffff"/>`, // a 1px strip
+    `<rect width="400" fill="#ffffff"/>`, // no height
+    `<rect width="400" height="0" fill="#ffffff"/>`,
+    `<rect y="5" width="400" height="200" fill="#ffffff"/>`, // not from the origin
+    `<g transform="translate(0 5)"><rect width="400" height="200" fill="#ffffff"/></g>`,
+    `<rect width="400" height="200" fill="none"/>`, // transparent
+    `<rect width="400" height="200" fill="rgba(255,255,255,0.5)"/>`,
+  ])
+    assert.ok(
+      audit(rect).some((i) => /no full-canvas background rect/.test(i)),
+      `taken as the page: ${rect}`,
+    );
+});
+test("an SVG without a full-canvas background rect is reported, not thrown on", () => {
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
     `${ink(20, 60, "no page", "#1c2330")}</svg>`;

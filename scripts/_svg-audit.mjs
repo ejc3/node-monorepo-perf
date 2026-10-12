@@ -32,8 +32,8 @@
 // No opacity, fill-opacity or stroke-opacity attribute, no clip-path, mask, filter,
 // marker, dash array or other transform: each is unsupported, not modelled.
 // Every position is read through one placement primitive, place(), that applies the
-// translate() of the element and of its groups. An SVG without a full-width background
-// rect is reported, and the rest of the audit then runs against white.
+// translate() of the element and of its groups. An SVG without a full-canvas, opaque
+// background rect is reported, and the rest of the audit then runs against white.
 
 const lum = ([r, g, b]) => {
   const f = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -218,28 +218,44 @@ const paint = (el, attr, theme, rules) => {
   return { ...c, a: Math.min(1, Math.max(0, a)) };
 };
 
+// The one placement primitive: a point in an element's own coordinates, moved by its
+// translate() and its enclosing elements' (e.dx, e.dy, set by parse()). Every check reads
+// positions through it.
+const place = (e, x, y) => [x + e.dx, y + e.dy];
+
+// The page: the rect that covers the whole W x H canvas from its origin (after place())
+// with an opaque fill in both themes. Without one the reader's own surface shows through
+// (a transparent SVG with dark text is unreadable on GitHub dark), which is an issue.
+const pageRect = (els, W, H, rules) =>
+  els.find((e) => {
+    if (e.tag !== "rect") return false;
+    const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
+    return (
+      x === 0 &&
+      y === 0 &&
+      +e.a.width === W &&
+      +e.a.height === H &&
+      ["light", "dark"].every((t) => paint(e, "fill", t, rules)?.a === 1)
+    );
+  });
+
 const GRID = "#e4e8ec";
 const sameRgb = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.5);
 
 export function auditSvg(svg, { minText, minBoxText }) {
   const W = +(/^\s*<svg\b[^>]*\swidth="([\d.]+)"/.exec(svg) ||
     unsupported("document: no <svg width>"))[1];
+  const H = +(/^\s*<svg\b[^>]*\sheight="([\d.]+)"/.exec(svg) ||
+    unsupported("document: no <svg height>"))[1];
   const { els, texts, css } = parse(svg);
-  // The one placement primitive: a point in an element's own coordinates, moved by its
-  // translate() and its groups'. Every check reads positions through it.
-  const place = (e, x, y) => [x + e.dx, y + e.dy];
   const rules = css === null ? new Map() : darkRules(css);
   const page = { light: [255, 255, 255], dark: null };
   const out = [];
-  // the page: a full-width rect at x=0. Without one the reader's page shows through (a
-  // transparent SVG with dark text is unreadable on GitHub dark), so that is an issue; the
-  // rest of the audit then runs against white in both themes.
-  const bgRect = els.find(
-    (e) => e.tag === "rect" && place(e, +e.a.x || 0, 0)[0] === 0 && +e.a.width === W,
-  );
+  // without a page rect the rest of the audit runs against white in both themes
+  const bgRect = pageRect(els, W, H, rules);
   if (!bgRect)
     out.push(
-      `no full-width background rect: the page colour is unknown (white assumed in both themes)`,
+      `no full-canvas background rect: the page colour is unknown (white assumed in both themes)`,
     );
   page.dark = ((bgRect && paint(bgRect, "fill", "dark", rules)) || { rgb: [255, 255, 255] }).rgb;
   const geom = (e) => {
