@@ -934,26 +934,37 @@ Shared helpers the bench scripts import rather than run directly:
   chart shows, the markdown twin carries the context line and the SVG's standings,
   secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers,
   log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
-  committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text
-  at the 9px floor and 11px inside a figure box (a rect wider than 40px and taller than
-  20px, filled or `fill="none"`, with a visible border, holding the text's glyph box),
-  4.5:1 for every text against what is drawn behind it, taken over its glyph box rather
-  than its anchor point (a fill under part of the box, or drawn after the text over any
-  of it, is reported), 3:1 for every series mark as drawn: against the page and the fills
-  painted under it that hold it, and under any fill painted after it that holds it (an
-  opaque one hides it, reported). A fill or stroke in its backdrop's colour is exempt
-  only when the element's other channel is painted and passes as a mark (the
-  page-coloured halo around a filled dot, the centre of a hollow ring). Every check reads
-  a shape's geometry through one primitive, `shapeOf`: a rect's fill less its rounded
-  corners (rx, and ry following it, each clamped to half the side), a circle's disk, a
-  filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
-  stroke's ring. The page is the first painted element when its fill covers the whole
-  canvas and is opaque in both themes (a canvas-sized rect with rounded corners is not
-  the page); a canvas-covering fill painted later is ordinary paint. The audit refuses (throws "unsupported" on) any SVG construct outside
-  the subset it models, including a nested `<svg>`, a viewBox other than the canvas, a
-  rect, circle or path without a fill, and a dark rule that sets a property other than
-  the one its selector reads. A chart not yet on the
-  shared grammar is listed in the test's `LEGACY` set; the PR that redraws it removes it.
+  committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text at
+  the 9px floor and 11px inside a figure box (any rect under the text, filled or
+  `fill="none"`, with a visible border, that holds its glyph box, whatever its size: a 20px
+  chip is a box, an unbordered heat cell is not), 4.5:1 for every text against what is drawn
+  behind it, taken over its glyph box rather than its anchor point (a fill under part of the
+  box, or drawn after the text over any of it, is reported), 3:1 for every series mark as
+  drawn: against the page and the fills painted under it that hold it, and under any fill
+  painted after it that holds it (an opaque one hides it, reported). A fill or stroke in its
+  backdrop's colour is exempt only when the element's other channel is painted and passes as
+  a mark (the page-coloured halo around a filled dot, the centre of a hollow ring). Every
+  check reads a shape's geometry through one primitive, `shapeOf`: a rect's fill less its
+  rounded corners (rx, and ry following it, each clamped to half the side), a circle's disk,
+  a filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
+  stroke's ring. The page is the first painted element when its fill covers the whole canvas
+  and is opaque in both themes (a canvas-sized rect with rounded corners is not the page); a
+  canvas-covering fill painted later is ordinary paint. No text box may meet a stroke
+  painted before or after it (read as the stroke's ring or widened segments, so the shape
+  that frames the text and a hollow ring around it are clear), a 3px stripe's fill, or a
+  text drawn after it, or leave the canvas (exempt: GRID hairlines). The audit refuses
+  (throws "unsupported" on) any SVG construct outside the subset it models, including a
+  nested `<svg>`, a viewBox other than the canvas, a rect, circle or path without a fill,
+  and a dark rule that sets a property other than the one its selector reads. Every chart is
+  in the matrix; the test's `LEGACY` set is empty and a new chart joins as is. It also
+  asserts the figures' `FIG` scale is `TYPE`'s, and that `charts.yml` lists every module the
+  chart scripts reach through their imports.
+- `scripts/_text-width.mjs`: the one text-width estimate. Per glyph the wider of Arial's
+  advance × 1.1 and DejaVu Sans' (regular or bold; DejaVu Sans is the system-ui face on many
+  Linux desktops and the widest the charts allow for). The kit's `approxW`/`wrapPx`/`fitSize`
+  lay text out with it and `_svg-audit.mjs` builds each text's box from it, so a layout
+  derived from the kit is what the audit verifies. A figure that places text at fixed
+  coordinates derives the space next to it from `approxW`/`wrapPx`, never from a constant.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold
   ratio range and, per task, each shaped profile's restore time against the localhost
@@ -1132,10 +1143,11 @@ is the optimal-stack gate run at that shape (`optimal-gate-bench.mjs fleet` — 
 one-program-vs-cores contrast FLEET.md reads; it ran bun 1.4.2 where the 64-core record
 ran 1.3.14 — bun is on the path of the install and turbo rows — the other recorded versions
 equal). `fleet-chart.mjs` renders
-`bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the
-fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
-two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
-`charts.yml` byte-gate.
+`bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the worst
+case on two machines (one command vs the per-package turbo path, 64 vs 192 cores, one
+linear axis, neutral per-machine colours, bun labeled per record) from those two gate
+records + `fleet-shape.json`, embedded in FLEET.md and riding the same `charts.yml`
+byte-gate.
 `bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core, the latter also
 on a c8gb.48xlarge with `SLICE_KS="2 4 8 16 24 32 48"`) FLEET.md's "The Sliced Gate" section reads.
 `figures.mjs` renders the eight mechanism figures (`make figures`; SVG + `.png`, same
@@ -1170,11 +1182,16 @@ restore per `headline` row, and the `partialInvalidation` leaf-vs-foundation spl
 restore < cold, the recorded speedup, and that a foundation edit restores nothing; the
 core count is read and labeled, not pinned), embedded in LIMITS.md. `install-bench.json`,
 `relay-codegen-bench.json` and `ci-cache-bench.json` carry no canonical flag, so those
-three figures pin the knobs named above and throw on a record run at other values. Each
-doc embed of these five carries a collapsed `<details>` list of the fields its figure
-reads. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
-edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell
-grammar does not apply; determinism, need()-asserted fields, and the no-marketing rule do.
+three figures pin the knobs named above and throw on a record run at other values. Under
+each figure's embed the generator writes its chart-data block: the values the figure shows
+and the fields it reads. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
+edges, in-SVG dark-mode recolors + the shared grey data footer; diagram-style-spec.md), not heat
+tables — the ×N cell grammar does not apply; determinism, need()-asserted fields, and the
+no-marketing rule do. They are laid out on a 660 grid placed at the shared 20px margin, on the
+shared type scale, with box text at 11px and secondary box text in `CELL_INK2`. A figure that
+contrasts unlike things (different trees, an open-file verdict next to whole-program ones, two
+machines) carries its caveat as a muted line inside the SVG and in its aria-label, because the
+PNG is linked and shared on its own; the doc caption carries the mechanism.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
 batch + server rows, both boxes; the 192-core one on a c8g.48xlarge) and
 `bench/yarn-fleet-bench.json` (yarn 4 installs under both linkers + the native-PnP tsgo gate)
@@ -1197,9 +1214,11 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   and dark and the text is plain ink; secondary and status text clear WCAG AA on the
   strongest tint. One green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
   log-multiple space, so ×12 is the same colour in every chart. Sections are a heading and
-  a hairline, not tinted panels. The heat charts share one type scale (`TYPE`) with a
-  9px floor (`MIN_TEXT`): text that does not fit its space at the floor fails the
-  generator rather than shrinking. The key lists only the states a chart shows.
+  a hairline, not tinted panels. Every chart and figure shares one type scale (`TYPE`;
+  the figures' `FIG` uses its sizes) with a 9px floor (`MIN_TEXT`) and an 11px floor
+  inside a figure box, any bordered rect holding text (`MIN_BOX_TEXT`): heat-chart text
+  that does not fit its space at the floor fails the generator rather than shrinking. The
+  key lists only the states a chart shows.
   `scripts/chartstyle-selftest.mjs` pins these layout and legibility contracts in CI.
 - **One shared skin: `scripts/_chartstyle.mjs`.** Every generator imports the shared kit
   (see Shared Internals) — palette, box tints, system-ui type, the in-SVG dark-mode
@@ -1247,8 +1266,8 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   are committed back). The doc embeds the SVG with the PNG linked below it.
 - **Charts carry a text alternative.** A chart scaled to a phone screen is unreadable,
   and GitHub's mobile views ignore width media queries, so the heat charts
-  (`comparison-chart`, `scale-chart`, `net-cache-chart`) and `chart.mjs`'s scaling charts
-  also write the chart's context
+  (`comparison-chart`, `scale-chart`, `net-cache-chart`), `chart.mjs`'s scaling charts,
+  the mechanism figures (`figures.mjs`) and `fleet-chart.mjs` all write the chart's context
   line and numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
   `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
   block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and

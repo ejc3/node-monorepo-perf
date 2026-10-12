@@ -3,13 +3,17 @@
 //   fig-sliced-gate     — one-program gate vs the K-slice fan vs the union check (FLEET.md)
 //   fig-blast-radius    — foundation rev turns the whole fleet red; a leaf rev doesn't (FLEET.md)
 //   fig-orepo-oclosure  — the thesis: a whole-repo selection vs one app's closure (README.md)
-//   fig-save-loop       — one edit to a verdict at 1M modules, a lane per mechanic (TYPECHECKERS.md)
+//   fig-save-loop       — one edit to a verdict at 1M modules, a dot per mechanic + its entry cost (TYPECHECKERS.md)
 //   fig-freshness-gate  — codegen, then git status, then the green/red fork (TYPECHECKERS.md)
 //   fig-linker-layouts  — what hoisted / isolated / PnP linkers materialize (TOOLING.md)
 //   fig-next-pnp-node   — next build under PnP: builder x linker/node outcome matrix (TOOLING.md)
 //   fig-remote-cache    — one runner seeds the shared cache, the rest restore (LIMITS.md)
 // Deterministic from the cited bench JSONs (no Date, no hand numbers; missing or
-// renamed fields throw) -> bench/charts/fig-*.svg + a 300 DPI PNG each, one step.
+// renamed fields throw) -> bench/charts/fig-*.svg + a 300 DPI PNG each, one step,
+// plus each figure's text alternative (its values and fields as markdown) written
+// into the embedding doc's chart-data block. Drawn in the figure grammar of
+// scripts/_chartstyle.mjs (FIG type scale, node/edge/dot helpers); caveats live in
+// the doc captions, not in the SVGs.
 //
 //   node scripts/figures.mjs                  (make figures: every figure)
 //   node scripts/figures.mjs fig-save-loop    (only the named figures, while iterating)
@@ -19,19 +23,35 @@ import {
   BG,
   MUTED,
   GRID,
+  EDGE,
   TINT,
   TOOL_COLORS,
   box,
   txt,
   arrow,
   dashes,
-  approxW,
   footer as footerLine,
   svgDoc as svgDocW,
   emitChart,
   assertComparable,
   bareVer,
   NEAR_TIE_MAX,
+  FIG,
+  figTitle,
+  node,
+  edgeLabel,
+  dot,
+  CELL_INK2,
+  REPO,
+  SCOPE,
+  SLATE,
+  rampRGB,
+  rgbCss,
+  mdTable,
+  mdDetails,
+  writeDocBlock,
+  wrapPx,
+  approxW,
 } from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -92,18 +112,38 @@ const count = (o, path) => {
   return v;
 };
 const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
-const secs2 = (ms) => `${(ms / 1000).toFixed(2)}s`;
 // sub-second times stay in ms (a 324ms recheck is not "0.3s")
 const dur = (ms) => (ms < 1000 ? `${Math.round(ms)}ms` : secs(ms));
 const gb = (mb) => `${(mb / 1000).toFixed(1)}GB`;
 const int = (n) => n.toLocaleString("en-US");
 
 // the shared visual language lives in scripts/_chartstyle.mjs (palette, dark-mode
-// block, box/txt/arrow grammar, emit); these figures keep the spec's 660 canvas
+// block, box/txt/arrow grammar, emit). Each figure is laid out on a 660-wide grid
+// whose left edge is x=16; the document places that grid 4px in, on a 668 canvas,
+// so every figure has the same 20px outer margin as the heat and line charts.
 const W = 660;
-const svgDoc = (h, aria, body) => svgDocW(W, h, aria, body);
-const footer = (y, sources) => footerLine(W, y, sources);
+const GRID_SHIFT = 4;
+const svgDoc = (h, aria, body) =>
+  svgDocW(W + 2 * GRID_SHIFT, h, aria, [
+    `<g transform="translate(${GRID_SHIFT} 0)">`,
+    ...body,
+    "</g>",
+  ]);
+const footer = (y, sources) => footerLine(W, y, sources, 16);
+// secondary text inside a figure box: the AA-clearing ink at the box-text floor
+const boxNote = { size: FIG.body, fill: CELL_INK2 };
 const emit = (name, svg) => emitChart(name, svg, { strict: true });
+// the mobile text alternative: the figure's numbers as a table + the fields it
+// reads, written between the doc's chart-data markers for this figure
+const writeFigData = (doc, id, summary, { head, rows, fields, lead, align }) =>
+  writeDocBlock(
+    doc,
+    id,
+    mdDetails(
+      summary,
+      [lead, mdTable(head, rows, align), `Fields: ${fields}`].filter(Boolean).join("\n\n"),
+    ),
+  );
 
 // ============================================================================
 // Figure: fig-sliced-gate — the sliced-gate fan-out (FLEET.md "The Sliced Gate")
@@ -158,104 +198,144 @@ function figSlicedGate() {
   const tsgoVer = bareVer(need(SLICED, "versions.tsgo"));
 
   const T = [];
-  // column headers: the wall-clock headline per mechanism
-  T.push(txt(16, 24, "one tsgo program", { size: 13, weight: "600" }));
-  T.push(txt(16, 45, `${secs(c64.wholeMs)} · ${c64.cores}c`, { size: 16, weight: "700" }));
-  T.push(txt(118, 45, `${secs(c192.wholeMs)} · ${c192.cores}c`, { size: 16, weight: "700" }));
-  T.push(txt(258, 24, "K concurrent slices", { size: 13, weight: "600" }));
-  T.push(txt(258, 45, `${secs(c64.bestKWallMs)} · ${c64.cores}c`, { size: 16, weight: "700" }));
-  T.push(txt(352, 45, `${secs(c192.bestKWallMs)} · ${c192.cores}c`, { size: 16, weight: "700" }));
-  T.push(txt(492, 24, "union check", { size: 13, weight: "600" }));
-  T.push(txt(492, 45, "verdict identical", { size: 16, weight: "700" }));
+  T.push(...figTitle(16, 24, "The sliced gate: one program or K concurrent slices").parts);
 
-  // left: the one-program box (rust: the slow, mostly-idle path)
-  const by = 64;
-  T.push(box(16, by, 196, 128, "rust"));
-  T.push(txt(30, by + 22, "whole workspace, one process", { size: 11.5, weight: "600" }));
-  T.push(txt(30, by + 41, `${int(apps)} apps + all lib source`, { size: 11 }));
-  T.push(txt(30, by + 60, `${gb(c64.wholeRssMB)} peak RSS`, { size: 11.5, weight: "600" }));
-  T.push(
-    txt(30, by + 79, `${c64.wholeCpuPct}% CPU of ${int(c64.cores * 100)}% (${c64.cores}c)`, {
-      size: 11,
-    }),
-  );
-  T.push(
-    txt(30, by + 96, `${int(c192.wholeCpuPct)}% of ${int(c192.cores * 100)}% (${c192.cores}c)`, {
-      size: 11,
-    }),
-  );
-  T.push(txt(30, by + 114, "— most of either box idle", { size: 10.5, fill: MUTED }));
+  // the workspace (source) feeds two alternatives: one program over everything, or
+  // K concurrent slices; both feed the union check that compares their verdicts
+  const top = 50;
+  const SX = 16;
+  const SW = 150;
+  const PX = 226;
+  const PWID = 214;
+  const UX = 486;
+  const UW = 158;
+  const progH = 116;
+  const sliceH = 24;
+  const sgap = 6;
+  const slicesTop = top + progH + 30;
+  const labels = ["slice 1", "slice 2", "slice 3", "slice 4", null, "slice K"];
+  const stackH = 5 * (sliceH + sgap) + 16 - sgap;
+  const bottom = slicesTop + stackH;
 
-  // middle: the slice fan (green: the fast path). Five drawn boxes + an
-  // ellipsis stand for the K slices; K is labeled, not drawn one-per-slice.
-  const sx = 258;
-  const sw = 178;
-  const sliceH = 20;
-  const gap = 7;
-  for (let i = 0; i < 4; i++) {
-    const yy = by + i * (sliceH + gap);
-    T.push(box(sx, yy, sw, sliceH, "green", 5));
-    T.push(
-      txt(sx + 10, yy + 14, i === 0 ? "all lib source + 1/K of the apps" : `slice ${i + 1}`, {
-        size: 10.5,
-      }),
-    );
+  // source node, centred between the two alternatives
+  const srcH = 58;
+  const srcY = Math.round((top + bottom) / 2 - srcH / 2);
+  T.push(
+    ...node(SX, srcY, SW, srcH, "blue", "the workspace", [`${int(apps)} apps +`, "all lib source"]),
+  );
+
+  // alternative 1: one program (rust: most of either box sits idle)
+  T.push(box(PX, top, PWID, progH, "rust"));
+  T.push(txt(PX + 12, top + 19, "one tsgo program", { size: FIG.label, weight: "600" }));
+  [
+    [`${secs(c64.wholeMs)} · ${c64.cores} cores`, { size: FIG.value, weight: "650" }],
+    [`${secs(c192.wholeMs)} · ${c192.cores} cores`, { size: FIG.value, weight: "650" }],
+    [`peak RSS ${gb(c64.wholeRssMB)} / ${gb(c192.wholeRssMB)}`, boxNote],
+    [`CPU ${c64.wholeCpuPct}% of ${int(c64.cores * 100)}% on ${c64.cores}`, boxNote],
+    [`CPU ${int(c192.wholeCpuPct)}% of ${int(c192.cores * 100)}% on ${c192.cores}`, boxNote],
+  ].forEach(([t, o], i) => T.push(txt(PX + 12, top + 40 + i * 17, t, o)));
+  const srcMid = srcY + srcH / 2;
+  T.push(arrow(SX + SW + 2, srcMid - 8, PX - 2, top + progH / 2));
+  T.push(edgeLabel(PX - 8, top + progH / 2 - 8, "one process", "end"));
+
+  // alternative 2: the slice stack, fanned out from the workspace
+  const sliceYs = [];
+  let yy = slicesTop;
+  for (const lab of labels) {
+    if (lab === null) {
+      T.push(
+        txt(PX + PWID / 2, yy + 9, "· · ·", { size: FIG.body, fill: MUTED, anchor: "middle" }),
+      );
+      yy += 16;
+      continue;
+    }
+    T.push(box(PX, yy, PWID, sliceH, "green", 4));
+    T.push(txt(PX + 10, yy + 16, lab, { size: FIG.body }));
+    T.push(txt(PX + PWID - 10, yy + 16, "libs + 1/K apps", { ...boxNote, anchor: "end" }));
+    sliceYs.push(yy + sliceH / 2);
+    yy += sliceH + sgap;
   }
-  const elY = by + 4 * (sliceH + gap);
+  for (const sy of sliceYs) T.push(arrow(SX + SW + 2, srcMid + 8, PX - 2, sy));
+  T.push(edgeLabel(PX - 8, bottom + 16, "split K ways", "end"));
+
+  // the union check: slice error locations against the whole program's
+  T.push(box(UX, top, UW, bottom - top, "green"));
+  const um = top + (bottom - top) / 2 - 34;
+  T.push(txt(UX + 12, um, "union check", { size: FIG.label, weight: "600" }));
+  T.push(txt(UX + 12, um + 18, "breaking-rev", boxNote));
+  T.push(txt(UX + 12, um + 32, "error locations", boxNote));
   T.push(
-    txt(sx + sw / 2, elY + 10, "· · · K slices, run concurrently", {
-      size: 10.5,
+    txt(UX + 12, um + 54, `${int(c64.unionLocations)} = ${int(c64.wholeLocations)}`, {
+      size: FIG.value,
+      weight: "650",
+    }),
+  );
+  T.push(txt(UX + 12, um + 72, "slices vs whole", { size: FIG.body }));
+  T.push(txt(UX + 12, um + 87, "program: identical", { size: FIG.body }));
+  T.push(arrow(PX + PWID + 2, top + progH / 2, UX - 2, top + progH / 2));
+  for (const sy of sliceYs) T.push(arrow(PX + PWID + 2, sy, UX - 2, sy));
+
+  // values under the slice stack
+  const vy = bottom + 30;
+  T.push(
+    txt(PX, vy, `${secs(c64.bestKWallMs)} · ${c64.cores} cores (K=${c64.bestK})`, {
+      size: FIG.value,
+      weight: "650",
+    }),
+  );
+  T.push(
+    txt(PX, vy + 19, `${secs(c192.bestKWallMs)} · ${c192.cores} cores (K=${c192.bestK})`, {
+      size: FIG.value,
+      weight: "650",
+    }),
+  );
+  T.push(
+    txt(PX, vy + 38, `max slice RSS ${gb(c64.sliceRssMB)} / ${gb(c192.sliceRssMB)}`, {
+      size: FIG.note,
       fill: MUTED,
-      anchor: "middle",
     }),
-  );
-  T.push(box(sx, elY + 18, sw, sliceH, "green", 5));
-  T.push(txt(sx + 10, elY + 32, "slice K", { size: 10.5 }));
-  T.push(
-    txt(sx, elY + 58, `max slice RSS ${gb(c64.sliceRssMB)} (K=${c64.bestK}, ${c64.cores}c)`, {
-      size: 11,
-      weight: "600",
-    }),
-  );
-  T.push(
-    txt(sx, elY + 74, `${gb(c192.sliceRssMB)} (K=${c192.bestK}, ${c192.cores}c)`, { size: 11 }),
   );
   const tieNotes = rows.map((r) => r.tieNote).filter(Boolean);
-  tieNotes.forEach((t, i) => T.push(txt(sx, elY + 90 + i * 14, t, { size: 10.5, fill: MUTED })));
+  tieNotes.forEach((t, i) => T.push(txt(PX, vy + 54 + i * 14, t, { size: FIG.note, fill: MUTED })));
 
-  // right: the union-check box (green: the verdict matches)
-  const ux = 492;
-  const uw = 152;
-  const uy = by + 24;
-  T.push(box(ux, uy, uw, 96, "green"));
-  T.push(txt(ux + 12, uy + 22, "breaking-rev union", { size: 11.5, weight: "600" }));
-  T.push(
-    txt(ux + 12, uy + 44, `${int(c64.unionLocations)} = ${int(c64.wholeLocations)}`, {
-      size: 14,
-      weight: "700",
-    }),
-  );
-  T.push(txt(ux + 12, uy + 62, "error locations,", { size: 10.5 }));
-  T.push(txt(ux + 12, uy + 76, "slices vs whole program", { size: 10.5 }));
-
-  // edges: partition (one program -> slices), then the slices' error-location
-  // union -> the check box (which compares it against the whole-program set)
-  T.push(arrow(216, by + 56, 252, by + 56));
-  T.push(txt(234, by + 48, "split", { size: 9.5, fill: MUTED, anchor: "middle" }));
-  T.push(txt(234, by + 72, "K ways", { size: 9.5, fill: MUTED, anchor: "middle" }));
-  T.push(arrow(sx + sw + 4, uy + 30, ux - 6, uy + 30));
-  T.push(txt(462, uy + 22, "union", { size: 9.5, fill: MUTED, anchor: "middle" }));
-
-  const y = 272 + tieNotes.length * 14;
+  // the 64- and 192-core records are one run each on different machines
+  const caveat =
+    "One run per machine: 64 vs 192 cores is a cross-machine observation, not a controlled core-scaling experiment.";
+  const cy = vy + 54 + tieNotes.length * 14;
+  T.push(txt(SX, cy + 6, caveat, { size: FIG.note, fill: MUTED }));
+  const y = cy + 34;
   T.push(
     ...footer(
       y,
       `bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json · tsgo ${tsgoVer}`,
     ),
   );
+  writeFigData("FLEET.md", "fig-sliced-gate", "The figure's numbers as a table", {
+    head: ["", `${c64.cores} cores`, `${c192.cores} cores`],
+    rows: [
+      ["one program: wall", secs(c64.wholeMs), secs(c192.wholeMs)],
+      ["one program: peak RSS", gb(c64.wholeRssMB), gb(c192.wholeRssMB)],
+      [
+        "one program: CPU",
+        `${c64.wholeCpuPct}% of ${int(c64.cores * 100)}%`,
+        `${int(c192.wholeCpuPct)}% of ${int(c192.cores * 100)}%`,
+      ],
+      ["best K", String(c64.bestK), String(c192.bestK)],
+      ["sliced: wall at best K", secs(c64.bestKWallMs), secs(c192.bestKWallMs)],
+      ["sliced: max slice RSS", gb(c64.sliceRssMB), gb(c192.sliceRssMB)],
+      [
+        "union check: error locations",
+        `${int(c64.unionLocations)} = ${int(c64.wholeLocations)}`,
+        `${int(c192.unionLocations)} = ${int(c192.wholeLocations)}`,
+      ],
+    ],
+    lead: tieNotes.length ? tieNotes.join("; ") + "." : null,
+    fields:
+      "`bench/sliced-gate-bench.json` and `bench/sliced-gate-bench.pbox.json`: `machine.{cores,arch}`, `whole.{cleanMs,rssMB,cpuPct,breakingLocations}`, `summary.{bestK,bestKWallMs}`, `ks.<K>.{wallMs,maxSliceRssMB}`, `unionCheck.{k,locations,matchesWholeProgram}`, `apps`, `libs`, `shape`, `versions.{tsgo,node}`.",
+  });
   return svgDoc(
     y + 12,
-    `The sliced gate: one tsgo program over the whole workspace (${gb(c64.wholeRssMB)} RSS, ${c64.wholeCpuPct}% CPU on ${c64.cores} cores) versus ${c64.bestK} concurrent slices at up to ${gb(c64.sliceRssMB)} each, with a union check proving the sliced verdict identical to the whole-program one.`,
+    `The sliced gate: one tsgo program over the whole workspace versus K concurrent slices, with a union check proving the sliced verdict identical to the whole-program one. On ${c64.cores} cores the one program takes ${secs(c64.wholeMs)} (${gb(c64.wholeRssMB)} RSS, ${c64.wholeCpuPct}% CPU) and ${c64.bestK} slices take ${secs(c64.bestKWallMs)} at up to ${gb(c64.sliceRssMB)} each; on ${c192.cores} cores the one program takes ${secs(c192.wholeMs)} (${gb(c192.wholeRssMB)} RSS) and ${c192.bestK} slices take ${secs(c192.bestKWallMs)} at up to ${gb(c192.sliceRssMB)} each. ${caveat}`,
     T,
   );
 }
@@ -303,11 +383,16 @@ function figBlastRadius() {
   const devSimLeafDeps = need(leafBlast, "dependentsClosure");
   const devSimApps = need(DEVSIM, "apps");
 
-  // the 30,000-app fleet as a schematic grid (NOT one cell per app)
+  // both grids are the fleet gate's turbo task set as a schematic grid (NOT one cell
+  // per task): the foundation rev selects every task, the leaf edit its own share
   const COLS = 30;
   const ROWS = 20;
   const CELLS = COLS * ROWS;
-  const appsPerCell = Math.round(apps / CELLS);
+  const tasksPerCell = Math.round(turboTotal / CELLS);
+  if (need(FLEET, "turboGate.ran") !== turboTotal)
+    throw new Error(
+      "the foundation gate did not run its full task set — the all-hit grid is invalid",
+    );
   const leafCells = Math.max(1, Math.round((CELLS * leafRan) / turboTotal));
 
   const cell = 8;
@@ -315,89 +400,110 @@ function figBlastRadius() {
   const gridW = COLS * cell + (COLS - 1) * cgap;
   const gridH = Math.round(ROWS * cell + (ROWS - 1) * cgap);
 
-  const grid = (x0, y0, hot) => {
+  // a re-run task is a filled cell in the selection's colour (REPO for the whole-repo
+  // selection, SCOPE for a closure); a task not re-run is an empty outline
+  const grid = (x0, y0, hot, mark) => {
     const out = [];
     for (let r = 0; r < ROWS; r++)
       for (let c = 0; c < COLS; c++) {
-        // hot cells sit in the bottom-left corner, next to the edited lib
+        // hit cells sit in the bottom-left corner, next to the edited lib
         const isHot = hot === "all" || (r === ROWS - 1 && c < hot);
+        const at = `x="${(x0 + c * (cell + cgap)).toFixed(1)}" y="${(y0 + r * (cell + cgap)).toFixed(1)}" width="${cell}" height="${cell}" rx="1.5"`;
         out.push(
-          `<rect x="${(x0 + c * (cell + cgap)).toFixed(1)}" y="${(y0 + r * (cell + cgap)).toFixed(1)}" width="${cell}" height="${cell}" rx="1.5" fill="${isHot ? TINT.rust[1] : GRID}"/>`,
+          isHot
+            ? `<rect ${at} fill="${mark}"/>`
+            : `<rect ${at} fill="none" stroke="${EDGE}" stroke-width="0.75"/>`,
         );
       }
     return out;
   };
 
   const T = [];
-  const gy = 56;
+  T.push(...figTitle(16, 24, "Blast radius: the tasks one lib edit re-runs").parts);
+  const hy = 58;
+  const gy = 70;
   const LX = 16;
   const RX = 358;
 
-  // left panel: the breaking foundation rev — the whole grid goes rust
-  T.push(txt(LX, 22, "breaking foundation rev", { size: 13, weight: "600" }));
-  T.push(txt(LX, 42, `all ${int(breakApps)} apps red`, { size: 15, weight: "700" }));
-  T.push(...grid(LX, gy, "all"));
+  // left panel: a foundation-lib edit — turbo selects every task; a breaking rev of it
+  // (a separate run) turns every app red
+  T.push(txt(LX, hy, "foundation-lib edit", { size: FIG.label, weight: "600" }));
+  T.push(...grid(LX, gy, "all", REPO.mark));
   // right panel: the leaf edit — a corner of the grid
-  T.push(txt(RX, 22, "leaf-lib edit", { size: 13, weight: "600" }));
-  T.push(
-    txt(RX, 42, `${int(leafRan)} of ${int(turboTotal)} tasks re-run`, { size: 15, weight: "700" }),
-  );
-  T.push(...grid(RX, gy, leafCells));
+  T.push(txt(RX, hy, "leaf-lib edit", { size: FIG.label, weight: "600" }));
+  T.push(...grid(RX, gy, leafCells, SCOPE.mark));
 
-  const schemY = gy + gridH + 18;
-  // two short lines, centered between the two up-arrows (a full-width line
-  // would cross them). The panels use the grid differently, and say so: the left
-  // one counts apps, the right one shades the leaf gate's share of the task set.
-  [
-    `schematic — left: each cell ≈ ${appsPerCell} of the ${int(apps)} apps`,
-    `right: rust cells = the leaf gate's share of ${int(turboTotal)} tasks`,
-  ].forEach((line, i) =>
-    T.push(txt(W / 2, schemY + i * 13, line, { size: 10, fill: MUTED, anchor: "middle" })),
-  );
-
-  // the edited lib at the base of each panel, arrow up into the fleet
-  const lby = schemY + 26;
+  // the edited lib at the base of each panel; its edge ends on the grid
+  const lby = gy + gridH + 30;
   const libBox = (x0, tint, name, sub) => {
     const cx = x0 + Math.round(gridW / 2);
-    T.push(arrow(cx, lby - 4, cx, gy + gridH + 8));
-    T.push(box(x0 + 33, lby, 220, 44, tint));
-    T.push(txt(x0 + 45, lby + 18, name, { size: 11.5, weight: "600" }));
-    T.push(txt(x0 + 45, lby + 34, sub, { size: 10.5 }));
+    T.push(arrow(cx, lby - 2, cx, gy + gridH + 4));
+    T.push(box(x0 + 30, lby, gridW - 60, 40, tint));
+    T.push(txt(cx, lby + 17, name, { size: FIG.body, weight: "600", anchor: "middle" }));
+    T.push(txt(cx, lby + 32, sub, { ...boxNote, anchor: "middle" }));
   };
-  libBox(LX, "rust", `foundation lib (${foundationLib})`, "imported by every app");
-  libBox(RX, "green", `leaf lib (${leafLib})`, "imported by almost nothing");
+  libBox(LX, "repo", `foundation lib (${foundationLib})`, "imported by every app");
+  libBox(RX, "scope", `leaf lib (${leafLib})`, "imported by almost nothing");
 
-  // verdict lines under each panel
-  const vy = lby + 68;
+  // the result under each panel
+  const vy = lby + 66;
   T.push(
-    txt(LX, vy, `verdict: ${secs(breakMs)} batch · ${secs(slicedBreakMs)} sliced`, {
-      size: 12,
-      weight: "600",
+    txt(LX, vy, `${int(turboTotal)} of ${int(turboTotal)} tasks re-run`, {
+      size: FIG.value,
+      weight: "650",
+    }),
+  );
+  // the verdict, two clauses on their own lines, each wrapped to the panel's width (the
+  // gap to the right panel) so no reader's system-ui face runs it into that panel
+  const panelW = RX - LX - 16;
+  const verdict = [
+    `a breaking rev turns all ${int(breakApps)} apps red:`,
+    `${secs(breakMs)} batch · ${secs(slicedBreakMs)} sliced`,
+  ].flatMap((part) => wrapPx(part, FIG.body, panelW));
+  verdict.forEach((ln, i) => T.push(txt(LX, vy + 18 + i * 14, ln, { size: FIG.body })));
+  const ly = vy + 18 + (verdict.length - 1) * 14 + 15;
+  T.push(
+    txt(LX, ly, "every broken call site, with file and line", { size: FIG.note, fill: MUTED }),
+  );
+  T.push(
+    txt(RX, vy, `${int(leafRan)} of ${int(turboTotal)} tasks re-run`, {
+      size: FIG.value,
+      weight: "650",
     }),
   );
   T.push(
-    txt(LX, vy + 16, "every broken call site, exact file and line", { size: 10.5, fill: MUTED }),
+    txt(RX, vy + 18, `at ${int(devSimApps)} apps a leaf lib has ${devSimLeafDeps} dependents`, {
+      size: FIG.body,
+    }),
   );
-  T.push(txt(RX, vy, `dependents gate: ${int(leafRan)} tasks`, { size: 12, weight: "600" }));
-  T.push(
-    txt(
-      RX,
-      vy + 16,
-      `at ${int(devSimApps)} apps a leaf lib has ${devSimLeafDeps} dependents (dev-sim)`,
-      {
-        size: 10.5,
-        fill: MUTED,
-      },
-    ),
-  );
+  T.push(txt(RX, vy + 33, "dev-sim's smaller tree", { size: FIG.note, fill: MUTED }));
 
-  const y = vy + 44;
+  const y = Math.max(ly, vy + 33) + 34;
   T.push(
     ...footer(y, "bench/fleet-gate-bench.json · bench/sliced-gate-bench.json · bench/dev-sim.json"),
   );
+  writeFigData("FLEET.md", "fig-blast-radius", "The figure's numbers as a table", {
+    align: ["l", "l", "l"],
+    head: ["edit", "reach", "verdict"],
+    rows: [
+      [
+        `foundation-lib edit (\`${foundationLib}\`)`,
+        `${int(turboTotal)} of ${int(turboTotal)} tasks re-run`,
+        `a breaking rev turns all ${int(breakApps)} apps red: ${secs(breakMs)} batch · ${secs(slicedBreakMs)} sliced`,
+      ],
+      [
+        `leaf-lib edit (\`${leafLib}\`)`,
+        `${int(leafRan)} of ${int(turboTotal)} tasks re-run`,
+        `a leaf lib has ${devSimLeafDeps} dependents at ${int(devSimApps)} apps (dev-sim)`,
+      ],
+    ],
+    lead: `The grids are schematic: each cell stands for about ${tasksPerCell} of the ${int(turboTotal)} turbo tasks; an edit to the foundation lib re-runs all of them, a leaf edit its share.`,
+    fields:
+      "`bench/fleet-gate-bench.json`: `apps`, `libs`, `shape`, `foundationLib`, `leafLib`, `breakingChange.{ms,appsWithErrors,caught}`, `turboGate.{total,ran}`, `leafGate.{ran,total}`, `machine.{cores,arch}`, `versions.{tsgo,node}`. `bench/sliced-gate-bench.json`: `summary.breakingSlicedMs`, `unionCheck.matchesWholeProgram`. `bench/dev-sim.json`: `apps`, `blast[].dependentsClosure`.",
+  });
   return svgDoc(
     y + 12,
-    `Fleet blast radius: a breaking rev of the foundation lib turns all ${int(apps)} apps red with the verdict in ${secs(breakMs)} (batch) or ${secs(slicedBreakMs)} (sliced), while a leaf-lib edit re-runs ${leafRan} of ${int(turboTotal)} tasks.`,
+    `Fleet blast radius in turbo tasks: an edit to the foundation lib re-runs all ${int(turboTotal)} tasks, and a breaking rev of it turns all ${int(apps)} apps red, caught in ${secs(breakMs)} (batch) or ${secs(slicedBreakMs)} (sliced); a leaf-lib edit re-runs ${leafRan} of ${int(turboTotal)} tasks. The grids are schematic.`,
     T,
   );
 }
@@ -428,62 +534,109 @@ function figOrepoOclosure() {
     throw new Error("the focused build did not succeed at the largest scale");
 
   const T = [];
-  T.push(txt(16, 22, "O(repo): the whole-repo selection", { size: 13, weight: "600" }));
-  T.push(txt(356, 22, "O(closure): the scoped command", { size: 13, weight: "600" }));
+  T.push(...figTitle(16, 24, "What a turbo command selects").parts);
 
-  // command boxes (blue: the thing you type)
-  const cy = 38;
-  T.push(box(16, cy, 288, 46, "blue"));
-  T.push(txt(30, cy + 20, "turbo run typecheck:tsgo", { size: 12, weight: "600" }));
-  T.push(txt(30, cy + 36, `--filter=...${foundation} — every dependent`, { size: 10.5 }));
-  T.push(box(356, cy, 288, 46, "blue"));
-  T.push(txt(370, cy + 20, `turbo run build --filter=${focusApp}...`, { size: 11, weight: "600" }));
-  T.push(txt(370, cy + 36, "one app + its dependency closure", { size: 10.5 }));
+  // two panels, each: the command (blue node) -> edges into the selected task
+  // nodes -> the measured count and wall time
+  const PW = 300;
+  const panels = [
+    {
+      x: 16,
+      head: "O(repo): a whole-repo selection",
+      cmd: "turbo run typecheck:tsgo",
+      arg: `--filter=...${foundation}`,
+      mark: REPO.mark,
+      nodes: 14,
+      more: true,
+      value: `${int(turboTasks)} tasks · ${secs(turboMs)}`,
+      sub: [turboKind, `${int(fleetApps)}-app fleet tree`],
+    },
+    {
+      x: 344,
+      head: "O(closure): a scoped command",
+      cmd: "turbo run build",
+      arg: `--filter=${focusApp}...`,
+      mark: SCOPE.mark,
+      nodes: 3,
+      more: false,
+      value: `${int(focusTasks)} tasks · ${secs(focusMs)}`,
+      sub: [
+        `one app's closure: ${int(focusTasks)} of ${int(totalTasks)} build tasks`,
+        `${int(rApps)}-app tree, ${rLibs} libs`,
+      ],
+    },
+  ];
+  const hy = 58;
+  const cy = hy + 12;
+  const ch = 44;
+  const ty = cy + ch + 46; // task-node row
+  const tn = 14; // task node size
+  for (const p of panels) {
+    T.push(txt(p.x, hy, p.head, { size: FIG.label, weight: "600" }));
+    T.push(box(p.x, cy, PW, ch, "blue"));
+    T.push(txt(p.x + 12, cy + 18, p.cmd, { size: FIG.body, weight: "600" }));
+    T.push(txt(p.x + 12, cy + 34, p.arg, { size: FIG.body }));
+    // the selected task nodes, centered under the command; every edge ends on one
+    const pitch = tn + 6;
+    const slots = p.nodes + (p.more ? 1 : 0);
+    const rowW = slots * pitch - 6;
+    const x0 = p.x + (PW - rowW) / 2;
+    const ox = p.x + PW / 2;
+    for (let i = 0; i < p.nodes; i++) {
+      const nx = x0 + i * pitch;
+      T.push(arrow(ox, cy + ch + 1, nx + tn / 2, ty - 1.5));
+      T.push(
+        `<rect x="${nx.toFixed(1)}" y="${ty}" width="${tn}" height="${tn}" rx="2.5" fill="${p.mark}"/>`,
+      );
+    }
+    if (p.more)
+      T.push(
+        txt(x0 + p.nodes * pitch + tn / 2 - 3, ty + tn - 3, "…", {
+          size: FIG.label,
+          fill: MUTED,
+          anchor: "middle",
+        }),
+      );
+    const vy = ty + tn + 26;
+    T.push(txt(p.x, vy, p.value, { size: FIG.value, weight: "650" }));
+    p.sub.forEach((ln, i) =>
+      T.push(txt(p.x, vy + 17 + i * 14, ln, { size: FIG.note, fill: MUTED })),
+    );
+  }
 
-  // left: fan-out arrows to the O(repo) task box; right: one arrow
-  const ay = cy + 46;
-  const ry = ay + 36;
-  for (let i = 0; i < 5; i++) T.push(arrow(160, ay + 2, 46 + i * 57, ry - 6));
-  T.push(arrow(500, ay + 2, 500, ry - 6));
-
-  T.push(box(16, ry, 288, 78, "rust"));
-  T.push(
-    txt(30, ry + 26, `${int(turboTasks)} tasks · ${secs(turboMs)}`, { size: 16, weight: "700" }),
-  );
-  T.push(txt(30, ry + 46, turboKind, { size: 10.5 }));
-  T.push(
-    txt(30, ry + 62, `${int(fleetApps)}-app fleet tree — grows with the repo`, { size: 10.5 }),
-  );
-  T.push(box(356, ry, 288, 78, "green"));
-  T.push(
-    txt(370, ry + 26, `${int(focusTasks)} tasks · ${secs(focusMs)}`, { size: 16, weight: "700" }),
-  );
-  T.push(
-    txt(370, ry + 46, `the closure: ${int(focusTasks)} of ${int(totalTasks)} build tasks`, {
-      size: 10.5,
-    }),
-  );
-  T.push(
-    txt(370, ry + 62, `${int(rApps)}-app tree (${rLibs} libs) — tasks track the closure`, {
-      size: 10.5,
-    }),
-  );
-
-  const ny = ry + 102;
-  T.push(
-    txt(
-      16,
-      ny,
-      "different trees and tasks — the contrast is the task selection, not a like-for-like time ratio",
-      { size: 10.5, fill: MUTED },
-    ),
-  );
-
-  const y = ny + 28;
+  // the figure is linked as a standalone PNG, so it carries its own caveat
+  const CAVEAT =
+    "Different trees and tasks: the contrast is the selection, not a time ratio. Task tiles are schematic.";
+  const cvy = ty + tn + 26 + 17 + 14 + 24;
+  T.push(txt(16, cvy, CAVEAT, { size: FIG.note, fill: MUTED }));
+  const y = cvy + 34;
   T.push(...footer(y, "bench/fleet-gate-bench.json · bench/results.json"));
+
+  writeFigData("README.md", "fig-orepo-oclosure", "The figure's numbers as a table", {
+    align: ["l", "l", "r", "r", "l"],
+    head: ["", "command", "tasks", "wall time", "tree"],
+    rows: [
+      [
+        "O(repo)",
+        `\`turbo run typecheck:tsgo --filter=...${foundation}\``,
+        int(turboTasks),
+        secs(turboMs),
+        `${int(fleetApps)}-app fleet tree`,
+      ],
+      [
+        "O(closure)",
+        `\`turbo run build --filter=${focusApp}...\``,
+        `${int(focusTasks)} of ${int(totalTasks)}`,
+        secs(focusMs),
+        `${int(rApps)} apps / ${rLibs} libs`,
+      ],
+    ],
+    fields:
+      "`bench/fleet-gate-bench.json`: `apps`, `foundationLib`, `turboGate.{kind,ms,total,ran}`. `bench/results.json`, the largest-scale row: `apps`, `libs`, `phases.focus.{ms,app,ok}`, `phases.graph.{focusTasks,totalBuildTasks}`.",
+  });
   return svgDoc(
     y + 12,
-    `The thesis: a command whose selection is the whole repo — a filter on the foundation lib selects every dependent — runs ${int(turboTasks)} tasks on the ${int(fleetApps)}-app fleet, while a command scoped to one app runs that app's dependency closure (${focusTasks} tasks at the largest measured layered scale).`,
+    `What a turbo command selects: a filter on the foundation lib selects every dependent, ${int(turboTasks)} tasks on the ${int(fleetApps)}-app fleet, while a command scoped to one app runs that app's dependency closure (${focusTasks} tasks at the largest measured layered scale). ${CAVEAT}`,
     T,
   );
 }
@@ -537,28 +690,32 @@ function figSaveLoop() {
       name: "tsgo CLI, incremental rerun",
       how: "relaunch + tsbuildinfo re-read",
       ms: rowMs("tsgo", "incrOneEdit"),
-      entry: `${secs(posMs(pt, "tsgo.incrPrimeMs"))} incremental prime`,
+      entryMs: posMs(pt, "tsgo.incrPrimeMs"),
+      entry: "incremental prime",
       tool: "tsgo",
     },
     {
       name: "tsgo --watch",
       how: "resident; rebuilds the program",
       ms: posMs(lp, "tsgoWatch.oneEditRecheckMs"),
-      entry: `${secs(posMs(lp, "tsgoWatch.firstBuildMs"))} first build`,
+      entryMs: posMs(lp, "tsgoWatch.firstBuildMs"),
+      entry: "first build",
       tool: "tsgo",
     },
     {
       name: "tsgo --lsp squiggle",
       how: "didChange → error appears",
       ms: posMs(lp, "tsgoLsp.warm.errorAppearsMs"),
-      entry: `${secs(posMs(lp, "tsgoLsp.cold.coldOpenMs"))} cold open`,
+      entryMs: posMs(lp, "tsgoLsp.cold.coldOpenMs"),
+      entry: "cold open",
       tool: "tsgo",
     },
     {
       name: "Flow server (main build)",
       how: "live server: notify + status",
       ms: rowMs("flow", "incrOneEdit"),
-      entry: `${secs(posMs(pt, "flow.serverInitMs"))} server init`,
+      entryMs: posMs(pt, "flow.serverInitMs"),
+      entry: "server init",
       tool: "flow",
     },
   ];
@@ -570,81 +727,90 @@ function figSaveLoop() {
       "save-loop ordering changed (expected resident servers < --watch < CLI relaunch) — the figure's story is invalid",
     );
 
-  // log axis over whole decades that bracket the data, so every bar ends between
-  // two labeled gridlines
-  const times = lanes.map((l) => l.ms);
-  // (a time sitting exactly on a decade gets the decade below as its floor, so
-  // no bar has zero length)
-  const minT = Math.min(...times);
-  let lo = 10 ** Math.floor(Math.log10(minT));
-  if (lo === minT) lo /= 10;
+  // the lane layout labels the per-edit value left of its dot and the entry cost
+  // right of its hollow dot, which needs the entry to be the larger time
+  for (const l of lanes)
+    if (!(l.entryMs > l.ms))
+      throw new Error(`${l.name}: one-time entry is not slower than one edit — relabel the lanes`);
+
+  // log axis over whole decades that bracket every drawn time (per-edit and entry)
+  const times = lanes.flatMap((l) => [l.ms, l.entryMs]);
+  const lo = 10 ** Math.floor(Math.log10(Math.min(...times)));
   const hi = 10 ** Math.ceil(Math.log10(Math.max(...times)));
   const decades = Math.round(Math.log10(hi / lo));
   if (decades < 1 || decades > 6)
     throw new Error(`save-loop times span ${decades} decades — the axis layout does not fit`);
-  const X0 = 204;
-  const X1 = 528;
+  const X0 = 236;
+  const X1 = 506;
   const xOf = (ms) => +(X0 + (Math.log10(ms / lo) / decades) * (X1 - X0)).toFixed(1);
   const tickLabel = (ms) => (ms < 1000 ? `${ms}ms` : `${int(ms / 1000)}s`);
 
   const T = [];
-  T.push(
-    txt(16, 22, `one edit → verdict at ${int(N)} modules, by mechanic`, {
-      size: 13,
-      weight: "600",
-    }),
-  );
-  T.push(
-    txt(16, 39, "time from the edit to the verdict — log scale, each gridline ×10 the one before", {
-      size: 10.5,
-      fill: MUTED,
-    }),
-  );
+  T.push(...figTitle(16, 24, `One edit to a verdict at ${int(N)} modules`).parts);
+  // key
+  const ky = 46;
+  T.push(dot(20, ky - 3.5, MUTED, { r: 4 }));
+  T.push(txt(29, ky, "per edit", { size: FIG.note, fill: MUTED }));
+  T.push(dot(92, ky - 3.5, MUTED, { r: 4, hollow: true }));
+  T.push(txt(101, ky, "one-time entry cost", { size: FIG.note, fill: MUTED }));
+  T.push(txt(X1, ky, "log scale", { size: FIG.note, fill: MUTED, anchor: "end" }));
 
-  const laneY0 = 70;
-  const pitch = 48;
+  const laneY0 = 84;
+  const pitch = 44;
+  const axisTop = laneY0 - 14;
+  const axisBot = laneY0 + lanes.length * pitch - 18;
   for (let d = 0; d <= decades; d++) {
-    const ms = lo * 10 ** d;
-    T.push(txt(xOf(ms), laneY0 - 8, tickLabel(ms), { size: 10, fill: MUTED, anchor: "middle" }));
+    const gx = xOf(lo * 10 ** d);
+    T.push(`<line x1="${gx}" y1="${axisTop}" x2="${gx}" y2="${axisBot}" stroke="${GRID}"/>`);
+    T.push(
+      txt(gx, axisTop - 6, tickLabel(lo * 10 ** d), {
+        size: FIG.note,
+        fill: MUTED,
+        anchor: "middle",
+      }),
+    );
   }
   lanes.forEach((l, i) => {
     const y = laneY0 + i * pitch;
-    T.push(txt(16, y + 13, l.name, { size: 11.5, weight: "600" }));
-    T.push(txt(16, y + 28, l.how, { size: 10, fill: MUTED }));
+    const c = TOOL_COLORS[l.tool];
+    T.push(txt(16, y + 4, l.name, { size: FIG.label, weight: "600" }));
+    T.push(txt(16, y + 18, l.how, { size: FIG.note, fill: MUTED }));
     const x = xOf(l.ms);
-    const value = dur(l.ms);
-    const valueEnd = x + 8 + approxW(value, 12.5, true) + 6;
-    // gridline segments only behind the bar row (they never cross the entry
-    // line), and none through the value printed after the bar
-    for (let d = 0; d <= decades; d++) {
-      const gx = xOf(lo * 10 ** d);
-      if (gx > x && gx < valueEnd) continue;
-      T.push(`<line x1="${gx}" y1="${y}" x2="${gx}" y2="${y + 20}" stroke="${GRID}"/>`);
-    }
-    T.push(
-      `<rect x="${X0}" y="${y + 3}" width="${+(x - X0).toFixed(1)}" height="14" rx="3" fill="${TOOL_COLORS[l.tool]}"/>`,
-    );
-    T.push(txt(x + 8, y + 14.5, value, { size: 12.5, weight: "700" }));
-    T.push(txt(X0, y + 33, `one-time entry: ${l.entry}`, { size: 10, fill: MUTED }));
+    const ex = xOf(l.entryMs);
+    // no connector between the two dots: a line would read as a range
+    T.push(dot(ex, y, c, { hollow: true }));
+    T.push(dot(x, y, c));
+    T.push(txt(x - 9, y + 4, dur(l.ms), { size: FIG.body, weight: "650", anchor: "end" }));
+    T.push(txt(ex + 9, y + 4, `${dur(l.entryMs)} ${l.entry}`, { size: FIG.note, fill: MUTED }));
   });
 
-  const ny = laneY0 + lanes.length * pitch + 12;
-  [
-    `bars start at the ${tickLabel(lo)} axis floor, not at zero — bar length is the log of the time`,
-    "CLI, --watch and Flow: a valid one-module edit, verdict over the whole program",
-    "LSP: an edit that seeds a type error, verdict for the open file only",
-  ].forEach((line, i) => T.push(txt(16, ny + i * 14, line, { size: 10.5, fill: MUTED })));
-
-  const y = ny + 3 * 14 + 14;
+  // the figure is linked as a standalone PNG, so it carries its own caveat
+  // the lanes time different edits over different scopes; both differences are stated
+  const CAVEATS = [
+    "CLI, --watch and Flow: a valid one-module edit, verdict over the whole program.",
+    "LSP: an edit that seeds a type error, verdict for the open file only.",
+  ];
+  const CAVEAT = CAVEATS.join(" ");
+  CAVEATS.forEach((c, i) =>
+    T.push(txt(16, axisBot + 22 + i * 15, c, { size: FIG.note, fill: MUTED })),
+  );
+  const y = axisBot + 69;
   T.push(
     ...footer(
       y,
       `bench/tsgo-scale-bench.json · bench/lsp-scale-bench.json · tsgo ${tsgoVer} · ${cores} cores`,
     ),
   );
+  writeFigData("TYPECHECKERS.md", "fig-save-loop", "The figure's numbers as a table", {
+    align: ["l", "r", "l"],
+    head: ["mechanic", "one edit → verdict", "one-time entry"],
+    rows: lanes.map((l) => [`${l.name} (${l.how})`, dur(l.ms), `${dur(l.entryMs)} ${l.entry}`]),
+    fields:
+      "`bench/tsgo-scale-bench.json`, `points.1000000`: `tsgo.incrOneEdit.{killed,medianMs}`, `tsgo.incrPrimeMs`, `flow.incrOneEdit.{killed,medianMs}`, `flow.serverInitMs`; `versions.tsgo`, `versions.flow`, `cores`, `layers`, `tsgoInvocation`. `bench/lsp-scale-bench.json`, the `results` entry whose `modules` is 1,000,000: `tsgoWatch.oneEditRecheckMs`, `tsgoWatch.firstBuildMs`, `tsgoLsp.warm.errorAppearsMs`, `tsgoLsp.cold.coldOpenMs`; `meta.cores`, `meta.layers`, `meta.tsgoInvocation`, `meta.tsgoVersion`. The two records share one axis on the fields they share (cores, corpus depth, tsgo version and invocation); `lsp-scale-bench.json` records no architecture, mount or node version.",
+  });
   return svgDoc(
     y + 12,
-    `The save loop by mechanic at ${int(N)} modules, on a log time axis: tsgo's CLI incremental rerun relaunches and returns a verdict in ${dur(cli)}, its --watch rebuild in ${dur(watch)}, its LSP shows a seeded error in the open file in ${dur(lsp)}, and Flow's resident server rechecks one edit in ${dur(flow)}.`,
+    `The save loop by mechanic at ${int(N)} modules, on a log time axis: tsgo's CLI incremental rerun relaunches and returns a verdict in ${dur(cli)}, its --watch rebuild in ${dur(watch)}, its LSP shows a seeded error in the open file in ${dur(lsp)}, and Flow's resident server rechecks one edit in ${dur(flow)}; each lane also marks its one-time entry cost. ${CAVEAT}`,
     T,
   );
 }
@@ -704,92 +870,118 @@ function figFreshnessGate() {
     );
 
   const T = [];
-  T.push(
-    txt(16, 22, "freshness gate: no-change codegen, then git status over __generated__", {
-      size: 13,
-      weight: "600",
-    }),
-  );
-  const HX = 330;
-  T.push(txt(16, 46, `${secs(gateMs)} · ${int(comps)} components`, { size: 16, weight: "700" }));
-  T.push(
-    txt(HX, 46, `${secs(fleetGateMs)} · ${int(fleetComps)} components`, {
-      size: 16,
-      weight: "700",
-    }),
-  );
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
-  T.push(
-    txt(
-      16,
-      62,
-      samples === 1 ? "one gate pass" : `one gate pass, median of ${plural(samples, "sample")}`,
-      { size: 10.5, fill: MUTED },
-    ),
-  );
-  T.push(
-    txt(HX, 62, `one gate pass at the fleet anchor, ${plural(fleetSamples, "sample")}`, {
-      size: 10.5,
-      fill: MUTED,
-    }),
-  );
+  T.push(...figTitle(16, 24, "The freshness gate for checked-in codegen artifacts").parts);
 
-  // row 1: the gate's two steps, left to right
-  const ry = 82;
-  const rh = 62;
-  T.push(box(16, ry, 160, rh, "blue"));
-  T.push(txt(28, ry + 20, "PR head", { size: 11.5, weight: "600" }));
-  T.push(txt(28, ry + 36, "components + the committed", { size: 10 }));
-  T.push(txt(28, ry + 50, "__generated__ artifacts", { size: 10 }));
-  T.push(box(236, ry, 170, rh, "blue"));
-  T.push(txt(248, ry + 20, "relay-compiler", { size: 11.5, weight: "600" }));
-  T.push(txt(248, ry + 36, "no-change codegen:", { size: 10 }));
-  T.push(txt(248, ry + 50, "re-validates every document", { size: 10 }));
-  T.push(box(466, ry, 178, rh, "blue"));
-  T.push(txt(478, ry + 20, "git status --porcelain", { size: 11.5, weight: "600" }));
-  T.push(txt(478, ry + 36, "-- src/__generated__", { size: 10 }));
-  T.push(txt(478, ry + 50, "lists untracked artifacts too", { size: 10 }));
+  // row 1: the gate's two steps, left to right; each step's measured time at the
+  // fleet anchor sits inside its node (an edge label would read as a hand-off)
+  const ry = 50;
+  const rh = 74;
+  const fleetAt = `at ${int(fleetComps)}`;
+  const step = (x, w, label, lines, time) => {
+    T.push(...node(x, ry, w, rh, "blue", label, lines));
+    if (time) T.push(txt(x + 11, ry + 18 + 15 + 2 * 14 + 2, time, boxNote));
+  };
+  step(16, 160, "PR head", ["components + committed", "__generated__ artifacts"]);
+  step(
+    230,
+    182,
+    "relay-compiler",
+    ["no-change run, re-validates", "every document"],
+    `${dur(fleetCodegenMs)} ${fleetAt}`,
+  );
+  step(
+    464,
+    180,
+    "git status --porcelain",
+    ["-- src/__generated__", "lists untracked paths too"],
+    `${dur(fleetStatusMs)} ${fleetAt}`,
+  );
 
   const my = ry + rh / 2;
-  const fleetAt = `@ ${int(fleetComps)}`;
-  T.push(arrow(180, my, 232, my));
-  T.push(txt(206, my - 8, "in CI", { size: 9.5, fill: MUTED, anchor: "middle" }));
-  T.push(arrow(410, my, 462, my));
-  T.push(txt(436, my - 8, secs2(fleetCodegenMs), { size: 9.5, fill: MUTED, anchor: "middle" }));
-  T.push(txt(436, my + 16, fleetAt, { size: 9.5, fill: MUTED, anchor: "middle" }));
+  T.push(arrow(178, my, 228, my));
+  T.push(edgeLabel(203, my - 7, "in CI"));
+  T.push(arrow(414, my, 462, my));
 
-  // row 2: the fork. Green sits under the status box, red to its left so the
-  // dashed return path into the PR head stays short.
-  const fy = ry + rh + 54;
-  const fh = 62;
-  T.push(box(444, fy, 200, fh, "green"));
-  T.push(txt(456, fy + 20, "clean → gate passes", { size: 11.5, weight: "600" }));
-  T.push(txt(456, fy + 36, "artifacts byte-stable on every", { size: 10 }));
-  T.push(txt(456, fy + 50, "timed no-change rerun", { size: 10 }));
-  T.push(box(206, fy, 200, fh, "rust"));
-  T.push(txt(218, fy + 20, "dirty → gate fails", { size: 11.5, weight: "600" }));
-  T.push(txt(218, fy + 36, "an edited query changes its", { size: 10 }));
-  T.push(txt(218, fy + 50, "artifact: the drift is detected", { size: 10 }));
+  // row 2: the fork. Green under the status node, red to its left so the dashed
+  // return into the PR head stays short.
+  const fy = ry + rh + 52;
+  const fh = 60;
+  T.push(
+    ...node(444, fy, 200, fh, "green", "clean: the gate passes", [
+      "byte-stable on every timed",
+      "no-change rerun",
+    ]),
+  );
+  T.push(
+    ...node(206, fy, 206, fh, "rust", "dirty: the gate fails", [
+      "an edited query changes its",
+      "artifact: the drift is caught",
+    ]),
+  );
 
-  T.push(arrow(555, ry + rh + 3, 555, fy - 4));
-  T.push(txt(563, ry + rh + 24, "nothing listed", { size: 9.5, fill: MUTED }));
-  T.push(txt(563, ry + rh + 37, `${secs2(fleetStatusMs)} ${fleetAt}`, { size: 9.5, fill: MUTED }));
-  T.push(arrow(486, ry + rh + 3, 344, fy - 4));
-  T.push(txt(374, ry + rh + 17, "a changed or", { size: 9.5, fill: MUTED, anchor: "end" }));
-  T.push(txt(374, ry + rh + 30, "untracked path", { size: 9.5, fill: MUTED, anchor: "end" }));
+  T.push(arrow(555, ry + rh + 2, 555, fy - 2));
+  T.push(edgeLabel(563, ry + rh + 28, "nothing listed", "start"));
+  T.push(arrow(486, ry + rh + 2, 344, fy - 2));
+  T.push(edgeLabel(374, ry + rh + 16, "a changed or", "end"));
+  T.push(edgeLabel(374, ry + rh + 29, "untracked path", "end"));
 
   // the red branch's way back: regenerate, commit, and the gate runs again
   // (dashed: the conditional path, not a timed one)
   const by = fy + fh / 2;
-  T.push(dashes(202, by, 96, by));
-  T.push(arrow(96, by, 96, ry + rh + 3, true));
-  T.push(txt(104, ry + rh + 30, "regenerate,", { size: 9.5, fill: MUTED }));
-  T.push(txt(104, ry + rh + 43, "commit", { size: 9.5, fill: MUTED }));
+  T.push(dashes(204, by, 96, by));
+  T.push(arrow(96, by, 96, ry + rh + 2, true));
+  T.push(edgeLabel(104, ry + rh + 30, "regenerate,", "start"));
+  T.push(edgeLabel(104, ry + rh + 43, "commit", "start"));
 
-  const y = fy + fh + 32;
+  // the measured cost of one pass
+  const vy = fy + fh + 30;
+  T.push(txt(16, vy, "one gate pass", { size: FIG.label, weight: "600" }));
+  T.push(
+    txt(140, vy, `${secs(gateMs)} at ${int(comps)} components`, { size: FIG.value, weight: "650" }),
+  );
+  T.push(
+    txt(140, vy + 16, samples === 1 ? "one sample" : `median of ${plural(samples, "sample")}`, {
+      size: FIG.note,
+      fill: MUTED,
+    }),
+  );
+  T.push(
+    txt(400, vy, `${secs(fleetGateMs)} at ${int(fleetComps)}`, { size: FIG.value, weight: "650" }),
+  );
+  T.push(
+    txt(400, vy + 16, `fleet anchor, ${plural(fleetSamples, "sample")}`, {
+      size: FIG.note,
+      fill: MUTED,
+    }),
+  );
+
+  const y = vy + 16 + 34;
   T.push(
     ...footer(y, `bench/relay-codegen-bench.json · relay-compiler ${relayVer} · ${cores} cores`),
   );
+  writeFigData("TYPECHECKERS.md", "fig-freshness-gate", "The figure's numbers as a table", {
+    head: ["tree", "one gate pass", "codegen", "git status", "samples"],
+    rows: [
+      [
+        `${int(comps)} components`,
+        secs(gateMs),
+        "— (not split at this size)",
+        "— (not split at this size)",
+        `${samples} (median)`,
+      ],
+      [
+        `${int(fleetComps)} components (fleet anchor)`,
+        secs(fleetGateMs),
+        dur(fleetCodegenMs),
+        dur(fleetStatusMs),
+        String(fleetSamples),
+      ],
+    ],
+    lead: "Artifacts byte-stable on every timed no-change rerun, and an edited query is detected as drift (both asserted by the bench).",
+    fields:
+      "`bench/relay-codegen-bench.json`: `components`, `samples`, `schemaTypes`, `freshness.{gateMedianMs,gateSamplesMs,byteStable,driftDetected}`; `fleetPoint.{components,samples,codegenNoChangeMs,statusMs,freshnessMs,byteStable}`; `versions.relayCompiler`, `cores`.",
+  });
   return svgDoc(
     y + 12,
     `The freshness gate for checked-in codegen artifacts: a no-change relay-compiler run, then git status over the generated directory; nothing listed means the artifacts are byte-stable and the gate passes, a changed or untracked path means an edited query drifted from its artifact and the gate fails. One pass costs ${secs(gateMs)} at ${int(comps)} components and ${secs(fleetGateMs)} at ${int(fleetComps)}.`,
@@ -844,37 +1036,70 @@ function figLinkerLayouts() {
 
   const PW = 196; // panel width
   const PX = [16, 232, 448];
-  const T = [];
+  const TOP = 34; // the figure title band; the panels are drawn below it
+  const T = [...figTitle(16, 24, "What each linker writes for the same workspace").parts];
+  T.push(`<g transform="translate(0 ${TOP})">`);
+  const CHIP = FIG.body; // chip label size: a chip is a bordered box (MIN_BOX_TEXT)
   const chip = (x, y, w, label) => {
     T.push(
       `<rect x="${x}" y="${y}" width="${w}" height="20" rx="4" fill="${BG}" stroke="${TINT.blue[1]}" stroke-width="1"/>`,
     );
-    T.push(txt(x + w / 2, y + 13.5, label, { size: 9.5, anchor: "middle" }));
+    T.push(txt(x + w / 2, y + 14, label, { size: CHIP, anchor: "middle" }));
   };
   const head = (x, title, sub) => {
-    T.push(txt(x, 22, title, { size: 12.5, weight: "600" }));
-    T.push(txt(x, 38, sub, { size: 10, fill: MUTED }));
+    T.push(txt(x, 22, title, { size: FIG.label, weight: "600" }));
+    T.push(txt(x, 38, sub, { size: FIG.note, fill: MUTED }));
   };
   const mid = (x) => x + PW / 2;
-  const BOT = 206; // every panel's diagram ends on this line
+  const BOT = 220; // every panel's diagram ends on this line
+  const B3 = BOT - 26; // the top of the bottom box in panels 2 and 3
+  // a row of chips across the panel's inner width (PW - 20): each chip its label's
+  // measured width plus padding, the leftover shared evenly, so no label meets its edge
+  const chipRow = (x, y, labels) => {
+    const cg = 5.5;
+    const inner = PW - 20;
+    const ws = labels.map((l) => approxW(l, CHIP) + 10);
+    const extra =
+      (inner - ws.reduce((a, b) => a + b, 0) - cg * (labels.length - 1)) / labels.length;
+    if (extra < 0) throw new Error(`chips ${labels.join(", ")} do not fit the ${inner}px panel`);
+    let cx = x + 10;
+    labels.forEach((l, i) => {
+      const w = +(ws[i] + extra).toFixed(1);
+      chip(cx, y, w, l);
+      cx = +(cx + w + cg).toFixed(1);
+    });
+  };
+  // split a path after its slashes into lines that fit `maxW` at `size` (a path has no
+  // spaces for wrapPx to break at)
+  const pathLines = (path, size, maxW) => {
+    const out = [];
+    let line = "";
+    for (const part of path.match(/[^/]*\/|[^/]+$/g)) {
+      if (line && approxW(line + part, size) > maxW) {
+        out.push(line);
+        line = part;
+      } else line += part;
+    }
+    out.push(line);
+    for (const l of out)
+      if (approxW(l, size) > maxW) throw new Error(`"${l}" does not fit ${maxW}px`);
+    return out;
+  };
 
   // panel 1: hoisted — every package once, one level, at the workspace root
   {
     const x = PX[0];
     head(x, "hoisted: one flat tree", "pnpm hoisted · yarn node-modules");
     T.push(box(x, 52, PW, 28, "blue"));
-    T.push(txt(x + 10, 70, "apps/<app> imports react", { size: 10.5 }));
+    T.push(txt(x + 10, 70, "apps/<app> imports react", { size: FIG.body }));
     T.push(arrow(mid(x), 83, mid(x), 107));
-    T.push(txt(mid(x) + 8, 99, "walks up to the root", { size: 9.5, fill: MUTED }));
+    T.push(txt(mid(x) + 8, 99, "walks up to the root", { size: FIG.edge, fill: MUTED }));
     T.push(box(x, 110, PW, BOT - 110, "blue"));
-    T.push(txt(x + 10, 128, "node_modules/ (workspace root)", { size: 10.5, weight: "600" }));
-    const cw = 55;
-    const cg = 5.5;
-    ["next", "react", "react-dom"].forEach((p, i) => chip(x + 10 + i * (cw + cg), 138, cw, p));
-    ["typescript", "@demo libs", "· · ·"].forEach((p, i) =>
-      chip(x + 10 + i * (cw + cg), 164, cw, p),
-    );
-    T.push(txt(x + 10, 198, "packages side by side on one level", { size: 9.5, fill: MUTED }));
+    T.push(txt(x + 10, 128, "root node_modules/", { size: FIG.body, weight: "600" }));
+    // grouped so each row fits the panel at the box-text size
+    chipRow(x, 138, ["next", "react", "@demo libs"]);
+    chipRow(x, 164, ["react-dom", "typescript", "· · ·"]);
+    T.push(txt(x + 10, BOT - 8, "every package on one level", boxNote));
   }
   // panel 2: isolated — a per-package symlink tree over the virtual store, whose
   // files are linked from the content-addressable store
@@ -882,33 +1107,40 @@ function figLinkerLayouts() {
     const x = PX[1];
     head(x, "isolated: symlink tree", "pnpm default (bun: node_modules/.bun)");
     T.push(box(x, 52, PW, 36, "blue"));
-    T.push(txt(x + 10, 67, "apps/<app>/node_modules/", { size: 10.5, weight: "600" }));
-    T.push(txt(x + 10, 81, "react: a symlink", { size: 10 }));
+    T.push(txt(x + 10, 67, "apps/<app>/node_modules/", { size: FIG.body, weight: "600" }));
+    T.push(txt(x + 10, 81, "react: a symlink", { size: FIG.body }));
     T.push(arrow(mid(x), 91, mid(x), 117, true));
-    T.push(txt(mid(x) + 8, 108, "symlink", { size: 9.5, fill: MUTED }));
-    T.push(box(x, 120, PW, 36, "blue"));
-    T.push(txt(x + 10, 135, "node_modules/.pnpm/", { size: 10.5, weight: "600" }));
-    T.push(txt(x + 10, 149, "react@<version>/node_modules/react", { size: 10 }));
-    T.push(arrow(mid(x), 159, mid(x), 177));
-    T.push(txt(mid(x) + 8, 172, "files linked from", { size: 9.5, fill: MUTED }));
-    T.push(box(x, 180, PW, BOT - 180, "blue"));
-    T.push(txt(x + 10, 197, "content-addressable store", { size: 10.5, weight: "600" }));
+    T.push(txt(mid(x) + 8, 108, "symlink", { size: FIG.edge, fill: MUTED }));
+    const store = pathLines("react@<ver>/node_modules/react", FIG.body, PW - 20);
+    const b2 = 8 + 14 * (1 + store.length); // the box's height for its lines
+    T.push(box(x, 120, PW, b2, "blue"));
+    T.push(txt(x + 10, 135, "node_modules/.pnpm/", { size: FIG.body, weight: "600" }));
+    store.forEach((l, i) => T.push(txt(x + 10, 149 + 14 * i, l, { size: FIG.body })));
+    T.push(arrow(mid(x), 120 + b2 + 3, mid(x), B3 - 3));
+    T.push(
+      txt(mid(x) + 8, (120 + b2 + B3) / 2 + 4, "files linked from", {
+        size: FIG.edge,
+        fill: MUTED,
+      }),
+    );
+    T.push(box(x, B3, PW, BOT - B3, "blue"));
+    T.push(txt(x + 10, B3 + 17, "content-addressable store", { size: FIG.body, weight: "600" }));
   }
   // panel 3: PnP — no node_modules; one resolver table over the cache zips
   {
     const x = PX[2];
     head(x, "Plug'n'Play: one table", "yarn default · no node_modules tree");
     T.push(box(x, 52, PW, 28, "blue"));
-    T.push(txt(x + 10, 70, "apps/<app> imports react", { size: 10.5 }));
+    T.push(txt(x + 10, 70, "apps/<app> imports react", { size: FIG.body }));
     T.push(arrow(mid(x), 83, mid(x), 103));
-    T.push(txt(mid(x) + 8, 97, "PnP loader", { size: 9.5, fill: MUTED }));
+    T.push(txt(mid(x) + 8, 97, "PnP loader", { size: FIG.edge, fill: MUTED }));
     T.push(box(x, 106, PW, 52, "blue"));
-    T.push(txt(x + 10, 123, ".pnp.cjs: one resolver table", { size: 10.5, weight: "600" }));
-    T.push(txt(x + 10, 137, "react → its cache zip", { size: 10 }));
-    T.push(txt(x + 10, 150, "native package → unplugged dir", { size: 10 }));
-    T.push(arrow(mid(x), 161, mid(x), 177));
-    T.push(box(x, 180, PW, BOT - 180, "blue"));
-    T.push(txt(x + 10, 197, "global cache: package zips", { size: 10.5, weight: "600" }));
+    T.push(txt(x + 10, 123, ".pnp.cjs: one resolver table", { size: FIG.body, weight: "600" }));
+    T.push(txt(x + 10, 137, "react → its cache zip", { size: FIG.body }));
+    T.push(txt(x + 10, 150, "native pkg → unplugged dir", { size: FIG.body }));
+    T.push(arrow(mid(x), 161, mid(x), B3 - 3));
+    T.push(box(x, B3, PW, BOT - B3, "blue"));
+    T.push(txt(x + 10, B3 + 17, "global cache: package zips", { size: FIG.body, weight: "600" }));
   }
 
   // measured footprint under each panel: node_modules entries on one shared
@@ -922,14 +1154,14 @@ function figLinkerLayouts() {
     txt(
       16,
       cy,
-      `node_modules entries at ${int(apps)} apps / ${int(libs)} libs — one linear scale` +
+      `node_modules entries at ${int(apps)} apps / ${int(libs)} libs, one linear scale` +
         (clamped ? ` (a bar under ${MIN_BAR}px is drawn at ${MIN_BAR}px)` : ""),
-      { size: 10.5, fill: MUTED },
+      { size: FIG.note, fill: MUTED },
     ),
   );
   const row = (x, y, label, v, tool) => {
-    T.push(txt(x, y, label, { size: 11, weight: "600" }));
-    T.push(txt(x + PW, y, int(v), { size: 11, weight: "700", anchor: "end" }));
+    T.push(txt(x, y, label, { size: FIG.body, weight: "600" }));
+    T.push(txt(x + PW, y, int(v), { size: FIG.body, weight: "650", anchor: "end" }));
     const w = Math.max(MIN_BAR, +((v / maxN) * PW).toFixed(1));
     T.push(
       `<rect x="${x}" y="${y + 6}" width="${w}" height="8" rx="${Math.min(3, w / 2)}" fill="${TOOL_COLORS[tool]}"/>`,
@@ -942,19 +1174,37 @@ function figLinkerLayouts() {
   row(PX[1], r1, `${pnpm} isolated`, n.pnpmIsolated, "pnpm");
   row(PX[1], r2, "bun", n.bun, "bun");
   row(PX[2], r1, `${yarn} PnP`, n.yarnPnp, "yarn");
-  // the caveat on PnP's count (amber): its entries are files inside the unplugged
-  // native packages, not a dependency tree
-  T.push(box(PX[2], r2 - 12, PW, 36, "amber", 6));
-  T.push(txt(PX[2] + 10, r2 + 2, `${int(n.yarnPnp)} entries, all inside unplugged`, { size: 9.5 }));
-  T.push(txt(PX[2] + 10, r2 + 15, `native packages · .pnp.cjs ${mb(pnpCjsBytes)}`, { size: 9.5 }));
+  // PnP's count is files inside the unplugged native packages, not a tree
+  T.push(txt(PX[2], r2, "all inside unplugged native", { size: FIG.note, fill: MUTED }));
+  T.push(
+    txt(PX[2], r2 + 13, `packages · .pnp.cjs ${mb(pnpCjsBytes)}`, { size: FIG.note, fill: MUTED }),
+  );
+  T.push("</g>");
 
-  const y = r2 + 50;
+  const y = TOP + r2 + 46;
   T.push(
     ...footer(
       y,
       `bench/install-bench.json · pnpm ${str(INSTALL, "pnpmVersion")} · bun ${str(INSTALL, "bunVersion")} · yarn ${str(INSTALL, "yarnVersion")}`,
     ),
   );
+  writeFigData("TOOLING.md", "fig-linker-layouts", "The figure's numbers as a table", {
+    align: ["l", "l"],
+    head: ["linker", "node_modules entries"],
+    rows: [
+      [`${pnpm} hoisted`, int(n.pnpmHoisted)],
+      [`${yarn} node-modules`, int(n.yarnNm)],
+      [`${pnpm} isolated`, int(n.pnpmIsolated)],
+      ["bun (isolated)", int(n.bun)],
+      [
+        `${yarn} PnP`,
+        `${int(n.yarnPnp)} (inside unplugged native packages; .pnp.cjs ${mb(pnpCjsBytes)})`,
+      ],
+    ],
+    lead: `At ${int(apps)} apps / ${int(libs)} libs. An entry is a path under any \`node_modules\` directory.`,
+    fields:
+      "`bench/install-bench.json`: `scales[].apps` and `scales[].libs` (the scale matrix; the figure draws the largest), and at that scale `pnpmHoisted.nmEntries`, `yarnNm.nmEntries`, `pnpmIsolated.nmEntries`, `bun.nmEntries`, `yarnPnp.nmEntries`, `yarnPnp.pnpCjsBytes`; `pnpmVersion`, `bunVersion`, `yarnVersion`.",
+  });
   return svgDoc(
     y + 12,
     `What each linker materializes for the same ${int(apps)}-app workspace: a hoisted linker writes one flat node_modules at the root (${int(n.pnpmHoisted)} entries under pnpm, ${int(n.yarnNm)} under yarn), pnpm's isolated linker writes a per-package symlink tree over a virtual store linked from the content-addressable store (${int(n.pnpmIsolated)} entries), and yarn Plug'n'Play writes no node_modules tree, only a .pnp.cjs resolver table over cache zips and unplugged native packages (${int(n.yarnPnp)} entries, all inside the unplugged packages).`,
@@ -1067,31 +1317,35 @@ function figNextPnpNode() {
 
   const T = [];
   T.push(
-    txt(16, 22, "next build under Yarn PnP: the outcome depends on the node version", {
-      size: 13,
-      weight: "600",
-    }),
-  );
-  T.push(
-    txt(16, 39, `one App Router app, three builders · next ${nextVer} · yarn ${yarnVer}`, {
-      size: 10.5,
-      fill: MUTED,
-    }),
+    ...figTitle(
+      16,
+      24,
+      "next build under Yarn PnP: the node version decides",
+      `one App Router app, three builders · next ${nextVer} · yarn ${yarnVer}`,
+    ).parts,
   );
   const CX = [134, 306, 478];
   const CW = 166;
-  const y0 = 88;
-  const ch = 48;
+  const y0 = 96;
+  // each cell: a bold first line, then its note wrapped to the cell's inner width; every
+  // cell is as tall as the most lines any outcome needs
+  const inner = CW - 24;
+  for (const d of Object.values(DRAW)) {
+    if (approxW(d.main, FIG.body, true) > inner)
+      throw new Error(`"${d.main}" does not fit the ${inner}px cell`);
+    d.lines = wrapPx(d.sub, FIG.body, inner);
+  }
+  const ch = 33 + 15 * Math.max(...Object.values(DRAW).map((d) => d.lines.length));
   const gap = 6;
   BUILDERS.forEach(([, label, how], r) => {
     const y = y0 + r * (ch + gap);
-    T.push(txt(16, y + 21, label, { size: 11.5, weight: "600" }));
-    T.push(txt(16, y + 36, how, { size: 10, fill: MUTED }));
+    T.push(txt(16, y + 21, label, { size: FIG.label, weight: "600" }));
+    T.push(txt(16, y + 36, how, { size: FIG.note, fill: MUTED }));
   });
   GROUPS.forEach((g, c) => {
     const x = CX[c];
-    T.push(txt(x, 62, g.title, { size: 12, weight: "600" }));
-    T.push(txt(x, 77, g.sub, { size: 10, fill: MUTED }));
+    T.push(txt(x, 70, g.title, { size: FIG.label, weight: "600" }));
+    T.push(txt(x, 85, g.sub, { size: FIG.note, fill: MUTED }));
     BUILDERS.forEach(([builder], r) => {
       const kind = classify(g.key, g.linker, builder);
       if (kind !== g.expect[builder])
@@ -1101,15 +1355,27 @@ function figNextPnpNode() {
       const d = DRAW[kind];
       const y = y0 + r * (ch + gap);
       T.push(box(x, y, CW, ch, d.tint));
-      T.push(txt(x + 12, y + 21, d.main, { size: 11.5, weight: "600" }));
-      T.push(txt(x + 12, y + 36, d.sub, { size: 10 }));
+      T.push(txt(x + 12, y + 21, d.main, { size: FIG.body, weight: "600" }));
+      d.lines.forEach((l, i) => T.push(txt(x + 12, y + 36 + 15 * i, l, boxNote)));
     });
     const ny = y0 + BUILDERS.length * (ch + gap) + 10;
-    g.note.forEach((line, i) => T.push(txt(x, ny + i * 13, line, { size: 10, fill: MUTED })));
+    g.note.forEach((line, i) =>
+      T.push(txt(x, ny + 4 + i * 13, line, { size: FIG.note, fill: MUTED })),
+    );
   });
 
-  const y = y0 + BUILDERS.length * (ch + gap) + 10 + 13 + 30;
+  const y = y0 + BUILDERS.length * (ch + gap) + 10 + 13 + 34;
   T.push(...footer(y, "bench/rspack-pnp-bench.json · matrix.{pnp,pnpControlNode,nm}"));
+  writeFigData("TOOLING.md", "fig-next-pnp-node", "The figure's numbers as a table", {
+    align: ["l", "l", "l", "l"],
+    head: ["builder", ...GROUPS.map((g) => `${g.title}: ${g.sub}`)],
+    rows: BUILDERS.map(([b, label, how]) => [
+      `${label} (\`${how}\`)`,
+      ...GROUPS.map((g) => DRAW[g.expect[b]].main),
+    ]),
+    fields:
+      "`bench/rspack-pnp-bench.json`: per cell `matrix.{pnp,pnpControlNode,nm}.{turbopack,webpack,rspack}` — `linker`, `builder`, `ok`, `exit`, `outputPresent`, `configLoadCrash`, `pnpResolveFailure`, `turbopackBanner`, `rspackBanner`, `webpackCompilationSpan`; `dotNextPresent` on a config-load cell, `pnpResolveFailureLine` on the resolution-failure cell, `treeUnchanged` on the three `matrix.pnp` cells; `matrix.pnpControlNode.node`, `versions.node`, `versions.controlNode`, `versions.next`, `versions.yarn`, `canonical`.",
+  });
   return svgDoc(
     y + 12,
     `next build under Yarn PnP by node version: on node ${nodeVer} Turbopack, webpack and rspack all crash while loading next.config, before a bundler is selected; the same PnP trees on node ${ctlVer} build with webpack and rspack while Turbopack fails to resolve next/package.json; under the node-modules linker on node ${nodeVer} all three build.`,
@@ -1198,81 +1464,98 @@ function figRemoteCache() {
 
   const T = [];
   T.push(
-    txt(16, 22, "a shared cache: one runner seeds, the rest restore", { size: 13, weight: "600" }),
-  );
-  T.push(
-    txt(16, 39, `${cores} cores · ${server} on localhost: restore with no network latency`, {
-      size: 10.5,
-      fill: MUTED,
-    }),
+    ...figTitle(
+      16,
+      24,
+      "A shared cache: one runner seeds, the rest restore",
+      `${cores} cores · ${server} on localhost: restore without network latency`,
+    ).parts,
   );
 
   // the mechanism: seed -> cache -> restore fan
-  const ay = 54;
+  const ay = 62;
   const ah = 70;
-  T.push(box(16, ay, 178, ah, "rust"));
-  T.push(txt(28, ay + 21, "runner 1: the seed", { size: 11.5, weight: "600" }));
-  T.push(txt(28, ay + 38, "empty local cache: computes", { size: 10.5 }));
-  T.push(txt(28, ay + 53, "every task, uploads the outputs", { size: 10.5 }));
-  T.push(box(242, ay, 176, ah, "blue"));
-  T.push(txt(254, ay + 21, "shared cache", { size: 11.5, weight: "600" }));
-  T.push(txt(254, ay + 38, "task outputs, keyed by a", { size: 10.5 }));
-  T.push(txt(254, ay + 53, "hash of the task's inputs", { size: 10.5 }));
+  T.push(
+    ...node(16, ay, 178, ah, "rust", "runner 1: the seed", [
+      "empty local cache: computes",
+      "every task, uploads outputs",
+    ]),
+  );
+  T.push(
+    ...node(242, ay, 176, ah, "blue", "shared cache", [
+      "task outputs, keyed by a",
+      "hash of the task's inputs",
+    ]),
+  );
   const amy = ay + ah / 2;
-  T.push(arrow(198, amy, 238, amy));
-  T.push(txt(218, amy - 8, "upload", { size: 9.5, fill: MUTED, anchor: "middle" }));
-  ["runner 2: restores", "runner 3: restores", "· · · runner R: restores"].forEach((label, i) => {
-    const yy = ay + i * 24;
-    T.push(box(466, yy, 178, 22, "green", 5));
-    T.push(txt(478, yy + 15, label, { size: 10.5 }));
-    T.push(arrow(422, amy, 462, yy + 11));
+  T.push(arrow(196, amy, 240, amy));
+  T.push(edgeLabel(218, amy - 7, "upload"));
+  ["runner 2: restores", "runner 3: restores", null, "runner R: restores"].forEach((label, i) => {
+    const yy = ay - 8 + i * 24;
+    if (label === null) {
+      T.push(txt(555, yy + 12, "· · ·", { size: FIG.body, fill: MUTED, anchor: "middle" }));
+      return;
+    }
+    T.push(box(466, yy, 178, 20, "green", 4));
+    T.push(txt(478, yy + 14, label, { size: FIG.body }));
+    T.push(arrow(420, amy, 464, yy + 10));
   });
 
   // per task: no-cache cold compute vs restore, bars on one linear scale
   const BX = 240;
   const BW = 262;
-  let y = ay + ah + 30;
-  T.push(txt(16, y, "per task: no-cache cold compute vs restore", { size: 12, weight: "600" }));
+  let y = ay + ah + 34;
+  T.push(
+    txt(16, y, "per task: no-cache cold compute vs restore", { size: FIG.label, weight: "600" }),
+  );
   const maxMs = Math.max(...rows.map((r) => r.coldMs));
   // a bar too thin to see is drawn at MIN_BAR, and the section's scale note says so
   const MIN_BAR = 2;
   const minNote = (widths) =>
     widths.some((w) => w < MIN_BAR) ? ` (a bar under ${MIN_BAR}px is drawn at ${MIN_BAR}px)` : "";
-  const bar = (x, yy, w, tint) => {
+  // the heat charts' grammar: the faster side is the ramp's green, the slower side a
+  // neutral slate carrying its ×N; both clear 3:1 against the page in both themes
+  const FILL = { fast: rgbCss(rampRGB(1)), slow: SLATE };
+  const bar = (x, yy, w, kind) => {
     const bw = +Math.max(MIN_BAR, w).toFixed(1);
-    return box(x, yy, bw, 12, tint, Math.min(3, bw / 2));
+    return `<rect x="${x}" y="${yy}" width="${bw}" height="11" rx="${Math.min(2.5, bw / 2)}" fill="${FILL[kind]}"/>`;
   };
   T.push(
     txt(
       644,
       y,
-      "bars: wall time on one linear scale" +
+      "one linear scale" +
         minNote(rows.flatMap((r) => [r.coldMs, r.restoreMs]).map((ms) => (ms / maxMs) * BW)),
-      { size: 10, fill: MUTED, anchor: "end" },
+      { size: FIG.note, fill: MUTED, anchor: "end" },
     ),
   );
   y += 12;
   for (const r of rows) {
     T.push(
       txt(16, y + 12, `${r.task} · ${int(r.apps)} apps / ${int(r.libs)} libs`, {
-        size: 11,
+        size: FIG.body,
         weight: "600",
       }),
     );
     T.push(
       txt(16, y + 27, `${int(r.totalTasks)} tasks · seed run ${secs(r.seedMs)}`, {
-        size: 10,
+        size: FIG.note,
         fill: MUTED,
       }),
     );
     const cw = (r.coldMs / maxMs) * BW;
     const rw = (r.restoreMs / maxMs) * BW;
-    T.push(bar(BX, y + 2, cw, "rust"));
-    T.push(txt(BX + cw + 7, y + 12, `${secs(r.coldMs)} no-cache cold`, { size: 10.5 }));
-    T.push(bar(BX, y + 18, rw, "green"));
+    T.push(bar(BX, y + 2, cw, "slow"));
     T.push(
-      txt(BX + rw + 7, y + 28, `${secs(r.restoreMs)} restore · ×${r.speedup.toFixed(1)} faster`, {
-        size: 10.5,
+      txt(BX + cw + 7, y + 11.5, `${secs(r.coldMs)} cold · ×${r.speedup.toFixed(1)}`, {
+        size: FIG.note,
+        fill: MUTED,
+      }),
+    );
+    T.push(bar(BX, y + 18, rw, "fast"));
+    T.push(
+      txt(BX + rw + 7, y + 27.5, `${secs(r.restoreMs)} restore`, {
+        size: FIG.body,
         weight: "600",
       }),
     );
@@ -1281,7 +1564,7 @@ function figRemoteCache() {
 
   // partial invalidation: what still restores after an edit
   y += 14;
-  T.push(txt(16, y, "after an edit: what still restores", { size: 12, weight: "600" }));
+  T.push(txt(16, y, "after an edit: what still restores", { size: FIG.label, weight: "600" }));
   T.push(
     txt(
       644,
@@ -1292,32 +1575,48 @@ function figRemoteCache() {
             [e.restored, e.recomputed].filter((v) => v > 0).map((v) => (v / piTotal) * BW - 1),
           ),
         ),
-      { size: 10, fill: MUTED, anchor: "end" },
+      { size: FIG.note, fill: MUTED, anchor: "end" },
     ),
   );
   y += 12;
   for (const e of edits) {
-    T.push(txt(16, y + 12, `${e.kind}-lib edit`, { size: 11, weight: "600" }));
-    T.push(txt(16, y + 27, e.lib, { size: 10, fill: MUTED }));
+    T.push(txt(16, y + 12, `${e.kind}-lib edit`, { size: FIG.body, weight: "600" }));
+    T.push(txt(16, y + 27, e.lib, { size: FIG.note, fill: MUTED }));
     // one bar of all the tasks, split restored (green) | recomputed (rust)
     const gw = +((e.restored / piTotal) * BW).toFixed(1);
-    if (e.restored > 0) T.push(bar(BX, y + 6, e.recomputed > 0 ? gw - 1 : gw, "green"));
+    if (e.restored > 0) T.push(bar(BX, y + 6, e.recomputed > 0 ? gw - 1 : gw, "fast"));
     if (e.recomputed > 0)
       T.push(
-        bar(e.restored > 0 ? BX + gw + 1 : BX, y + 6, e.restored > 0 ? BW - gw - 1 : BW, "rust"),
+        bar(e.restored > 0 ? BX + gw + 1 : BX, y + 6, e.restored > 0 ? BW - gw - 1 : BW, "slow"),
       );
     T.push(
       txt(BX + BW + 7, y + 12, `${int(e.restored)} of ${int(piTotal)} restored`, {
-        size: 10.5,
+        size: FIG.body,
         weight: "600",
       }),
     );
-    T.push(txt(BX + BW + 7, y + 26, `${int(e.recomputed)} recomputed`, { size: 10.5 }));
+    T.push(
+      txt(BX + BW + 7, y + 26, `${int(e.recomputed)} recomputed`, { size: FIG.note, fill: MUTED }),
+    );
     y += 40;
   }
 
   y += 16;
   T.push(...footer(y, "bench/ci-cache-bench.json · headline · partialInvalidation"));
+  writeFigData("LIMITS.md", "fig-remote-cache", "The figure's numbers as a table", {
+    head: ["task", "tasks", "no-cache cold", "seed run", "restore", "cold / restore"],
+    rows: rows.map((r) => [
+      `${r.task} · ${int(r.apps)} apps / ${int(r.libs)} libs`,
+      int(r.totalTasks),
+      secs(r.coldMs),
+      secs(r.seedMs),
+      secs(r.restoreMs),
+      `×${r.speedup.toFixed(1)}`,
+    ]),
+    lead: `After an edit (${str(pi, "task")}, ${int(count(pi, "apps"))} apps / ${int(count(pi, "libs"))} libs, ${int(piTotal)} tasks): a leaf-lib edit (\`${leaf.lib}\`) leaves ${int(leaf.restored)} restored and ${int(leaf.recomputed)} recomputed; a foundation-lib edit (\`${foundation.lib}\`) leaves ${int(foundation.restored)} restored and ${int(foundation.recomputed)} recomputed. Restore runs against ${server} on localhost, ${cores} cores.`,
+    fields:
+      "`bench/ci-cache-bench.json`: per `headline` row `task`, `scale`, `apps`, `libs`, `totalTasks`, `coldNoRemoteMs`, `coldSeedMs`, `restoreMs`, `speedupVsCold`; `partialInvalidation` — `task`, `scale`, `apps`, `libs`, `totalTasks`, and per `leaf`/`foundation` `lib`, `restored`, `recomputed`, `total`; `env.cores`, `versions.remoteCacheServer`, `remoteCache.transport`, `samples.{cold,buildCold,restore}`, `concurrency`.",
+  });
   const r0 = rows[0];
   return svgDoc(
     y + 12,

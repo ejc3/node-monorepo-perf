@@ -9,11 +9,17 @@ rect[stroke="#e4e8ec"]{stroke:#39424c}
 rect[fill="#e4e8ec"]{fill:#2b333c}
 line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
 path[fill="#6b7885"]{fill:#8b98a4}
-rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
-rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
-rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
-rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
-rect[fill="#e4b9a6"]{fill:#7a4630}
+line[stroke="#8794a1"],path[stroke="#8794a1"],polyline[stroke="#8794a1"]{stroke:#6f7c88}
+path[fill="#8794a1"]{fill:#6f7c88}
+circle[stroke="#8794a1"]{stroke:#6f7c88}rect[stroke="#8794a1"]{stroke:#6f7c88}circle[fill="#8794a1"]{fill:#6f7c88}
+rect[fill="#f3f6fb"]{fill:#172435}rect[stroke="#c5d4ea"]{stroke:#34507a}rect[fill="#c5d4ea"]{fill:#34507a}
+rect[fill="#f1f9f4"]{fill:#13281f}rect[stroke="#b2d8c1"]{stroke:#2c6049}rect[fill="#b2d8c1"]{fill:#2c6049}
+rect[fill="#fcf4f0"]{fill:#2b1b15}rect[stroke="#e2c0b0"]{stroke:#6c4232}rect[fill="#e2c0b0"]{fill:#6c4232}
+rect[fill="#fbf7ea"]{fill:#2a2414}rect[stroke="#e6d8a8"]{stroke:#6e5a24}rect[fill="#e6d8a8"]{fill:#6e5a24}
+rect[fill="#eff1f4"]{fill:#1a2029}rect[stroke="#b8c0ca"]{stroke:#465260}rect[fill="#b8c0ca"]{fill:#465260}
+rect[fill="#e8f4f6"]{fill:#0f2529}rect[stroke="#a6d0d9"]{stroke:#2a6470}rect[fill="#a6d0d9"]{fill:#2a6470}
+rect[fill="#3f4b5b"]{fill:#c3cfdc}
+circle[fill="#ffffff"]{fill:#0d1117}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
@@ -23,24 +29,24 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <rect width="908" height="1577" fill="#ffffff"/>
 <text x="20" y="32" font-size="17" fill="#1c2330" font-weight="650">Type checkers from 10k to 1,000,000 modules</text>
 <text x="20" y="50" font-size="12" fill="#6b7885">tsgo 7.0.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host.</text>
-<text x="20" y="68" font-size="12" fill="#6b7885">Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it</text>
-<text x="20" y="86" font-size="12" fill="#6b7885">is not a ranking.</text>
+<text x="20" y="68" font-size="12" fill="#6b7885">Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a</text>
+<text x="20" y="86" font-size="12" fill="#6b7885">ranking.</text>
 <rect x="20" y="101" width="20" height="12" rx="2" fill="rgba(31,138,77,0.16)"/>
 <rect x="20" y="101" width="3" height="12" rx="1.5" fill="rgb(31,138,77)"/>
 <text x="45" y="111" font-size="10" fill="#6b7885">fastest</text>
-<rect x="98.1" y="101" width="20" height="12" rx="2" fill="rgba(209,163,43,0.19)"/>
-<rect x="98.1" y="101" width="3" height="12" rx="1.5" fill="rgb(209,163,43)"/>
-<text x="123.1" y="111" font-size="10" fill="#6b7885">×2</text>
-<rect x="149.7" y="101" width="20" height="12" rx="2" fill="rgba(194,99,37,0.26)"/>
-<rect x="149.7" y="101" width="3" height="12" rx="1.5" fill="rgb(194,99,37)"/>
-<text x="174.7" y="111" font-size="10" fill="#6b7885">×10</text>
-<rect x="206.6" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
-<rect x="206.6" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
-<text x="231.6" y="111" font-size="10" fill="#6b7885">×100+ slower</text>
-<rect x="311.2" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
-<rect x="311.2" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
-<text x="336.2" y="111" font-size="10" fill="#6b7885">≥ timeout · crash: status only</text>
-<text x="511.2" y="111" font-size="10" fill="#6b7885">—  not measured</text>
+<rect x="95.68" y="101" width="20" height="12" rx="2" fill="rgba(209,163,43,0.19)"/>
+<rect x="95.68" y="101" width="3" height="12" rx="1.5" fill="rgb(209,163,43)"/>
+<text x="120.68" y="111" font-size="10" fill="#6b7885">×2</text>
+<rect x="151.43" y="101" width="20" height="12" rx="2" fill="rgba(194,99,37,0.26)"/>
+<rect x="151.43" y="101" width="3" height="12" rx="1.5" fill="rgb(194,99,37)"/>
+<text x="176.43" y="111" font-size="10" fill="#6b7885">×10</text>
+<rect x="213.55" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
+<rect x="213.55" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
+<text x="238.55" y="111" font-size="10" fill="#6b7885">×100+ slower</text>
+<rect x="326.46000000000004" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
+<rect x="326.46000000000004" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
+<text x="351.46000000000004" y="111" font-size="10" fill="#6b7885">≥ timeout · crash: status only</text>
+<text x="517.863" y="111" font-size="10" fill="#6b7885">—  not measured</text>
 <text x="20" y="150" font-size="13.5" fill="#1c2330" font-weight="650">Whole-program check: tsgo, tsc, Flow</text>
 <line x1="20" y1="159" x2="888" y2="159" stroke="#e4e8ec"/>
 <text x="273.5" y="172.5" font-size="11.5" fill="#1c2330" font-weight="650" text-anchor="middle">tsgo</text>
@@ -112,9 +118,9 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="497.5" y="374.5" font-size="13" fill="#1c2330" font-weight="650" text-anchor="middle">92.5s</text>
 <text x="497.5" y="388.5" font-size="10.5" fill="#46505b" text-anchor="middle">×1.3</text>
 <text x="20" y="414.5" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/tsgo-scale-bench.json"><text x="59.8" y="414.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
-<text x="20" y="428.5" font-size="10" fill="#6b7885">Warm full check, no incremental state. tsc stops at the 100k anchor: a cost cutoff, not a capacity limit. Flow is a build of flow main with the wedge fixes</text>
-<text x="20" y="442.5" font-size="10" fill="#6b7885">(provenance in the JSON); released 0.321's server crashes at this scale (last section).</text>
+<a href="../../bench/tsgo-scale-bench.json"><text x="61.74" y="414.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
+<text x="20" y="428.5" font-size="10" fill="#6b7885">Warm full check, no incremental state. tsc stops at the 100k anchor: a cost cutoff, not a capacity limit. Flow is a build of flow main with the wedge fixes (provenance in the</text>
+<text x="20" y="442.5" font-size="10" fill="#6b7885">JSON); released 0.321's server crashes at this scale (last section).</text>
 <text x="20" y="486.5" font-size="13.5" fill="#1c2330" font-weight="650">A failing check costs what a passing one costs</text>
 <line x1="20" y1="495.5" x2="888" y2="495.5" stroke="#e4e8ec"/>
 <text x="273.5" y="509" font-size="11.5" fill="#1c2330" font-weight="650" text-anchor="middle">tsgo</text>
@@ -140,9 +146,9 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="497.5" y="556.5" font-size="13" fill="#1c2330" font-weight="650" text-anchor="middle">+1.0%</text>
 <text x="497.5" y="570.5" font-size="10.5" fill="#46505b" text-anchor="middle">93.5s vs 92.5s</text>
 <text x="20" y="596.5" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/tsgo-scale-bench.json"><text x="59.8" y="596.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
-<text x="20" y="610.5" font-size="10" fill="#6b7885">Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit</text>
-<text x="20" y="624.5" font-size="10" fill="#6b7885">nonzero reporting exactly those errors.</text>
+<a href="../../bench/tsgo-scale-bench.json"><text x="61.74" y="596.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
+<text x="20" y="610.5" font-size="10" fill="#6b7885">Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit nonzero</text>
+<text x="20" y="624.5" font-size="10" fill="#6b7885">reporting exactly those errors.</text>
 <text x="20" y="668.5" font-size="13.5" fill="#1c2330" font-weight="650">One edit to a verdict: the save loop, by mechanic</text>
 <line x1="20" y1="677.5" x2="888" y2="677.5" stroke="#e4e8ec"/>
 <text x="273.5" y="691" font-size="11.5" fill="#1c2330" font-weight="650" text-anchor="middle">tsgo --lsp</text>
@@ -282,11 +288,11 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="832" y="906.5" font-size="13" fill="#6b7885" text-anchor="middle">—</text>
 <text x="832" y="920.5" font-size="11" fill="#6b7885" text-anchor="middle">anchor ≤100k</text>
 <text x="20" y="946.5" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/tsgo-scale-bench.json"><text x="59.8" y="946.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
-<text x="179.10000000000002" y="946.5" font-size="10" fill="#6b7885">·</text>
-<a href="../../bench/lsp-scale-bench.json"><text x="189.10000000000002" y="946.5" font-size="10" fill="#1a73e8">lsp-scale-bench.json</text></a>
-<text x="20" y="960.5" font-size="10" fill="#6b7885">Squiggle: the asserted didChange → TS2322 → clear transition on a live server. Flow server: a force-recheck + status round-trip. CLI: a relaunch on warm</text>
-<text x="20" y="974.5" font-size="10" fill="#6b7885">incremental state. Released Flow 0.321's server wedges under overlapping edits at this scale (facebook/flow#9454, last section).</text>
+<a href="../../bench/tsgo-scale-bench.json"><text x="61.74" y="946.5" font-size="10" fill="#1a73e8">tsgo-scale-bench.json</text></a>
+<text x="179.64600000000004" y="946.5" font-size="10" fill="#6b7885">·</text>
+<a href="../../bench/lsp-scale-bench.json"><text x="189.64600000000004" y="946.5" font-size="10" fill="#1a73e8">lsp-scale-bench.json</text></a>
+<text x="20" y="960.5" font-size="10" fill="#6b7885">Squiggle: the asserted didChange → TS2322 → clear transition on a live server. Flow server: a force-recheck + status round-trip. CLI: a relaunch on warm incremental</text>
+<text x="20" y="974.5" font-size="10" fill="#6b7885">state. Released Flow 0.321's server wedges under overlapping edits at this scale (facebook/flow#9454, last section).</text>
 <text x="20" y="1018.5" font-size="13.5" fill="#1c2330" font-weight="650">Completion: different result sets, reported with counts</text>
 <line x1="20" y1="1027.5" x2="888" y2="1027.5" stroke="#e4e8ec"/>
 <text x="273.5" y="1041" font-size="11.5" fill="#1c2330" font-weight="650" text-anchor="middle">tsgo --lsp</text>
@@ -336,7 +342,7 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="384" y="1243" font-size="13" fill="#6b7885" text-anchor="middle">—</text>
 <text x="384" y="1257" font-size="11" fill="#6b7885" text-anchor="middle">anchor ≤100k</text>
 <text x="20" y="1283" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/lsp-scale-bench.json"><text x="59.8" y="1283" font-size="10" fill="#1a73e8">lsp-scale-bench.json</text></a>
+<a href="../../bench/lsp-scale-bench.json"><text x="61.74" y="1283" font-size="10" fill="#1a73e8">lsp-scale-bench.json</text></a>
 <text x="20" y="1297" font-size="10" fill="#6b7885">Not like-for-like: tsgo returns the full exported-symbol space (31,058 items at 10k, 301,058 at 100k); tsserver returns a bounded 1,067-entry set. The × prices the</text>
 <text x="20" y="1311" font-size="10" fill="#6b7885">response a user waits for. From 250k up tsgo exceeds its 120s request ceiling; tsserver stops at the 100k anchor.</text>
 <text x="20" y="1355" font-size="13.5" fill="#1c2330" font-weight="650">Flow's wedge under edit pressure: released 0.321.0 vs flow main</text>
@@ -368,7 +374,7 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="385.5" y="1479" font-size="13" fill="#1c2330" font-weight="650" text-anchor="middle">wedged</text>
 <text x="385.5" y="1493" font-size="10.5" fill="#8f2a23" font-weight="600" text-anchor="middle">at cycle 13</text>
 <text x="20" y="1523" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/flow-wedge-retest.json"><text x="59.8" y="1523" font-size="10" fill="#1a73e8">flow-wedge-retest.json</text></a>
+<a href="../../bench/flow-wedge-retest.json"><text x="61.74" y="1523" font-size="10" fill="#1a73e8">flow-wedge-retest.json</text></a>
 <text x="20" y="1537" font-size="10" fill="#6b7885">Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a</text>
 <text x="20" y="1551" font-size="10" fill="#6b7885">WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).</text>
 </svg>

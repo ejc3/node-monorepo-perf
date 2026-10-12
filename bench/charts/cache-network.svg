@@ -9,11 +9,17 @@ rect[stroke="#e4e8ec"]{stroke:#39424c}
 rect[fill="#e4e8ec"]{fill:#2b333c}
 line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
 path[fill="#6b7885"]{fill:#8b98a4}
-rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
-rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
-rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
-rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
-rect[fill="#e4b9a6"]{fill:#7a4630}
+line[stroke="#8794a1"],path[stroke="#8794a1"],polyline[stroke="#8794a1"]{stroke:#6f7c88}
+path[fill="#8794a1"]{fill:#6f7c88}
+circle[stroke="#8794a1"]{stroke:#6f7c88}rect[stroke="#8794a1"]{stroke:#6f7c88}circle[fill="#8794a1"]{fill:#6f7c88}
+rect[fill="#f3f6fb"]{fill:#172435}rect[stroke="#c5d4ea"]{stroke:#34507a}rect[fill="#c5d4ea"]{fill:#34507a}
+rect[fill="#f1f9f4"]{fill:#13281f}rect[stroke="#b2d8c1"]{stroke:#2c6049}rect[fill="#b2d8c1"]{fill:#2c6049}
+rect[fill="#fcf4f0"]{fill:#2b1b15}rect[stroke="#e2c0b0"]{stroke:#6c4232}rect[fill="#e2c0b0"]{fill:#6c4232}
+rect[fill="#fbf7ea"]{fill:#2a2414}rect[stroke="#e6d8a8"]{stroke:#6e5a24}rect[fill="#e6d8a8"]{fill:#6e5a24}
+rect[fill="#eff1f4"]{fill:#1a2029}rect[stroke="#b8c0ca"]{stroke:#465260}rect[fill="#b8c0ca"]{fill:#465260}
+rect[fill="#e8f4f6"]{fill:#0f2529}rect[stroke="#a6d0d9"]{stroke:#2a6470}rect[fill="#a6d0d9"]{fill:#2a6470}
+rect[fill="#3f4b5b"]{fill:#c3cfdc}
+circle[fill="#ffffff"]{fill:#0d1117}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
@@ -28,16 +34,16 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <rect x="20" y="101" width="20" height="12" rx="2" fill="rgba(31,138,77,0.16)"/>
 <rect x="20" y="101" width="3" height="12" rx="1.5" fill="rgb(31,138,77)"/>
 <text x="45" y="111" font-size="10" fill="#6b7885">fastest</text>
-<rect x="98.1" y="101" width="20" height="12" rx="2" fill="rgba(209,163,43,0.19)"/>
-<rect x="98.1" y="101" width="3" height="12" rx="1.5" fill="rgb(209,163,43)"/>
-<text x="123.1" y="111" font-size="10" fill="#6b7885">×2</text>
-<rect x="149.7" y="101" width="20" height="12" rx="2" fill="rgba(194,99,37,0.26)"/>
-<rect x="149.7" y="101" width="3" height="12" rx="1.5" fill="rgb(194,99,37)"/>
-<text x="174.7" y="111" font-size="10" fill="#6b7885">×10</text>
-<rect x="206.6" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
-<rect x="206.6" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
-<text x="231.6" y="111" font-size="10" fill="#6b7885">×100+ slower</text>
-<text x="311.2" y="111" font-size="10" fill="#6b7885">+N%  within 5% of fastest</text>
+<rect x="95.68" y="101" width="20" height="12" rx="2" fill="rgba(209,163,43,0.19)"/>
+<rect x="95.68" y="101" width="3" height="12" rx="1.5" fill="rgb(209,163,43)"/>
+<text x="120.68" y="111" font-size="10" fill="#6b7885">×2</text>
+<rect x="151.43" y="101" width="20" height="12" rx="2" fill="rgba(194,99,37,0.26)"/>
+<rect x="151.43" y="101" width="3" height="12" rx="1.5" fill="rgb(194,99,37)"/>
+<text x="176.43" y="111" font-size="10" fill="#6b7885">×10</text>
+<rect x="213.55" y="101" width="20" height="12" rx="2" fill="rgba(176,58,54,0.36)"/>
+<rect x="213.55" y="101" width="3" height="12" rx="1.5" fill="rgb(176,58,54)"/>
+<text x="238.55" y="111" font-size="10" fill="#6b7885">×100+ slower</text>
+<text x="326.46000000000004" y="111" font-size="10" fill="#6b7885">+N%  within 5% of fastest</text>
 <text x="20" y="161.5" font-size="10" fill="#6b7885">task, fresh CI runner</text>
 <text x="275.5" y="149.5" font-size="11.5" fill="#1c2330" font-weight="650" text-anchor="middle">cold compute</text>
 <text x="275.5" y="161.5" font-size="9" fill="#6b7885" text-anchor="middle">no shared cache</text>
@@ -84,7 +90,7 @@ text[fill="#3a4656"]{fill:#a7b6c8}
 <text x="659.5" y="249.5" font-size="13" fill="#1c2330" font-weight="650" text-anchor="middle">5.5s</text>
 <text x="659.5" y="263.5" font-size="10.5" fill="#46505b" text-anchor="middle">×1.6</text>
 <text x="20" y="293.5" font-size="10" fill="#6b7885">source</text>
-<a href="../../bench/ci-cache-network-bench.json"><text x="59.8" y="293.5" font-size="10" fill="#1a73e8">ci-cache-network-bench.json</text></a>
-<text x="20" y="307.5" font-size="10" fill="#6b7885">turbo 2.9.18, 300:100, restore = median of 3, 192 cores. RTT = 2× the netem delay. Every restore asserted all-cached from the</text>
-<text x="20" y="321.5" font-size="10" fill="#6b7885">remote. Cold compute carries no cache.</text>
+<a href="../../bench/ci-cache-network-bench.json"><text x="61.74" y="293.5" font-size="10" fill="#1a73e8">ci-cache-network-bench.json</text></a>
+<text x="20" y="307.5" font-size="10" fill="#6b7885">turbo 2.9.18, 300:100, restore = median of 3, 192 cores. RTT = 2× the netem delay. Every restore asserted all-cached from the remote.</text>
+<text x="20" y="321.5" font-size="10" fill="#6b7885">Cold compute carries no cache.</text>
 </svg>

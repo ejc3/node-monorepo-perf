@@ -16,11 +16,24 @@ Head-to-heads on installers, CI-runner installs, PnP compatibility, builds, lint
 
 **Figure 1.** A hoisted linker writes packages side by side into one root `node_modules` that an import reaches by walking up the tree; pnpm's isolated linker gives each package its own `node_modules` of symlinks into a virtual store whose files are linked from the content-addressable store; yarn PnP writes no `node_modules` tree, only a `.pnp.cjs` table that maps each import to its package's location — a zip in the global cache, a workspace directory, or an unplugged directory for a native package.
 
-<details><summary>Figure 1 fields</summary>
+<!-- chart-data:fig-linker-layouts -->
+<details>
+<summary>The figure's numbers as a table</summary>
 
-`bench/install-bench.json`: `scales[].apps` and `scales[].libs` (the scale matrix; the figure draws the largest, 2,000 / 300), and at that scale `pnpmHoisted.nmEntries`, `yarnNm.nmEntries`, `pnpmIsolated.nmEntries`, `bun.nmEntries`, `yarnPnp.nmEntries`, `yarnPnp.pnpCjsBytes`; `pnpmVersion`, `bunVersion`, `yarnVersion`. An entry is a path under any `node_modules` directory.
+At 2,000 apps / 300 libs. An entry is a path under any `node_modules` directory.
+
+| linker | node_modules entries |
+| --- | --- |
+| pnpm 12 hoisted | 24,222 |
+| yarn 4 node-modules | 13,220 |
+| pnpm 12 isolated | 50,169 |
+| bun (isolated) | 47,887 |
+| yarn 4 PnP | 64 (inside unplugged native packages; .pnp.cjs 3.5 MB) |
+
+Fields: `bench/install-bench.json`: `scales[].apps` and `scales[].libs` (the scale matrix; the figure draws the largest), and at that scale `pnpmHoisted.nmEntries`, `yarnNm.nmEntries`, `pnpmIsolated.nmEntries`, `bun.nmEntries`, `yarnPnp.nmEntries`, `yarnPnp.pnpCjsBytes`; `pnpmVersion`, `bunVersion`, `yarnVersion`.
 
 </details>
+<!-- /chart-data:fig-linker-layouts -->
 
 **cold** = no lockfile; **warm** = lockfile present, `node_modules` removed; **truly-cold** = network-cold. Each cell is one sample, run in the listed tool order within each scale. Bold marks the fastest cold and warm cell per scale. yarn-PnP's 64 entries are paths inside its unplugged native packages.
 
@@ -98,11 +111,20 @@ CI behavior on upgrade, and both can be relaxed in config.
 
 **Figure 2.** The node version decides how far `next build` gets under PnP: on the newer node the config load crashes before a bundler is selected, so the three builders fail identically, and on the older node the build reaches the bundlers, where the outcome is each bundler's own PnP resolution.
 
-<details><summary>Figure 2 fields</summary>
+<!-- chart-data:fig-next-pnp-node -->
+<details>
+<summary>The figure's numbers as a table</summary>
 
-`bench/rspack-pnp-bench.json`: per cell `matrix.{pnp,pnpControlNode,nm}.{turbopack,webpack,rspack}` — `linker`, `builder`, `ok`, `exit`, `outputPresent`, `configLoadCrash`, `pnpResolveFailure`, `turbopackBanner`, `rspackBanner`, `webpackCompilationSpan`; `dotNextPresent` on a config-load cell, `pnpResolveFailureLine` on the resolution-failure cell, `treeUnchanged` on the three `matrix.pnp` cells; `matrix.pnpControlNode.node`, `versions.node`, `versions.controlNode`, `versions.next`, `versions.yarn`, `canonical`.
+| builder | Yarn PnP: node 22.23.3 (the bench's node) | the same PnP trees: node 22.22.0 (control node) | node-modules linker: node 22.23.3 |
+| --- | --- | --- | --- |
+| Turbopack (`next build`) | fails at config load | fails in Turbopack | builds |
+| webpack (`next build --webpack`) | fails at config load | builds | builds |
+| rspack (`next-rspack`) | fails at config load | builds | builds |
+
+Fields: `bench/rspack-pnp-bench.json`: per cell `matrix.{pnp,pnpControlNode,nm}.{turbopack,webpack,rspack}` — `linker`, `builder`, `ok`, `exit`, `outputPresent`, `configLoadCrash`, `pnpResolveFailure`, `turbopackBanner`, `rspackBanner`, `webpackCompilationSpan`; `dotNextPresent` on a config-load cell, `pnpResolveFailureLine` on the resolution-failure cell, `treeUnchanged` on the three `matrix.pnp` cells; `matrix.pnpControlNode.node`, `versions.node`, `versions.controlNode`, `versions.next`, `versions.yarn`, `canonical`.
 
 </details>
+<!-- /chart-data:fig-next-pnp-node -->
 
 | PnP tree, builder | node 22.23.3 | node 22.22.0 (control) | node-modules, node 22.23.3 |
 |---|---|---|---|
