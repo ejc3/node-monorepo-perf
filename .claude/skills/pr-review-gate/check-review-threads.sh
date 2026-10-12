@@ -18,8 +18,9 @@
 # the bot traffic on this repository (Codex's changing no-findings sign-off, Codex's
 # inline-comment container review, CodeRabbit's summary comment and two more of its
 # command acknowledgements). The summary-comment rule is a deliberate divergence: upstream
-# treats that comment as a claim. It also dates every claim and answer by the later of its
-# creation and its last edit (written_at); upstream reads no lastEditedAt.
+# treats that comment as a claim. It also dates every claim by the later of its creation
+# and its last edit (written_at) and every answer by its creation only (answered_at);
+# upstream reads no lastEditedAt and dates a comment answer by its updatedAt.
 #
 # Why GraphQL and not `created_at` heuristics: an earlier version of the docs
 # said "comment older than your fix commit => already addressed". That is wrong
@@ -144,7 +145,13 @@ TS_JQ='def ts:
   # is null when the object was never edited. An object WITHOUT the field was read by a
   # query that did not ask for it and cannot be shown unedited: null, like a bad date.
   def written_at(created):
-    if has("lastEditedAt") then written_at(created; .lastEditedAt) else null end;'
+    if has("lastEditedAt") then written_at(created; .lastEditedAt) else null end;
+  # An ANSWER (a disposition: thread reply, review, or PR comment) is dated by its creation
+  # only, never by its own edits. It answers what existed when it was written, so an old
+  # disposition edited after a newer claim does not stretch over that claim. Its current
+  # text still decides whether it is a disposition. An unparsable creation time is null, and
+  # a null answers nothing.
+  def answered_at(created): created | ts;'
 
 # What a thread contributes to the verdict, in a form the two reads can be compared in.
 # The comment bodies are IN it: they are what the disposition and unresolved-listing rules
@@ -636,9 +643,10 @@ fi
 
 # Reviews and top-level comments are two containers for the same thing: a PR-level
 # statement. Judge them as one list, so an answer posted either way settles a claim posted
-# either way. `when` normalises the dates through written_at: a review is dated by the later
-# of its submission and its last edit, and a comment by its updatedAt, which is when its
-# current body came to say what it says.
+# either way. `when` dates a claim through written_at: a review by the later of its
+# submission and its last edit, and a comment by its updatedAt, which is when its current
+# body came to say what it says. `posted` dates an answer through answered_at: when it was
+# submitted or created, whatever it was edited to later.
 #
 # `claimable` — what needs an answer — took several tries, and every wrong version made
 # the same mistake: inferring whether something is a FINDING from who wrote it.
@@ -1250,11 +1258,12 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
    --arg codex "$CODEX_LOGIN" --arg cr "$CODERABBIT_LOGIN" --arg me "$prauthor" \
    "$TS_JQ""$VERDICT_JQ"'($ignore | split(",")) as $skip
   | ($bots | split(",")) as $botlogins
-  # `when` is the instant the text was written (written_at, shared with the thread rule): a
-  # review by the later of its submission and its last edit, a comment by the later of its
-  # creation and its updatedAt. Dated by submittedAt, a finding added by editing a review
-  # after it was answered inherited that older answer.
-  | (.[0] | map({author, state, body, when: written_at(.submittedAt),
+  # `when` dates an item as a CLAIM: the instant its text was written (written_at, shared
+  # with the thread rule), a review by the later of its submission and its last edit, a
+  # comment by the later of its creation and its updatedAt. Dated by submittedAt, a finding
+  # added by editing a review after it was answered inherited that older answer. `posted`
+  # dates it as an ANSWER: its submission or creation only (answered_at).
+  | (.[0] | map({author, state, body, when: written_at(.submittedAt), posted: answered_at(.submittedAt),
                  claimable: (((.state // "COMMENTED") != "APPROVED")
                              and (($me == "") or ((.author.login // "") != $me))
                              # node-monorepo-perf addition: is_codex_review_container
@@ -1272,6 +1281,7 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
       # node-monorepo-perf addition: is_cr_summary_comment, from the CodeRabbit Bot only.
       | ($listed and (($c.author.login // "") == $cr) and ($c.body | is_cr_summary_comment)) as $crsum
       | {author, state: "COMMENT", body, when: written_at(.createdAt; .updatedAt),
+         posted: answered_at(.createdAt),
          verdict: ($v or $sum), notice: $notice,
          reviewed_rows: ((if $notice then []
                           elif $v then [{sha: ($c.body | verdict_sha), at: .createdAt}]
@@ -1347,7 +1357,7 @@ disposition_re='\A[[:space:]]*(RED-VERIFIED|NOT-A-DEFECT|DISAGREE):[[:space:]]*[
 # current text. The finding is the thread's first comment, and it is a claim like a review
 # body or a top-level comment: GitHub lets it be edited in place, so it is dated by
 # written_at (the later of its creation and its last edit), and a disposition counts only
-# when its own written_at is later. A resolved nit edited into a P1 after its NOT-A-DEFECT
+# when it was CREATED later (answered_at): its own edits do not move it. A resolved nit edited into a P1 after its NOT-A-DEFECT
 # is REOPENED until someone answers what it now says. Resolving is a deliberate act;
 # resolving a thread whose latest message you have not answered is a human failure this
 # script does not try to model.
@@ -1355,7 +1365,7 @@ THREAD_OPEN_JQ="$TS_JQ"'def answered($re):
     (.comments.nodes[0] | written_at(.createdAt)) as $cat
     | $cat != null
       and any(.comments.nodes[1:][];
-              ((.body // "") | test($re)) and ((written_at(.createdAt)) as $w | $w != null and $w > $cat));
+              ((.body // "") | test($re)) and (answered_at(.createdAt) as $w | $w != null and $w > $cat));
   def disposed($re): any(.comments.nodes[1:][]; (.body // "") | test($re));
   [ .[] | select(.isResolved == true) | select(answered($re) | not) ]'
 undisposed=$(jq -r --arg re "$disposition_re" "$THREAD_OPEN_JQ"' | length' \
@@ -1399,7 +1409,7 @@ fi
 # have been answered, so it stays outstanding; the validation above blocks both shapes
 # first, and this keeps the comparison itself fail-closed rather than resting on that.
 unanswered=$(jq -r --arg re "$disposition_re" "$TS_JQ"'
-  [ .[] | select((.body // "") | test($re)) | .when | select(. != null) ] as $answers
+  [ .[] | select((.body // "") | test($re)) | .posted | select(. != null) ] as $answers
   | [ .[] | select(.claimable)
           | select((.body // "") | test("[^[:space:]]"))
           | select(((.body // "") | test($re)) | not)
@@ -1411,7 +1421,7 @@ unanswered=$(jq -r --arg re "$disposition_re" "$TS_JQ"'
 if [ "${unanswered:-0}" -gt 0 ]; then
   echo
   jq -r --arg re "$disposition_re" "$TS_JQ"'
-    [ .[] | select((.body // "") | test($re)) | .when | select(. != null) ] as $answers
+    [ .[] | select((.body // "") | test($re)) | .posted | select(. != null) ] as $answers
     | .[] | select(.claimable)
     | select((.body // "") | test("[^[:space:]]"))
     | select(((.body // "") | test($re)) | not)

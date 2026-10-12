@@ -49,10 +49,11 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 ## Answering a finding
 
 A disposition opens a reply of its own (thread reply, review, or PR comment) and is newer
-than the claim it answers. Claims and answers alike are dated by when their current text
-was written: the later of creation and last edit. A thread comment or review body that
-cannot be dated (an unparsable creation time, or a `lastEditedAt` that is absent or does
-not parse) blocks with exit 2.
+than the claim it answers. A claim is dated by when its current text was written: the
+later of its creation and its last edit. An answer is dated by its creation only: editing
+an old disposition does not make it answer a claim written after it, so reply again
+instead. A thread comment or review body that cannot be dated (an unparsable creation
+time, or a `lastEditedAt` that is absent or does not parse) blocks with exit 2.
 
 | Disposition | Use for |
 |---|---|

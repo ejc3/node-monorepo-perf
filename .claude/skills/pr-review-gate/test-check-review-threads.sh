@@ -22,6 +22,11 @@
 # ...)", and now expect CLEAR. Text outside the regions is still a claim, and those
 # upstream cases are unchanged.
 #
+# A second divergence: an answer is dated by its creation, never by its own edits (addition
+# 6d), so upstream's "a disposition edited after the claim answers it" is kept renamed
+# "node-monorepo-perf: a disposition edited after the claim does not answer it" and now
+# expects BLOCKED.
+#
 # Usage: test-check-review-threads.sh [path-to-check-review-threads.sh]
 set -uo pipefail
 GATE=${1:-"$(dirname "$0")/check-review-threads.sh"}
@@ -825,12 +830,15 @@ echo "== finding 36: a comment is dated by its last edit, not by its creation ==
 # answers by createdAt therefore reads the CURRENT body against the ORIGINAL time: a comment
 # opened Jan 1, edited Jan 3 to add a defect, counted as answered by a Jan 2 disposition.
 # updatedAt dates the body the gate is actually reading, and is validated like createdAt.
+# That dates a CLAIM. An answer is dated by its creation here (addition 6d), so the upstream
+# case below, where an answer created before the claim and edited after it answered it, is
+# kept renamed and now expects BLOCKED.
 run_case "a comment edited after its answer is not answered by it" \
   "$(wrap4 me '[]' '[]' "[$(cmt reviewer User 2026-01-01T00:00:00Z '"P1: this drops the last row"' 2026-01-03T00:00:00Z),$(cmt me User 2026-01-02T00:00:00Z '"RED-VERIFIED: tests/row.rs"')]")" \
   1 "carry no disposition"
-run_case "a disposition edited after the claim answers it" \
+run_case "node-monorepo-perf: a disposition edited after the claim does not answer it (upstream: a disposition edited after the claim answers it)" \
   "$(wrap4 me '[]' '[]' "[$(cmt reviewer User 2026-01-02T00:00:00Z '"P1: this drops the last row"'),$(cmt me User 2026-01-01T00:00:00Z '"RED-VERIFIED: tests/row.rs"' 2026-01-03T00:00:00Z)]")" \
-  0 "CLEAR"
+  1 "carry no disposition"
 run_case "a PR comment whose updatedAt will not parse blocks" \
   "$(wrap4 me '[]' '[]' "[$(cmt reviewer User 2026-01-02T00:30:00Z '"P1: this drops the last row"' 'a while ago')]")" \
   2 "no parsable updatedAt"
@@ -2132,7 +2140,7 @@ echo "== addition 6c: an inline finding is dated by its last edit, like every ot
 # text. $1 is the finding's lastEditedAt member (with its trailing comma, or empty for a
 # payload that omits the field), $2 any further replies (each with a leading comma).
 # Guards, green before and after: edited before the answer, answered again after the edit,
-# never edited, and an answer rewritten after the edit.
+# and never edited.
 EDITED_TH='[{"id":"PRRT_edited","isResolved":true,"isOutdated":false,"comments":{"nodes":[{"author":{"login":"codex"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-01T00:00:00Z",%s"body":"P1: this drops the final row"},{"author":{"login":"me"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null,"body":"NOT-A-DEFECT: renamed only"}%s]}}]'
 edited_th() { printf "$EDITED_TH" "$1" "${2:-}"; }
 LATE_ANSWER=',{"author":{"login":"me"},"path":"src/row.ts","line":7,"originalLine":7,"createdAt":"2026-01-04T00:00:00Z","lastEditedAt":null,"body":"RED-VERIFIED: row.test.ts"}'
@@ -2146,9 +2154,6 @@ run_case "a new disposition after the edit answers the edited finding" \
   "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' "$LATE_ANSWER")")" 0 "CLEAR"
 run_case "an inline finding never edited (lastEditedAt null) is dated by its creation" \
   "$(wrap "$(edited_th '"lastEditedAt":null,')")" 0 "CLEAR"
-# A disposition is dated by its own last edit, as an answering review or comment is.
-run_case "a disposition rewritten after the finding's edit answers it" \
-  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' | sed 's/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":"2026-01-05T00:00:00Z"/')")" 0 "CLEAR"
 # Fail closed: a resolved thread whose comments cannot be dated cannot be shown answered.
 run_case "an inline finding with no lastEditedAt field blocks" \
   "$(wrap "$(edited_th '')")" 2 "lastEditedAt"
@@ -2222,6 +2227,33 @@ dated_case() {
 GATE_TEST_DTHREADS2=dthreads2 \
   dated_case "a finding's edit date moving between the two reads blocks" 2 "review threads on this PR changed"
 dated_case "two identically dated thread reads still reach a verdict" 0 "CLEAR"
+
+echo "== addition 6d: an answer is dated by its creation, never by its own edits =="
+# A claim is dated by when its current text was written (written_at). An ANSWER is dated by
+# when it was created (answered_at): an old disposition edited after a newer claim must not
+# stretch over that claim, because it was written before the claim said what it says now.
+# Its current text still decides whether it is a disposition at all. Each case: the claim is
+# created 01-01 and edited 01-03, the answer created 01-02 and edited 01-04.
+run_case "a thread disposition edited after the finding's edit does not answer it" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' | sed 's/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":null/"createdAt":"2026-01-02T00:00:00Z","lastEditedAt":"2026-01-04T00:00:00Z"/')")" \
+  1 "REOPENED" "src/row.ts:7"
+CLAIM_RV='{"author":{"login":"coderabbitai","__typename":"Bot"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":"2026-01-03T00:00:00Z","body":"P1: drops a row","commit":{"oid":"0ldc0mm1t"},"comments":{"totalCount":0,"nodes":[]}}'
+answer_rv() { printf '{"author":{"login":"me","__typename":"User"},"state":"COMMENTED","submittedAt":"%s","lastEditedAt":"%s","body":"RED-VERIFIED: row.test.ts","commit":{"oid":"deadbeef"},"comments":{"totalCount":0,"nodes":[]}}' "$1" "$2"; }
+run_env_case "an author review edited after the review body's edit does not answer it" \
+  "" "$(wrapQ "$CLAIM_RV,$(answer_rv 2026-01-02T00:00:00Z 2026-01-04T00:00:00Z),$APPROVE")" 1 "UNANSWERED coderabbitai"
+CLAIM_CMT=$(cmt codex User 2026-01-01T00:00:00Z '"P1: drops a row"' 2026-01-03T00:00:00Z)
+run_env_case "a PR comment answer edited after the comment claim's edit does not answer it" \
+  "" "$(wrapQ "$APPROVE" "$CLAIM_CMT,$(cmt me User 2026-01-02T00:00:00Z '"NOT-A-DEFECT: renamed only"' 2026-01-04T00:00:00Z)")" 1 "UNANSWERED codex"
+run_env_case "a review answer edited after the PR comment claim's edit does not answer it" \
+  "" "$(wrapQ "$(answer_rv 2026-01-02T00:00:00Z 2026-01-04T00:00:00Z),$APPROVE" "$CLAIM_CMT")" 1 "UNANSWERED codex"
+# Guards, green before and after: an answer CREATED after the claim's edit answers it, in
+# every container, and an answer's own later edit does not take that away.
+run_case "a thread disposition created after the finding's edit answers it" \
+  "$(wrap "$(edited_th '"lastEditedAt":"2026-01-03T00:00:00Z",' "$(printf '%s' "$LATE_ANSWER" | sed 's/"lastEditedAt":null/"lastEditedAt":"2026-01-05T00:00:00Z"/')")")" 0 "CLEAR"
+run_env_case "an author review created after the review body's edit answers it" \
+  "" "$(wrapQ "$CLAIM_RV,$(answer_rv 2026-01-04T00:00:00Z 2026-01-05T00:00:00Z),$APPROVE")" 0 "CLEAR"
+run_env_case "a PR comment answer created after the comment claim's edit answers it" \
+  "" "$(wrapQ "$APPROVE" "$CLAIM_CMT,$(cmt me User 2026-01-04T00:00:00Z '"NOT-A-DEFECT: renamed only"' 2026-01-05T00:00:00Z)")" 0 "CLEAR"
 
 echo "== addition 7: the live PRs these rules were written against =="
 # #46: CodeRabbit's three review bodies (actionable comments, nitpicks) and six open threads

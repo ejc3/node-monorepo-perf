@@ -1414,9 +1414,10 @@ The gate blocks on:
   (`REQUIRE_HEAD_REVIEW_FROM`): a covering review object from that bot on the head, or its
   no-findings result naming the head and dated after the head arrived.
 
-Dispositions open a reply of their own and are newer than the claim they answer. Every
-claim and every answer (an inline finding, a review body, a top-level comment) is dated by
-when its current text was written: the later of its creation and its last edit.
+Dispositions open a reply of their own and are newer than the claim they answer. A claim
+(an inline finding, a review body, a top-level comment) is dated by when its current text
+was written: the later of its creation and its last edit. An answer is dated by its
+creation only; editing an old disposition does not make it answer a newer claim.
 
 | Disposition | Use for |
 |---|---|
