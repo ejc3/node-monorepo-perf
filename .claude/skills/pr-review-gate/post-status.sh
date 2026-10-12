@@ -137,11 +137,14 @@ list_sum() {
 }
 # pr_activity <pr>: "<head> <branch> <newest activity>" for one PR, reading its head, then
 # every top-level comment, every review, and every comment of every review thread (a thread's
-# last comment alone missed an edit to the finding above it). Returns 1 when a read fails and
-# 3 when a list is incomplete.
+# last comment alone missed an edit to the finding above it). The threads query carries the
+# first 100 comments of each thread; a thread holding more ("P <id>") is read again by its
+# node id from its first page to its last, the way check-review-threads.sh pages an oversized
+# thread, and summed as its own list; one without a usable id stays incomplete ("I"). Returns 1
+# when a read fails and 3 when a list is incomplete.
 pr_activity() {
-  local pr=$1 head out newest rc d
-  local -a q=(-F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}")
+  local pr=$1 head out newest rc d kind i=0 tids=""
+  local -a q=(-F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}") todo=(comments reviews threads)
   head=$(gh api graphql "${q[@]}" -f query='
     # q:head
     query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
@@ -152,8 +155,9 @@ pr_activity() {
                  + " " + (.updatedAt // "none") end') || return 1
   [ "$head" != X ] || return 1
   newest=${head##* }
-  for d in comments reviews threads; do
-    case $d in
+  while [ "$i" -lt "${#todo[@]}" ]; do
+    kind=${todo[$i]}; i=$((i + 1))
+    case $kind in
       comments) out=$(gh api graphql --paginate "${q[@]}" -f query='
           # q:comments
           query($o: String!, $r: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: $r) {
@@ -175,15 +179,29 @@ pr_activity() {
           query($o: String!, $r: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: $r) {
             pullRequest(number: $n) { reviewThreads(first: 50, after: $endCursor) { totalCount
               pageInfo { hasNextPage endCursor }
-              nodes { comments(first: 100) { totalCount nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
+              nodes { id comments(first: 100) { totalCount nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
           --jq '.data.repository.pullRequest.reviewThreads
                 | if . == null or (.totalCount | type) != "number" or (.nodes | type) != "array" then "X" else "T \(.totalCount)", "N \(.nodes | length)",
-                  (.nodes[] | if (.comments.totalCount // -1) != (.comments.nodes | length) then "I" else empty end),
-                  (.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1 ;;
+                  (.nodes[] | (.comments.totalCount // -1) as $t | (.comments.nodes | length) as $k
+                   | if $t == $k then empty
+                     elif ($t | type) == "number" and $t > $k and (.id | type) == "string" and (.id | test("^[A-Za-z0-9_=-]+$")) then "P \(.id)"
+                     else "I" end),
+                  (.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1
+        tids=$(sed -n 's/^P //p' <<<"$out") ;;
+      thread:*) out=$(gh api graphql --paginate -f id="${kind#thread:}" -f query='
+          # q:thread
+          query($id: ID!, $endCursor: String) { node(id: $id) { ... on PullRequestReviewThread {
+            comments(first: 100, after: $endCursor) { totalCount
+              pageInfo { hasNextPage endCursor } nodes { createdAt updatedAt lastEditedAt } } } } }' \
+          --jq '.data.node.comments
+                | if . == null or (.totalCount | type) != "number" or (.nodes | type) != "array" then "X" else "T \(.totalCount)", "N \(.nodes | length)",
+                  (.nodes[] | .createdAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1 ;;
     esac
     rc=0; d=$(list_sum <<<"$out") || rc=$?
     [ "$rc" = 0 ] || return "$rc"
     [ "$d" = none ] || [[ $newest != none && ! $d > $newest ]] || newest=$d
+    for d in $tids; do todo+=("thread:$d"); done
+    tids=""
   done
   printf '%s %s\n' "${head% *}" "$newest"
 }

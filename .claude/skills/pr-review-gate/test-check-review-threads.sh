@@ -2430,6 +2430,8 @@ pages=("$f"); [ "$paginate" = 1 ] && [ -r "$f.page2" ] && pages+=("$f.page2")
 for pg in "${pages[@]}"; do
   # A later page whose content is SHIM_FAIL fails the read after the pages before it printed.
   [ "$(head -c 9 "$pg")" != SHIM_FAIL ] || { echo "shim: read failed for $endpoint (a later page)" >&2; exit 1; }
+  # Every fixture served, so a case can tell a page was asked for.
+  printf '%s\n' "${pg##*/}" >> "$PS_DIR/reads"
   if [ -n "$filter" ]; then jq -r "$filter" "$pg"; else cat "$pg"; fi
 done
 SHIM
@@ -2455,6 +2457,7 @@ QUIET_PR=$(gql "$PS_SHA" 2026-01-02T00:03:00Z)
 # $1 name, $2 statuses JSON (newest first, or UNREADABLE), $3 run JSON for run 77 (or ""),
 # $4 env, $5 state, $6 description, $7 expected exit, $8 expected POSTs, $9 text the POST
 # must carry, $10 text the LAST POST must carry (the newest status is what a merge reads).
+# PS_WANT_READ names a fixture file the case must have been served (a page that was read).
 ps_case() {
   local name=$1 statuses=$2 run=$3 envs=$4 st=$5 de=$6 want_rc=$7 want_posts=$8 want_post_txt=${9:-} want_last=${10:-}
   ps_n=$((ps_n + 1)); local d="$TMP/ps.$ps_n"; mkdir "$d"
@@ -2477,7 +2480,8 @@ ps_case() {
   posts=$(grep -c . "$d/posts" 2>/dev/null || true)
   if [ "$rc" = "$want_rc" ] && [ "${posts:-0}" = "$want_posts" ] \
      && { [ -z "$want_post_txt" ] || grep -qF -- "$want_post_txt" "$d/posts"; } \
-     && { [ -z "$want_last" ] || tail -n1 "$d/posts" | grep -qF -- "$want_last"; }; then
+     && { [ -z "$want_last" ] || tail -n1 "$d/posts" | grep -qF -- "$want_last"; } \
+     && { [ -z "${PS_WANT_READ:-}" ] || grep -qxF -- "$PS_WANT_READ" "$d/reads" 2>/dev/null; }; then
     echo "  PASS  $name"; pass=$((pass+1))
   else
     echo "  FAIL  $name (rc=$rc want=$want_rc, posts=${posts:-0} want=$want_posts)"
@@ -2625,6 +2629,29 @@ PS_GQL=$(act_pr ".data.repository.pullRequest.comments.totalCount = 150") \
   ps_case "PR comments fewer than their totalCount turn a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
 PS_GQL=$(act_pr ".data.repository.pullRequest.reviewThreads = {totalCount: 1, pageInfo: {hasNextPage: false, endCursor: \"T1\"}, nodes: [{comments: {totalCount: 101, nodes: [$QUIET]}}]}") \
   ps_case "a review thread holding more comments than were read turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+# A thread holding more comments than the threads query's one page of 100 is read to its
+# end by its node id (q:thread, --paginate), and its comments' dates count like any other.
+# It used to be judged incomplete from the totalCount alone, so a PR with one such thread
+# posted pending on every sweep and never reached success. The thread answers 150 comments:
+# 100 on its first page, the rest on the second; the case's last argument names the page
+# that must have been read.
+many_q() { jq -cn --argjson c "$QUIET" --argjson k "$1" '[range($k) | $c]'; }
+TH_P1=$(act_pr ".data.repository.pullRequest.reviewThreads = {totalCount: 1, pageInfo: {hasNextPage: false, endCursor: \"T1\"}, nodes: [{id: \"TH1\", comments: {totalCount: 150, pageInfo: {hasNextPage: true, endCursor: \"K1\"}, nodes: $(many_q 100)}}]}")
+th_page() {  # $1 hasNextPage, $2 nodes JSON: one page of thread TH1's comments
+  jq -cn --argjson more "$1" --argjson n "$2" '{data: {node: {comments: {totalCount: 150, pageInfo: {hasNextPage: $more, endCursor: (if $more then "K1" else "K2" end)}, nodes: $n}}}}'
+}
+th_dir() {  # $1 name, $2 the second page of TH1's comments (JSON, or SHIM_FAIL)
+  act_dir "$1" thread "$(th_page true "$(many_q 100)")" "$2"
+}
+PS_GQL=$TH_P1 PS_WANT_READ=graphql.thread.json.page2 \
+PS_FILES=$(th_dir th1 "$(th_page false "$(jq -cn --argjson q "$(many_q 49)" --argjson l "$LATE" '$q + [$l]')")") \
+  ps_case "an edit on the second comment page of a 150-comment thread turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "description=Re-evaluating: PR #7 has activity after the snapshot"
+PS_GQL=$TH_P1 PS_WANT_READ=graphql.thread.json.page2 PS_FILES=$(th_dir th2 "$(th_page false "$(many_q 50)")") \
+  ps_case "a quiet 150-comment thread read to its end lets a success stand" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_GQL=$TH_P1 PS_WANT_READ=graphql.thread.json PS_FILES=$(th_dir th3 SHIM_FAIL) \
+  ps_case "a thread comment page that cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+PS_GQL=$TH_P1 PS_WANT_READ=graphql.thread.json.page2 PS_FILES=$(th_dir th4 "$(th_page false "$(many_q 40)")") \
+  ps_case "a thread still short of its totalCount after paging turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "description=Re-evaluating: could not see all of PR #7's activity"
 # Source-level: a thread's comments are read whole, not its last comment alone (a shim
 # answers whatever the query asked, so only the query text shows the truncation).
 if grep -q 'comments(last: 1)' "$POSTER"; then
