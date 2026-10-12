@@ -3086,6 +3086,35 @@ ov_case "without REQUIRE_HEAD_REVIEW_FROM an override covers nothing" "" \
 ov_case "a set but empty REQUIRE_HEAD_REVIEW_FROM is still refused with an override present" "REQUIRE_HEAD_REVIEW_FROM=" \
   "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 2 \
   "names no reviewer" "" "verdict: CLEAR"
+# An unfinished placeholder is not a statement of what was done, however long it is.
+for t in ' TODO: describe what was done instead' ' <describe replacement review here>' \
+         ' local codex exec review of the diff, fixme: list findings' ' tbd, local codex exec review of the diff' \
+         ' local codex exec review of main..head XXX no findings yet'; do
+  ov_case "an override whose text is the placeholder '${t# }' does not cover the head" "$REQO" \
+    "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 1 \
+    "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+done
+# A review body that is only an override line is the override and nothing else: it is not
+# its author's review of the head, for a required login or for the any-reviewer rule.
+ov_case "an override-only review body is not its author's own review of the head" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice,example-bob" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-bob ${OV_HEAD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "HEAD OVERRIDDEN  example-bob" "verdict: CLEAR"
+ov_case "a required login's own override review naming an older head is validated, not a review" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_OLD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "OVERRIDE REJECTED  example-alice" "verdict: CLEAR"
+ov_case "a required login's own override review with text 'n/a' is validated, not a review" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_HEAD:0:7}: n/a")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "OVERRIDE REJECTED  example-alice" "verdict: CLEAR"
+ov_case "a required login's own valid override review is reported as an override" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_HEAD:0:7}: $OV_TEXT")")" 0 \
+  "HEAD OVERRIDDEN  example-alice" "verdict: CLEAR (with 1 head-review override)"
+ov_case "without REQUIRE_HEAD_REVIEW_FROM an override-only review body is not a review of the head" "" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "UNREVIEWED HEAD" "" "verdict: CLEAR"
 
 # merge-pr.sh runs the real gate on a payload whose head is the PR head (the gh shim of 8b).
 d="$TMP/mp.override"; mkdir "$d"

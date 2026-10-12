@@ -51,6 +51,7 @@ same check now:
 When Codex cannot review the head (out of quota), post a comment whose first line is
 `HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector <sha>: <what was done instead>`, naming the
 current head and stating concretely what replaced the review, e.g. "local
-`codex exec -s read-only` review of <base>..<head>, no findings". It covers Codex on that
-head only and answers no finding. The gate prints it as `HEAD OVERRIDDEN` and reports
+`codex exec -s read-only` review of <base>..<head>, no findings" with the placeholders
+filled in (text still holding `TODO` or `<...>` is rejected). It covers Codex on that head
+only and answers no finding. The gate prints it as `HEAD OVERRIDDEN` and reports
 `CLEAR (with 1 head-review override)`, so the substitution stays on the record.

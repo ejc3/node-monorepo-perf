@@ -1289,11 +1289,15 @@ CODERABBIT_LOGIN=${CODERABBIT_LOGIN:-coderabbitai}
 # visible record of what replaced the review, which the gate prints. It covers that login
 # on that head only, and only when the sha names the head (names_head), the comment was
 # written after the head arrived (written_at, as a claim is dated), and the text holds at
-# least 20 letters or digits and is not only placeholder words. It satisfies no thread or
-# review-body disposition and answers nothing (it does not open with a disposition marker).
+# least 20 letters or digits, is not only placeholder words, and carries no unfinished
+# placeholder (TODO, TBD, FIXME or XXX as a word, in any case, or an angle-bracket <...>). It
+# satisfies no thread or review-body disposition and answers nothing (it does not open with
+# a disposition marker).
 #
-# A body that is the override line and nothing else is not a claim. Text below the line is
-# ordinary comment text and keeps the whole body claimable: nothing is removed unread.
+# A body that is the override line and nothing else is not a claim, and a review whose body
+# is only that line is not its author's review of the head: it is the override it names and
+# nothing more. Text below the line is ordinary comment text and keeps the whole body
+# claimable: nothing is removed unread.
 OVERRIDE_JQ='def override_re: "\\A[[:space:]]*HEAD-REVIEW-OVERRIDE:[ \t]+(?<who>[A-Za-z0-9][A-Za-z0-9-]*(\\[bot\\])?)[ \t]+(?<sha>[0-9a-fA-F]{7,40}):(?<text>[^\n]*)";
   def override_parts: ((. // "") | [capture(override_re)] | first) // null;
   def is_override_only: (. // "") | test(override_re + "[[:space:]]*\\z");
@@ -1301,7 +1305,9 @@ OVERRIDE_JQ='def override_re: "\\A[[:space:]]*HEAD-REVIEW-OVERRIDE:[ \t]+(?<who>
     ([scan("[A-Za-z0-9]")] | length) >= 20
     and ([scan("[A-Za-z0-9]+") | ascii_downcase]
          | all(IN("n", "a", "na", "none", "nil", "null", "skip", "skipped", "nothing", "tbd", "todo",
-                  "x", "ok", "done", "override", "overridden")) | not);'
+                  "x", "ok", "done", "override", "overridden")) | not)
+    and (test("\\b(todo|tbd|fixme|xxx)\\b"; "i") | not)
+    and (test("<[^<>]*>") | not);'
 
 prauthor=$(jq -r '.data.repository.pullRequest.author.login // ""' <<<"$payload" 2>/dev/null)
 
@@ -1634,8 +1640,11 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
         (((.body // "") | type) == "string" and ((.body // "") | test("[^[:space:]]")))
         or ((.state // "") | IN("APPROVED", "CHANGES_REQUESTED"))
         or (any(.comments.nodes[]?; has("replyTo") and .replyTo == null)));'
-  headreviews=$(jq -c --arg h "$headoid" --arg me "$prauthor" \
-             '[ .[] | select((.commit.oid // "") == $h) | select(.author.login != $me) ]' \
+  # node-monorepo-perf addition: a review whose body is only a HEAD-REVIEW-OVERRIDE line is
+  # not a review of the head by its author; it counts only as the override it names, below.
+  headreviews=$(jq -c --arg h "$headoid" --arg me "$prauthor" "$OVERRIDE_JQ"'
+             [ .[] | select((.commit.oid // "") == $h) | select(.author.login != $me)
+                   | select((.body // "") | is_override_only | not) ]' \
              <<<"$reviews") || {
     echo "verdict: BLOCKED — could not evaluate head-commit review coverage." >&2; exit 2; }
   # A review object this gate cannot read is not one it may wave through as coverage, and
