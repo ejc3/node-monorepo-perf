@@ -59,6 +59,7 @@ import {
   parseArgs,
   publishedBinding,
   readJsonl,
+  pageWorkersEnv,
   withCpus,
   withLock,
 } from "./lib.mjs";
@@ -259,7 +260,9 @@ async function sweep(o) {
     points,
     reps,
     cpus: o.cpus,
+    pageWorkers: o.pageWorkers || "default",
   };
+  const workersEnv = pageWorkersEnv(plan.pageWorkers, o.cpus);
   console.error(`[drift] ${JSON.stringify(plan)}`);
 
   await withLock(`drift-${appName}`, () =>
@@ -275,7 +278,7 @@ async function sweep(o) {
           cpus: o.cpus,
           app,
           label: "drift",
-          env: { ...ENV, ...env },
+          env: { ...ENV, ...workersEnv, ...env },
           ...args,
         });
         if (readFileSync(join(RUNS, rec.id, "build.log"), "utf8").includes(CACHE_DISABLED))
@@ -594,9 +597,20 @@ function record(o) {
     : EDITS.map((e) => all.filter((m) => m.edit === e).at(-1)).filter(Boolean);
   if (!plans.length) throw new Error("no completed drift sweep matches");
   const first = plans[0];
+  // sweeps from before --page-workers carry no pageWorkers: they ran with Next's default
+  const setting = (p, k) => (k === "pageWorkers" ? p[k] || "default" : p[k]);
   for (const p of plans)
-    for (const k of ["app", "pristine", "cpus", "reps", "bindings", "modes", "points"])
-      if (JSON.stringify(p[k]) !== JSON.stringify(first[k]))
+    for (const k of [
+      "app",
+      "pristine",
+      "cpus",
+      "reps",
+      "bindings",
+      "modes",
+      "points",
+      "pageWorkers",
+    ])
+      if (JSON.stringify(setting(p, k)) !== JSON.stringify(setting(first, k)))
         throw new Error(`sweeps ${first.sweep} and ${p.sweep} differ in ${k}`);
   const app = join(APPS, first.app);
   if (appTreeHash(app) !== first.pristine)
@@ -618,6 +632,7 @@ function record(o) {
     bindingBuild:
       "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
     tag: first.tag,
+    pageWorkers: first.pageWorkers || "default",
     note: publicMachine.sharedBox
       ? "shared box: other tenants' processes ran beside these builds (outside their CPU set); compare within this record only"
       : "dedicated box",
@@ -662,6 +677,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     tag: 1,
     sweep: 1,
     out: 1,
+    "page-workers": 1,
   });
   if (o._[0] === "record") record(o);
   else if (o._.length) throw new Error(`unknown command ${o._[0]}`);
@@ -675,5 +691,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       modes: o.modes || "warm,cold,off",
       edit: o.edit || "label",
       tag: o.tag,
+      pageWorkers: o["page-workers"],
     });
 }

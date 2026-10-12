@@ -26,6 +26,7 @@ import {
   RUNS,
   appendJsonl,
   cpuCount,
+  pageWorkersEnv,
   checkAborted,
   ensureDir,
   machine,
@@ -380,9 +381,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     out: 1,
     keep: "bool",
     repeat: 1,
+    "page-workers": 1,
   });
   if (!a.cpus) throw new Error("--cpus is required (e.g. 0-31)");
-  const env = Object.fromEntries((a.env || []).map((kv) => kv.split(/=(.*)/s).slice(0, 2)));
+  const env = {
+    ...pageWorkersEnv(a["page-workers"], a.cpus),
+    ...Object.fromEntries((a.env || []).map((kv) => kv.split(/=(.*)/s).slice(0, 2))),
+  };
   const out = a.out || join(RESULTS, "runs.jsonl");
   await withCpus(a.cpus, async () => {
     for (let i = 0; i < Number(a.repeat || 1); i++) {

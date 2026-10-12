@@ -609,6 +609,9 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     skips the module graph, no build logs the cache as disabled. Raw runs in
     `drift.jsonl`, completed sweeps in `drift-sweeps.jsonl`; `drift.mjs record` writes
     `bench/turbopack-graph-drift.json` (the latest sweep per edit, or `--sweep a,b`).
+    `--page-workers match` (also on `bench.mjs`) sizes Next.js's page-data worker pool to
+    the build's CPUs (`CIRCLE_NODE_TOTAL`) instead of every CPU of the machine; the setting
+    changes the output fingerprint, so a record states it and refuses mixed sweeps.
     Write-up: `bench/turbopack-gym/cache-drift.md`.
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits

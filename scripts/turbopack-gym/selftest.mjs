@@ -501,6 +501,26 @@ rmSync(scratch, { recursive: true, force: true });
   rmSync(root, { recursive: true, force: true });
 }
 
+// --- page-data workers -------------------------------------------------------------
+// "match" sizes Next's page-data pool to the build's CPUs through CIRCLE_NODE_TOTAL; the
+// default leaves Next's own (every CPU of the machine) and an unknown mode is refused.
+{
+  const { pageWorkersEnv } = lib;
+  let refused = false;
+  try {
+    pageWorkersEnv("all", "0-23");
+  } catch {
+    refused = true;
+  }
+  check(
+    pageWorkersEnv("match", "0-23,48-55").CIRCLE_NODE_TOTAL === "32" &&
+      Object.keys(pageWorkersEnv("default", "0-23")).length === 0 &&
+      Object.keys(pageWorkersEnv(undefined, "0-23")).length === 0 &&
+      refused,
+    "page workers: match counts the build's CPUs, default sets nothing",
+  );
+}
+
 // --- remote records -----------------------------------------------------------------
 // record.mjs --host --out: the remote run writes the --out file's name under the host's
 // gitignored bench/raw/remote/ (never over a record in the host's checkout, whatever --out

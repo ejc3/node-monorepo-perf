@@ -92,6 +92,18 @@ export function cpuCount(list) {
   }, 0);
 }
 
+// Next.js sizes its page-data worker pool from os.cpus() (every CPU of the machine, not the
+// build's CPU set), reading CIRCLE_NODE_TOTAL first when it is set; on a 192-core box a build
+// pinned to 24 CPUs forks 191 workers from the process holding Turbopack's heap. "match" sizes
+// the pool to the build's CPUs (one fewer than them, as Next's default does) through that
+// variable. The count is part of Next's config, which the output embeds, so "match" changes
+// the output fingerprint: compare runs with one setting.
+export function pageWorkersEnv(mode, cpus) {
+  if (mode === undefined || mode === "default") return {};
+  if (mode !== "match") throw new Error(`page workers: "default" or "match" (got ${mode})`);
+  return { CIRCLE_NODE_TOTAL: String(cpuCount(cpus)) };
+}
+
 // Split [first, last] into `n` contiguous lanes of equal size.
 export function lanes(n, first = 0, last = NCPU - 1) {
   const size = Math.floor((last - first + 1) / n);
