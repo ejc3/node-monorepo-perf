@@ -275,22 +275,15 @@ test("the audit composites translucent marks over the page and holds them to 3:1
     [],
     "control: the opaque series colour passes",
   );
+  // opacity attributes are outside the allowlist (no generator writes one): the audit
+  // refuses them rather than modelling them
   for (const mark of [
     `<polyline points="20,20 200,20" fill="none" stroke="#3a4656" stroke-opacity="0.1"/>`,
     `<line x1="20" y1="20" x2="200" y2="20" stroke="#aaaaaa" stroke-opacity="0.5"/>`,
     `<g opacity="0.3"><polyline points="20,20 200,20" fill="none" stroke="#3a4656"/></g>`,
-    `<g opacity="0.5"><g><line x1="20" y1="20" x2="200" y2="20" stroke="#556375"/></g></g>`,
     `<circle cx="50" cy="50" r="4" fill="#3a4656" opacity="0.15"/>`,
   ])
-    assert.ok(auditMini(mark).length > 0, `translucent mark passed: ${mark}`);
-  // the group closes: a mark after </g> is full strength again
-  assert.deepEqual(
-    auditMini(
-      `<g opacity="0.3"><line x1="20" y1="40" x2="200" y2="40" stroke="#e4e8ec"/></g>` +
-        `<polyline points="20,20 200,20" fill="none" stroke="#3a4656"/>`,
-    ),
-    [],
-  );
+    assert.throws(() => auditMini(mark), /unsupported/, `translucent mark accepted: ${mark}`);
   // exemptions: GRID hairlines, page-coloured fills, stripes of 3px or less
   assert.deepEqual(
     auditMini(
@@ -303,24 +296,14 @@ test("the audit composites translucent marks over the page and holds them to 3:1
   );
 });
 
-test("text inherits ancestor group opacity before the 4.5:1 check", () => {
+test("text opacity is outside the allowlist: refused, not modelled", () => {
   const t = `<text x="20" y="30" font-size="13" fill="#1c2330">label</text>`;
-  assert.deepEqual(auditMini(t), [], "control: full-opacity ink passes");
-  assert.deepEqual(auditMini(`<g opacity="1">${t}</g>`), [], "opacity 1 group passes");
+  assert.deepEqual(auditMini(t), [], "control: plain ink passes");
   for (const wrapped of [
     `<g opacity="0.2">${t}</g>`,
-    `<g opacity="0.5"><g opacity="0.4">${t}</g></g>`,
     `<g><text x="20" y="30" font-size="13" fill="#1c2330" opacity="0.2">label</text></g>`,
   ])
-    assert.ok(
-      auditMini(wrapped).some((i) => /label/.test(i) && /4\.5:1/.test(i)),
-      `translucent text passed: ${wrapped}`,
-    );
-  // the group closes: text after </g> is full strength again
-  assert.deepEqual(
-    auditMini(`<g opacity="0.2"><line x1="20" y1="40" x2="200" y2="40" stroke="#e4e8ec"/></g>${t}`),
-    [],
-  );
+    assert.throws(() => auditMini(wrapped), /unsupported attribute/, wrapped);
 });
 
 test("the audit exempts a legend swatch only when its label sits beside it", () => {
@@ -479,17 +462,18 @@ test("the framing exemption uses a translated text's anchor", () => {
     auditMini(bar + `<g transform="translate(100 0)">${ink(20, 64, "framed", "#1c2330")}</g>`),
     [],
   );
-  // a text translated out of the bar does not frame it, though its own x lies inside
+  // a text translated out of the bar does not frame it, though its own x (120) lies inside
   assert.ok(
-    auditMini(bar + `<g transform="translate(300 0)">${ink(20, 64, "beside", "#1c2330")}</g>`).some(
-      (i) => /rect fill/.test(i),
-    ),
+    auditMini(
+      bar + `<g transform="translate(300 0)">${ink(120, 64, "beside", "#1c2330")}</g>`,
+    ).some((i) => /rect fill/.test(i)),
     "a text translated away from the bar exempted it",
   );
-  // a rect inside a translated group is framed where it is drawn
+  // a rect inside a translated group is framed where it is drawn (100..200), not at its
+  // own coordinates (0..100)
   assert.deepEqual(
     auditMini(
-      `<g transform="translate(100 0)"><rect x="0" y="40" width="200" height="40" fill="#f2f2f2"/></g>` +
+      `<g transform="translate(100 0)"><rect x="0" y="40" width="100" height="40" fill="#f2f2f2"/></g>` +
         ink(120, 64, "framed", "#1c2330"),
     ),
     [],
@@ -514,6 +498,85 @@ test("an SVG without a full-width background rect is reported, not thrown on", (
       minBoxText: MIN_BOX_TEXT,
     }).some((i) => /no page/.test(i) && /4\.5:1/.test(i)),
   );
+});
+
+test("an element's own translate() places it, self-closing ones included", () => {
+  const dark = `<rect x="200" y="40" width="160" height="40" fill="#1c2330"/>`;
+  const own = (fill) =>
+    `<text x="20" y="64" font-size="13" fill="${fill}" transform="translate(200)">t</text>`;
+  assert.deepEqual(auditMini(dark + own("#ffffff")), [], "white ink moved onto the dark rect");
+  assert.ok(
+    auditMini(dark + own("#1c2330")).some((i) => /4\.5:1/.test(i)),
+    "dark ink moved onto the dark rect passed",
+  );
+  // a self-closing rect moved under the text is its backdrop
+  assert.ok(
+    auditMini(
+      `<rect x="0" y="40" width="160" height="40" fill="#1c2330" transform="translate(200 0)"/>` +
+        `<text x="220" y="64" font-size="13" fill="#1c2330">t</text>`,
+    ).some((i) => /4\.5:1/.test(i)),
+    "a translated self-closing rect was not the text's backdrop",
+  );
+});
+test("any transform other than translate() is unsupported, on any element", () => {
+  for (const body of [
+    `<text x="20" y="64" font-size="13" fill="#1c2330" transform="rotate(90)">t</text>`,
+    `<rect x="0" y="40" width="10" height="10" fill="#1c2330" transform="scale(2)"/>`,
+    `<g transform="rotate(90)"/>`,
+    `<g transform="matrix(1 0 0 1 5 5)"><circle cx="5" cy="5" r="3" fill="#1c2330"/></g>`,
+  ])
+    assert.throws(() => auditMini(body), /unsupported/, body);
+});
+test("the audit certifies only the allowlisted SVG subset; anything else is unsupported", () => {
+  const refused = [
+    [`<ellipse cx="50" cy="50" rx="4" ry="2" fill="#1c2330"/>`, /unsupported element <ellipse>/],
+    [`<text x="20" y="64" font-size="13" fill="#1c2330"><tspan>t</tspan></text>`, /<tspan>/],
+    [`<!-- a comment -->`, /unsupported markup/],
+    [
+      `<rect x="0" y="0" width="9" height="9" fill="#1c2330" stroke-dasharray="2 2"/>`,
+      /stroke-dasharray/,
+    ],
+    [`<path d="M0 0C1 1 2 2 3 3" fill="none" stroke="#1c2330"/>`, /d="M0 0C1 1 2 2 3 3"/],
+    [
+      `<polyline points="0,0 9,9" fill="#1c2330" stroke="#1c2330"/>`,
+      /fill="#1c2330" on <polyline>/,
+    ],
+    [
+      `<text x="20" y="64" font-size="13" fill="#1c2330" font-weight="bold">t</text>`,
+      /font-weight/,
+    ],
+    [`<text x="20" y="64" font-size="13" fill="#1c2330">a &quot;b&quot;</text>`, /entity/],
+    [`<rect x='0' y="0" width="9" height="9" fill="#1c2330"/>`, /unsupported markup/],
+  ];
+  for (const [body, why] of refused) assert.throws(() => auditMini(body), why, body);
+  // a dark rule outside the tag[attr="value"]{fill|stroke|fill-opacity} form
+  const style = (css) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<style>@media (prefers-color-scheme: dark){${css}}</style><rect width="400" height="200" fill="#ffffff"/></svg>`;
+  assert.deepEqual(
+    auditSvg(style(`rect[fill="#ffffff"]{fill:#0d1117}`), {
+      minText: MIN_TEXT,
+      minBoxText: MIN_BOX_TEXT,
+    }),
+    [],
+  );
+  for (const css of [`.dark{fill:#000}`, `rect[fill="#ffffff"]{opacity:.5}`])
+    assert.throws(
+      () => auditSvg(style(css), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT }),
+      /unsupported dark rule/,
+      css,
+    );
+});
+test("every committed chart, LEGACY ones included, is inside the audit's allowlist", () => {
+  for (const f of readdirSync(chartsDir).filter((f) => f.endsWith(".svg")))
+    assert.doesNotThrow(
+      () =>
+        auditSvg(readFileSync(new URL(f, chartsDir), "utf8"), {
+          minText: MIN_TEXT,
+          minBoxText: MIN_BOX_TEXT,
+        }),
+      f,
+    );
 });
 
 console.log(`1..${n}`);
