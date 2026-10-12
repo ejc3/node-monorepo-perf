@@ -15,7 +15,9 @@
 #
 # For a success that means: the statuses on the commit can be read; no review-gate status
 # other than a success was posted after EVAL_STARTED (another run's error or pending); no
-# review-gate run other than this one and the sweep was created after EVAL_STARTED; and for
+# review-gate run other than this one and the sweep that can evaluate this head (its title
+# names the sha, a PR on it or its branch, or names nothing parsable) was created after
+# EVAL_STARTED; and for
 # each PR in PRS the PR can be read, its head is still <sha>, and no activity on it (the PR's
 # own updatedAt, any comment, review, or review-thread comment created, updated or edited)
 # is newer than EVAL_STARTED. A read that fails posts `error`; a newer signal posts
@@ -137,30 +139,22 @@ verify_snapshot() {
       block pending "A blocking status was posted after this evaluation began"
     fi
   fi
-  if [ "$state" = success ]; then
-    # Runs of this workflow created after the evaluation began, other than this run and the
-    # sweep. A list that cannot be read is a failed read.
-    if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
-        --jq "[.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
-                                         and .created_at >= \"$EVAL_STARTED\")] | length"); then
-      block error "Could not read the review-gate runs to verify a success; see the run"
-    elif [ "$newer" != 0 ]; then
-      block pending "Re-evaluating after a newer event"
-    fi
-  fi
+  # The head branch of each PR in PRS, read below and matched against newer runs' titles;
+  # "?" where it could not be read.
+  branches=""
   if [ "$state" = success ]; then
     # The PRs themselves: head unchanged, nothing newer than the snapshot.
     for pr in ${PRS:-}; do
       [[ $pr =~ ^[0-9]+$ ]] || { block error "Not a PR number: ${pr:0:20}"; break; }
       if ! act=$(gh api graphql -F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}" -f query='
           query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
-            pullRequest(number: $n) { headRefOid updatedAt
+            pullRequest(number: $n) { headRefOid headRefName updatedAt
               comments(last: 100) { nodes { createdAt updatedAt lastEditedAt } }
               reviews(last: 100) { nodes { submittedAt updatedAt lastEditedAt } }
               reviewThreads(last: 100) { nodes { comments(last: 1) { nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
           --jq '.data.repository.pullRequest
                 | if . == null then "unreadable"
-                  else .headRefOid + " "
+                  else .headRefOid + " " + (.headRefName // "?" | if test("^[^[:space:]]+$") then . else "?" end) + " "
                        + ([.updatedAt, (.comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt),
                            (.reviews.nodes[] | .submittedAt, .updatedAt, .lastEditedAt),
                            (.reviewThreads.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt)]
@@ -168,7 +162,8 @@ verify_snapshot() {
         block error "Could not read PR #$pr to verify a success; see the run"
         break
       fi
-      read -r act_head act_last <<<"$act"
+      read -r act_head act_branch act_last <<<"$act"
+      branches+="$act_branch "
       if [ "$act_head" != "$sha" ]; then
         block pending "PR #$pr moved off this commit"
         break
@@ -178,6 +173,32 @@ verify_snapshot() {
         break
       fi
     done
+  fi
+  if [ "$state" = success ]; then
+    # Runs of this workflow created after the evaluation began, other than this run and the
+    # sweep, that can evaluate this head. A run's title (review-gate.yml `run-name`) names
+    # its target: "review-gate <event> sha=<head|-> prs=<n,n|-> branch=<name|->". It counts
+    # when it names this sha, a PR in PRS, or the head branch of one of them. A run for
+    # another head does not: it never re-posts this one, so steady activity on other PRs
+    # would keep a valid success pending. Fail closed: a title that does not parse, that
+    # names no target, or that names a branch while a PR's branch is unknown ("?"), counts.
+    # A list that cannot be read is a failed read.
+    if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
+        --jq "($(jq -cn --arg s "$PRS" '$s | [splits(" +") | select(. != "")]') ) as \$prs
+              | ($(jq -cn --arg s "$branches" '$s | [splits(" +") | select(. != "")]') ) as \$branches
+              | [.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
+                                           and .created_at >= \"$EVAL_STARTED\")
+                 | ((.display_title // \"\") | capture(\"^review-gate [a-z_]+ sha=(?<sha>-|[0-9a-f]{40}) prs=(?<prs>-|[0-9]+(,[0-9]+)*) branch=(?<branch>[^[:space:]]+)\$\") // null) as \$t
+                 | select(\$t == null
+                          or (\$t.sha == \"-\" and \$t.prs == \"-\" and \$t.branch == \"-\")
+                          or \$t.sha == \"$sha\"
+                          or (\$t.prs != \"-\" and any(\$t.prs | split(\",\")[]; IN(\$prs[])))
+                          or (\$t.branch != \"-\" and (IN(\$branches[]; \"?\") or (\$t.branch | IN(\$branches[])))))]
+              | length"); then
+      block error "Could not read the review-gate runs to verify a success; see the run"
+    elif [ "$newer" != 0 ]; then
+      block pending "Re-evaluating after a newer event"
+    fi
   fi
 }
 verify_snapshot

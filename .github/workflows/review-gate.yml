@@ -1,5 +1,16 @@
 name: review-gate
 
+# What a run evaluates, in its title, so post-status.sh can tell a newer run that can change
+# this head's verdict from one for another head: "review-gate <event> sha=<head|-> prs=<n,n|->
+# branch=<name|->". pull_request_target names its head, issue_comment its PR, workflow_run
+# the relay's head sha, PRs and branch, workflow_dispatch its input PR; the sweep and an
+# all-PR dispatch name nothing ("-"), which post-status.sh counts as every head.
+run-name: >-
+  review-gate ${{ github.event_name }}
+  sha=${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || '-' }}
+  prs=${{ github.event.issue.number || github.event.pull_request.number || inputs.pr || (github.event_name == 'workflow_run' && join(github.event.workflow_run.pull_requests.*.number, ',')) || '-' }}
+  branch=${{ github.event.workflow_run.head_branch || '-' }}
+
 # Merge gate. Posts the commit status `review-gate` on a PR's head commit: success only when
 # .claude/skills/pr-review-gate/check-review-threads.sh reports CLEAR for that exact commit
 # (every review thread resolved and disposed, every PR-level finding answered, the head
@@ -59,7 +70,9 @@ name: review-gate
 # The merge path is `make merge-pr`, which gates the exact head synchronously; this status
 # is defense in depth for a merge from the web UI. An event posts `pending` before its
 # evaluation queues, and only over a `success`; an evaluation does not post `success` while
-# a review-gate run created after it began exists (that run, or the next sweep, posts it). A run that ends without a verdict posts `error`
+# a review-gate run created after it began that can evaluate its head exists (its title
+# names the head, a PR on it or that PR's branch, or names nothing; that run, or the next
+# sweep, posts it). A run that ends without a verdict posts `error`
 # for each head it answered for. The gate is told which
 # head to judge (EXPECT_HEAD) and blocks if a PR moved, so a verdict is never posted on a
 # commit it was not computed for. A matrix holds at most 256 jobs; past that a run takes a

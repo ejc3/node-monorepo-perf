@@ -108,7 +108,7 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
   cases and the cases for this copy's knobs.
 - `gate-discard-sites.sh`: pins every place the classifier discards body text.
 - `post-status.sh`: the only way review-gate.yml posts the status. A `success` only
-  against an unchanged snapshot (statuses, newer runs, PR head and activity read right
+  against an unchanged snapshot (statuses, newer runs for this head, PR head and activity read right
   before the POST); a failed read posts `error`, a newer signal `pending`. Otherwise a
   change only; `pending` only over a `success`; `error` instead of `success` near GitHub's
   1000-status cap; a success this workflow did not post replaced by the real verdict.

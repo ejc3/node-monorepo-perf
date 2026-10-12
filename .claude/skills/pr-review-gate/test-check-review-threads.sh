@@ -2528,6 +2528,44 @@ PS_RUNS=$(runs "$(wrun 91 issue_comment 2026-01-02T00:03:00Z)") \
   ps_case "a run created before the evaluation began does not defer it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
 PS_RUNS=UNREADABLE \
   ps_case "a run list that cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+# The newer-run guard is scoped to runs that can evaluate this head. It was repository-wide:
+# a run for an unrelated head demoted this head's success, never re-posted it, and steady
+# activity on other PRs could keep it pending. A run's title (review-gate.yml `run-name`)
+# names what it evaluates: "review-gate <event> sha=<head|-> prs=<n,n|-> branch=<name|->".
+# A run counts when its title names this sha, a PR on it (PRS), or the head branch of one;
+# a title that does not parse, names nothing, or names a branch while a PR's branch is
+# unknown, counts too.
+trun() { printf '{"id":%s,"event":"%s","created_at":"%s","display_title":"%s"}' "$1" "$2" "$3" "$4"; }
+OTHER_SHA=fedcba9876543210fedcba9876543210fedcba98
+gqlb() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","headRefName":"%s","updatedAt":"%s","comments":{"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"nodes":[]},"reviewThreads":{"nodes":[]}}}}}' "$PS_SHA" "$1" 2026-01-02T00:03:00Z 2026-01-02T00:03:00Z; }
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 pull_request_target 2026-01-02T00:05:00Z "review-gate pull_request_target sha=$OTHER_SHA prs=12 branch=-")") \
+  ps_case "a newer run for an unrelated head does not demote a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 issue_comment 2026-01-02T00:05:00Z "review-gate issue_comment sha=- prs=12 branch=-")") \
+  ps_case "a newer comment run for an unrelated PR does not demote a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 workflow_run 2026-01-02T00:05:00Z "review-gate workflow_run sha=$OTHER_SHA prs=- branch=other")") \
+  ps_case "a newer relay run for another branch does not demote a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+# Guards, pending before and after: a run that can evaluate this head, or whose target is
+# unknown, still holds the success back.
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 pull_request_target 2026-01-02T00:05:00Z "review-gate pull_request_target sha=$PS_SHA prs=7 branch=-")") \
+  ps_case "a newer run for this head still demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 issue_comment 2026-01-02T00:05:00Z "review-gate issue_comment sha=- prs=7 branch=-")") \
+  ps_case "a newer run for a PR on this head still demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 workflow_run 2026-01-02T00:05:00Z "review-gate workflow_run sha=$OTHER_SHA prs=- branch=feature")") \
+  ps_case "a newer relay run for this PR's branch still demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 issue_comment 2026-01-02T00:05:00Z "review-gate")") \
+  ps_case "a newer run with an unparsable title still demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 workflow_dispatch 2026-01-02T00:05:00Z "review-gate workflow_dispatch sha=- prs=- branch=-")") \
+  ps_case "a newer run naming no target still demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_RUNS=$(runs "$(trun 91 workflow_run 2026-01-02T00:05:00Z "review-gate workflow_run sha=$OTHER_SHA prs=- branch=other")") \
+  ps_case "a newer relay run naming a branch while the PR's branch is unknown still demotes" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+# The title format is the workflow's run-name; the parser and the workflow must agree.
+wf_title=$(awk '/^run-name: >-$/ {on=1; next} on && /^  / {sub(/^  /, ""); printf "%s ", $0; next} on {exit}' \
+  "$ROOT/.github/workflows/review-gate.yml" | sed 's/ $//')
+if [[ $wf_title == 'review-gate ${{ github.event_name }} sha=${{ '*' }} prs=${{ '*' }} branch=${{ '*' }}' ]]; then
+  echo "  PASS  review-gate.yml's run-name has the shape post-status.sh parses"; pass=$((pass+1))
+else
+  echo "  FAIL  review-gate.yml's run-name has the shape post-status.sh parses (got: ${wf_title:-none})"; fail=$((fail+1))
+fi
 PS_GQL=$(gql "$PS_SHA" 2026-01-02T00:05:00Z) \
   ps_case "activity on the PR after the snapshot turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
 PS_GQL=$(gql fedcba9876543210fedcba9876543210fedcba98 2026-01-02T00:03:00Z) \
