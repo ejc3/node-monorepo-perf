@@ -22,6 +22,7 @@ import {
   mdTable,
   mdDetails,
   writeDocBlock,
+  approxW,
 } from "./_chartstyle.mjs";
 
 const ROOT = process.cwd();
@@ -123,6 +124,29 @@ function hBarChart({ name, title, lede, bars, xTitle, valueFmt, sources = SOURCE
   return `${name}.svg`;
 }
 
+// The baseline of a value label centred above point i of a series: 9px above the point,
+// raised until the label's box (its measured width; 0.75 em above the baseline, 0.21 em
+// below) clears the point's dot and each series segment that meets the point by
+// LABEL_GAP px past the stroke's edge. `pts` are the series' screen points in order, null
+// where the series breaks (no segment crosses a break). Stroke width and dot radius are
+// seriesLine's defaults.
+const LABEL_GAP = 2;
+const labelBaseline = (pts, i, label, size, { stroke = 2.25, r = 3.25 } = {}) => {
+  const [cx, cy] = pts[i];
+  const half = approxW(label, size) / 2;
+  const down = 0.21 * size;
+  let bottom = Math.min(cy - 9 + down, cy - r - LABEL_GAP);
+  for (const j of [i - 1, i + 1]) {
+    if (!pts[j]) continue;
+    const [bx, by] = pts[j];
+    const lo = Math.max(Math.min(cx, bx), cx - half);
+    const hi = Math.min(Math.max(cx, bx), cx + half);
+    const yAt = (x) => cy + ((by - cy) * (x - cx)) / (bx - cx);
+    for (const x of [lo, hi]) bottom = Math.min(bottom, yAt(x) - stroke / 2 - LABEL_GAP);
+  }
+  return bottom - down;
+};
+
 // Log–log scaling chart over workspace size. A named series is labeled directly at its
 // last point (no legend); first and last values are printed unless `endLabels: false`.
 function scaleChart({ name, title, lede, series, yTitle, sources = SOURCE }) {
@@ -161,8 +185,15 @@ function scaleChart({ name, title, lede, series, yTitle, sources = SOURCE }) {
     const [lx, ly] = measured[measured.length - 1];
     // endpoint values, above the line (a flat series carries its range in `sub` instead)
     if (s.endLabels !== false) {
-      T.push(txt(sx(fx), sy(fy) - 9, fmtNum(fy), { size: TYPE.note, anchor: "middle" }));
-      T.push(txt(sx(lx), sy(ly) - 9, fmtNum(ly), { size: TYPE.note, anchor: "middle" }));
+      const pts = s.points.map(([px, py]) => (py == null ? null : [sx(px), sy(py)]));
+      for (const [px, py] of [
+        [fx, fy],
+        [lx, ly],
+      ]) {
+        const i = s.points.findIndex(([qx, qy]) => qx === px && qy === py);
+        const y = labelBaseline(pts, i, fmtNum(py), TYPE.note);
+        T.push(txt(sx(px), y, fmtNum(py), { size: TYPE.note, anchor: "middle" }));
+      }
     }
     // direct series label right of the last point (in place of a legend)
     if (s.name)
