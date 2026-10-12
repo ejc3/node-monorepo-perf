@@ -20,6 +20,68 @@ Consistent with Microsoft's ~10x claim. The native `tsc --noEmit` drops into the
 
 > High-resolution PNG: [`bench/charts/checker-scale.png`](bench/charts/checker-scale.png) (`make scale-chart`).
 
+<!-- chart-data:checker-scale -->
+<details>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+tsgo 7.0.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host. Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a ranking.
+
+**Whole-program check: tsgo, tsc, Flow**
+
+|  | tsgo | tsc | Flow |
+| --- | ---: | ---: | ---: |
+| 10k modules | **600ms** | 7.40s (×12) | 910ms (×1.5) |
+| 100k modules | **6.05s** | 65.0s (×11) | 9.57s (×1.6) |
+| 250k modules | **16.0s** | — (anchor ≤100k) | 23.2s (×1.4) |
+| 500k modules | **33.4s** | — (anchor ≤100k) | 45.7s (×1.4) |
+| 1,000,000 modules | **70.7s** | — (anchor ≤100k) | 92.5s (×1.3) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Warm full check, no incremental state. tsc stops at the 100k anchor: a cost cutoff, not a capacity limit. Flow is a build of flow main with the wedge fixes (provenance in the JSON); released 0.321's server crashes at this scale (last section).
+
+**A failing check costs what a passing one costs**
+
+|  | tsgo (1M modules) | tsc (100k modules) | Flow (1M modules) |
+| --- | ---: | ---: | ---: |
+| red check vs green check | -0.5% (70.3s vs 70.7s) | +0.8% (65.5s vs 65.0s) | +1.0% (93.5s vs 92.5s) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit nonzero reporting exactly those errors.
+
+**One edit to a verdict: the save loop, by mechanic**
+
+|  | tsgo --lsp squiggle | tsserver squiggle | flow server edit | tsgo --watch | tsgo CLI incremental | tsc CLI incremental |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10k modules | **18ms** | 85ms (×4.7) | 19ms (×1.1) | 200ms (×11) | 430ms (×24) | 3.05s (×169) |
+| 100k modules | 208ms (×3.9) | 938ms (×18) | **53ms** | 1.69s (×32) | 4.10s (×77) | 23.4s (×441) |
+| 250k modules | 416ms (×4.6) | — (anchor ≤100k) | **90ms** | 4.73s (×53) | 12.0s (×133) | — (anchor ≤100k) |
+| 500k modules | 977ms (×6.0) | — (anchor ≤100k) | **163ms** | 10.0s (×62) | 25.3s (×155) | — (anchor ≤100k) |
+| 1,000,000 modules | 2.36s (×7.3) | — (anchor ≤100k) | **324ms** | 22.6s (×70) | 53.7s (×166) | — (anchor ≤100k) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json), [`bench/lsp-scale-bench.json`](bench/lsp-scale-bench.json). Squiggle: the asserted didChange → TS2322 → clear transition on a live server. Flow server: a force-recheck + status round-trip. CLI: a relaunch on warm incremental state. Released Flow 0.321's server wedges under overlapping edits at this scale (facebook/flow#9454, last section).
+
+**Completion: different result sets, reported with counts**
+
+|  | tsgo --lsp | tsserver |
+| --- | ---: | ---: |
+| 10k modules | 370ms (×22) | **17ms** |
+| 100k modules | 51.3s (×2,564) | **20ms** |
+| 250k modules | ≥2m (timed out) | — (anchor ≤100k) |
+| 500k modules | ≥2m (timed out) | — (anchor ≤100k) |
+| 1,000,000 modules | ≥2m (timed out) | — (anchor ≤100k) |
+
+[`bench/lsp-scale-bench.json`](bench/lsp-scale-bench.json). Not like-for-like: tsgo returns the full exported-symbol space (31,058 items at 10k, 301,058 at 100k); tsserver returns a bounded 1,067-entry set. The × prices the response a user waits for. From 250k up tsgo exceeds its 120s request ceiling; tsserver stops at the 100k anchor.
+
+**Flow's wedge under edit pressure: released 0.321.0 vs flow main**
+
+|  | flow main @ cdb4f637 | released 0.321.0 |
+| --- | ---: | ---: |
+| recheck round-trip (storm, median) | **520ms** | 3.30s (×6.3) |
+| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged (at cycle 13) |
+
+[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
+
+</details>
+<!-- /chart-data:checker-scale -->
+
 The corpus is **fixed-depth**: 100 layers, each importing ≤3 from the layer below, so width grows to 1M while depth stays constant (real-monorepo geometry). Six rows per checker (cold, full, incrNoChange, incrOneEdit, two red paths), gated on a red seed + exact `--listFiles`/`flow ls` count.
 
 ### Full Check, Median Wall Time

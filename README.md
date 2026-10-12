@@ -138,11 +138,155 @@ Fastest install depends on what is cached and on workspace size; tsgo runs ~8.8�
 
 > High-resolution PNG of the chart above: [`bench/charts/tool-comparison.png`](bench/charts/tool-comparison.png).
 
+<!-- chart-data:tool-comparison -->
+<details>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+Each cell: the measured time, then its multiple of the fastest in its row (in pnpm 12 install situations: the cheapest in its column). 64-core host (lint: 192-core).
+
+**Install the workspace: bun, pnpm 12, yarn 4**
+
+|  | bun | pnpm 12 isolated | pnpm 12 hoisted | yarn 4 node-modules | yarn 4 PnP (zip cache + .pnp.cjs) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold · 200 apps (2,649 dep edges) | **0.28s**<br>15.4k nm entries | 0.43s (×1.6)<br>15.7k nm entries | 0.46s (×1.7)<br>12.6k nm entries | 3.2s (×11)<br>11.2k nm entries | 1.7s (×6.0)<br>64 entries + 0.8 MB |
+| Cold · 1,000 apps (11,898 dep edges) | 2.9s (×3.1)<br>30.0k nm entries | 2.1s (×2.2)<br>31.1k nm entries | **0.96s**<br>17.8k nm entries | 4.3s (×4.4)<br>12.1k nm entries | 2.3s (×2.4)<br>64 entries + 2.0 MB |
+| Cold · 2,000 apps (23,350 dep edges) | 8.6s (×3.4)<br>47.9k nm entries | 6.8s (×2.7)<br>50.2k nm entries | **2.5s**<br>24.2k nm entries | 5.6s (×2.2)<br>13.2k nm entries | 3.2s (×1.3)<br>64 entries + 3.5 MB |
+| Warm · 200 apps (2,649 dep edges) | 0.27s (×1.1)<br>15.4k nm entries | **0.25s**<br>15.7k nm entries | 0.26s (+3%)<br>12.6k nm entries | 2.8s (×11)<br>11.2k nm entries | 1.4s (×5.5)<br>64 entries + 0.8 MB |
+| Warm · 1,000 apps (11,898 dep edges) | 2.8s (×4.8)<br>30.0k nm entries | 2.5s (×4.3)<br>31.1k nm entries | **0.59s**<br>17.8k nm entries | 3.9s (×6.7)<br>12.1k nm entries | 2.1s (×3.6)<br>64 entries + 2.0 MB |
+| Warm · 2,000 apps (23,350 dep edges) | 8.8s (×8.3)<br>47.9k nm entries | 7.3s (×6.8)<br>50.2k nm entries | **1.1s**<br>24.2k nm entries | 5.4s (×5.0)<br>13.2k nm entries | 2.9s (×2.7)<br>64 entries + 3.5 MB |
+| Cold store, no lockfile · 200 apps (fresh store and metadata, network) | **1.3s** | — (not measured) | 2.2s (×1.7) | 9.2s (×6.9) | 7.8s (×5.8) |
+
+[`bench/install-bench.json`](bench/install-bench.json). Under each row label: the dependency edges resolved and verified after the install. Under each time: what the linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store, no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1.
+
+**CI-runner install: frozen, from the committed lockfile (1,000 apps)**
+
+|  | bun | pnpm 12 | yarn 4 node-modules | yarn 4 PnP (zip cache + .pnp.cjs) | npm 10 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Fresh runner (empty caches, network) | **0.93s** | 1.0s (×1.1) | 6.5s (×7.0) | 4.5s (×4.9) | 10.4s (×11) |
+| Cache restored | **0.42s** | 0.50s (×1.2) | 4.2s (×9.9) | 2.2s (×5.3) | 9.7s (×23) |
+
+[`bench/container-install-bench.json`](bench/container-install-bench.json). Frozen install (--frozen-lockfile, --immutable, npm ci), median of 5 rotated samples, each in a fresh podman container. Same workspace shape as the 1,000-app install rows above (11,898 dep edges). All five fail closed on lockfile drift. pnpm uses its default isolated linker. pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1 · npm 10.9.8, node 22.23.1 image.
+
+**pnpm 12 (Rust) vs pnpm 10 (JS): 1,000 apps / 200 libs**
+
+|  | pnpm 12 (Rust · 12.8.1) | tip of main (Rust · 12.8.2) | pnpm 10 (JS · 10.29.1) |
+| --- | ---: | ---: | ---: |
+| cold resolve (no lockfile, warm store) | 0.93s (+1%) | **0.92s** | 307s (×336) |
+| warm (lockfile + store, node_modules wiped) | 0.52s (+0.2%) | **0.52s** | 5.1s (×9.7) |
+| frozen (--frozen-lockfile, the CI row) | **0.49s** | 0.49s (+0.2%) | 4.9s (×10) |
+| truly cold (fresh store + network; frozen) | **1.1s** | 1.1s (+0.4%) | 7.0s (×6.5) |
+
+[`bench/pnpm12-bench.json`](bench/pnpm12-bench.json). Separate dataset: one workspace per leg, every leg locks the identical package set (58 packages, 1,201 importers), leg order rotated per round. Median of 3; truly cold is one sample with the lockfile retained (store and network cost, no re-resolve). Not comparable to the install rows above.
+
+**Typecheck: tsgo vs tsc**
+
+|  | tsgo | tsc |
+| --- | ---: | ---: |
+| 3,000-module program | **0.26s** | 3.1s (×12) |
+| type-heavy 4,000:400 (3,200 lib modules) | **1.9s** | 16.9s (×8.8) |
+
+[`bench/typecheck-bench.json`](bench/typecheck-bench.json), [`bench/typecheck-parity-bench.json`](bench/typecheck-parity-bench.json). tsgo 7.0.2 · tsc 6.0.3 (both rows).
+
+**Production build: Vite vs Next**
+
+|  | Vite | Next |
+| --- | ---: | ---: |
+| 40 apps / 24 libs | **4.7s** | 15.1s (×3.2) |
+
+[`bench/build-bench.json`](bench/build-bench.json). Different feature sets: Next App Router vs a Vite SPA.
+
+**pnpm 12 install situations: pnpm 12.8.1, 1,000 apps, 41,227-line lockfile**
+
+|  | pnpm 12 |
+| --- | ---: |
+| frozen install (warm store) | 2.8s (×2.8) |
+| frozen install (cold store) | 2.8s (×2.8) |
+| add one dependency | **1.0s** |
+| catalog bump (shared dep) | 1.3s (×1.3) |
+| cold resolve (no lockfile) | 2.9s (×2.9) |
+
+[`bench/install-modes-bench.json`](bench/install-modes-bench.json). Compared down the column: each situation against the cheapest one.
+
+**Lint: oxlint vs ESLint (800 files)**
+
+|  | oxlint | ESLint |
+| --- | ---: | ---: |
+| syntactic (oxlint 598 · ESLint 530 rules) | **0.19s** | 9.6s (×51) |
+| syntactic, ESLint --cache | **0.19s** | 1.6s (×8.3) |
+| type-aware | **0.39s** | 3.6s (×9.2) |
+
+[`bench/lint-bench.json`](bench/lint-bench.json). ESLint runs a strict subset of oxlint's rules. oxlint runs multithreaded and ESLint runs single-process here (no --concurrency), so the ratio grows with cores (192 here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint 1.86.0 · ESLint 9.39.5.
+
+</details>
+<!-- /chart-data:tool-comparison -->
+
 The chart below uses the same heat-table style for a different question: how tsgo, tsc, and Flow behave as one TypeScript program grows to a million modules (full analysis in [TYPECHECKERS.md](TYPECHECKERS.md)):
 
 ![type checkers at scale: whole-program check, red vs green, the save loop by mechanic, completion, and the flow wedge A/B](bench/charts/checker-scale.svg)
 
 > High-resolution PNG of the chart above: [`bench/charts/checker-scale.png`](bench/charts/checker-scale.png). Regenerate with `make scale-chart`.
+
+<!-- chart-data:checker-scale -->
+<details>
+<summary>The numbers as tables (fastest in bold; readable on a phone)</summary>
+
+tsgo 7.0.2 · tsc 6.0.3 (64GB heap) · flow main @ cdb4f637 (wedge fixes in) · 64-core host. Each cell: the measured time, then its multiple of the row's fastest. The red-vs-green row compares a failing run with a passing one; it is not a ranking.
+
+**Whole-program check: tsgo, tsc, Flow**
+
+|  | tsgo | tsc | Flow |
+| --- | ---: | ---: | ---: |
+| 10k modules | **600ms** | 7.40s (×12) | 910ms (×1.5) |
+| 100k modules | **6.05s** | 65.0s (×11) | 9.57s (×1.6) |
+| 250k modules | **16.0s** | — (anchor ≤100k) | 23.2s (×1.4) |
+| 500k modules | **33.4s** | — (anchor ≤100k) | 45.7s (×1.4) |
+| 1,000,000 modules | **70.7s** | — (anchor ≤100k) | 92.5s (×1.3) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Warm full check, no incremental state. tsc stops at the 100k anchor: a cost cutoff, not a capacity limit. Flow is a build of flow main with the wedge fixes (provenance in the JSON); released 0.321's server crashes at this scale (last section).
+
+**A failing check costs what a passing one costs**
+
+|  | tsgo (1M modules) | tsc (100k modules) | Flow (1M modules) |
+| --- | ---: | ---: | ---: |
+| red check vs green check | -0.5% (70.3s vs 70.7s) | +0.8% (65.5s vs 65.0s) | +1.0% (93.5s vs 92.5s) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json). Each cell: the red run against the green run, at the checker's largest measured scale. The red run seeds 3 errors in zero-dependent leaf modules and must exit nonzero reporting exactly those errors.
+
+**One edit to a verdict: the save loop, by mechanic**
+
+|  | tsgo --lsp squiggle | tsserver squiggle | flow server edit | tsgo --watch | tsgo CLI incremental | tsc CLI incremental |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 10k modules | **18ms** | 85ms (×4.7) | 19ms (×1.1) | 200ms (×11) | 430ms (×24) | 3.05s (×169) |
+| 100k modules | 208ms (×3.9) | 938ms (×18) | **53ms** | 1.69s (×32) | 4.10s (×77) | 23.4s (×441) |
+| 250k modules | 416ms (×4.6) | — (anchor ≤100k) | **90ms** | 4.73s (×53) | 12.0s (×133) | — (anchor ≤100k) |
+| 500k modules | 977ms (×6.0) | — (anchor ≤100k) | **163ms** | 10.0s (×62) | 25.3s (×155) | — (anchor ≤100k) |
+| 1,000,000 modules | 2.36s (×7.3) | — (anchor ≤100k) | **324ms** | 22.6s (×70) | 53.7s (×166) | — (anchor ≤100k) |
+
+[`bench/tsgo-scale-bench.json`](bench/tsgo-scale-bench.json), [`bench/lsp-scale-bench.json`](bench/lsp-scale-bench.json). Squiggle: the asserted didChange → TS2322 → clear transition on a live server. Flow server: a force-recheck + status round-trip. CLI: a relaunch on warm incremental state. Released Flow 0.321's server wedges under overlapping edits at this scale (facebook/flow#9454, last section).
+
+**Completion: different result sets, reported with counts**
+
+|  | tsgo --lsp | tsserver |
+| --- | ---: | ---: |
+| 10k modules | 370ms (×22) | **17ms** |
+| 100k modules | 51.3s (×2,564) | **20ms** |
+| 250k modules | ≥2m (timed out) | — (anchor ≤100k) |
+| 500k modules | ≥2m (timed out) | — (anchor ≤100k) |
+| 1,000,000 modules | ≥2m (timed out) | — (anchor ≤100k) |
+
+[`bench/lsp-scale-bench.json`](bench/lsp-scale-bench.json). Not like-for-like: tsgo returns the full exported-symbol space (31,058 items at 10k, 301,058 at 100k); tsserver returns a bounded 1,067-entry set. The × prices the response a user waits for. From 250k up tsgo exceeds its 120s request ceiling; tsserver stops at the 100k anchor.
+
+**Flow's wedge under edit pressure: released 0.321.0 vs flow main**
+
+|  | flow main @ cdb4f637 | released 0.321.0 |
+| --- | ---: | ---: |
+| recheck round-trip (storm, median) | **520ms** | 3.30s (×6.3) |
+| overlapping-edit storm, 20 cycles | 20/20 clean (no panic) | wedged (at cycle 13) |
+
+[`bench/flow-wedge-retest.json`](bench/flow-wedge-retest.json). Storm: a second edit lands 120–480ms into an in-flight recheck, the trigger behind all three recorded wedges. 500k corpus. Released 0.321 wedges with a WorkerCanceled panic. Settled sequential edits never trigger it on either binary. Fix verified on flow main (facebook/flow#9454).
+
+</details>
+<!-- /chart-data:checker-scale -->
 
 - **Install cost.** pnpm 12.8.1 (the Rust CLI) cold-installs the workspace in seconds — 0.43s → 6.8s isolated / 0.46s → 2.5s hoisted (200 → 2,000 apps) — because **the Rust rewrite removed the JS cold-resolve wall**: 331× faster cold resolve at 1,000:200 (307.4s → 0.93s), ~10× warm/frozen, same core `lockfileVersion: '9.0'` (a pnpm-10-authored lockfile installs frozen under 12, bytes unchanged), with one hardened fail-closed default measured (a blocked build script fails the install) and a second, time-dependent one the bench disables rather than probes (the supply-chain minimum-release-age gate) ([TOOLING.md](TOOLING.md#pnpm-12-the-rust-rewrite), `bench/pnpm12-bench.json`). The bun-vs-pnpm cold order depends on scale: bun ~1.6× faster at 200 apps (and ~1.7× truly-cold, 1.3s vs 2.2s), **pnpm-hoisted 3.1–3.4× faster than bun at the measured 1,000- and 2,000-app points** (pnpm-isolated is also ahead of bun at both, 1.3–1.4×; bun's cold is the slowest of the five configurations at 2,000); pnpm-hoisted is the fastest cold at both (0.96s, 2.5s), with pnpm-isolated second at 1,000 (2.1s) and yarn-PnP second at 2,000 (3.2s). A frozen install at 1,000 apps is 2.8s, 3% under a full re-resolve (2.9s; `bench/install-modes-bench.json`). Those are the 64-core install-family records ([the dedicated box](#the-64-core-machine)), to 2,000 apps. The 192-core scaling sweep (`bench/results.json`, a separate record: the catalog workspace, no lockfile, warm store) installs in 0.6s → 3.9s from 200 to 5,000 apps, then 31.3s at 10,000 and 74.9s at 20,000. ([FEASIBILITY.md](FEASIBILITY.md), [TOOLING.md](TOOLING.md))
 - **CI-runner install (frozen, containers).** Five-way at 1,000 apps (pnpm 12.8.1 on its default isolated linker): **bun 0.93s and pnpm 1.03s fresh, 0.42s and 0.50s cache-restored — pnpm +11% / +19%**, yarn-PnP 4.5s/2.2s, yarn-nm 6.5s/4.2s, npm 10.4s/9.7s. All fail closed on lockfile drift. ([TOOLING.md](TOOLING.md))

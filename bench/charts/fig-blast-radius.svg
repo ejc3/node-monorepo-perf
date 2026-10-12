@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="660" height="414" viewBox="0 0 660 414" role="img" aria-label="Fleet blast radius: a breaking rev of the foundation lib turns all 30,000 apps red with the verdict in 58.9s (batch) or 10.3s (sliced), while a leaf-lib edit re-runs 100 of 30,708 tasks." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="414" viewBox="0 0 660 414" role="img" aria-label="Fleet blast radius: a breaking rev of the foundation lib turns all 30,000 apps red with the verdict in 58.9s (batch) or 10.3s (sliced), while a leaf-lib edit re-runs 100 of 30,708 tasks." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" style="font-variant-numeric:tabular-nums">
 <style>@media (prefers-color-scheme: dark){
 rect[fill="#ffffff"]{fill:#0d1117}
 text[fill="#1c2330"]{fill:#e2e7ec}
@@ -14,6 +14,9 @@ rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
 rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
 rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
 rect[fill="#e4b9a6"]{fill:#7a4630}
+text[fill="#146b3a"]{fill:#5cc48c}
+text[fill="#46505b"]{fill:#aab4be}
+text[fill="#8f2a23"]{fill:#f0847b}
 }</style>
 <rect width="660" height="414" fill="#ffffff"/>
 <text x="16" y="22" font-size="13" fill="#1c2330" font-weight="600">breaking foundation rev</text>

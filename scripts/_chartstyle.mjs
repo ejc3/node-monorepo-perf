@@ -5,13 +5,14 @@
 // charts read as one system. Imported by figures.mjs, comparison-chart.mjs,
 // scale-chart.mjs, net-cache-chart.mjs, fleet-chart.mjs, chart.mjs.
 //
-// Deterministic by construction: no Date, no environment reads — every export
-// is a pure constant or a pure function of its arguments (emitChart's PNG
-// raster is the one side effect, per the repo's SVG+PNG-in-one-step contract).
+// Deterministic by construction: no Date, no environment reads. Every export is a
+// pure constant or a pure function of its arguments, except the two writers:
+// emitChart (SVG + its PNG raster in one step) and writeDocBlock (the chart's
+// markdown text alternative in the doc that embeds it).
 // Also home to assertComparable, the guard every two-record figure calls before
 // it draws the records as one contrast.
 
-import { writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -70,6 +71,9 @@ rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
 rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
 rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
 rect[fill="#e4b9a6"]{fill:#7a4630}
+text[fill="#146b3a"]{fill:#5cc48c}
+text[fill="#46505b"]{fill:#aab4be}
+text[fill="#8f2a23"]{fill:#f0847b}
 }</style>`;
 
 export const esc = (s) =>
@@ -81,7 +85,7 @@ export const esc = (s) =>
 // transparent SVG with dark text is unreadable on GitHub dark.
 export const svgDoc = (w, h, aria, body) =>
   [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(aria)}" font-family="${FONT}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(aria)}" font-family="${FONT}" style="font-variant-numeric:tabular-nums">`,
     DARK_STYLE,
     `<rect width="${w}" height="${h}" fill="${BG}"/>`,
     ...body,
@@ -150,17 +154,11 @@ export const footer = (w, y, sources, pad = 16) => [
   txt(pad, y, `data: ${sources}`, { size: 10, fill: MUTED }),
 ];
 
-// rounded tinted section frame (heat charts and infographics group each
-// comparison inside one)
-export const sectionFrame = (x, y, w, h, tint = "blue") =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${TINT[tint][0]}" stroke="${TINT[tint][1]}" stroke-width="1.2"/>`;
-
 // --- the heat ramp ---------------------------------------------------------------
 // Anchored at MULTIPLES of the row's fastest and interpolated in log-multiple
 // space, so ×12 is the same color in every chart. Green is deliberately narrow:
 // by ×2 a cell is full amber, then it ramps through orange to red (clamped at
-// ×100). Anchors are this palette's saturated green/amber/rust/red, mid-toned so
-// the per-cell ink (inkFor) clears readable contrast on both themes.
+// ×100). Cells draw the ramp as a light rgba() tint plus a full-strength stripe.
 export const RAMP = [
   [1, [31, 138, 77]], // fastest — green
   [2, [209, 163, 43]], // ×2 slower — amber (clearly off green)
@@ -183,20 +181,6 @@ export const rampRGB = (mult) => {
   return RAMP[RAMP.length - 1][1];
 };
 export const rgbCss = ([r, g, b]) => `rgb(${r},${g},${b})`;
-const relLum = ([r, g, b]) => {
-  const lin = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-};
-const contrast = (l1, l2) => (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-const DARK_INK = [10, 13, 18];
-const DARK_INK_L = relLum(DARK_INK);
-// Pick whichever ink contrasts MORE with the cell fill, so a cell never gets the
-// worse-legibility color; the fill is constant across themes, so the choice
-// holds on light and dark alike.
-export const inkFor = (rgb) => {
-  const L = relLum(rgb);
-  return contrast(L, DARK_INK_L) >= contrast(L, 1) ? "#0a0d12" : "#ffffff";
-};
 export const fmtMult = (m) => "×" + (m < 10 ? m.toFixed(1) : Math.round(m).toLocaleString("en-US"));
 // The near-tie rule every heat chart shares: a cell within 5% of the row's fastest
 // (inclusive) keeps its time as the headline with the +N% as the sub-line. One
@@ -211,100 +195,386 @@ export const nearTiePct = (mult) => {
   return `+${p.toFixed(p < 1 ? 1 : 0)}% vs fastest`;
 };
 
-// the ramp legend band every heat chart shows (extra chart-specific states are
-// appended by the caller)
-export const rampLegendItems = () => [
-  { c: rgbCss(rampRGB(1)), t: "fastest" },
-  { c: rgbCss(rampRGB(2)), t: "×2 slower" },
-  { c: rgbCss(rampRGB(10)), t: "×10" },
-  { c: rgbCss(rampRGB(100)), t: "×100+" },
-  { c: GRID, t: "— not measured" },
-];
-export const legendRow = (x, y, items) => {
-  const parts = [];
-  let lx = x;
-  for (const it of items) {
-    parts.push(`<rect x="${lx}" y="${y - 10}" width="14" height="14" rx="4" fill="${it.c}"/>`);
-    lx += 19;
-    parts.push(txt(lx, y + 1, it.t, { size: 11, fill: MUTED }));
-    lx += approxW(it.t, 11) + 16;
-  }
-  return { parts, endX: lx };
+// --- type scale ----------------------------------------------------------------------
+// One scale for every heat chart (px in SVG user units). Charts are drawn at a width
+// that GitHub shows at roughly 1:1 on a desktop column (≤ 920), so these are the
+// sizes a reader sees. MIN_TEXT is the floor: text that does not fit its space at
+// the floor fails the generator instead of shrinking into illegibility.
+export const TYPE = {
+  title: 17, // chart title
+  lede: 12, // the line(s) under the title
+  section: 13.5, // section heading in a stacked chart
+  head: 11.5, // column header
+  label: 11.5, // row label / box label
+  value: 13, // a cell's headline number
+  sub: 10.5, // a cell's second line
+  note: 10, // per-section note, legend, axis
+};
+export const MIN_TEXT = 9;
+
+// text colours for verdicts and for secondary text ON a tinted cell. Each clears
+// WCAG AA (4.5:1) on the strongest light tint; the dark block recolours them.
+export const GOOD = "#146b3a";
+export const BAD = "#8f2a23";
+export const CELL_INK2 = "#46505b";
+
+// the size at which `s` fits `maxW` px: `size` if it fits, else smaller down to
+// MIN_TEXT; below that the caller's text is too long for its space and this throws
+export const fitSize = (s, maxW, size, bold = false) => {
+  const need = approxW(String(s), size, bold);
+  if (need <= maxW) return size;
+  const fit = Math.floor(((size * maxW) / need) * 10) / 10;
+  if (fit < MIN_TEXT)
+    throw new Error(
+      `chart text "${s}" needs ${Math.round(approxW(String(s), MIN_TEXT, bold))}px at the ${MIN_TEXT}px floor but has ${Math.round(maxW)}px — shorten it or widen its space`,
+    );
+  return fit;
 };
 
-// --- heat-table pieces -------------------------------------------------------------
-// One cell: a rounded block (2px surface gap to its neighbors) with centered
-// headline/sub/(detail) lines in the ink picked against its fill.
-export const heatCell = (x, y, w, h, fill, ink, main, sub, detail) => {
-  const cx = x + w / 2;
+// --- heat-table pieces (v2) ----------------------------------------------------------
+// A cell is a quiet tint, not a saturated button: the ramp colour as an rgba() fill
+// (ImageMagick's internal SVG renderer, what `convert` uses here and in CI, ignores
+// fill-opacity and opacity but honours rgba), so the same fill reads as a light tint
+// on white and a dark tint on GitHub dark, and the text is plain ink. The tint gets
+// stronger with the multiple (×1 → ×100) so the ranking separates by fill as well as
+// by the 3px full-strength stripe at the cell's left edge. The headline is the
+// measured value; the second line is its standing (fastest / +N% / ×N).
+export const tintAlpha = (mult) =>
+  +(0.16 + 0.2 * Math.min(1, Math.max(0, Math.log10(mult) / 2))).toFixed(3);
+export const tintCss = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`;
+const NEUTRAL = [107, 120, 133]; // a non-ranking cell (e.g. a red-vs-green delta)
+const CELL_GAP = 2;
+export const heatCell = (x, y, w, h, { rgb, alpha, main, sub, subFill, detail }) => {
+  const ix = x + CELL_GAP / 2;
+  const iy = y + CELL_GAP / 2;
+  const iw = w - CELL_GAP;
+  const ih = h - CELL_GAP;
+  const cx = x + 1.5 + w / 2; // centred on the area right of the stripe
   const cy = y + h / 2;
-  // auto-fit: a long headline shrinks instead of running past the cell edge
-  const mainSize = Math.min(15.5, +((w - 14) / (String(main).length * 0.58)).toFixed(1));
+  const room = iw - 14;
   const parts = [
-    `<rect x="${x + 1.5}" y="${y + 1.5}" width="${w - 3}" height="${h - 3}" rx="5" fill="${fill}"/>`,
-    txt(cx, cy + (detail ? -7 : -3), main, {
-      size: mainSize,
-      fill: ink,
-      weight: "700",
+    `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="3" fill="${tintCss(rgb, alpha)}"/>`,
+    `<rect x="${ix}" y="${iy}" width="3" height="${ih}" rx="1.5" fill="${rgbCss(rgb)}"/>`,
+    txt(cx, cy + (detail ? -6 : sub ? -1 : 4.5), main, {
+      size: fitSize(main, room, TYPE.value, true),
+      weight: "650",
       anchor: "middle",
     }),
   ];
   if (sub)
     parts.push(
-      txt(cx, cy + (detail ? 8 : 15), sub, {
-        size: 11.5,
-        fill: ink,
-        weight: "600",
+      txt(cx, cy + (detail ? 8 : 13), sub, {
+        size: fitSize(sub, room, TYPE.sub, Boolean(subFill)),
+        fill: subFill || CELL_INK2,
+        weight: subFill ? "600" : "",
         anchor: "middle",
       }),
     );
   if (detail)
     parts.push(
-      `<text x="${cx}" y="${cy + 20}" font-size="9.5" fill="${ink}" opacity="0.85" text-anchor="middle">${esc(detail)}</text>`,
+      txt(cx, cy + 20, detail, {
+        size: fitSize(detail, room, MIN_TEXT),
+        fill: CELL_INK2,
+        anchor: "middle",
+      }),
     );
   return parts;
 };
+// a measured cell's standing against the row's best: one definition, used by the SVG
+// cell and its markdown twin alike
+export const standingText = (mult) =>
+  isFastest(mult)
+    ? "fastest"
+    : isNearTie(mult)
+      ? nearTiePct(mult).replace(" vs fastest", "")
+      : fmtMult(mult);
+// a measured cell: value headline + standing sub-line from its multiple of the best
+export const rankedCell = (x, y, w, h, mult, valueText, { detail } = {}) => {
+  const tie = isFastest(mult) || isNearTie(mult);
+  return heatCell(x, y, w, h, {
+    rgb: rampRGB(tie ? 1 : mult),
+    alpha: tintAlpha(tie ? 1 : mult),
+    main: valueText,
+    sub: standingText(mult),
+    subFill: isFastest(mult) ? GOOD : undefined,
+    detail,
+  });
+};
+// a status cell (crash, wedge, timeout): words, never a number posing as one
+const STATUS_RGB = RAMP[RAMP.length - 1][1];
+export const statusCell = (x, y, w, h, main, sub) =>
+  heatCell(x, y, w, h, { rgb: STATUS_RGB, alpha: tintAlpha(100), main, sub, subFill: BAD });
 // "—" cell for an intentionally-unmeasured value (never a failure disguised)
 export const naCell = (x, y, w, h, why) => {
   const cx = x + w / 2;
   const cy = y + h / 2;
   const parts = [
-    `<rect x="${x + 1.5}" y="${y + 1.5}" width="${w - 3}" height="${h - 3}" rx="5" fill="${GRID}"/>`,
-    txt(cx, cy + (why ? -2 : 5), "—", { size: 15, fill: MUTED, anchor: "middle" }),
+    `<rect x="${x + CELL_GAP / 2}" y="${y + CELL_GAP / 2}" width="${w - CELL_GAP}" height="${h - CELL_GAP}" rx="3" fill="none" stroke="${GRID}"/>`,
+    txt(cx, cy + (why ? -1 : 4.5), "—", { size: TYPE.value, fill: MUTED, anchor: "middle" }),
   ];
-  if (why) parts.push(txt(cx, cy + 15, why, { size: 9.5, fill: MUTED, anchor: "middle" }));
-  return parts;
-};
-// column header on the section frame: centered label lines, optional sub line,
-// and the tool-identity chip (the stable TOOL_COLORS hue) as an underline
-export const colHeader = (x, y, w, h, label, { sub, chip } = {}) => {
-  const parts = [];
-  const lines = String(label).split("\n");
-  const block = lines.length * 14 + (sub ? 11 : 0); // text block height
-  const ly = y + Math.max(14, (h - 10 - block) / 2 + 11); // centered above the chip strip
-  lines.forEach((ln, k) =>
-    parts.push(txt(x + w / 2, ly + k * 14, ln, { size: 12.5, weight: "700", anchor: "middle" })),
-  );
-  if (sub)
+  if (why)
     parts.push(
-      txt(x + w / 2, ly + (lines.length - 1) * 14 + 12, sub, {
-        size: 9,
+      txt(cx, cy + 13, why, {
+        size: fitSize(why, w - 14, TYPE.note),
         fill: MUTED,
         anchor: "middle",
       }),
     );
-  if (chip) {
-    if (!TOOL_COLORS[chip]) throw new Error(`no stable tool color for "${chip}"`);
-    parts.push(
-      `<rect x="${x + w / 2 - 14}" y="${y + h - 7}" width="28" height="4" rx="2" fill="${TOOL_COLORS[chip]}"/>`,
-    );
-  }
   return parts;
 };
+// column headers: every header in a section sits in one band whose height fits the
+// tallest header, bottom-aligned, so names, sub-lines and the tool chips line up
+// across the row. The tool's stable hue is a short rule under the name (identity
+// without width estimates: a dot beside a centred name cannot be placed exactly).
+const HEAD_LH = 13.5;
+const headerBlock = ({ label, sub }) => String(label).split("\n").length * HEAD_LH + (sub ? 12 : 0);
+export const headerBand = (cols) => Math.max(...cols.map(headerBlock)) + 14;
+export const colHeader = (x, y, w, band, { label, sub, chip }) => {
+  if (chip && !TOOL_COLORS[chip]) throw new Error(`no stable tool color for "${chip}"`);
+  const parts = [];
+  const lines = String(label).split("\n");
+  const cx = x + 1.5 + w / 2;
+  const bottom = y + band - 8; // the chip's baseline
+  let ly = bottom - 6 - (sub ? 12 : 0) - (lines.length - 1) * HEAD_LH;
+  for (const ln of lines) {
+    parts.push(
+      txt(cx, ly, ln, {
+        size: fitSize(ln, w - 8, TYPE.head, true),
+        weight: "650",
+        anchor: "middle",
+      }),
+    );
+    ly += HEAD_LH;
+  }
+  if (sub)
+    parts.push(
+      txt(cx, ly - 1.5, sub, {
+        size: fitSize(sub, w - 8, MIN_TEXT),
+        fill: MUTED,
+        anchor: "middle",
+      }),
+    );
+  if (chip)
+    parts.push(
+      `<rect x="${cx - 9}" y="${bottom}" width="18" height="2.5" rx="1.25" fill="${TOOL_COLORS[chip]}"/>`,
+    );
+  return parts;
+};
+// section heading for a stacked chart: title, then a hairline. Returns the parts and
+// the y where the section body starts.
+export const sectionHead = (x, y, w, title) => {
+  const by = y + 9;
+  return {
+    parts: [
+      txt(x, y, title, { size: fitSize(title, w, TYPE.section, true), weight: "650" }),
+      `<line x1="${x}" y1="${by}" x2="${x + w}" y2="${by}" stroke="${GRID}"/>`,
+    ],
+    bodyY: by,
+  };
+};
+// the key: the ramp anchors as cells in miniature, then the text-only states
+export const rampLegend = (x, y, extra = []) => {
+  const items = [
+    { rgb: rampRGB(1), a: tintAlpha(1), t: "fastest" },
+    { rgb: rampRGB(2), a: tintAlpha(2), t: "×2" },
+    { rgb: rampRGB(10), a: tintAlpha(10), t: "×10" },
+    { rgb: rampRGB(100), a: tintAlpha(100), t: "×100+ slower" },
+    ...extra,
+  ];
+  const parts = [];
+  let lx = x;
+  for (const it of items) {
+    if (it.rgb) {
+      parts.push(
+        `<rect x="${lx}" y="${y - 9}" width="20" height="12" rx="2" fill="${tintCss(it.rgb, it.a)}"/>`,
+        `<rect x="${lx}" y="${y - 9}" width="3" height="12" rx="1.5" fill="${rgbCss(it.rgb)}"/>`,
+      );
+      lx += 25;
+    }
+    parts.push(txt(lx, y + 1, it.t, { size: TYPE.note, fill: MUTED }));
+    lx += approxW(it.t, TYPE.note) + 16;
+  }
+  return { parts, endX: lx };
+};
+
+// --- the stacked heat chart -------------------------------------------------------------
+// One renderer for every heat table (tool comparison, checker scale, cache network):
+// title + lede + key, then per section a heading, column headers, rows of cell
+// descriptors, the source links and the note. Returns the SVG and its markdown twin
+// (the mobile text alternative), both from the same descriptors, so they cannot
+// disagree. A cell descriptor is one of
+//   { kind: "ranked", text, mult, detail? }  measured; standing from its multiple
+//   { kind: "na", why }                        intentionally not measured
+//   { kind: "status", main, sub }              crash / wedge / timeout: words, no number
+//   { kind: "delta", main, sub }               a non-ranking comparison (neutral tint)
+//   { kind: "ok", main, sub }                  a passing status (fastest tint, sub in green)
+const cellParts = (x, y, w, h, c) => {
+  if (c.kind === "ranked") return rankedCell(x, y, w, h, c.mult, c.text, { detail: c.detail });
+  if (c.kind === "na") return naCell(x, y, w, h, c.why);
+  if (c.kind === "status") return statusCell(x, y, w, h, c.main, c.sub);
+  if (c.kind === "delta")
+    return heatCell(x, y, w, h, { rgb: NEUTRAL, alpha: 0.12, main: c.main, sub: c.sub });
+  if (c.kind === "ok")
+    return heatCell(x, y, w, h, {
+      rgb: rampRGB(1),
+      alpha: tintAlpha(1),
+      main: c.main,
+      sub: c.sub,
+      subFill: GOOD,
+    });
+  throw new Error(`unknown heat cell kind ${c.kind}`);
+};
+const cellMd = (c) => {
+  if (c.kind === "ranked")
+    return (
+      (isFastest(c.mult) ? `**${c.text}**` : `${c.text} (${standingText(c.mult)})`) +
+      (c.detail ? `<br>${c.detail}` : "")
+    );
+  if (c.kind === "na") return `— (${c.why})`;
+  return c.sub ? `${c.main} (${c.sub})` : c.main;
+};
+export function heatChart({
+  title,
+  lede = [],
+  sections,
+  labelW = 232,
+  colW = 118,
+  aria,
+  statusKey,
+}) {
+  const PAD = 20;
+  const ROW_H = 42;
+  const ROW_H_TALL = 50;
+  const maxCols = Math.max(...sections.map((s) => s.cols.length));
+  const W = Math.ceil(
+    Math.max(PAD * 2 + labelW + colW * maxCols, PAD * 2 + approxW(title, TYPE.title, true)),
+  );
+  const innerW = W - PAD * 2;
+  const ledeLines = [].concat(lede);
+  const cells = sections.flatMap((s) => s.rows.flatMap((r) => r.cells));
+  const T = [];
+  let y = 32;
+  T.push(txt(PAD, y, title, { size: TYPE.title, weight: "650" }));
+  for (const ln of ledeLines.flatMap((l) => wrapPx(l, TYPE.lede, innerW))) {
+    y += 18;
+    T.push(txt(PAD, y, ln, { size: TYPE.lede, fill: MUTED }));
+  }
+  y += 24;
+  const extra = [];
+  if (cells.some((c) => c.kind === "ranked" && isNearTie(c.mult)))
+    extra.push({ t: "+N%  within 5% of fastest" });
+  if (cells.some((c) => c.kind === "status")) {
+    if (!statusKey)
+      throw new Error(`heat chart "${title}": status cells need a statusKey for the legend`);
+    extra.push({ rgb: STATUS_RGB, a: tintAlpha(100), t: statusKey });
+  }
+  if (cells.some((c) => c.kind === "na")) extra.push({ t: "—  not measured" });
+  T.push(...rampLegend(PAD, y, extra).parts);
+  y += 40;
+  const md = ledeLines.length ? [ledeLines.join(" ")] : [];
+  for (const sec of sections) {
+    for (const row of sec.rows)
+      if (row.cells.length !== sec.cols.length)
+        throw new Error(
+          `heat section "${sec.title}": row "${row.label}" has ${row.cells.length} cells for ${sec.cols.length} columns`,
+        );
+    const gridX = PAD + labelW;
+    let sy;
+    if (sec.title) {
+      const head = sectionHead(PAD, y, innerW, sec.title);
+      T.push(...head.parts);
+      sy = head.bodyY;
+    } else sy = y - 14;
+    const band = headerBand(sec.cols);
+    if (sec.rowHead)
+      T.push(txt(PAD, sy + band - 14, sec.rowHead, { size: TYPE.note, fill: MUTED }));
+    sec.cols.forEach((col, ci) => T.push(...colHeader(gridX + ci * colW, sy, colW, band, col)));
+    sy += band;
+    for (const row of sec.rows) {
+      const lines = wrapPx(row.label, TYPE.label, labelW - 14, Boolean(row.sub));
+      if (lines.length > 2)
+        throw new Error(
+          `heat row label "${row.label}" needs ${lines.length} lines in ${labelW - 14}px`,
+        );
+      const tall = row.sub || lines.length > 1 || row.cells.some((c) => c.detail);
+      const rh = tall ? ROW_H_TALL : ROW_H;
+      const textLines = [
+        ...lines.map((t) => ({ t, size: TYPE.label, fill: INK, weight: row.sub ? "600" : "" })),
+        ...(row.sub ? [{ t: row.sub, size: TYPE.note, fill: MUTED, weight: "" }] : []),
+      ];
+      let ty = sy + rh / 2 + 4 - ((textLines.length - 1) * 15) / 2;
+      for (const l of textLines) {
+        T.push(
+          txt(PAD, ty, l.t, {
+            size: fitSize(l.t, labelW - 14, l.size, Boolean(l.weight)),
+            fill: l.fill,
+            weight: l.weight,
+          }),
+        );
+        ty += 15;
+      }
+      row.cells.forEach((c, ci) => T.push(...cellParts(gridX + ci * colW, sy, colW, rh, c)));
+      sy += rh;
+    }
+    // provenance: the source(s) as links (relative href resolves from bench/charts/
+    // in GitHub's raw view), then the note
+    sy += 18;
+    const sources = sec.source.split(", ");
+    let sx = PAD;
+    T.push(txt(sx, sy, "source", { size: TYPE.note, fill: MUTED }));
+    sx += approxW("source", TYPE.note) + 8;
+    sources.forEach((p, i) => {
+      const shown = p.replace("bench/", "");
+      if (i) {
+        T.push(txt(sx, sy, "·", { size: TYPE.note, fill: MUTED }));
+        sx += 10;
+      }
+      T.push(
+        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${sy}" font-size="${TYPE.note}" fill="${ACCENT}">${esc(shown)}</text></a>`,
+      );
+      sx += approxW(shown, TYPE.note) + 8;
+    });
+    for (const ln of sec.note ? wrapPx(sec.note, TYPE.note, innerW) : []) {
+      sy += 14;
+      T.push(txt(PAD, sy, ln, { size: TYPE.note, fill: MUTED }));
+    }
+    y = sy + 44;
+    md.push(
+      [
+        sec.title ? `**${sec.title}**` : null,
+        mdTable(
+          [
+            sec.rowHead || "",
+            ...sec.cols.map((c) => c.label.replace("\n", " ") + (c.sub ? ` (${c.sub})` : "")),
+          ],
+          sec.rows.map((r) => [r.sub ? `${r.label} (${r.sub})` : r.label, ...r.cells.map(cellMd)]),
+        ),
+        `${sources.map((p) => `[\`${p}\`](${p})`).join(", ")}${sec.note ? `. ${sec.note}` : ""}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
+  }
+  return { svg: svgDoc(W, y - 18, aria, T), md: md.join("\n\n") };
+}
 
 // --- text measurement / wrapping --------------------------------------------------
 // Rough advance-width estimate (px) so canvases widen to fit prose, never clip.
 export const approxW = (str, px, bold = false) => str.length * px * (bold ? 0.58 : 0.53);
+// wrap to a pixel width with the same advance estimate the layout uses everywhere
+export const wrapPx = (s, px, maxW, bold = false) => {
+  const lines = [];
+  let line = "";
+  for (const word of String(s).split(" ")) {
+    const cand = line ? `${line} ${word}` : word;
+    if (line && approxW(cand, px, bold) > maxW) {
+      lines.push(line);
+      line = word;
+    } else line = cand;
+  }
+  if (line) lines.push(line);
+  return lines;
+};
 export const wrapText = (s, maxChars) => {
   const lines = [];
   let line = "";
@@ -396,4 +666,44 @@ export function emitChart(name, svg, { strict = false } = {}) {
     return;
   }
   console.log(`wrote ${pngPath} — 300 DPI raster of the SVG`);
+}
+
+// --- the mobile alternative: a generated markdown block in the doc --------------------
+// A chart scaled to a phone is unreadable, and GitHub's mobile views ignore width media
+// queries, so every chart also writes its numbers as markdown into the doc that embeds
+// it, between a pair of markers:
+//
+//   <!-- chart-data:<id> -->
+//   ...generated...
+//   <!-- /chart-data:<id> -->
+//
+// The block is a function of the same bench JSON as the SVG, so charts.yml byte-gates
+// it with the SVGs. A doc without the markers throws: a chart cannot silently lose
+// its text alternative.
+export const mdCell = (s) => String(s).replace(/\|/g, "\\|").replace(/\n/g, " ");
+export const mdTable = (head, rows, align) => {
+  const al = align || head.map((_, i) => (i === 0 ? "l" : "r"));
+  return [
+    `| ${head.map(mdCell).join(" | ")} |`,
+    `| ${al.map((a) => (a === "r" ? "---:" : a === "c" ? ":---:" : "---")).join(" | ")} |`,
+    ...rows.map((r) => `| ${r.map(mdCell).join(" | ")} |`),
+  ].join("\n");
+};
+// <details> wrapper so the block costs one line on desktop and opens on demand
+export const mdDetails = (summary, body) =>
+  `<details>\n<summary>${esc(summary)}</summary>\n\n${body}\n\n</details>`;
+export function writeDocBlock(docPath, id, markdown) {
+  const open = `<!-- chart-data:${id} -->`;
+  const close = `<!-- /chart-data:${id} -->`;
+  const doc = readFileSync(docPath, "utf8");
+  const a = doc.indexOf(open);
+  const b = doc.indexOf(close);
+  if (a < 0 || b < a)
+    throw new Error(
+      `${docPath}: missing the ${open} … ${close} markers for the chart's text alternative`,
+    );
+  if (doc.indexOf(open, a + 1) >= 0) throw new Error(`${docPath}: ${open} appears twice`);
+  const next = doc.slice(0, a + open.length) + "\n" + markdown + "\n" + doc.slice(b);
+  if (next !== doc) writeFileSync(docPath, next);
+  console.log(`wrote ${docPath} (${id} text alternative)`);
 }
