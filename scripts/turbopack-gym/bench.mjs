@@ -18,7 +18,7 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import {
   APPS,
@@ -194,11 +194,16 @@ onAbort(() => {
 
 // Everything a run needs before it starts (hashing a binding and the app takes time
 // that must not fall between the launches of an A/B's two builds).
-export function prepare({ binding = "base", app: appArg }) {
+// node: a node binary to build with instead of the one on PATH; its version and the
+// binary's hash are recorded.
+export function prepare({ binding = "base", app: appArg, node }) {
   const app = !appArg ? join(APPS, "monolith") : appArg.includes("/") ? appArg : join(APPS, appArg);
   const resolved = binding === "stock" ? null : resolveBinding(binding);
-  const buildNode = execFileSync("node", ["--version"], { encoding: "utf8" }).trim();
-  return { app, resolved, appHash: appTreeHash(app), buildNode };
+  const version = execFileSync(node || "node", ["--version"], { encoding: "utf8" }).trim();
+  const buildNode = node
+    ? `${version} (${createHash("sha256").update(readFileSync(node)).digest("hex").slice(0, 16)})`
+    : version;
+  return { app, resolved, appHash: appTreeHash(app), buildNode, node };
 }
 
 // prepared: prepare()'s result for this binding and app (an A/B prepares both sides
@@ -206,6 +211,7 @@ export function prepare({ binding = "base", app: appArg }) {
 // directory name (".next…", inside the app) that the caller owns, e.g. one holding a
 // restored persistent cache (drift.mjs); default a fresh one per run. optional: trace
 // events that may be absent (a build from a warm cache skips the spans of cached work).
+// node: a node binary to build with (prepare()); its directory also leads the build's PATH.
 export async function bench({
   binding = "base",
   prepared,
@@ -217,9 +223,11 @@ export async function bench({
   quiet = false,
   distDir: fixedDistDir,
   optional = [],
+  node: nodeArg,
 }) {
   checkAborted();
-  const { app, resolved, appHash, buildNode } = prepared || prepare({ binding, app: appArg });
+  const { app, resolved, appHash, buildNode, node } =
+    prepared || prepare({ binding, app: appArg, node: nodeArg });
   const id = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
   if (fixedDistDir !== undefined && !/^\.next[\w.+-]*$/.test(fixedDistDir))
     throw new Error(`distDir must be a .next… name inside the app (got ${fixedDistDir})`);
@@ -240,6 +248,7 @@ export async function bench({
   };
   const source = resolved ? resolved.source : { npm: "@next/swc (the installed next version)" };
   if (resolved) childEnv.NEXT_TEST_NATIVE_DIR = resolved.dir;
+  if (node) childEnv.PATH = `${dirname(node)}:${childEnv.PATH}`;
   const envArgs = Object.entries(childEnv).map(([k, v]) => `${k}=${v}`);
   const args = [
     "systemd-run",
@@ -255,7 +264,7 @@ export async function bench({
     "env",
     "-i",
     ...envArgs,
-    "node",
+    node || "node",
     "node_modules/next/dist/bin/next",
     "build",
     "--experimental-build-mode=compile",

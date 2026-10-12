@@ -1,0 +1,5 @@
+{
+  "description": "next (JS, not the native binding): the default page-data worker count (experimental.cpus) is os.availableParallelism() - 1, the CPUs the build process may run on, instead of os.cpus().length - 1, every CPU of the machine; a build limited to some CPUs (taskset, a cpuset cgroup) no longer forks a worker per machine CPU from the process holding Turbopack's heap. The same value where the process may use every CPU. Measured with scripts/turbopack-gym/next-ab.mjs, not as a binding",
+  "patch": "bench/turbopack-gym/candidates/62-available-parallelism.patch",
+  "base": "vercel/next.js v16.4.0"
+}

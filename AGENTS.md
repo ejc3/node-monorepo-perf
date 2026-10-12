@@ -621,6 +621,17 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     alternating; every run's stats file must equal the first and base's the build's own.
     Its record is read by `report.mjs` (`rs.*` keys). It needs a kept build output
     (`bench.mjs --keep`).
+  - `next-ab.mjs`: whole builds for a candidate outside the native binding. With `--patch`,
+    both sides load Next.js sources as of v16.4.0 (`bench/turbopack-gym/sources/`) in place
+    of the app's `next/dist` files, base as they are and the candidate with the patch,
+    through a preload (`next-overlay.cjs`, set in `NODE_OPTIONS`; each build counts the
+    processes that loaded a replacement). With `--candidate-node`, the candidate side builds
+    with another node binary (`bench.mjs --node`, which records the binary's version and
+    hash). Builds run one at a time on `--cpus`, sides rotating; `cold` builds start from an
+    empty dist directory, `warm` from the side's own seed (reflink copy). Every build of a
+    side must give one output fingerprint, and the candidate's must equal base's, or with
+    `--reference-env` the fingerprint of base given those variables (a candidate that
+    changes a config default, which is part of the output).
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
     or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets

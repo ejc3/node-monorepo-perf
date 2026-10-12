@@ -1,0 +1,19 @@
+diff --git a/packages/next/src/server/config-shared.ts b/packages/next/src/server/config-shared.ts
+index ff572dbf6c..9dca32d089 100644
+--- a/packages/next/src/server/config-shared.ts
++++ b/packages/next/src/server/config-shared.ts
+@@ -2419,10 +2419,12 @@ export const defaultConfig = Object.freeze({
+     proxyPrefetch: 'flexible',
+     optimisticClientCache: true,
+     manualClientBasePath: false,
++    // availableParallelism() counts the CPUs this process may run on, so a
++    // build limited to some of the machine's CPUs does not start a worker for
++    // every CPU of the machine.
+     cpus: Math.max(
+       1,
+-      (Number(process.env.CIRCLE_NODE_TOTAL) ||
+-        (os.cpus() || { length: 1 }).length) - 1
++      (Number(process.env.CIRCLE_NODE_TOTAL) || os.availableParallelism()) - 1
+     ),
+     memoryBasedWorkersCount: false,
+     imgOptConcurrency: null,
