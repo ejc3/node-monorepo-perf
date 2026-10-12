@@ -43,9 +43,9 @@ Claims verification runs whenever docs change.
 
 ## 5. Merge Gate
 
-Once the ruleset on `main` requires it, the `review-gate` status blocks a merge until every
-review finding is answered and Codex has reviewed the head; `make merge-pr` enforces the
-same check now:
+The ruleset on `main` requires the `review-gate` status, which blocks a merge until every
+review finding is answered and Codex has reviewed the head (or a `HEAD-REVIEW-OVERRIDE`
+states what was done instead); `make merge-pr` runs the same check:
 [AGENTS.md, "Merge Gate"](AGENTS.md#merge-gate).
 
 When Codex cannot review the head (out of quota), post a comment whose first line is

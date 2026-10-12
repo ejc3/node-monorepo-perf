@@ -1286,7 +1286,7 @@ The `.github/workflows/charts.yml` CI job re-renders every chart from the commit
 byte-gates the SVGs (deterministic) against drift; for the PNGs (whose bytes are ImageMagick-version
 dependent, so not byte-gated) it deletes the committed PNGs before re-rendering (a `convert` failure then
 leaves one absent and fails the validation step rather than passing a stale raster) and, on a push to
-`main`, commits the freshly-rendered PNGs back, so the committed rasters track the gated SVGs instead of
+`main`, commits the freshly-rendered PNGs back (staged on a side branch and marked `review-gate` success, which main requires of every commit), so the committed rasters track the gated SVGs instead of
 relying on a contributor to re-render them. Docs: [README.md](README.md) (overview +
 scaling table + dev-sim), [TOOLING.md](TOOLING.md)
 (install / build / lint comparisons, incl. the pnpm-12 Rust-rewrite head-to-head from `bench/pnpm12-bench.json`, ESLint-vs-oxlint from `bench/lint-bench.json`
@@ -1466,17 +1466,19 @@ Every commit goes through this loop before it lands, no exceptions, docs include
 ### Merge Gate
 
 No PR merges into `main` until every review finding on it is adjudicated and its head
-commit has been reviewed by Codex. Once the ruleset on `main` is configured (a settings
-change applied after this gate merges), it requires the commit status **`review-gate`** to
-be `success` on the PR head; until then `make merge-pr` is the enforcing path.
+commit has been reviewed by Codex. The ruleset on `main` ("main: review gate") requires the
+commit status **`review-gate`** to be `success` on every commit main takes: a PR head, or
+charts.yml's PNG commit-back, which CI marks itself. It has no bypass, admins included;
+disable it in the repository settings only if the gate itself breaks. `make merge-pr` is
+the merge path.
 `.github/workflows/review-gate.yml` posts it from
 `.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
 go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
 `GITHUB_REPOSITORY` default, and the bot-traffic rules below). The status is `failure`
 while the gate blocks and `error` when it cannot evaluate, or when a run ended without a
-verdict; both block the merge. The ruleset also turns on GitHub's own "require
-conversation resolution", which blocks an unresolved thread at once, without waiting for
-a re-run of the gate.
+verdict; both block the merge. The classic branch protection on `main` keeps GitHub's own
+"require conversation resolution" on, which blocks an unresolved thread at once, without
+waiting for a re-run of the gate.
 
 The gate blocks on:
 
