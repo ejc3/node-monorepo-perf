@@ -1,0 +1,5 @@
+{
+  "description": "next (JS, not the native binding): the build's route bundle stats step (writeRouteBundleStats, run on the main thread after run-turbopack) reads each app page's client reference manifest by parsing the one JSON value Turbopack assigns in it, instead of compiling and running the whole file with require(); require() stays the fallback for a manifest of any other shape. Measured with scripts/turbopack-gym/route-stats.mjs, not as a binding",
+  "patch": "bench/turbopack-gym/candidates/60-route-stats-json-manifest.patch",
+  "base": "vercel/next.js v16.4.0"
+}

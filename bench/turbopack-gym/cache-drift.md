@@ -404,6 +404,36 @@ worker time.
   three builds of each not overlapping at any N. A cold build creates the 3,789 roots and
   connects each to the finished emit graph; with 59 it does neither.
 
+## After `run-turbopack`: the route bundle stats step
+
+Whole-build profiles of 15 + 22 + 55 + 56 + 57 + 59 (warm, 1, 10 and 1,000 new imports, on
+a dedicated box; profiles, not records) put 13 to 15s on one core in Next.js's own
+JavaScript after `run-turbopack`. The largest part is `writeRouteBundleStats`
+(`packages/next/src/build/route-bundle-stats.ts`, the `write-route-bundle-stats` span),
+which every Turbopack build runs to write `diagnostics/route-bundle-stats.json`. For each
+app page it `require()`s the page's client reference manifest to read its `entryJSFiles`,
+and V8 parses and compiles each one as a script. On the monolith the manifests are
+<!--v:rs.c60.manifests-->2,073 files, 774.6 MB<!--/v-->. In each file one line assigns a JSON value,
+`globalThis.__RSC_MANIFEST[<key>] = <JSON>;`, which Turbopack writes with `serde_json`.
+
+- **60 `route-stats-json-manifest`** (JavaScript, not the binding): the step finds that
+  line and parses the key and the value with `JSON.parse`. A file with any other shape
+  (no such line, more than one, or a value that is not JSON) falls back to `require()`, as
+  before; the fallback now restores `globalThis.__RSC_MANIFEST` when the file throws.
+
+`scripts/turbopack-gym/route-stats.mjs` measures the step alone, on one build's output:
+Next.js's `route-bundle-stats.ts` as of v16.4.0 (`bench/turbopack-gym/sources/`, byte for
+byte) against the same file with the candidate's patch, both transpiled with the app's
+TypeScript, each run a fresh node process on one CPU, sides alternating. Every run's stats
+file must equal the first, and base's must equal the build's own. The selftest runs it on
+a kept build of the quick app and checks that a patch that changes the stats is refused.
+
+`bench/turbopack-gym/route-stats-60.json` (a cold monolith build of 15 + 22 + 55 + 56 + 57,
+7 runs per side, a dedicated c8gd.48xlarge): <!--v:rs.c60.base.s-->7.79s<!--/v--> → <!--v:rs.c60.candidate.s-->2.95s<!--/v--> (×<!--v:rs.c60.ratio-->0.379<!--/v-->), the runs not
+overlapping; the process's peak RSS <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->. Same stats file, and the same as the
+build's. The step runs on the main thread after `run-turbopack` in every build, warm or
+cold, and the build awaits it before finishing; whole builds with 60 were not measured.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
@@ -414,6 +444,16 @@ worker time.
   warm build's `run-turbopack` is the recomputation before emit (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v--> at 1,000, <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.preEmit-->27.5s<!--/v--> with
   one new import). The write phase builds a second set of `pick_endpoint` roots, over the
   compile; its value goes to JavaScript, and nothing measured so far puts time on it.
+- That recomputation is mostly `client_reference_manifest::build_manifest`: about 72% of
+  the CPU time of the parallel part with one new import (profile, not a record). One new
+  import renames 382 content-hashed chunks, and 991 of the 2,073 client reference
+  manifests change, each by those chunk names (a probe comparing two cold builds, not a
+  record); `build_manifest` rebuilds a whole page's manifest, with several task reads per
+  client module, to pick up a renamed chunk.
+- The rest of the single-core JavaScript after `run-turbopack` is mostly forking the
+  page-data workers: `child_process.fork` from a process holding Turbopack's heap copies
+  its page tables once per worker (about 3s on the main thread, and 4s more in the
+  children before `exec`, in the profile with 24 workers).
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not

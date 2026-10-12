@@ -276,6 +276,14 @@ shorter at every point. With 1,000 new imports the warm build is now within 5s o
 one; the rest is recomputation before emit. Candidate 58 (the same merge as 57 for removed
 children) made no difference (`bench/turbopack-graph-drift-58.json`).
 
+**After `run-turbopack`, one core reads 775 MB of manifests as JavaScript.** Every
+Turbopack build runs Next.js's route bundle stats step, which `require()`s each app page's
+client reference manifest (<!--v:rs.c60.manifests-->2,073 files, 774.6 MB<!--/v--> on the monolith) to read one field.
+Candidate 60 parses the JSON value each file assigns instead, falling back to `require()`
+for any other shape. Measured alone on one monolith build's output
+(`bench/turbopack-gym/route-stats-60.json`, `scripts/turbopack-gym/route-stats.mjs`): <!--v:rs.c60.base.s-->7.79s<!--/v-->
+→ <!--v:rs.c60.candidate.s-->2.95s<!--/v--> (×<!--v:rs.c60.ratio-->0.379<!--/v-->), peak RSS <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->, the same stats file as the build's.
+
 ## A Counter Every Operation Writes
 
 In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of

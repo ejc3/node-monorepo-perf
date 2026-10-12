@@ -613,6 +613,14 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     the build's CPUs (`CIRCLE_NODE_TOTAL`) instead of every CPU of the machine; the setting
     changes the output fingerprint, so a record states it and refuses mixed sweeps.
     Write-up: `bench/turbopack-gym/cache-drift.md`.
+  - `route-stats.mjs`: Next.js's route bundle stats step (`writeRouteBundleStats`) alone, on
+    one build's output, for a JavaScript candidate: `route-bundle-stats.ts` as of v16.4.0
+    (`bench/turbopack-gym/sources/`, byte for byte) against it with `--patch`, both
+    transpiled with the app's TypeScript and loaded in place of the app's
+    `next/dist/build/route-bundle-stats.js`; fresh node process per run on one CPU, sides
+    alternating; every run's stats file must equal the first and base's the build's own.
+    Its record is read by `report.mjs` (`rs.*` keys). It needs a kept build output
+    (`bench.mjs --keep`).
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
     or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets
