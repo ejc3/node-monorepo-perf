@@ -35,6 +35,15 @@ edit -> node --check / bash -n        (instant)
      -> turbo run typecheck --affected (cached)
      -> /code-review + codex on the diff   (before commit)
      -> fix findings -> commit -> push
+     -> @codex review on the PR head (@coderabbitai review optional)
+     -> answer every finding -> review-gate status green -> merge
 ```
 
 Claims verification runs whenever docs change.
+
+## 5. Merge Gate
+
+Once the ruleset on `main` requires it, the `review-gate` status blocks a merge until every
+review finding is answered and Codex has reviewed the head; `make merge-pr` enforces the
+same check now:
+[AGENTS.md, "Merge Gate"](AGENTS.md#merge-gate).

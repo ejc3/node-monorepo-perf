@@ -1,0 +1,53 @@
+name: review-gate-tests
+
+# The merge gate's own test harness. It runs the PR's copy of the gate against fixtures and
+# gh shims, so it needs no token beyond reading the repository and touches no live PR.
+
+on:
+  pull_request:
+    paths:
+      - ".claude/skills/pr-review-gate/**"
+      - ".github/workflows/review-gate*.yml"
+      - "Makefile"
+  push:
+    branches: [main]
+    paths:
+      - ".claude/skills/pr-review-gate/**"
+      - ".github/workflows/review-gate*.yml"
+      - "Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    name: gate harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Require jq, gh, shellcheck, python3 and PyYAML (the harness and the lint use them)
+        run: |
+          command -v jq >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq jq; }
+          command -v shellcheck >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck; }
+          python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+          jq --version
+          gh --version | head -1
+          shellcheck --version | head -2
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+
+      - name: Lint the gate workflows (actionlint 1.7.7, checksum-pinned, with shellcheck)
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          curl -fsSL -o "$tmp/al.tgz" \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          echo "023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757  $tmp/al.tgz" | sha256sum -c -
+          tar -xzf "$tmp/al.tgz" -C "$tmp" actionlint
+          "$tmp/actionlint" -shellcheck "$(command -v shellcheck)" .github/workflows/review-gate*.yml
+
+      - name: Run the harness (includes the workflow structure checks)
+        run: make test-review-gate

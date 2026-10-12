@@ -1408,6 +1408,114 @@ Every commit goes through this loop before it lands, no exceptions, docs include
    Never skip, suppress, or rationalize a finding.
 6. **`prettier --check` clean,** then commit. The message describes what's
    in the diff (see the global `~/.claude/CLAUDE.md` commit conventions).
+7. **On the PR, the merge gate.** The two local reviewers above do not replace the bot
+   reviews on the PR; the gate below requires the Codex review.
+
+### Merge Gate
+
+No PR merges into `main` until every review finding on it is adjudicated and its head
+commit has been reviewed by Codex. Once the ruleset on `main` is configured (a settings
+change applied after this gate merges), it requires the commit status **`review-gate`** to
+be `success` on the PR head; until then `make merge-pr` is the enforcing path.
+`.github/workflows/review-gate.yml` posts it from
+`.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
+go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
+`GITHUB_REPOSITORY` default, and the bot-traffic rules below). The status is `failure`
+while the gate blocks and `error` when it cannot evaluate, or when a run ended without a
+verdict; both block the merge. The ruleset also turns on GitHub's own "require
+conversation resolution", which blocks an unresolved thread at once, without waiting for
+a re-run of the gate.
+
+The gate blocks on:
+
+- an unresolved review thread (outdated ones included);
+- a resolved thread with no reply that opens with a disposition and was written after the
+  finding's last edit (a finding edited after its disposition needs a new one, unless its
+  edit history shows only the CodeRabbit Bot acknowledging the answer);
+- a PR-level finding (a review body from anyone but the PR author, or a top-level PR
+  comment, the author's included) with no disposition posted after it;
+- a head commit nobody but the author reviewed (an empty review object is a reply
+  container, not a review);
+- a head commit not reviewed by each login in `REQUIRE_HEAD_REVIEW_FROM` (here
+  `chatgpt-codex-connector`): a covering review object from that bot on the head, or its
+  no-findings result naming the head and dated after the head arrived.
+
+Dispositions open a reply of their own and are newer than the claim they answer. A claim
+(an inline finding, a review body, a top-level comment) is dated by when its current text
+was written: the later of its creation and its last edit. An answer is dated by its
+creation only; editing an old disposition does not make it answer a newer claim.
+
+| Disposition | Use for |
+|---|---|
+| `RED-VERIFIED: <test>` | a defect claim, closed by a test watched failing without the fix |
+| `NOT-A-DEFECT: <reason>` | naming, docs, style, bot summaries; say what was done |
+| `DISAGREE: <reason>` | a defect claim rejected, with the reasoning |
+
+Answer a PR-level finding with a review from the author (`gh pr review <n> --comment -b
+"NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. These need no
+answer, each only from the bot's own account and only in the shape the gate knows: a bot
+command (`@codex review`); Codex's no-findings comment ("Didn't find any major issues.",
+a sign-off from the list of ones Codex has posted, then the reviewed commit); the Codex review that only holds its inline comments (heading, one fixed
+sentence, reviewed commit); CodeRabbit's command acknowledgements and its notices that a
+review did not run; and CodeRabbit's summary comment when every region in it is one the
+gate has seen CodeRabbit emit, nothing sits outside those regions, and the regions that
+report a result report a clean one (no actionable comments, no failed or warning
+pre-merge check, merge risk Minimal or Low, no failed review). Any other sign-off or
+summary is a claim. Findings from either bot arrive as review bodies and inline threads,
+and those are claims. Treating a clean CodeRabbit summary as no claim is this
+repository's choice; the upstream gate in ejc3/fcvm treats it as one.
+
+Get a Codex review after every push, and a CodeRabbit review where useful (its findings
+are answered like any other; its review is not required on each head), by PR comment:
+
+```bash
+gh pr comment <n> --body "@codex review"
+gh pr comment <n> --body "@coderabbitai review"
+```
+
+CodeRabbit does not review this repository automatically: its summary comment says the
+repository has fewer than 10 stars and offers a "Trigger review" checkbox. The comment
+command or the checkbox starts a review.
+
+Merge through the gate, not around it:
+
+```bash
+make merge-pr PR=<n>        # gate the exact head, then squash-merge that head only
+make review-gate PR=<n>     # the gate alone, with the same required reviewers
+make test-review-gate       # the gate's harness; CI runs it (review-gate-tests.yml)
+```
+
+`make merge-pr` is the merge path and the final authority: it reads the PR head, runs the
+gate for that commit (`EXPECT_HEAD`) with the required reviewers, and only on CLEAR runs
+`gh pr merge <n> --squash --match-head-commit <sha>`, which GitHub refuses if the branch
+moved. The `review-gate` status is defense in depth for a merge from the web UI. What it
+cannot see is activity in the seconds between the gate reading the PR and the merge call;
+run it immediately before merging, never on an earlier verdict.
+
+The status is re-evaluated on PR open, push, reopen, ready-for-review and edit
+(`pull_request_target`); on every PR comment (`issue_comment`); on every review and inline
+comment (relayed by `review-gate-events.yml` through `workflow_run`); and every 10 minutes
+for every open PR. Resolving or unresolving a thread triggers no workflow; the sweep picks
+it up, or `gh workflow run review-gate -f pr=<n>` does at once. Every path runs the gate
+from `main`, never from the PR, and posts through `post-status.sh`. A `success` is posted
+only when, read right before the POST, nothing changed since the evaluation began: the
+statuses read cleanly, no other run posted a blocking status since, no newer review-gate
+run exists, and each PR is still on that commit with no comment, review or thread
+activity newer than the snapshot. A failed read posts `error` and a newer signal posts
+`pending`; nothing is skipped. Statuses are posted only on change (GitHub caps a commit at
+1000 per context, and anyone can fire the events that re-run the gate), `error` replaces
+`success` near that cap, and an event turns a `success` to `pending` before its
+evaluation queues. A run that cannot evaluate the heads it answers for (a sweep included)
+marks them `error`.
+
+Threat model: the gate stops an accidental or careless merge. It is not a boundary against
+someone holding push access or the owner's token, who can add a workflow on a branch that
+posts a `review-gate` success, post one with the API, or edit the ruleset. The ruleset
+names GitHub Actions as the status's expected source, which rules out a status posted
+with a personal token; a forged success from another workflow is replaced by the gate's
+verdict the next time it evaluates that head (an event or the 10-minute sweep). A
+"require workflows to pass" rule, which would close that gap, is an organization ruleset
+feature and is not available to this user-owned repository.
 
 ## Mandatory Doc-Sync Pass
 
