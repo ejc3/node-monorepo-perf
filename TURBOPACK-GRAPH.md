@@ -225,18 +225,19 @@ the cache (A/B of cold builds: `run-turbopack` ×1.004, same output). Candidates
 block's whole range before its first access) and 54 (53 plus the meta files) help less than
 55: a warm start reads most of every SST, and read-ahead also fetches the blocks that follow.
 
-**With new imports, emit runs on one core.** A warm build's `turbopack-emit` after 1,000 new
-imports spends most of its time applying collectible changes up the aggregation graph, and a
-task that drops its collectibles does it one collectible at a time, each its own operation.
+**With new imports, emit runs mostly on one core.** A warm build's `turbopack-emit` after
+1,000 new imports spends most of its time applying collectible changes up the aggregation
+graph, and a task that takes the collectibles of a subgraph records their removal one
+collectible at a time, each its own operation.
 Candidate 56 removes them as one operation with one aggregated update for the batch
 (`bench/turbopack-graph-drift-56.json`, another dedicated c8gd.48xlarge, page-data workers
-matched to the build's CPUs; same output at every point). Warm `turbopack-emit`, then
-`run-turbopack`:
+matched to the build's CPUs; same output at every point). Warm builds, `run-turbopack` /
+`turbopack-emit`:
 
 | new imports | base | 56 | 15 + 22 + 55 | 15 + 22 + 55 + 56 |
 |---|---|---|---|---|
-| 10 | <!--v:dr.c56.import.base.10.warm.emit-->12.2s<!--/v-->, <!--v:dr.c56.import.base.10.warm.turbopack-->74.8s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.emit-->9.4s<!--/v-->, <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.turbopack-->72.2s<!--/v--> | <!--v:dr.c56.import.15+22+55.10.warm.emit-->11.5s<!--/v-->, <!--v:dr.c56.import.15+22+55.10.warm.turbopack-->42.0s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.10.warm.emit-->8.5s<!--/v-->, <!--v:dr.c56.import.15+22+55+56.10.warm.turbopack-->38.7s<!--/v--> |
-| 1,000 | <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v-->, <!--v:dr.c56.import.base.1000.warm.turbopack-->99.7s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v-->, <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.turbopack-->87.1s<!--/v--> | <!--v:dr.c56.import.15+22+55.1000.warm.emit-->39.1s<!--/v-->, <!--v:dr.c56.import.15+22+55.1000.warm.turbopack-->74.5s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v-->, <!--v:dr.c56.import.15+22+55+56.1000.warm.turbopack-->60.7s<!--/v--> |
+| 10 | <!--v:dr.c56.import.base.10.warm.turbopack-->74.8s<!--/v--> / <!--v:dr.c56.import.base.10.warm.emit-->12.2s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.turbopack-->72.2s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.emit-->9.4s<!--/v--> | <!--v:dr.c56.import.15+22+55.10.warm.turbopack-->42.0s<!--/v--> / <!--v:dr.c56.import.15+22+55.10.warm.emit-->11.5s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.10.warm.turbopack-->38.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.10.warm.emit-->8.5s<!--/v--> |
+| 1,000 | <!--v:dr.c56.import.base.1000.warm.turbopack-->99.7s<!--/v--> / <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.turbopack-->87.1s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c56.import.15+22+55.1000.warm.turbopack-->74.5s<!--/v--> / <!--v:dr.c56.import.15+22+55.1000.warm.emit-->39.1s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.1000.warm.turbopack-->60.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v--> |
 
 Base's warm builds on that instance read the cache as slowly as on A and B above, so compare
 within the table. With one new import the stacked warm build spends <!--v:dr.c56.import.15+22+55+56.1.warm.turbopack-->27.8s<!--/v--> in `run-turbopack`

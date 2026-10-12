@@ -56,10 +56,10 @@ import {
   checkAborted,
   ensureDir,
   median,
+  pageWorkersEnv,
   parseArgs,
   publishedBinding,
   readJsonl,
-  pageWorkersEnv,
   withCpus,
   withLock,
 } from "./lib.mjs";
@@ -466,6 +466,8 @@ function series(plan, check) {
   if (plan.mismatches.length)
     throw new Error(`sweep ${plan.sweep} has ${plan.mismatches.length} output mismatches`);
   const map = BINDING_MAP();
+  // sweeps from before --page-workers ran with Next's default
+  const workersEnv = pageWorkersEnv(plan.pageWorkers || "default", plan.cpus);
   const runs = readJsonl(LOG)
     .filter((l) => l.sweep === plan.sweep)
     .map((l) => {
@@ -484,6 +486,10 @@ function series(plan, check) {
         throw new Error(`run ${r.id}: tree hash does not match N=${l.n}`);
       if (r.env.TURBO_ENGINE_IGNORE_DIRTY !== "1")
         throw new Error(`run ${r.id} ran without TURBO_ENGINE_IGNORE_DIRTY`);
+      if (r.env.CIRCLE_NODE_TOTAL !== workersEnv.CIRCLE_NODE_TOTAL)
+        throw new Error(
+          `run ${r.id}: page-data workers are not the plan's ${plan.pageWorkers || "default"}`,
+        );
       // the mode the log claims is the build that ran: only off turns the cache off,
       // only warm starts from a cache
       if (r.env.MONOLITH_TP_FS_CACHE !== (l.mode === "off" ? "0" : undefined))

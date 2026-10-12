@@ -417,15 +417,6 @@ rmSync(scratch, { recursive: true, force: true });
         output: { sha: l.n ? "o1" : "o0" },
       };
     }
-    tamper(lines, runs);
-    for (const r of Object.values(runs)) {
-      mkdirSync(join(root, "runs", r.id), { recursive: true });
-      writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
-    }
-    writeFileSync(
-      join(root, "results", "drift.jsonl"),
-      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
-    );
     const plan = {
       sweep: "drift-t",
       tag: null,
@@ -440,6 +431,15 @@ rmSync(scratch, { recursive: true, force: true });
       pristine,
       mismatches: [],
     };
+    tamper(lines, runs, plan);
+    for (const r of Object.values(runs)) {
+      mkdirSync(join(root, "runs", r.id), { recursive: true });
+      writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
+    }
+    writeFileSync(
+      join(root, "results", "drift.jsonl"),
+      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    );
     writeFileSync(join(root, "results", "drift-sweeps.jsonl"), JSON.stringify(plan) + "\n");
     const r = spawnSync(
       "node",
@@ -458,7 +458,30 @@ rmSync(scratch, { recursive: true, force: true });
     return r.status;
   };
   const line = (lines, id) => lines.find((l) => l.id === id);
+  const published = () => JSON.parse(readFileSync(join(root, "out.json"), "utf8"));
   check(attempt() === 0, "drift record publishes a consistent sweep");
+  check(
+    published().pageWorkers === "default",
+    "drift record calls a sweep without a page-workers setting default",
+  );
+  check(
+    attempt((_, runs, plan) => {
+      plan.pageWorkers = "match";
+      for (const r of Object.values(runs)) r.env.CIRCLE_NODE_TOTAL = "1";
+    }) === 0 && published().pageWorkers === "match",
+    "drift record publishes a match sweep whose runs set the pool to its CPUs",
+  );
+  check(
+    attempt((_, runs) => (runs.cold1.env.CIRCLE_NODE_TOTAL = "1")) !== 0,
+    "drift record refuses a run whose page-data pool is not the plan's",
+  );
+  check(
+    attempt((_, runs, plan) => {
+      plan.pageWorkers = "match";
+      for (const r of Object.values(runs)) if (r.id !== "warm1") r.env.CIRCLE_NODE_TOTAL = "1";
+    }) !== 0,
+    "drift record refuses a match sweep with a run left at the default pool",
+  );
   check(
     attempt((_, runs) => delete runs.off1.env.MONOLITH_TP_FS_CACHE) !== 0,
     "drift record refuses an off run built with the cache on",
