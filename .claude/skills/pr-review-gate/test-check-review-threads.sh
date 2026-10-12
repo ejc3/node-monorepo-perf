@@ -2156,13 +2156,14 @@ mkdir -p "$TMP/psbin"
 # recorded and exits $PS_POST_RC.
 cat > "$TMP/psbin/gh" <<'SHIM'
 #!/bin/bash
-args=("$@"); filter=""; endpoint=""; post=0
+args=("$@"); filter=""; endpoint=""; post=0; paginate=0
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     --jq) filter=${args[$((i + 1))]}; i=$((i + 1)) ;;
     -X) [ "${args[$((i + 1))]}" = POST ] && post=1; i=$((i + 1)) ;;
     -f | -F) i=$((i + 1)) ;;
-    api | --paginate) ;;
+    --paginate) paginate=1 ;;
+    api) ;;
     *) endpoint=${args[$i]} ;;
   esac
 done
@@ -2173,7 +2174,11 @@ f="$PS_DIR/$(printf '%s' "${endpoint%%\?*}" | tr '/' '_').json"
 [ -s "$PS_DIR/posts" ] && [ -r "$f.after" ] && f="$f.after"
 [ -r "$f" ] || { echo "shim: no fixture for $endpoint" >&2; exit 1; }
 [ "$(head -c 9 "$f")" != SHIM_FAIL ] || { echo "shim: read failed for $endpoint" >&2; exit 1; }
-if [ -n "$filter" ]; then jq -r "$filter" "$f"; else cat "$f"; fi
+# With --paginate, a fixture "<name>.page2" is the next page; without it, the caller sees page 1 only.
+pages=("$f"); [ "$paginate" = 1 ] && [ -r "$f.page2" ] && pages+=("$f.page2")
+for pg in "${pages[@]}"; do
+  if [ -n "$filter" ]; then jq -r "$filter" "$pg"; else cat "$pg"; fi
+done
 SHIM
 chmod +x "$TMP/psbin/gh"
 PS_SHA=0123456789abcdef0123456789abcdef01234567
@@ -2430,6 +2435,13 @@ PY
 FB_RUN=$(fb_extract resolve '"failure()" in s.get("if", "")')
 INV_RUN=$(fb_extract resolve '"schedule" in s.get("if", "")')
 POST_RUN=$(fb_extract evaluate '"always()" in s.get("if", "")')
+# The workflow-level env every step sees: the direct poster both fallbacks call.
+POST_ERROR_DIRECT=$(python3 - "$WORKFLOWS_DIR/review-gate.yml" <<'PY2'
+import sys, yaml
+print(yaml.safe_load(open(sys.argv[1])).get("env", {}).get("POST_ERROR_DIRECT", ""))
+PY2
+)
+export POST_ERROR_DIRECT
 mkdir -p "$TMP/fbbin"
 cat > "$TMP/fbbin/gh" <<'SHIM'
 #!/bin/bash
@@ -2449,8 +2461,8 @@ fb_case() {  # $1 name, $2 env (|-separated), $3 space-separated heads that must
   ps_n=$((ps_n + 1)); d="$TMP/fb.$ps_n"; mkdir "$d"
   IFS='|' read -r -a envarr <<<"$envs"
   out=$(cd "$d" && env FB_DIR="$d" PATH="$TMP/fbbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_SERVER_URL=https://github.com \
-        GITHUB_RUN_ID=5 STATUS_CONTEXT=review-gate RUN_PRS='[]' RUN_HEAD_SHA= INPUT_PR= PRT_HEAD_SHA= ISSUE_NUMBER= \
-        "${envarr[@]}" bash -c "$FB_RUN" 2>&1); rc=$?
+        GITHUB_RUN_ID=5 STATUS_CONTEXT=review-gate RUN_URL=https://github.com/o/r/actions/runs/5 RUN_PRS='[]' \
+        RUN_HEAD_SHA= INPUT_PR= PRT_HEAD_SHA= ISSUE_NUMBER= "${envarr[@]}" bash -c "$FB_RUN" 2>&1); rc=$?
   for h in $want; do
     grep -q "statuses/$h.*state=error" "$d/calls" 2>/dev/null || missing+=" ${h:0:6}"
   done
@@ -2473,11 +2485,12 @@ fb_case "a delayed workflow_run: the payload head and the head it resolved" \
 # and context (PR #70's P2). Statuses come from fixtures; `fbs_case` has the poster checked out
 # or, with CHECKOUT=0, not (the checkout is what failed).
 FB_DESC="The gate could not resolve this event; see the run"
-fbs_case() {  # $1 name, $2 current statuses JSON, $3 want POSTs, $4 checkout (1|0)
-  local name=$1 statuses=$2 want=$3 checkout=${4:-1} d out rc posts
+fbs_case() {  # $1 name, $2 current statuses JSON, $3 want POSTs, $4 checkout (1|0), $5 page 2
+  local name=$1 statuses=$2 want=$3 checkout=${4:-1} page2=${5:-} d out rc posts
   ps_n=$((ps_n + 1)); d="$TMP/fbs.$ps_n"; mkdir "$d"
   printf '[{"head":{"sha":"%s"}}]' "$H1" > "$d/repos_o_r_pulls.json"
   printf '%s' "$statuses" > "$d/repos_o_r_commits_${H1}_statuses.json"
+  [ -z "$page2" ] || printf '%s' "$page2" > "$d/repos_o_r_commits_${H1}_statuses.json.page2"
   if [ "$checkout" = 1 ]; then
     mkdir -p "$d/.claude/skills/pr-review-gate"; cp "$POSTER" "$d/.claude/skills/pr-review-gate/post-status.sh"
   fi
@@ -2496,6 +2509,41 @@ fbs_case "the fallback error is posted over a success without the checkout" "[$(
 fbs_case "the fallback error is posted over a different error" "[$(st error 'The gate could not evaluate (exit 2)' 'github-actions[bot]' "$OURS_URL")]" 1
 fbs_case "the fallback error is posted over a different error without the checkout" "[$(st error 'The gate could not evaluate (exit 2)' 'github-actions[bot]' "$OURS_URL")]" 1 0
 fbs_case "the fallback error is posted when the head has no status" '[]' 1
+# GitHub lists statuses newest first, 100 a page: other contexts' newer statuses can push this
+# context's current one to page 2, and the change-only read must still find it.
+OTHER_PAGE="[$(st success 'ci' 'github-actions[bot]' "$OURS_URL" | sed 's/"review-gate"/"ci"/')]"
+fbs_case "an identical fallback error on page 2 posts nothing without the checkout" "$OTHER_PAGE" 0 0 "$FB_ERR"
+
+# The verdict step without its checkout takes the same change-only rule (PR #70: "Deduplicate
+# the evaluate checkout fallback"): both fallbacks call the one direct poster, the workflow's
+# POST_ERROR_DIRECT, so a persistent checkout failure adds no status per run either.
+FBP_DESC="The gate could not run (checkout failed); see the run"
+fbp_case() {  # $1 name, $2 current statuses JSON, $3 want POSTs, $4 page 2
+  local name=$1 statuses=$2 want=$3 page2=${4:-} d out rc posts
+  ps_n=$((ps_n + 1)); d="$TMP/fbp.$ps_n"; mkdir "$d"
+  printf '%s' "$statuses" > "$d/repos_o_r_commits_${H1}_statuses.json"
+  [ -z "$page2" ] || printf '%s' "$page2" > "$d/repos_o_r_commits_${H1}_statuses.json.page2"
+  out=$(cd "$d" && env PS_DIR="$d" PATH="$TMP/psbin:$PATH" GITHUB_REPOSITORY=o/r SHA="$H1" STATUS_CONTEXT=review-gate \
+        RUN_URL="$OURS_URL" RC= EVAL_STARTED= PRS= GITHUB_EVENT_NAME=issue_comment bash -c "$POST_RUN" 2>&1); rc=$?
+  posts=$(grep -c . "$d/posts" 2>/dev/null || true)
+  if [ "$rc" != 0 ] && [ "${posts:-0}" = "$want" ]; then echo "  PASS  $name"; pass=$((pass+1))
+  else echo "  FAIL  $name (rc=$rc, posts=${posts:-0} want=$want)"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1)); fi
+}
+fbp_case "the verdict step without its checkout posts nothing over the same error" \
+  "[$(st error "$FBP_DESC" 'github-actions[bot]' "$OURS_URL")]" 0
+fbp_case "the verdict step without its checkout posts error over a success" \
+  "[$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL")]" 1
+fbp_case "the verdict step without its checkout posts error when the head has no status" '[]' 1
+fbp_case "the verdict step without its checkout finds the same error on page 2" "$OTHER_PAGE" 0 \
+  "[$(st error "$FBP_DESC" 'github-actions[bot]' "$OURS_URL")]"
+# One direct poster: outside post-status.sh, the only status POST in the workflow is the one
+# in POST_ERROR_DIRECT, so a third fallback cannot skip the change-only rule.
+direct_posts=$(grep -c -- '-X POST "repos/$GITHUB_REPOSITORY/statuses' "$WORKFLOWS_DIR/review-gate.yml" || true)
+if [ "$direct_posts" = 1 ] && grep -q -- '-X POST "repos/$GITHUB_REPOSITORY/statuses' <<<"$POST_ERROR_DIRECT"; then
+  echo "  PASS  the workflow's one direct status POST is POST_ERROR_DIRECT's"; pass=$((pass+1))
+else
+  echo "  FAIL  the workflow's one direct status POST is POST_ERROR_DIRECT's (found $direct_posts)"; fail=$((fail+1))
+fi
 
 # The invalidation step: a pending GitHub refuses must fail the step, so the failure step
 # runs (PR #70: "Fail closed when the pending status is rejected").

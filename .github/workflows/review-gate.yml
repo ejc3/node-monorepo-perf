@@ -91,6 +91,25 @@ env:
   # Each of these must have reviewed the head. Keep in sync with REVIEW_GATE_REQUIRED in the
   # Makefile (the harness checks that they agree).
   REQUIRE_HEAD_REVIEW_FROM: chatgpt-codex-connector,coderabbitai
+  # The error status for a run whose checkout failed, so post-status.sh is not there. Both
+  # fallbacks call it (`eval "$POST_ERROR_DIRECT"`, then `post_error_direct <sha> <description>`).
+  # It posts only when that changes the head's status: a failure that persists (the 10-minute
+  # sweep re-hits it) must not add a status per run, since GitHub refuses statuses past 1000
+  # per commit and context and the last one then stands.
+  POST_ERROR_DIRECT: |
+    post_error_direct() {
+      local sha=$1 desc=$2 cur
+      # Newest first, 100 a page: other contexts can push this one past page 1.
+      cur=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$sha/statuses?per_page=100" \
+              --jq ".[] | select(.context == \"$STATUS_CONTEXT\") | \"\(.state // \"\") \(.description // \"\")\"" \
+              2>/dev/null | head -n1 || true)
+      if [ "$cur" = "error $desc" ]; then
+        echo "$STATUS_CONTEXT on ${sha:0:9} is already error: $desc"
+        return 0
+      fi
+      gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=error -f context="$STATUS_CONTEXT" \
+        -f target_url="$RUN_URL" -f description="$desc" >/dev/null
+    }
 
 jobs:
   resolve:
@@ -223,24 +242,15 @@ jobs:
           # sweep re-hits it) must not add a status per run, since GitHub refuses statuses past
           # 1000 per commit and context and the last one then stands.
           desc="The gate could not resolve this event; see the run"
+          eval "$POST_ERROR_DIRECT"
           for sha in $heads; do
             if [ -r .claude/skills/pr-review-gate/post-status.sh ]; then
               bash .claude/skills/pr-review-gate/post-status.sh "$sha" error "$desc" \
                 || echo "::error::GitHub refused the error status on ${sha:0:9}"
-              continue
+            else
+              # The checkout failed too, so the poster is not here.
+              post_error_direct "$sha" "$desc" || echo "::error::GitHub refused the error status on ${sha:0:9}"
             fi
-            # The checkout failed too, so the poster is not here: the same change-only rule.
-            cur=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/statuses?per_page=100" \
-                    --jq "[.[] | select(.context == \"$STATUS_CONTEXT\")][0] | \"\(.state // \"\") \(.description // \"\")\"" \
-                    2>/dev/null || true)
-            if [ "$cur" = "error $desc" ]; then
-              echo "$STATUS_CONTEXT on ${sha:0:9} is already error: $desc"
-              continue
-            fi
-            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=error -f context="$STATUS_CONTEXT" \
-              -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-              -f description="$desc" >/dev/null \
-              || echo "::error::GitHub refused the error status on ${sha:0:9}"
           done
           exit 1
 
@@ -366,11 +376,10 @@ jobs:
             bash .claude/skills/pr-review-gate/post-status.sh "$SHA" "$state" "$desc"
             posted=$?
           else
-            # The checkout failed, so the poster is not here: post the error directly.
+            # The checkout failed, so the poster is not here.
             state=error
-            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=error \
-              -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL" \
-              -f description="The gate could not run (checkout failed); see the run" >/dev/null
+            eval "$POST_ERROR_DIRECT"
+            post_error_direct "$SHA" "The gate could not run (checkout failed); see the run"
             posted=$?
           fi
           echo "::$stop::"
