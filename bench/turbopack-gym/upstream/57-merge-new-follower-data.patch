@@ -1,0 +1,214 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+index b38faa504e..f9d283c110 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+@@ -610,6 +610,33 @@ impl AggregatedDataUpdate {
+         result
+     }
+ 
++    /// Adds `other` to this update, with the same effect on a task as applying this update and
++    /// then `other`: collectible changes are appended and dirty container counts of the same
++    /// container are summed. Returns `other` unchanged when both carry a dirty container update
++    /// for different containers, which one update cannot hold.
++    fn merge(&mut self, other: Self) -> Option<Self> {
++        let dirty_container_update =
++            match (self.dirty_container_update, other.dirty_container_update) {
++                (Some(a), Some(b)) if a.task_id != b.task_id => return Some(other),
++                (Some(a), Some(b)) => {
++                    let dirty_count = a.dirty_count + b.dirty_count;
++                    let current_session_clean_count =
++                        a.current_session_clean_count + b.current_session_clean_count;
++                    (dirty_count != 0 || current_session_clean_count != 0).then_some(
++                        DirtyContainerUpdate {
++                            task_id: a.task_id,
++                            dirty_count,
++                            current_session_clean_count,
++                        },
++                    )
++                }
++                (a, b) => a.or(b),
++            };
++        self.dirty_container_update = dirty_container_update;
++        self.collectibles_update.extend(other.collectibles_update);
++        None
++    }
++
+     /// Returns true, when the update is empty resp. a no-op.
+     fn is_empty(&self) -> bool {
+         let Self {
+@@ -2905,19 +2932,34 @@ impl AggregationUpdateQueue {
+                 // For performance reasons this should stay `Meta` and not `All`
+                 AGGREGATION_UPDATE_CATEGORY,
+             );
+-            let diffs = upper_data_updates
++            // The diffs all come from this upper, so they go to the same uppers: send them as
++            // one update, so the graph above is walked once for all new followers instead of
++            // once per follower.
++            let mut merged: Option<AggregatedDataUpdate> = None;
++            let mut unmerged = Vec::new();
++            for data in upper_data_updates {
++                let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
++                if diff.is_empty() {
++                    continue;
++                }
++                match &mut merged {
++                    None => merged = Some(diff),
++                    Some(merged) => {
++                        if let Some(diff) = merged.merge(diff) {
++                            unmerged.push(diff);
++                        }
++                    }
++                }
++            }
++            let diffs: SmallVec<[AggregatedDataUpdate; 1]> = merged
+                 .into_iter()
+-                .filter_map(|data| {
+-                    let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
+-                    (!diff.is_empty()).then_some(diff)
+-                })
+-                .collect::<Vec<_>>();
+-            let mut iter = diffs.into_iter();
+-            if let Some(mut diff) = iter.next() {
++                .chain(unmerged)
++                .filter(|diff| !diff.is_empty())
++                .collect();
++            if !diffs.is_empty() {
+                 let upper_ids = get_uppers(&upper);
+                 drop(upper);
+-                // TODO merge AggregatedDataUpdate
+-                for next_diff in iter {
++                for diff in diffs {
+                     self.push(
+                         AggregatedDataUpdateJob {
+                             upper_ids: upper_ids.clone(),
+@@ -2925,15 +2967,7 @@ impl AggregationUpdateQueue {
+                         }
+                         .into(),
+                     );
+-                    diff = next_diff;
+                 }
+-                self.push(
+-                    AggregatedDataUpdateJob {
+-                        upper_ids,
+-                        update: diff,
+-                    }
+-                    .into(),
+-                );
+             }
+         }
+         if !inner_tasks.is_empty() {
+diff --git a/turbopack/crates/turbo-tasks-backend/tests/many_new_children_collectibles.rs b/turbopack/crates/turbo-tasks-backend/tests/many_new_children_collectibles.rs
+new file mode 100644
+index 0000000000..897b2f7403
+--- /dev/null
++++ b/turbopack/crates/turbo-tasks-backend/tests/many_new_children_collectibles.rs
+@@ -0,0 +1,109 @@
++#![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
++#![allow(clippy::needless_return)] // clippy bug causes false positive
++
++use anyhow::Result;
++use turbo_rcstr::RcStr;
++use turbo_tasks::{CollectiblesSource, ResolvedVc, State, ValueToString, Vc, emit};
++use turbo_tasks_testing::{Registration, register, run_once};
++
++static REGISTRATION: Registration = register!();
++
++// A task that gets many new children in one execution, each emitting a collectible: every one
++// of them must reach a task above it, and those of children it no longer calls must leave it.
++#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++async fn many_new_children_collectibles() {
++    run_once(&REGISTRATION, async || {
++        let input = ChangingInput {
++            state: State::new((0, 0)),
++        }
++        .resolved_cell();
++        let output = outer(input);
++        for (offset, n) in [
++            (0, 50),
++            (50, 200),
++            (100, 200),
++            (0, 7),
++            (1000, 300),
++            (0, 0),
++            (5, 64),
++        ] {
++            input.await?.state.set((offset, n));
++            let read = output.read_strongly_consistent().await?;
++            assert_eq!(
++                (read.count, read.sum),
++                (n, (offset..offset + n).sum()),
++                "after children {offset}..{}",
++                offset + n
++            );
++        }
++        anyhow::Ok(())
++    })
++    .await
++    .unwrap()
++}
++
++#[turbo_tasks::value]
++struct ChangingInput {
++    state: State<(u32, u32)>,
++}
++
++#[turbo_tasks::value]
++struct Output {
++    count: u32,
++    sum: u32,
++}
++
++#[turbo_tasks::value]
++struct Collectible {
++    value: u32,
++}
++
++#[turbo_tasks::value_impl]
++impl ValueToString for Collectible {
++    #[turbo_tasks::function]
++    fn to_string(&self) -> Vc<RcStr> {
++        Vc::cell(self.value.to_string().into())
++    }
++}
++
++#[turbo_tasks::function]
++fn child(value: u32) -> Vc<()> {
++    let collectible: ResolvedVc<Box<dyn ValueToString>> =
++        ResolvedVc::upcast(Collectible { value }.resolved_cell());
++    emit(collectible);
++    Vc::cell(())
++}
++
++/// Calls `child(offset..offset + n)`, so a change of `offset` replaces most of its children.
++#[turbo_tasks::function(operation, root)]
++async fn parent(input: ResolvedVc<ChangingInput>) -> Result<Vc<()>> {
++    let (offset, n) = *input.await?.state.get();
++    for value in offset..offset + n {
++        child(value).await?;
++    }
++    Ok(Vc::cell(()))
++}
++
++/// Passes through the parent, so the children's collectibles reach it through the parent.
++#[turbo_tasks::function(operation, root)]
++async fn middle(input: ResolvedVc<ChangingInput>) -> Result<Vc<()>> {
++    parent(input).connect().await?;
++    Ok(Vc::cell(()))
++}
++
++#[turbo_tasks::function(operation, root)]
++async fn outer(input: ResolvedVc<ChangingInput>) -> Result<Vc<Output>> {
++    let op = middle(input);
++    op.connect().await?;
++    let collectibles = op.peek_collectibles::<Box<dyn ValueToString>>();
++    let mut sum = 0;
++    for collectible in &collectibles {
++        sum += collectible.to_string().await?.parse::<u32>()?;
++    }
++    Ok(Output {
++        count: collectibles.len() as u32,
++        sum,
++    }
++    .cell())
++}

@@ -13,6 +13,9 @@ candidates that came out of it. Every number here was measured on dedicated 192-
 - `bench/turbopack-graph-drift-56.json`: the `import` sweep for candidate 56, base and 56
   alone and on top of 15 + 22 + 55, on another c8gd.48xlarge set up the same way, with
   Next.js's page-data workers matched to the build's CPUs (below).
+- `bench/turbopack-graph-drift-52w.json` and `bench/turbopack-graph-drift-57.json`: the
+  `import` sweeps for candidates 52 and 57, each against 15 + 22 + 55 + 56, 3 reps, set up as
+  the drift-56 sweep, each on its own c8gd.48xlarge.
 - `cache-read-probes.json`: single warm builds that locate where a warm start waits (page
   cache, access mode, candidates 53 to 55, profiles), set up the same way, on four instances
   (A, B and D are c8gd.48xlarge, C an m8gd.48xlarge). The same build's time differed between
@@ -208,6 +211,14 @@ the probe.
   a direct A/B (a diagnostic run, not in the record). The cause of the slower graph phase is
   open: the profile shows no leaf for it, and no samples in glibc's TLS-descriptor paths
   (`stripe()` reads a thread-local).
+- **Warm and cold, stacked** (`bench/turbopack-graph-drift-52w.json`: 15 + 22 + 55 + 56
+  against the same with 52, `import` edits, single builds, 3 reps). Cold builds' `run-turbopack`
+  is shorter with 52 at every N: <!--v:dr.c52w.import.15+22+55+56.0.cold.turbopack-->31.6s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.0.cold.turbopack-->29.6s<!--/v--> with nothing changed, <!--v:dr.c52w.import.15+22+55+56.1.cold.turbopack-->34.4s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.1.cold.turbopack-->29.7s<!--/v--> at 1 new import,
+  <!--v:dr.c52w.import.15+22+55+56.10.cold.turbopack-->32.9s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.10.cold.turbopack-->30.0s<!--/v--> at 10 and <!--v:dr.c52w.import.15+22+55+56.1000.cold.turbopack-->32.4s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.1000.cold.turbopack-->30.5s<!--/v--> at 1,000; at 0, 1 and 10 the three builds of each do not
+  overlap. Warm builds show no difference outside the spread between reps: <!--v:dr.c52w.import.15+22+55+56.1.warm.turbopack-->28.6s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.1.warm.turbopack-->27.6s<!--/v--> at 1,
+  <!--v:dr.c52w.import.15+22+55+56.10.warm.turbopack-->37.8s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.10.warm.turbopack-->38.9s<!--/v--> at 10, <!--v:dr.c52w.import.15+22+55+56.1000.warm.turbopack-->60.8s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.1000.warm.turbopack-->59.0s<!--/v--> at 1,000. A whole-build profile of a warm build with one new
+  import (on a dedicated box, not in a record) has this counter's atomic as its largest leaf;
+  that does not show in the warm build's time. Same output in all.
 
 ## New imports: the collectibles update in emit
 
@@ -280,16 +291,73 @@ the measured code; the bindings and records stay tied to
 turbo-tasks-backend --tests -D warnings`) is clean and `cargo test -p turbo-tasks-backend`
 passes 276 of 276.
 
+## New imports: one update per upper for a task's new children
+
+After 56, a warm build with 1,000 new imports still spends <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> in emit
+(`bench/turbopack-graph-drift-57.json`). Counters added to the backend in a diagnostic
+build (15 + 22 + 55 + 56 plus the counters; one warm build with 10 new imports, on a
+dedicated box, not in a record) show where it goes:
+
+- `emit_assets` completes with 4,352 new children. Connecting them queues 8.25 M
+  `AggregatedDataUpdate` jobs, which apply 16.5 M collectible changes; removing its old
+  children (`cleanup_old_edges`) queues another 0.93 M jobs with 9.0 M changes. The
+  completion takes 5.9s.
+- The task that takes the build's 41,875 collectibles
+  (`entrypoints_without_collectibles_operation`) has 3,791 aggregating ancestors: 3,789
+  `pick_endpoint` tasks, the `EntrypointsOperation` and the emit operation above them.
+  `pick_endpoint` (`crates/next-api/src/operation.rs`) is a `root` operation, one per
+  endpoint of the app, and each reads the whole `Entrypoints` operation strongly
+  consistently, so each is an aggregation root over all of it: a collectible change below
+  it is applied on each of the 3,789.
+- In the aggregation update queue, when one job gives an upper new followers, the diff that
+  each follower's data makes on the upper is pushed to the upper's own uppers as a job of
+  its own, so a task that completes with k new children has the graph above walked k times.
+
+- **57 `merge-new-follower-data`**: the diffs that one job's new followers make on an upper
+  are merged into one `AggregatedDataUpdate` (collectible changes appended, dirty-container
+  counts of the same container summed; a dirty-container update for another container stays
+  a separate update) and pushed to that upper's uppers once. Applied to a task, the merged
+  update has the same effect as the diffs one after another. The collectible changes
+  applied on each upper are the same; the number of jobs and walks above it is what drops.
+
+`bench/turbopack-graph-drift-57.json` (`import` edits, 3 reps). Warm builds,
+`run-turbopack` / `turbopack-emit`, then cold builds' `run-turbopack`:
+
+| new imports | 15 + 22 + 55 + 56 | 15 + 22 + 55 + 56 + 57 | cold, 15 + 22 + 55 + 56 | cold, + 57 |
+|---|---|---|---|---|
+| 1 | <!--v:dr.c57.import.15+22+55+56.1.warm.turbopack-->29.3s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.1.warm.emit-->1.8s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1.warm.turbopack-->28.8s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.1.warm.emit-->1.8s<!--/v--> | <!--v:dr.c57.import.15+22+55+56.1.cold.turbopack-->32.4s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1.cold.turbopack-->32.4s<!--/v--> |
+| 10 | <!--v:dr.c57.import.15+22+55+56.10.warm.turbopack-->38.5s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.10.warm.emit-->8.4s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.10.warm.turbopack-->36.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.10.warm.emit-->5.5s<!--/v--> | <!--v:dr.c57.import.15+22+55+56.10.cold.turbopack-->32.5s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.10.cold.turbopack-->34.2s<!--/v--> |
+| 1,000 | <!--v:dr.c57.import.15+22+55+56.1000.warm.turbopack-->62.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1000.warm.turbopack-->52.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> | <!--v:dr.c57.import.15+22+55+56.1000.cold.turbopack-->33.4s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1000.cold.turbopack-->32.4s<!--/v--> |
+
+- Same output for both bindings at every point.
+- At 1,000 new imports 57 shortens emit by 10s and `run-turbopack` by as much; the three
+  warm builds of each do not overlap (`run-turbopack` 61.6 to 64.1s against 50.9 to 54.7s).
+  At 10, emit is 2.9s shorter (`run-turbopack` 37.7 to 39.0s against 34.2 to 37.5s). With
+  one new import and with nothing changed, no difference outside the spread between reps.
+- Cold builds here are single builds per rep. Their medians differ by -1.0 to +1.7s, the
+  +1.7s at 10 new imports with the reps barely overlapping (31.8 to 32.7s against 32.6 to
+  34.4s).
+- `cargo test -p turbo-tasks-backend` passes 275 of 275 and clippy (`--tests -D warnings`)
+  is clean. `upstream/57-merge-new-follower-data.patch` is the measured code (it passes the
+  project's nightly `rustfmt --check` as measured) plus a new test,
+  `turbo-tasks-backend/tests/many_new_children_collectibles.rs`: a task calls n children
+  that each emit one collectible, the set of children changing between steps (offsets and
+  counts (0, 50), (50, 200), (100, 200), (0, 7), (1000, 300), (0, 0), (5, 64)), and a task
+  two levels above must see exactly the current children's collectibles. It fails when the
+  merge keeps only the first diff.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
   run: on instances C and D (`candidatesC`, `candidatesD`), wall minus `run-turbopack` is
   11.4 to 23.1s, most builds near 12s or near 21s, the same configuration landing on either,
   in every access mode. Not explained yet.
-- After 56, a warm build with 1,000 new imports still spends <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v--> in emit, part of it on one
-  core. 56 was not profiled; candidates for the rest, from reading the code: the updates
-  `cleanup_old_edges` queues, and updates from different tasks that reach the same uppers,
-  are still applied one by one (the queue has a "TODO merge AggregatedDataUpdate").
+- After 57, a warm build with 1,000 new imports still spends <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> in emit. Two parts
+  are known from the counters above: the updates `cleanup_old_edges` queues for a task's
+  removed children are still pushed per follower (the same merge would apply, but that path
+  locks each upper once per follower, so a merged update must read the upper's uppers under
+  one lock with the applied diffs), and each collectible change is applied on every
+  `pick_endpoint` root, which no change to the queue removes.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
