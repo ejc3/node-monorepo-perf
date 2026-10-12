@@ -9,11 +9,11 @@ whole-workspace typecheck stops at 10,000 apps.
 
 ## Verdict
 
-A shared workspace works when apps **share code and versions**: the daily loop's work
-is O(closure) (seconds, no install; each turbo command also pays a graph load that grows
-with the repo, priced under Single-App Work), and the O(repo) costs are rare events paid
-once per change. It is the wrong tool when apps are **independent** — the single lockfile + graph
-buy nothing — where a polyrepo or separate installs fit better.
+A shared workspace fits apps that **share code and versions**. The daily loop's work is
+O(closure): seconds, no install, plus a per-command graph load that grows with the repo
+(priced under [Single-App Work](#single-app-work)). The O(repo) costs are rare events, paid
+once per change. For **independent** apps the single lockfile and graph buy nothing; a
+polyrepo or separate installs fit better.
 
 ## The Cost Model
 
@@ -39,19 +39,17 @@ apps, 31.3s at 10,000.
 
 ## When Each O(repo) Cost Is Paid
 
-Paid once per change, not per person. The resolve is committed to `pnpm-lock.yaml`;
+The lockfile resolve is paid once per lockfile change, not per person: it is committed to `pnpm-lock.yaml`;
 everyone else runs `pnpm install --frozen-lockfile` and skips it. Under pnpm 12.8.1 the
-resolve share falls with scale: 76% of a cold install at 200 apps, 26% at 1,000, 14% at
-2,000 (`lockfile-bench.json`) — resolve still dominates the 200-app cold install;
-linking dominates at 1,000–2,000. (pnpm 10's JS resolver is priced leg-vs-leg in
-`bench/pnpm12-bench.json`: 307.4s → 0.93s cold resolve at 1,000:200.) A build task runs once anywhere;
-others download the output — but build-once amortization **requires the remote cache on**
+resolve's share of a cold install falls with scale: 76% at 200 apps, 26% at 1,000, 14% at
+2,000 (`lockfile-bench.json`). Resolve dominates the 200-app cold install; linking dominates
+at 1,000–2,000. pnpm 10's JS resolver took 307.4s for a 1,000:200 cold resolve that pnpm 12
+does in 0.93s (`bench/pnpm12-bench.json`). A build task runs once anywhere and others
+download its output, but build-once amortization **requires the remote cache on**
 ([LIMITS.md](LIMITS.md#remote-cache-amortizing-the-orepo-cold-start)).
 
-At 1,000 apps under pnpm 12.8.1 every install situation is single-digit seconds — the pnpm-10 resolve
-penalty is gone (the JS CLI paid 307.4s on a 1,000:200 cold resolve,
-`bench/pnpm12-bench.json`), and a full re-resolve costs within 3% of a frozen
-warm-store relink (`install-modes-bench.json`, 1,000 apps):
+At 1,000 apps every install situation takes single-digit seconds (`install-modes-bench.json`,
+pnpm 12.8.1; share of a cold resolve):
 
 - cold-resolve (no lockfile) 2.9s (100%)
 - +1 dependency 1.0s (35%)
@@ -59,10 +57,8 @@ warm-store relink (`install-modes-bench.json`, 1,000 apps):
 - frozen warm-store 2.8s (97%)
 - frozen cold-store 2.8s (97%)
 
-Per tool, frozen install on an empty cache, each sample in a fresh podman container
-(`container-install-bench.json`, 1,000 apps, pnpm 12.8.1 on its default isolated linker): bun **0.93s** and pnpm **1.03s** (+11%), yarn-PnP 4.5s,
-yarn node-modules 6.5s, npm 10.4s
-([TOOLING.md](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
+A frozen install with empty caches in a fresh CI container at 1,000 apps takes bun 0.93s, pnpm 1.03s, and npm
+10.4s ([TOOLING.md](TOOLING.md#the-ci-runner-install-frozen-in-a-fresh-container)).
 
 Cold typecheck recurs on a shared `tsconfig`/toolchain bump or a foundation-lib edit
 (rebuilds ~90% of the repo at 1,000 apps, `dev-sim.json`). Lockfile conflicts
@@ -71,47 +67,44 @@ auto-resolve (253 markers → 0); catalogs change 0 manifests vs 25 pinned
 
 ## Single-App Work
 
-One shared lockfile + graph delivers one-version-everywhere and atomic refactors;
+One shared lockfile and graph deliver one version everywhere and atomic refactors, while
 single-app commands touch a small slice. At 20,000 apps one app's build closure is **100 of
-20,300 packages (~0.5%)** (`results.json`); `turbo prune` emits **1,050 of 4,127 lines** at
-80-app scale (`focus-install-bench.json`, pnpm 12.8.1). The only global cost is graph-load,
-and it is measurable at the top: the focused build of a 100-package closure takes 11.9s at
-2,000 apps and 39.5s at 20,000.
+20,300 packages (~0.5%)** (`results.json`). At 80-app scale `turbo prune` emits a pruned
+lockfile of **1,050 of 4,127 lines** (`focus-install-bench.json`, pnpm 12.8.1). The one global
+cost is the graph load, and it shows at the top: the focused build of a 100-package closure
+takes 11.9s at 2,000 apps and 39.5s at 20,000.
 
 ## Package-Manager Lever
 
-On a full re-resolve against pnpm 12.8.1 (the Rust CLI) the winner depends on scale:
-bun is ~1.6× faster at 200 apps (0.28s vs 0.43–0.46s), pnpm-hoisted 3.1–3.4× faster than bun
-at 1,000–2,000 apps (0.96s vs 2.9s; 2.5s vs 8.6s) (`install-bench.json`). yarn-PnP is
-second-fastest cold at 2,000 (3.2s to pnpm-hoisted's 2.5s) with no `node_modules`, but PnP
-cannot run this repo's stock tsgo/`next build` stack (`pnp-compat-bench.json`, a 20-app:10-lib
-tree). bun's isolated+catalog path is newer and hit bugs
-([#23615](https://github.com/oven-sh/bun/issues/23615)). Numbers in [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4); the centralized-shared +
-independently-published hybrid is in
-[WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
+For cold installs (no lockfile, warm store), the fastest installer depends on scale: bun is ~1.6× faster than pnpm at 200 apps (0.28s vs
+0.43–0.46s), and pnpm-hoisted is 3.1–3.4× faster than bun at 1,000–2,000 apps
+(`install-bench.json`). yarn-PnP is second-fastest cold at 2,000 apps and removes `node_modules`,
+but cannot run this repo's stock tsgo/`next build` stack (`pnp-compat-bench.json`). bun's
+isolated+catalog path is newer and has hit bugs
+([#23615](https://github.com/oven-sh/bun/issues/23615)). Numbers:
+[TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4); the centralized-shared plus
+independently-published hybrid: [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md).
 
 ## Which Direction Fits Which Situation
 
 | situation | direction |
 |---|---|
 | share libs, want one-version + cross-package refactors | shared pnpm workspace + Turborepo (remote cache + prune + catalogs) |
-| same, but install/resolve time dominates | same; pnpm 12's Rust CLI removed the resolve wall — cold installs are under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`). bun leads cold at 200 apps and truly-cold, pnpm-hoisted at 1,000–2,000, and bun leads the CI frozen install (pnpm +11%, fresh) |
+| same, but install/resolve time dominates | same; under pnpm 12 cold installs stay under 4s through 5,000 apps (31.3s at 10,000, 74.9s at 20,000, `results.json`); pick the installer by scale ([Package-Manager Lever](#package-manager-lever)) |
 | many apps, weak sharing | shard into smaller workspaces |
 | apps independent (no shared libs) | polyrepo / separate installs |
 
 ## By Scale
 
-- **≤~1,000–2,000 apps (≤2,300 pkgs):** cold install 1.1–1.6s, cold typecheck 25–47s,
+- **Up to 1,000–2,000 apps (≤2,300 pkgs):** cold install 1.1–1.6s, cold typecheck 25–47s,
   both rare; daily loop seconds.
-- **10,000 apps / 10,300 pkgs (measured):** cold typecheck 222.8s, cold install 31.3s, a
-  full-cache-hit typecheck 23.9s. Isolated linker: 194,827 `node_modules` entries /
-  121,712 symlinks (`results.json`); yarn PnP removes `node_modules` (64 entries + 3.5 MB
-  `.pnp.cjs` at 2,000 apps, `install-bench.json`).
-- **20,000 apps / 20,300 pkgs (measured, except the whole-workspace typecheck):** lockfile
-  746,255 lines, cold install 74.9s, `turbo prune` 25.0s and a focused build 39.5s for a
-  ~100-package selection. The whole-workspace tsc typecheck is not run at this scale;
-  extrapolating the 10,000-app per-package rate gives ~7 minutes cold on 192 cores — needs
-  sharding.
+- **10,000 apps / 10,300 pkgs (measured):** the table's costs, plus 194,827 `node_modules`
+  entries / 121,712 symlinks under the isolated linker (`results.json`); yarn PnP removes
+  `node_modules` (64 entries + 3.5 MB `.pnp.cjs` at 2,000 apps, `install-bench.json`).
+- **20,000 apps / 20,300 pkgs (measured, except the whole-workspace typecheck):** `turbo prune`
+  25.0s and a focused build 39.5s for a ~100-package selection; extrapolating the 10,000-app
+  per-package rate gives a whole-workspace tsc typecheck of ~7 minutes cold on 192 cores, which
+  calls for sharding.
 
 Vercel caps projects per git repo (Pro 60, Hobby 10, Enterprise custom,
 [Vercel limits](https://vercel.com/docs/limits)).

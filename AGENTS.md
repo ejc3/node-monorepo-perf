@@ -285,7 +285,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   cold/warm medians + samples + the cold ranking/ratios. Non-canonical knobs → gitignored partial.
   Core-bound, load-guarded, self-contained (btrfs work dir, removed unless `SPEED_KEEP=1`), no
   worktree → `bench/rspack-turbopack-speed-bench.json`, folded into TOOLING.md
-  ("[yarn PnP toolchain compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)", the Build speed paragraph).
+  ("[Build: Next vs Vite](TOOLING.md#build-next-vs-vite)", the Build speed paragraph).
 - `node scripts/fleet-flow-bench.mjs` (`FLEET_FLOW_APPS`/`FLEET_FLOW_WORK`/`FLEET_FLOW_KEEP=1`/
   `FLEET_FLOW_ALLOW_BUSY=1`, `FLOW_BIN`+`FLOW_SOURCE` as in tsgo-scale-bench): **Flow on the
   fleet shape** — mirrors a generated fleet tree module-for-module in Flow's dialect (876,440
