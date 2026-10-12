@@ -20,8 +20,10 @@
 # EVAL_STARTED; and for
 # each PR in PRS the PR can be read, its head is still <sha>, and no activity on it (the PR's
 # own updatedAt, any comment, review, or review-thread comment created, updated or edited)
-# is newer than EVAL_STARTED. A read that fails posts `error`; a newer signal posts
-# `pending`, and the run that answers that signal (or the next sweep) posts the verdict.
+# is newer than EVAL_STARTED. Every list is read to its last page and checked against its
+# total count. A read that fails posts `error`; a newer signal, or a list that holds fewer
+# items than its total, posts `pending`, and the run that answers that signal (or the next
+# sweep) posts the verdict.
 #
 # Quota: GitHub accepts at most 1000 statuses per commit and context and refuses the rest,
 # leaving the last one standing, and anyone can fire the events that re-run the gate. So a
@@ -119,6 +121,73 @@ if [ "$state" = pending ] && [ "${cur_state:-}" != success ]; then
   exit 0
 fi
 
+# Every list below is read to the end, and a list that holds fewer items than its total
+# count is incomplete. One page of 100 used to be read and trusted: a newer run, a comment
+# edited, or a reply added past the first page was never seen, and a stale evaluation posted
+# success. A page that fails is a failed read (error); an incomplete list is a signal this
+# script cannot see past (pending).
+#
+# list_sum: input lines "T <total>", "N <items on a page>", "D <date>", "X" (unreadable) or
+# "I" (an inner list was cut short), from every page of one list. Prints the newest date or
+# "none"; returns 1 for an unreadable list and 3 for an incomplete one.
+list_sum() {
+  awk '$1 == "X" { bad = 1 } $1 == "I" { cut = 1 } $1 == "T" { t = $2; seen = 1 } $1 == "N" { n += $2 }
+       $1 == "D" && $2 > max { max = $2 }
+       END { if (bad || !seen) exit 1; if (cut || n < t) exit 3; print (max == "" ? "none" : max) }'
+}
+# pr_activity <pr>: "<head> <branch> <newest activity>" for one PR, reading its head, then
+# every top-level comment, every review, and every comment of every review thread (a thread's
+# last comment alone missed an edit to the finding above it). Returns 1 when a read fails and
+# 3 when a list is incomplete.
+pr_activity() {
+  local pr=$1 head out newest rc d
+  local -a q=(-F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}")
+  head=$(gh api graphql "${q[@]}" -f query='
+    # q:head
+    query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
+      pullRequest(number: $n) { headRefOid headRefName updatedAt } } }' \
+    --jq '.data.repository.pullRequest
+          | if . == null or (.headRefOid | type) != "string" then "X"
+            else .headRefOid + " " + (.headRefName // "?" | if test("^[^[:space:]]+$") then . else "?" end)
+                 + " " + (.updatedAt // "none") end') || return 1
+  [ "$head" != X ] || return 1
+  newest=${head##* }
+  for d in comments reviews threads; do
+    case $d in
+      comments) out=$(gh api graphql --paginate "${q[@]}" -f query='
+          # q:comments
+          query($o: String!, $r: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: $r) {
+            pullRequest(number: $n) { comments(first: 100, after: $endCursor) { totalCount
+              pageInfo { hasNextPage endCursor } nodes { createdAt updatedAt lastEditedAt } } } } }' \
+          --jq '.data.repository.pullRequest.comments
+                | if . == null or (.totalCount | type) != "number" or (.nodes | type) != "array" then "X" else "T \(.totalCount)", "N \(.nodes | length)",
+                  (.nodes[] | .createdAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1 ;;
+      reviews) out=$(gh api graphql --paginate "${q[@]}" -f query='
+          # q:reviews
+          query($o: String!, $r: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: $r) {
+            pullRequest(number: $n) { reviews(first: 100, after: $endCursor) { totalCount
+              pageInfo { hasNextPage endCursor } nodes { submittedAt updatedAt lastEditedAt } } } } }' \
+          --jq '.data.repository.pullRequest.reviews
+                | if . == null or (.totalCount | type) != "number" or (.nodes | type) != "array" then "X" else "T \(.totalCount)", "N \(.nodes | length)",
+                  (.nodes[] | .submittedAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1 ;;
+      threads) out=$(gh api graphql --paginate "${q[@]}" -f query='
+          # q:threads
+          query($o: String!, $r: String!, $n: Int!, $endCursor: String) { repository(owner: $o, name: $r) {
+            pullRequest(number: $n) { reviewThreads(first: 50, after: $endCursor) { totalCount
+              pageInfo { hasNextPage endCursor }
+              nodes { comments(first: 100) { totalCount nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
+          --jq '.data.repository.pullRequest.reviewThreads
+                | if . == null or (.totalCount | type) != "number" or (.nodes | type) != "array" then "X" else "T \(.totalCount)", "N \(.nodes | length)",
+                  (.nodes[] | if (.comments.totalCount // -1) != (.comments.nodes | length) then "I" else empty end),
+                  (.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt | select(. != null) | "D \(.)") end') || return 1 ;;
+    esac
+    rc=0; d=$(list_sum <<<"$out") || rc=$?
+    [ "$rc" = 0 ] || return "$rc"
+    [ "$d" = none ] || [[ $newest != none && ! $d > $newest ]] || newest=$d
+  done
+  printf '%s %s\n' "${head% *}" "$newest"
+}
+
 # The success rule. Each check either passes or turns the success into a blocking state.
 phase="not posting success"
 block() { state=$1; desc=$2; echo "$ctx on ${sha:0:9}: $phase: $desc"; }
@@ -146,19 +215,12 @@ verify_snapshot() {
     # The PRs themselves: head unchanged, nothing newer than the snapshot.
     for pr in ${PRS:-}; do
       [[ $pr =~ ^[0-9]+$ ]] || { block error "Not a PR number: ${pr:0:20}"; break; }
-      if ! act=$(gh api graphql -F n="$pr" -f o="${repo%%/*}" -f r="${repo#*/}" -f query='
-          query($o: String!, $r: String!, $n: Int!) { repository(owner: $o, name: $r) {
-            pullRequest(number: $n) { headRefOid headRefName updatedAt
-              comments(last: 100) { nodes { createdAt updatedAt lastEditedAt } }
-              reviews(last: 100) { nodes { submittedAt updatedAt lastEditedAt } }
-              reviewThreads(last: 100) { nodes { comments(last: 1) { nodes { createdAt updatedAt lastEditedAt } } } } } } }' \
-          --jq '.data.repository.pullRequest
-                | if . == null then "unreadable"
-                  else .headRefOid + " " + (.headRefName // "?" | if test("^[^[:space:]]+$") then . else "?" end) + " "
-                       + ([.updatedAt, (.comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt),
-                           (.reviews.nodes[] | .submittedAt, .updatedAt, .lastEditedAt),
-                           (.reviewThreads.nodes[].comments.nodes[] | .createdAt, .updatedAt, .lastEditedAt)]
-                          | map(select(. != null)) | max // "none") end') || [ "$act" = unreadable ]; then
+      act_rc=0
+      act=$(pr_activity "$pr") || act_rc=$?
+      if [ "$act_rc" = 3 ]; then
+        block pending "Re-evaluating: could not see all of PR #$pr's activity"
+        break
+      elif [ "$act_rc" != 0 ]; then
         block error "Could not read PR #$pr to verify a success; see the run"
         break
       fi
@@ -183,20 +245,30 @@ verify_snapshot() {
     # would keep a valid success pending. Fail closed: a title that does not parse, that
     # names no target, or that names a branch while a PR's branch is unknown ("?"), counts.
     # A list that cannot be read is a failed read.
-    if ! newer=$(gh api "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
+    # Every page is filtered on its own and the pages summed (list_sum): a page that fails is
+    # a failed read, and a list holding fewer runs than its total_count is incomplete.
+    runs_rc=0
+    runs_out=$(gh api --paginate "repos/$repo/actions/workflows/review-gate.yml/runs?per_page=100&created=%3E%3D$EVAL_STARTED" \
         --jq "($(jq -cn --arg s "$PRS" '$s | [splits(" +") | select(. != "")]') ) as \$prs
               | ($(jq -cn --arg s "$branches" '$s | [splits(" +") | select(. != "")]') ) as \$branches
-              | [.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
+              | . as \$page
+              | [\$page.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
                                            and .created_at >= \"$EVAL_STARTED\")
                  | ((.display_title // \"\") | capture(\"^review-gate [a-z_]+ sha=(?<sha>-|[0-9a-f]{40}) prs=(?<prs>-|[0-9]+(,[0-9]+)*) branch=(?<branch>[^[:space:]]+)\$\") // null) as \$t
                  | select(\$t == null
                           or (\$t.sha == \"-\" and \$t.prs == \"-\" and \$t.branch == \"-\")
                           or \$t.sha == \"$sha\"
                           or (\$t.prs != \"-\" and any(\$t.prs | split(\",\")[]; IN(\$prs[])))
-                          or (\$t.branch != \"-\" and (IN(\$branches[]; \"?\") or (\$t.branch | IN(\$branches[])))))]
-              | length"); then
+                          or (\$t.branch != \"-\" and (IN(\$branches[]; \"?\") or (\$t.branch | IN(\$branches[])))))] as \$hits
+              | if (\$page.workflow_runs | type) != \"array\" or (\$page.total_count | type) != \"number\" then \"X\"
+                else \"T \\(\$page.total_count)\", \"N \\(\$page.workflow_runs | length)\", (\$hits[] | \"D 1\") end") \
+      || runs_rc=1
+    [ "$runs_rc" != 0 ] || { newer=$(list_sum <<<"$runs_out") || runs_rc=$?; }
+    if [ "$runs_rc" = 3 ]; then
+      block pending "Re-evaluating: the review-gate run list is incomplete"
+    elif [ "$runs_rc" != 0 ]; then
       block error "Could not read the review-gate runs to verify a success; see the run"
-    elif [ "$newer" != 0 ]; then
+    elif [ "$newer" != none ]; then
       block pending "Re-evaluating after a newer event"
     fi
   fi

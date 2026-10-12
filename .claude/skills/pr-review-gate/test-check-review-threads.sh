@@ -2404,12 +2404,12 @@ mkdir -p "$TMP/psbin"
 # recorded and exits $PS_POST_RC.
 cat > "$TMP/psbin/gh" <<'SHIM'
 #!/bin/bash
-args=("$@"); filter=""; endpoint=""; post=0; paginate=0
+args=("$@"); filter=""; endpoint=""; post=0; paginate=0; query=""
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     --jq) filter=${args[$((i + 1))]}; i=$((i + 1)) ;;
     -X) [ "${args[$((i + 1))]}" = POST ] && post=1; i=$((i + 1)) ;;
-    -f | -F) i=$((i + 1)) ;;
+    -f | -F) case "${args[$((i + 1))]}" in query=*) query=${args[$((i + 1))]#query=} ;; esac; i=$((i + 1)) ;;
     --paginate) paginate=1 ;;
     api) ;;
     *) endpoint=${args[$i]} ;;
@@ -2417,6 +2417,9 @@ for ((i = 0; i < ${#args[@]}; i++)); do
 done
 if [ "$post" = 1 ]; then printf '%s\n' "$*" >> "$PS_DIR/posts"; exit "${PS_POST_RC:-0}"; fi
 f="$PS_DIR/$(printf '%s' "${endpoint%%\?*}" | tr '/' '_').json"
+# A GraphQL query marked "# q:<name>" reads graphql.<name>.json when the case supplies one.
+q=$(sed -n 's/.*# q:\([a-z]*\).*/\1/p' <<<"$query" | head -n1)
+[ -n "$q" ] && [ -r "$PS_DIR/graphql.$q.json" ] && f="$PS_DIR/graphql.$q.json"
 # A fixture "<name>.after" replaces <name> once a POST has been recorded: what changed after
 # the write. Its content SHIM_FAIL makes that read fail.
 [ -s "$PS_DIR/posts" ] && [ -r "$f.after" ] && f="$f.after"
@@ -2425,6 +2428,8 @@ f="$PS_DIR/$(printf '%s' "${endpoint%%\?*}" | tr '/' '_').json"
 # With --paginate, a fixture "<name>.page2" is the next page; without it, the caller sees page 1 only.
 pages=("$f"); [ "$paginate" = 1 ] && [ -r "$f.page2" ] && pages+=("$f.page2")
 for pg in "${pages[@]}"; do
+  # A later page whose content is SHIM_FAIL fails the read after the pages before it printed.
+  [ "$(head -c 9 "$pg")" != SHIM_FAIL ] || { echo "shim: read failed for $endpoint (a later page)" >&2; exit 1; }
   if [ -n "$filter" ]; then jq -r "$filter" "$pg"; else cat "$pg"; fi
 done
 SHIM
@@ -2436,10 +2441,10 @@ OURS_RUN='{"path":".github/workflows/review-gate.yml","event":"issue_comment","h
 # One status; $5 is its created_at.
 st() { printf '{"context":"review-gate","state":"%s","description":"%s","creator":{"login":"%s"},"target_url":"%s","created_at":"%s"}' \
   "$1" "$2" "$3" "$4" "${5:-2026-01-01T00:00:00Z}"; }
-runs() { printf '{"workflow_runs":[%s]}' "$1"; }
+runs() { printf '{"workflow_runs":[%s]}' "$1" | jq -c '.total_count = (.workflow_runs | length)'; }
 wrun() { printf '{"id":%s,"event":"%s","created_at":"%s"}' "$1" "$2" "$3"; }
 # The PR as the success check reads it: $1 head, $2 the newest activity.
-gql() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","updatedAt":"%s","comments":{"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"nodes":[]},"reviewThreads":{"nodes":[]}}}}}' "$1" "$2" "$2"; }
+gql() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","updatedAt":"%s","comments":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":"C1"},"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]},"reviewThreads":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' "$1" "$2" "$2"; }
 # The snapshot every success case starts from: evaluation began 00:04, PR #7, this is run 88,
 # no other run since, PR quiet since 00:03. A case overrides one piece with PS_RUNS, PS_GQL
 # (UNREADABLE makes the read fail) or its env column.
@@ -2458,6 +2463,8 @@ ps_case() {
   local r=${PS_RUNS-$QUIET_RUNS} g=${PS_GQL-$QUIET_PR}
   [ "$r" = UNREADABLE ] || printf '%s' "$r" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json"
   [ "$g" = UNREADABLE ] || printf '%s' "$g" > "$d/graphql.json"
+  # PS_FILES: a directory of further fixtures (later pages, per-query GraphQL answers).
+  [ -z "${PS_FILES:-}" ] || cp "$PS_FILES"/* "$d"/
   # After a success is posted, a status read shows that success as the newest status.
   printf '%s' "${PS_AFTER_STATUSES:-[$NOW_OK]}" > "$d/repos_o_r_commits_${PS_SHA}_statuses.json.after"
   [ -z "${PS_AFTER_RUNS:-}" ] || printf '%s' "$PS_AFTER_RUNS" > "$d/repos_o_r_actions_workflows_review-gate.yml_runs.json.after"
@@ -2537,7 +2544,7 @@ PS_RUNS=UNREADABLE \
 # unknown, counts too.
 trun() { printf '{"id":%s,"event":"%s","created_at":"%s","display_title":"%s"}' "$1" "$2" "$3" "$4"; }
 OTHER_SHA=fedcba9876543210fedcba9876543210fedcba98
-gqlb() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","headRefName":"%s","updatedAt":"%s","comments":{"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"nodes":[]},"reviewThreads":{"nodes":[]}}}}}' "$PS_SHA" "$1" 2026-01-02T00:03:00Z 2026-01-02T00:03:00Z; }
+gqlb() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","headRefName":"%s","updatedAt":"%s","comments":{"totalCount":1,"pageInfo":{"hasNextPage":false,"endCursor":"C1"},"nodes":[{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"%s","lastEditedAt":null}]},"reviews":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]},"reviewThreads":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}}}}' "$PS_SHA" "$1" 2026-01-02T00:03:00Z 2026-01-02T00:03:00Z; }
 PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 pull_request_target 2026-01-02T00:05:00Z "review-gate pull_request_target sha=$OTHER_SHA prs=12 branch=-")") \
   ps_case "a newer run for an unrelated head does not demote a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
 PS_GQL=$(gqlb feature) PS_RUNS=$(runs "$(trun 91 issue_comment 2026-01-02T00:05:00Z "review-gate issue_comment sha=- prs=12 branch=-")") \
@@ -2565,6 +2572,65 @@ if [[ $wf_title == 'review-gate ${{ github.event_name }} sha=${{ '*' }} prs=${{ 
   echo "  PASS  review-gate.yml's run-name has the shape post-status.sh parses"; pass=$((pass+1))
 else
   echo "  FAIL  review-gate.yml's run-name has the shape post-status.sh parses (got: ${wf_title:-none})"; fail=$((fail+1))
+fi
+# Every list post-status.sh reads is read to the end. The run list was one page of 100: a
+# newer run for this head on page 2 was never seen, and a stale evaluation posted success.
+# Now every page is read (--paginate, filtered per page, then summed), a page that fails is
+# a failed read (error), and a list holding fewer runs than its total_count is incomplete
+# (pending: a run it did not show may be for this head).
+RUNS_F=repos_o_r_actions_workflows_review-gate.yml_runs.json
+pg_dir() { local dd="$TMP/pg.$1"; rm -rf "$dd"; mkdir -p "$dd"; printf '%s' "$2" > "$dd/$RUNS_F.page2"; printf '%s' "$dd"; }
+runs_tc() { printf '{"total_count":%s,"workflow_runs":[%s]}' "$1" "$2"; }
+act_pr_raw() { jq -ce "$1" <<<"$(gqlb feature)"; }
+UNREL1=$(trun 92 issue_comment 2026-01-02T00:05:00Z "review-gate issue_comment sha=- prs=12 branch=-")
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs_tc 2 "$UNREL1") \
+PS_FILES=$(pg_dir a "$(runs_tc 2 "$(trun 93 pull_request_target 2026-01-02T00:05:30Z "review-gate pull_request_target sha=$PS_SHA prs=7 branch=-")")") \
+  ps_case "a newer run for this head on the second page demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs_tc 2 "$UNREL1") \
+PS_FILES=$(pg_dir b "$(runs_tc 2 "$(trun 93 issue_comment 2026-01-02T00:05:30Z "review-gate issue_comment sha=- prs=13 branch=-")")") \
+  ps_case "an unrelated run on the second page does not demote a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs_tc 2 "$UNREL1") PS_FILES=$(pg_dir c SHIM_FAIL) \
+  ps_case "a run list whose second page cannot be read turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+PS_GQL=$(gqlb feature) PS_RUNS=$(runs_tc 5 "$UNREL1") \
+  ps_case "a run list holding fewer runs than its total_count demotes a success" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(gqlb feature) PS_RUNS=$(printf '{"workflow_runs":[%s]}' "$UNREL1") \
+  ps_case "a run list page with no total_count turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+PS_GQL=$(act_pr_raw 'del(.data.repository.pullRequest.reviews.totalCount)') \
+  ps_case "a review list with no totalCount turns a success into error" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=error"
+# The same for the PR's activity: comments, reviews and review threads are each read to the
+# end, and every comment of every thread is read (the last comment alone missed an edit to
+# the finding above it). A list shorter than its totalCount is incomplete (pending).
+act_pr() {  # $1 jq edits applied to a quiet PR in the complete shape
+  jq -c "$1" <<<"$(gqlb feature)"
+}
+act_dir() {  # $1 name, $2 marker, $3 page-1 JSON, $4 page-2 JSON
+  local dd="$TMP/act.$1"; rm -rf "$dd"; mkdir -p "$dd"
+  printf '%s' "$3" > "$dd/graphql.$2.json"; printf '%s' "$4" > "$dd/graphql.$2.json.page2"; printf '%s' "$dd"
+}
+LATE='{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-02T00:05:00Z","lastEditedAt":"2026-01-02T00:05:00Z"}'
+QUIET='{"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-02T00:03:00Z","lastEditedAt":null}'
+C_P1=$(act_pr ".data.repository.pullRequest.comments = {totalCount: 2, pageInfo: {hasNextPage: true, endCursor: \"C1\"}, nodes: [$QUIET]}")
+C_P2=$(act_pr ".data.repository.pullRequest.comments = {totalCount: 2, pageInfo: {hasNextPage: false, endCursor: \"C2\"}, nodes: [$LATE]}")
+PS_GQL=$C_P1 PS_FILES=$(act_dir c comments "$C_P1" "$C_P2") \
+  ps_case "activity on the second page of PR comments turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+R_P1=$(act_pr ".data.repository.pullRequest.reviews = {totalCount: 2, pageInfo: {hasNextPage: true, endCursor: \"R1\"}, nodes: [{submittedAt: \"2026-01-01T00:00:00Z\", updatedAt: \"2026-01-01T00:00:00Z\", lastEditedAt: null}]}")
+R_P2=$(act_pr ".data.repository.pullRequest.reviews = {totalCount: 2, pageInfo: {hasNextPage: false, endCursor: \"R2\"}, nodes: [{submittedAt: \"2026-01-01T00:00:00Z\", updatedAt: \"2026-01-02T00:05:00Z\", lastEditedAt: \"2026-01-02T00:05:00Z\"}]}")
+PS_GQL=$R_P1 PS_FILES=$(act_dir r reviews "$R_P1" "$R_P2") \
+  ps_case "activity on the second page of reviews turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+T_P1=$(act_pr ".data.repository.pullRequest.reviewThreads = {totalCount: 2, pageInfo: {hasNextPage: true, endCursor: \"T1\"}, nodes: [{comments: {totalCount: 1, nodes: [$QUIET]}}]}")
+T_P2=$(act_pr ".data.repository.pullRequest.reviewThreads = {totalCount: 2, pageInfo: {hasNextPage: false, endCursor: \"T2\"}, nodes: [{comments: {totalCount: 1, nodes: [$LATE]}}]}")
+PS_GQL=$T_P1 PS_FILES=$(act_dir t threads "$T_P1" "$T_P2") \
+  ps_case "activity in a review thread on the second page turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(act_pr ".data.repository.pullRequest.comments.totalCount = 150") \
+  ps_case "PR comments fewer than their totalCount turn a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_GQL=$(act_pr ".data.repository.pullRequest.reviewThreads = {totalCount: 1, pageInfo: {hasNextPage: false, endCursor: \"T1\"}, nodes: [{comments: {totalCount: 101, nodes: [$QUIET]}}]}") \
+  ps_case "a review thread holding more comments than were read turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+# Source-level: a thread's comments are read whole, not its last comment alone (a shim
+# answers whatever the query asked, so only the query text shows the truncation).
+if grep -q 'comments(last: 1)' "$POSTER"; then
+  echo "  FAIL  post-status.sh reads every comment of a review thread, not the last one"; fail=$((fail+1))
+else
+  echo "  PASS  post-status.sh reads every comment of a review thread, not the last one"; pass=$((pass+1))
 fi
 PS_GQL=$(gql "$PS_SHA" 2026-01-02T00:05:00Z) \
   ps_case "activity on the PR after the snapshot turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
