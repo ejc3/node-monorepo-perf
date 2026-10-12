@@ -21,11 +21,11 @@ Primary sources for each practice the benchmark follows, for where pnpm + Turbor
 
 ## The Ceiling
 
-Sources for the escape from the ceiling [LIMITS.md](LIMITS.md) measures (graph load, lockfile size, foundation blast radius): a different architecture, acknowledged by vendors and documented in production monorepos.
+[LIMITS.md](LIMITS.md) measures the ceiling: graph load, lockfile size, foundation blast radius. These sources document the architectures that remove it, as vendors describe them and production monorepos run them.
 
 - `--affected` and caching cannot eliminate the tasks of modified projects or their dependents; the remedy is distributed task execution ([Nx reduce-waste](https://nx.dev/docs/concepts/ci-concepts/reduce-waste)).
-- Caching is not execution: a remote *cache* (Nx Replay) helps only the second consumer; the escape needs distributed *execution* (Nx Agents, [Bazel RBE](https://bazel.build/remote/rbe)).
-- A persistent daemon escapes the per-invocation O(repo) graph load: Buck2 keeps one graph between invocations and is remote-execution-first ([buck2 docs](https://buck2.build/docs/about/why/)); Bazel persistent workers cut startup ([Bazel persistent](https://bazel.build/remote/persistent)).
+- Caching is not execution: a remote *cache* (Nx Replay) helps only the second consumer; the escape is distributed *execution* ([Nx Agents](https://nx.dev/docs/features/ci-features/distribute-task-execution), [Bazel RBE](https://bazel.build/remote/rbe)).
+- A persistent daemon escapes the per-invocation O(repo) graph load: Buck2's daemon keeps its DICE graph between invocations for as long as it runs ([Buck2 perf basics](https://github.com/facebook/buck2/blob/main/docs/developers/perf/basics.md)) and is remote-execution-first ([buck2 docs](https://buck2.build/docs/about/why/)); Bazel persistent workers cut startup ([Bazel persistent](https://bazel.build/remote/persistent)).
 - **End-states.** Google (Piper + CitC FUSE + Blaze/Bazel, ~1B files, [paper](https://research.google/pubs/why-google-stores-billions-of-lines-of-code-in-a-single-repository/)); Meta (Sapling + EdenFS + Buck2, [Sapling](https://engineering.fb.com/2022/11/15/open-source/sapling-source-control-scalable/), [Buck2](https://engineering.fb.com/2023/04/06/open-source/buck2-open-source-large-scale-build-system/)); Microsoft (Scalar/VFS-for-Git + Rush + Lage, [Scalar](https://github.blog/open-source/git/the-story-of-scalar/), [Rush Stack](https://rushstack.io/)); Canva and Uber (Git + Bazel, [Canva](https://www.canva.dev/blog/engineering/we-put-half-a-million-files-in-one-git-repository-heres-what-we-learned/), [Uber](https://www.uber.com/blog/go-monorepo-bazel/)).
 
 ## The Git Axis

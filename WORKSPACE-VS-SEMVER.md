@@ -11,7 +11,7 @@ Being in a workspace does not force the `workspace:` protocol. App `foo` can dec
 | `false` (pnpm 8+ default) | the registry, even if a matching local `b` exists |
 | `true` | the local `b` if its version satisfies `^1.2.0`, else the registry |
 
-Only `workspace:` forces local linking unconditionally. The two halves of this repo sit on opposite sides of the gate. The benchmark workspace's root `.npmrc` sets `link-workspace-packages=true` + `prefer-workspace-packages=true`, so its packages always link local. The independently-published model this doc describes runs with the gate closed: the demo scaffolds (§§3–7) either write `link-workspace-packages=false` in their own `.npmrc` or keep pnpm's `false` default in their standalone roots. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
+Only `workspace:` forces local linking unconditionally. The two halves of this repo sit on opposite sides of the gate. The benchmark workspace references its internal packages with `workspace:*`, so they always link local; its root `.npmrc` also sets `link-workspace-packages=true` + `prefer-workspace-packages=true`, which links a plain-semver dependency only when the local version satisfies its range. The independently-published model this doc describes runs with the gate closed: the demo scaffolds (§§3–7) either write `link-workspace-packages=false` in their own `.npmrc` or keep pnpm's `false` default in their standalone roots. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
 
 ## 2. `workspace:<range>`
 
