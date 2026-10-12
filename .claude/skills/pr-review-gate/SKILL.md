@@ -113,7 +113,7 @@ only when `<sha>` names the current head (the full sha, or a prefix of 7 or more
 no other commit on the PR shares), the comment was written after the head arrived (dated
 like a claim: the later of its creation and its last edit), and the text says concretely
 what was done: at least 20 letters or digits, not only placeholders such as `n/a`, `none`,
-`skip` or `-`, and no unfinished placeholder (`TODO`, `TBD`, `FIXME`, `XXX`, or `<...>`).
+`skip` or `-`, and no unfinished placeholder (`TODO`, `TBD`, `FIXME`, `XXX`, or a `<words>` placeholder; a sha or URL in angle brackets is fine).
 A review whose body is only the override line is not its author's review of the head. It
 answers no thread or review-body finding, it counts only for a login
 `REQUIRE_HEAD_REVIEW_FROM` lists, and a push needs a new one. The gate prints

@@ -3094,6 +3094,13 @@ for t in ' TODO: describe what was done instead' ' <describe replacement review 
     "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 1 \
     "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
 done
+# Concrete content in angle brackets is not a placeholder: a sha range or an autolink.
+for t in ' local codex exec review of <9c1d2e3>..<5f8a63e>, no findings' \
+         ' local codex exec -s read-only review, log at <https://example.com/run/1>, no findings'; do
+  ov_case "an override whose text is '${t# }' covers the head" "$REQO" \
+    "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 0 \
+    "HEAD OVERRIDDEN  chatgpt-codex-connector" "" "OVERRIDE REJECTED"
+done
 # A review body that is only an override line is the override and nothing else: it is not
 # its author's review of the head, for a required login or for the any-reviewer rule.
 ov_case "an override-only review body is not its author's own review of the head" \

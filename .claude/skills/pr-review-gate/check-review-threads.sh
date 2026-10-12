@@ -1307,7 +1307,7 @@ OVERRIDE_JQ='def override_re: "\\A[[:space:]]*HEAD-REVIEW-OVERRIDE:[ \t]+(?<who>
          | all(IN("n", "a", "na", "none", "nil", "null", "skip", "skipped", "nothing", "tbd", "todo",
                   "x", "ok", "done", "override", "overridden")) | not)
     and (test("\\b(todo|tbd|fixme|xxx)\\b"; "i") | not)
-    and (test("<[^<>]*>") | not);'
+    and (test("<(?![0-9a-fA-F]{7,40}>)(?![A-Za-z][A-Za-z0-9+.-]*://)[^<>]*[A-Za-z][^<>]*>") | not);'
 
 prauthor=$(jq -r '.data.repository.pullRequest.author.login // ""' <<<"$payload" 2>/dev/null)
 

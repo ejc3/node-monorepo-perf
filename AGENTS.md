@@ -1544,7 +1544,7 @@ PR author included. It covers that one login on that one head: `<sha>` names the
 head (the full sha, or a prefix of 7 or more characters no other commit on the PR shares),
 the comment is written after the head arrived (dated like a claim, by its last edit), and
 the text states concretely what replaced the review, at least 20 letters or digits, not a
-placeholder such as `n/a` or `skip`, and with no `TODO`, `TBD`, `FIXME`, `XXX` or `<...>` left
+placeholder such as `n/a` or `skip`, and with no `TODO`, `TBD`, `FIXME`, `XXX` or `<words>` placeholder left
 in it. A review whose body is only the override line is not its author's review of the
 head. It answers no thread or review-body finding, counts
 only for a login `REQUIRE_HEAD_REVIEW_FROM` lists, and a push needs a new one. The gate
