@@ -113,5 +113,8 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
   change only; `pending` only over a `success`; `error` instead of `success` near GitHub's
   1000-status cap; a success this workflow did not post replaced by the real verdict.
 - `merge-pr.sh`: `make merge-pr PR=<n>`, the merge path.
-- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, six of
+- `_required-reviewers.sh`: sourced by the gate and `merge-pr.sh`; a
+  `REQUIRE_HEAD_REVIEW_FROM` (or `REVIEW_GATE_REQUIRED`) that is set but names no login is
+  refused with exit 2, never read as "nobody required".
+- `capture-review-threads-fixture.sh` + `fixtures/`: payloads the gate consumes, eight of
   them captured from this repository's PRs #46 and #63 to #67.

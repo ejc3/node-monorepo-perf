@@ -14,7 +14,8 @@
 # resolution rule still blocks an unresolved thread; for anything else, run this command
 # again immediately before merging rather than reusing an earlier verdict.
 #
-# Environment: REQUIRE_HEAD_REVIEW_FROM (default chatgpt-codex-connector,coderabbitai),
+# Environment: REQUIRE_HEAD_REVIEW_FROM (unset: chatgpt-codex-connector,coderabbitai; set
+# but naming nobody: refused),
 # GITHUB_REPOSITORY or REPO_OWNER/REPO_NAME as for the gate, MERGE_GATE_SCRIPT (tests only:
 # the gate to run).
 set -euo pipefail
@@ -25,6 +26,10 @@ for tool in gh jq; do
   command -v "$tool" >/dev/null 2>&1 || { echo "merge-pr: '$tool' is not installed; not merging" >&2; exit 2; }
 done
 here=$(cd "$(dirname "$0")" && pwd)
+# Unset means the default list below; set but naming nobody is refused, not defaulted.
+# shellcheck source=_required-reviewers.sh
+source "$here/_required-reviewers.sh" || { echo "merge-pr: cannot load _required-reviewers.sh; not merging" >&2; exit 2; }
+required_reviewers_ok merge-pr || { echo "merge-pr: not merging" >&2; exit 2; }
 gate=${MERGE_GATE_SCRIPT:-$here/check-review-threads.sh}
 # The same precedence as the gate (REPO_OWNER/REPO_NAME, then GITHUB_REPOSITORY, then this
 # repository), resolved once here and handed to the gate, so both read one repository.

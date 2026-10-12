@@ -2649,6 +2649,52 @@ mp_case "a gate that cannot evaluate does not merge" "$MP_OPEN" 2 1 0
 mp_case "a PR that cannot be read is not merged" "" 0 2 0
 mp_case "a closed PR is not merged" "$(printf '{"state":"CLOSED","headRefOid":"%s","baseRefName":"main"}' "$PS_SHA")" 0 2 0
 
+echo "== addition 8c: a required-reviewer list that is set but empty is refused =="
+# `${REQUIRE_HEAD_REVIEW_FROM-default}` keeps an empty value, so `make merge-pr PR=7
+# REVIEW_GATE_REQUIRED=` ran the gate requiring nobody and merged without either bot. One
+# rule (_required-reviewers.sh), checked at every entry point: set but naming no login is
+# refused with exit 2; unset keeps each entry point's default.
+run_env_case "the gate refuses REQUIRE_HEAD_REVIEW_FROM set but empty" \
+  "REQUIRE_HEAD_REVIEW_FROM=" "$(cat "$FIXTURES/review-threads-live-65-cr-ack.json")" 2 "names no reviewer" "verdict: CLEAR"
+run_env_case "the gate refuses a REQUIRE_HEAD_REVIEW_FROM of separators only" \
+  "REQUIRE_HEAD_REVIEW_FROM= , ," "$(cat "$FIXTURES/review-threads-live-65-cr-ack.json")" 2 "names no reviewer" "verdict: CLEAR"
+# merge-pr.sh and the Makefile targets, through the gh shim and the stub gate of 8b.
+rr_case() {  # $1 name, $2 expected rc, $3 "merge" or "gate" (what must NOT happen), $4.. the command
+  local name=$1 want_rc=$2 never=$3 d out rc; shift 3
+  ps_n=$((ps_n + 1)); d="$TMP/rr.$ps_n"; mkdir "$d"
+  out=$(env MP_DIR="$d" MP_VIEW="$MP_OPEN" MP_GATE_RC=0 MERGE_GATE_SCRIPT="$TMP/mpgate.sh" \
+        PATH="$TMP/mpbin:$PATH" GITHUB_REPOSITORY=o/r "$@" 2>&1); rc=$?
+  local merged; merged=$(grep -c '^pr merge' "$d/calls" 2>/dev/null || true)
+  if [ "$rc" = "$want_rc" ] && [ "${merged:-0}" = 0 ] && grep -qF "names no reviewer" <<<"$out" \
+     && { [ "$never" != gate ] || [ ! -s "$d/gate" ]; }; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc, merges=${merged:-0})"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1))
+  fi
+}
+rr_case "merge-pr.sh refuses REQUIRE_HEAD_REVIEW_FROM set but empty" 2 gate \
+  env REQUIRE_HEAD_REVIEW_FROM= bash "$MERGER" 7
+rr_case "make merge-pr refuses REVIEW_GATE_REQUIRED set empty" 2 gate \
+  make -s -C "$ROOT" merge-pr PR=7 REVIEW_GATE_REQUIRED=
+rr_case "make review-gate refuses REVIEW_GATE_REQUIRED set empty" 2 merge \
+  make -s -C "$ROOT" review-gate PR=7 REVIEW_GATE_REQUIRED=
+# Guard, green before and after: unset, merge-pr.sh hands the gate the default list.
+d="$TMP/mp.unset"; mkdir "$d"
+env -u REQUIRE_HEAD_REVIEW_FROM MP_DIR="$d" MP_VIEW="$MP_OPEN" MERGE_GATE_SCRIPT="$TMP/mpgate.sh" PATH="$TMP/mpbin:$PATH" \
+  GITHUB_REPOSITORY=o/r bash "$MERGER" 7 >/dev/null 2>&1
+if grep -qF "REQ=chatgpt-codex-connector,coderabbitai" "$d/gate" 2>/dev/null; then
+  echo "  PASS  merge-pr.sh with the list unset requires the default reviewers"; pass=$((pass+1))
+else
+  echo "  FAIL  merge-pr.sh with the list unset requires the default reviewers"; fail=$((fail+1))
+fi
+# The workflow sets the list for the status; it must name a login (the gate refuses it at
+# run time otherwise, which blocks every head).
+if [ -n "${wf_req//[[:space:],]/}" ]; then
+  echo "  PASS  the workflow's REQUIRE_HEAD_REVIEW_FROM names a reviewer"; pass=$((pass+1))
+else
+  echo "  FAIL  the workflow's REQUIRE_HEAD_REVIEW_FROM names no reviewer"; fail=$((fail+1))
+fi
+
 echo "== addition 9: the gate workflows' structure =="
 # Each check below pins one property of .github/workflows/review-gate*.yml that no runtime
 # case can reach. Point WORKFLOWS_DIR elsewhere to run them against another copy.

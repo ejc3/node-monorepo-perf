@@ -39,8 +39,9 @@
 #                                      head it read; this keeps the verdict and the commit
 #                                      the status lands on the same commit.
 #   REQUIRE_HEAD_REVIEW_FROM=a,b       block unless EACH listed login covered the head
-#                                      (default empty: any one reviewer other than the
-#                                      author covers it, as upstream).
+#                                      (unset: any one reviewer other than the author
+#                                      covers it, as upstream; set but naming nobody:
+#                                      refused, exit 2).
 set -uo pipefail
 
 # A GATE MUST FAIL CLOSED. Without this check the script degraded silently when `jq`
@@ -57,6 +58,16 @@ for tool in jq gh; do
     exit 2
   }
 done
+
+# node-monorepo-perf addition: a REQUIRE_HEAD_REVIEW_FROM that is set but names nobody is
+# refused (_required-reviewers.sh), never read as "no reviewer required". A helper that
+# cannot be loaded blocks too.
+# shellcheck source=_required-reviewers.sh
+if ! source "$(dirname "$0")/_required-reviewers.sh" 2>/dev/null \
+   || ! required_reviewers_ok "verdict: BLOCKED — check-review-threads"; then
+  echo "verdict: BLOCKED — the required-reviewer list cannot be used; refusing to evaluate." >&2
+  exit 2
+fi
 
 # node-monorepo-perf addition: in GitHub Actions GITHUB_REPOSITORY names the repository the
 # workflow runs in, so a fork or rename evaluates its own PRs. An explicit REPO_OWNER /
