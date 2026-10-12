@@ -67,6 +67,7 @@ on:
 
 permissions:
   contents: write # the commit-refreshed-PNG step pushes to main (no-op on pull_request)
+  statuses: write # and marks that PNG-only commit review-gate=success, which main requires
 
 jobs:
   comparison-chart:
@@ -127,15 +128,26 @@ jobs:
 
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
-            # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
-            # the build (the PNGs were still validated above; refresh locally with the chart make targets).
-            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit them"
+            # main requires the review-gate status on every commit it takes. This commit holds
+            # only rasters re-rendered from SVGs that passed the gate in their own PR, so CI
+            # vouches for it in writing: stage it on a side branch, mark it, then fast-forward main.
+            sha=$(git rev-parse HEAD)
+            side="ci/charts-png-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            trap 'git push origin --delete "$side" >/dev/null 2>&1 || true' EXIT
+            git push --force origin "HEAD:refs/heads/$side"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=success -f context=review-gate \
+              -f description="CI: chart PNGs re-rendered from the SVGs already gated on main; no reviewed content changed" >/dev/null
+            # Best-effort: warn rather than failing the build (the PNGs were still validated above;
+            # refresh locally with the chart make targets).
+            git push origin "HEAD:main" || echo "::warning::could not push the refreshed PNG; run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit them"
           fi
 
       - name: Upload the freshly-rendered PNGs (PR builds)

@@ -7,8 +7,8 @@ user-invocable: true
 
 # PR review gate
 
-Once the ruleset on `main` requires it, a PR merges into `main` only when the commit
-status `review-gate` on its head is `success`. `.github/workflows/review-gate.yml` posts that status from
+The ruleset on `main` requires it: a PR merges into `main` only when the commit status
+`review-gate` on its head is `success`. `.github/workflows/review-gate.yml` posts that status from
 `check-review-threads.sh` in this directory. Run the same check locally:
 
 ```bash
