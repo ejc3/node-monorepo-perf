@@ -23,8 +23,10 @@ import {
   MIN_BOX_TEXT,
   labelBaseline,
   LABEL_GAP,
+  FIG,
 } from "./_chartstyle.mjs";
 import * as svgAudit from "./_svg-audit.mjs";
+import { textWidth } from "./_text-width.mjs";
 
 const { auditSvg } = svgAudit;
 
@@ -408,22 +410,74 @@ test("the audit exempts a rect only if text is written inside it", () => {
   );
 });
 
+test("the figures share the heat and line charts' type scale", () => {
+  assert.equal(FIG.title, TYPE.title);
+  assert.equal(FIG.lede, TYPE.lede);
+  assert.equal(FIG.value, TYPE.value);
+  assert.equal(FIG.note, TYPE.note);
+  assert.equal(FIG.body, MIN_BOX_TEXT, "figure box text sits at the box-text floor");
+  assert.ok(FIG.edge >= MIN_TEXT);
+});
+
+// A figure box is a bordered rect: a text is inside one when any rect painted under it
+// that holds its glyph box has a painted stroke (width above 0, a colour of alpha above
+// 0), whatever the rect's size. A 20px chip is a box; an unbordered tint (a heat cell) is
+// not.
+test("text in any bordered frame is held to the figure-box floor, a 20px chip included", () => {
+  const small = (x, y, s) => `<text x="${x}" y="${y}" font-size="9.5" fill="#1c2330">${s}</text>`;
+  const boxed = (body) => auditMini(body).filter((i) => /inside a figure box/.test(i));
+  for (const body of [
+    // a package chip: 20px tall, bordered
+    `<rect x="20" y="20" width="60" height="20" rx="4" fill="#ffffff" stroke="#b9cdec" stroke-width="1"/>${small(28, 33.5, "react")}`,
+    // a narrow chip
+    `<rect x="20" y="20" width="36" height="16" fill="#ffffff" stroke="#b9cdec"/>${small(24, 31, "next")}`,
+    // an unbordered tint inside a bordered box: still inside the box
+    `<rect x="10" y="10" width="200" height="80" fill="#eef3fb" stroke="#b9cdec"/>` +
+      `<rect x="20" y="20" width="100" height="20" fill="#dde6f3"/>${small(26, 33.5, "nested")}`,
+  ])
+    assert.equal(boxed(body).length, 1, `9.5px text in a bordered frame passed: ${body}`);
+  // controls: an unbordered heat cell, a border of width 0 or alpha 0, the page
+  for (const body of [
+    `<rect x="20" y="20" width="60" height="20" fill="#eef3fb"/>${small(28, 33.5, "cell")}`,
+    `<rect x="20" y="20" width="60" height="20" fill="#eef3fb" stroke="#b9cdec" stroke-width="0"/>${small(28, 33.5, "cell")}`,
+    `<rect x="20" y="20" width="60" height="20" fill="#eef3fb" stroke="rgba(185,205,236,0)"/>${small(28, 33.5, "cell")}`,
+    small(28, 33.5, "page"),
+  ])
+    assert.deepEqual(boxed(body), [], body);
+  // at the floor a chip passes
+  assert.deepEqual(
+    boxed(
+      `<rect x="20" y="20" width="60" height="20" rx="4" fill="#ffffff" stroke="#b9cdec"/>` +
+        `<text x="28" y="34" font-size="11" fill="#1c2330">react</text>`,
+    ),
+    [],
+  );
+});
+
+// The overlap check reads whether paint exists from the light theme. That is exact only
+// because no dark rule can make light-transparent paint visible: the one light paint of
+// alpha 0 is an rgba() value, and a dark selector on an rgba() value is unsupported.
+test("a dark rule cannot select an rgba() value (the overlap check's light-theme paint test relies on it)", () => {
+  const doc = (rule) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<style>@media (prefers-color-scheme: dark){${rule}}</style>` +
+    `<rect width="400" height="200" fill="#ffffff"/>` +
+    `<rect x="10" y="52" width="200" height="2" fill="rgba(0,0,0,0)"/></svg>`;
+  assert.throws(
+    () =>
+      auditSvg(doc(`rect[fill="rgba(0,0,0,0)"]{fill:#e2e7ec}`), {
+        minText: MIN_TEXT,
+        minBoxText: MIN_BOX_TEXT,
+      }),
+    /unsupported dark rule selector/,
+  );
+});
+
 // Every committed chart, in both themes: text at or above the floor (11px inside a
 // figure box), every text at 4.5:1 against what is drawn behind it, every mark at 3:1
 // against the page. One matrix over all generators, so a new chart cannot opt out.
-// LEGACY holds charts not yet redrawn on the shared grammar; the PR that redraws one
-// removes it here.
-const LEGACY = new Set([
-  "fig-blast-radius.svg",
-  "fig-freshness-gate.svg",
-  "fig-linker-layouts.svg",
-  "fig-next-pnp-node.svg",
-  "fig-orepo-oclosure.svg",
-  "fig-remote-cache.svg",
-  "fig-save-loop.svg",
-  "fig-sliced-gate.svg",
-  "fleet-gate.svg",
-]);
+// Every chart is on the shared grammar; a chart added later joins the matrix as is.
+const LEGACY = new Set();
 const chartsDir = new URL("../bench/charts/", import.meta.url);
 for (const f of readdirSync(chartsDir)
   .filter((f) => f.endsWith(".svg") && !LEGACY.has(f))
@@ -449,11 +503,15 @@ test("charts.yml triggers on every module the chart scripts import", () => {
     "fleet-chart.mjs",
     "figures.mjs",
   ];
+  // every local module reachable from the chart scripts, through imports of imports
   const local = new Set();
-  for (const f of scripts) {
-    const src = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
-    for (const m of src.matchAll(/from "\.\/([\w.-]+\.mjs)"/g)) local.add(m[1]);
+  const queue = [...scripts];
+  while (queue.length) {
+    const f = queue.shift();
+    if (local.has(f)) continue;
     local.add(f);
+    const src = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
+    for (const m of src.matchAll(/from "\.\/([\w.-]+\.mjs)"/g)) queue.push(m[1]);
   }
   for (const f of local) {
     const n = wf.split(`- "scripts/${f}"`).length - 1;
@@ -1036,7 +1094,7 @@ const geoSvg = (body, page = true) =>
   `${page ? `<rect width="400" height="200" fill="#ffffff"/>` : ""}${body}</svg>`;
 const auditGeo = (body, page) =>
   auditSvg(geoSvg(body, page), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
-const label = (x, y, fill, { size = 13, anchor = "start", s = "ab" } = {}) =>
+const geoText = (x, y, fill, { size = 13, anchor = "start", s = "ab" } = {}) =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}"${anchor === "start" ? "" : ` text-anchor="${anchor}"`}>${s}</text>`;
 const dot = ([cx, cy], fill) => `<circle cx="${cx}" cy="${cy}" r="4" fill="${fill}"/>`;
 const strokeAttr = (stroke) => (stroke ? ` stroke="${stroke}"` : "");
@@ -1111,7 +1169,7 @@ const none = (issues, re) => !issues.some((i) => re.test(i));
 test("finding 1: a dark filled circle is the backdrop of the text and the dot painted over it", () => {
   // a dark circle, then text in its colour: unreadable, though it would pass on the page
   const txt = auditGeo(
-    KINDS.circle.draw("#1c2330") + label(...CENTRE, "#1c2330", { anchor: "middle" }),
+    KINDS.circle.draw("#1c2330") + geoText(...CENTRE, "#1c2330", { anchor: "middle" }),
   );
   assert.ok(
     both(txt, (th) => new RegExp(`^${th}: "ab" #1c2330 at 1\\.00:1`)),
@@ -1130,7 +1188,7 @@ test("finding 2: a canvas-sized rect with rounded corners is not the page", () =
   // corner sits on the reader's surface, not on black
   const issues = auditSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
-      `<rect width="400" height="200" rx="60" fill="#000000"/>${label(2, 11, "#ffffff")}</svg>`,
+      `<rect width="400" height="200" rx="60" fill="#000000"/>${geoText(2, 11, "#ffffff")}</svg>`,
     { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT },
   );
   assert.ok(
@@ -1146,14 +1204,14 @@ test("finding 2: a canvas-sized rect with rounded corners is not the page", () =
 test("finding 3: text in a rounded rect's clipped corner is not framed by the rect", () => {
   // white text in the corner of a dark rounded rect, clear of its fill: on the page
   const corner = auditGeo(
-    KINDS.rounded.draw("#1c2330") + label(...KINDS.rounded.corner, "#ffffff"),
+    KINDS.rounded.draw("#1c2330") + geoText(...KINDS.rounded.corner, "#ffffff"),
   );
   assert.ok(
     both(corner, (th) => new RegExp(`^${th}: "ab" #ffffff at 1\\.00:1`)),
     `white text in a clipped corner was judged against the rect: ${JSON.stringify(corner)}`,
   );
   // text across the corner's arc crosses the fill's edge
-  const arc = auditGeo(KINDS.rounded.draw("#1c2330") + label(...KINDS.rounded.edge, "#1c2330"));
+  const arc = auditGeo(KINDS.rounded.draw("#1c2330") + geoText(...KINDS.rounded.edge, "#1c2330"));
   assert.ok(
     arc.some((i) => /"ab" crosses the edge of the rect painted under it/.test(i)),
     `text across a rounded corner's arc was framed by the rect: ${JSON.stringify(arc)}`,
@@ -1163,7 +1221,7 @@ test("finding 3: text in a rounded rect's clipped corner is not framed by the re
 test("finding 4: an outline-only rect with a visible border is a figure box", () => {
   const box = (stroke) =>
     `<rect x="60" y="20" width="280" height="160" fill="none" stroke="${stroke}"/>` +
-    label(...CENTRE, "#1c2330", { size: 10, anchor: "middle" });
+    geoText(...CENTRE, "#1c2330", { size: 10, anchor: "middle" });
   assert.ok(
     auditGeo(box("#1c2330")).some((i) => /"ab" is 10px inside a figure box/.test(i)),
     "10px text inside an outline-only box passed the box floor",
@@ -1250,7 +1308,7 @@ const MATRIX = {
       outline: `<rect width="400" height="200" fill="none" stroke="#1c2330"/>`,
     }[k];
     const covers = k === "square" || k === "circle";
-    const issues = auditGeo(canvas + label(...CENTRE, "#1c2330", { anchor: "middle" }), false);
+    const issues = auditGeo(canvas + geoText(...CENTRE, "#1c2330", { anchor: "middle" }), false);
     if (covers) assert.deepEqual(issues, [], "a canvas-covering fill is the page in both themes");
     else
       assert.ok(
@@ -1260,7 +1318,7 @@ const MATRIX = {
     if (k === "circle")
       assert.ok(
         auditGeo(
-          `<circle cx="200" cy="100" r="200" fill="#ffffff"/>${label(...CENTRE, "#1c2330", { anchor: "middle" })}`,
+          `<circle cx="200" cy="100" r="200" fill="#ffffff"/>${geoText(...CENTRE, "#1c2330", { anchor: "middle" })}`,
           false,
         ).some((i) => /no full-canvas background rect/.test(i)),
         "a circle short of the canvas's corners was taken as the page",
@@ -1268,8 +1326,8 @@ const MATRIX = {
   },
   // text frame: the backdrop of a text inside the fill is the fill
   frame: (k, K) => {
-    const same = auditGeo(K.draw("#1c2330") + label(...CENTRE, "#1c2330", { anchor: "middle" }));
-    const white = auditGeo(K.draw("#1c2330") + label(...CENTRE, "#ffffff", { anchor: "middle" }));
+    const same = auditGeo(K.draw("#1c2330") + geoText(...CENTRE, "#1c2330", { anchor: "middle" }));
+    const white = auditGeo(K.draw("#1c2330") + geoText(...CENTRE, "#ffffff", { anchor: "middle" }));
     const fails = (issues, ink) =>
       both(issues, (th) => new RegExp(`^${th}: "ab" ${ink} at 1\\.00:1`));
     if (K.filled) {
@@ -1288,7 +1346,7 @@ const MATRIX = {
   },
   // text in the bounding box's corner: framed only where the fill reaches
   corner: (k, K) => {
-    const issues = auditGeo(K.draw("#1c2330") + label(...K.corner, "#ffffff"));
+    const issues = auditGeo(K.draw("#1c2330") + geoText(...K.corner, "#ffffff"));
     if (K.cornerFilled)
       assert.deepEqual(issues, [], `the ${k}'s filled corner is not the backdrop`);
     else {
@@ -1301,7 +1359,7 @@ const MATRIX = {
   },
   // a glyph box across the fill's boundary, the fill painted before the text
   crossing: (k, K) => {
-    const issues = auditGeo(K.draw("#1c2330") + label(...K.edge, "#1c2330"));
+    const issues = auditGeo(K.draw("#1c2330") + geoText(...K.edge, "#1c2330"));
     const re = new RegExp(`"ab" crosses the edge of the ${K.tag} painted under it`);
     if (K.filled)
       assert.ok(
@@ -1312,8 +1370,8 @@ const MATRIX = {
   },
   // a fill painted after a text over its glyph box covers it; one clear of it does not
   cover: (k, K) => {
-    const over = auditGeo(label(...CENTRE, "#1c2330", { anchor: "middle" }) + K.draw("#f2f2f2"));
-    const corner = auditGeo(label(...K.corner, "#1c2330") + K.draw("#f2f2f2"));
+    const over = auditGeo(geoText(...CENTRE, "#1c2330", { anchor: "middle" }) + K.draw("#f2f2f2"));
+    const corner = auditGeo(geoText(...K.corner, "#1c2330") + K.draw("#f2f2f2"));
     const re = new RegExp(`"ab" is covered by a ${K.tag} drawn after it`);
     assert.equal(
       over.some((i) => re.test(i)),
@@ -1368,10 +1426,10 @@ const MATRIX = {
     const re = (th) => new RegExp(`^${th}: ${K.tag} ${attr} #f2f2f2 at`);
     const framing = auditGeo(
       K.draw("#f2f2f2", K.filled ? undefined : "#f2f2f2") +
-        label(...CENTRE, "#1c2330", { anchor: "middle" }),
+        geoText(...CENTRE, "#1c2330", { anchor: "middle" }),
     );
     const corner = auditGeo(
-      K.draw("#f2f2f2", K.filled ? undefined : "#f2f2f2") + label(...K.corner, "#1c2330"),
+      K.draw("#f2f2f2", K.filled ? undefined : "#f2f2f2") + geoText(...K.corner, "#1c2330"),
     );
     assert.ok(
       none(framing, /#f2f2f2 at/),
@@ -1388,8 +1446,10 @@ const MATRIX = {
   // a figure box: a rect, filled or not, with a visible border holding the glyph box
   figureBox: (k, K) => {
     const bordered = K.draw(K.filled ? "#ffffff" : "none", "#1c2330");
-    const centre = auditGeo(bordered + label(...CENTRE, "#1c2330", { size: 10, anchor: "middle" }));
-    const corner = auditGeo(bordered + label(...K.corner, "#1c2330", { size: 10 }));
+    const centre = auditGeo(
+      bordered + geoText(...CENTRE, "#1c2330", { size: 10, anchor: "middle" }),
+    );
+    const corner = auditGeo(bordered + geoText(...K.corner, "#1c2330", { size: 10 }));
     const boxed = (issues) => issues.some((i) => /"ab" is 10px inside a figure box/.test(i));
     assert.equal(
       boxed(centre),
@@ -1401,6 +1461,28 @@ const MATRIX = {
       K.figureBox && (K.cornerFilled || !K.filled),
       `10px text in the bordered ${k}'s corner: ${JSON.stringify(corner)}`,
     );
+  },
+  // the overlap check: a text collides with a stroke's ring or outline where the ring meets
+  // its glyph box, not inside a hollow shape's hole nor in a rounded or round shape's bare
+  // corner; painted before or after the text alike
+  strokeOverlap: (k, K) => {
+    const ring = K.draw("none", "#1c2330");
+    const re = new RegExp(
+      `"ab" \\(box [^)]*\\) overlaps the ${K.tag} stroke drawn (before|after) it`,
+    );
+    for (const [where, text, hit] of [
+      ["edge", geoText(...K.edge, "#1c2330"), true],
+      ["centre", geoText(...CENTRE, "#1c2330", { anchor: "middle" }), false],
+      ["corner", geoText(...K.corner, "#1c2330"), false],
+    ])
+      for (const body of [ring + text, text + ring]) {
+        const issues = auditGeo(body);
+        assert.equal(
+          issues.some((i) => re.test(i)),
+          hit,
+          `${where} text and the ${k}'s stroke: ${JSON.stringify(issues)}`,
+        );
+      }
   },
 };
 for (const [pred, fn] of Object.entries(MATRIX))
@@ -1417,6 +1499,373 @@ test("every committed chart, LEGACY ones included, is inside the audit's allowli
         }),
       f,
     );
+});
+
+test("the audit checks stroke-only marks: tile outlines, hollow dots, arrows", () => {
+  const faint = "#d0d4d8"; // ~1.4:1 on white
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60"><rect width="200" height="60" fill="#ffffff"/><rect x="10" y="10" width="8" height="8" fill="none" stroke="${faint}"/><circle cx="40" cy="20" r="4" fill="#ffffff" stroke="${faint}"/><line x1="60" y1="20" x2="100" y2="20" stroke="${faint}"/><path d="M100 20L94 17L94 23z" fill="${faint}"/><line x1="0" y1="50" x2="200" y2="50" stroke="#e4e8ec"/></svg>`;
+  const issues = auditSvg(svg, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  for (const what of ["rect stroke", "circle stroke", "line stroke", "path fill"])
+    assert.ok(
+      issues.some((i) => i.includes(what)),
+      `audit missed a faint ${what}: ${issues}`,
+    );
+  assert.ok(
+    !issues.some((i) => i.includes("#e4e8ec")),
+    "a GRID hairline is decoration, not a mark",
+  );
+});
+
+// The audit's overlap check: a text's estimated box (per-glyph Arial / Arial Bold
+// advances x 1.1, so a wider system-ui face such as DejaVu Sans fits inside it) must not
+// meet a mark drawn after it or the box of another text, except a rect that frames it and
+// a GRID hairline.
+// the collision issues: overlaps, covers and crossings of a rect's edge
+const overlapIssues = (body) =>
+  auditMini(body).filter((i) => /overlap|is covered by|crosses the edge/.test(i));
+const label = (x, y, s, extra = "") =>
+  `<text x="${x}" y="${y}" font-size="11" fill="#1c2330"${extra}>${s}</text>`;
+test("the audit flags a text whose box runs into a bar drawn after it", () => {
+  // "a label that runs on into the bar" at 11px is ~190px in Arial x 1.1: from x=20 it
+  // reaches past the bar at x=150
+  const issues = overlapIssues(
+    label(20, 60, "a label that runs on into the bar") +
+      `<rect x="150" y="50" width="120" height="13" fill="#3f4b5b"/>`,
+  );
+  assert.ok(
+    issues.some((i) => /runs on into the bar/.test(i) && /rect/.test(i)),
+    `overlap not flagged: ${JSON.stringify(issues)}`,
+  );
+});
+test("the audit flags a stroked line drawn after a text across its glyphs", () => {
+  const issues = overlapIssues(
+    label(20, 60, "a label crossed by an axis line") +
+      `<line x1="120" y1="40" x2="120" y2="80" stroke="#3a4656"/>`,
+  );
+  assert.ok(
+    issues.some((i) => /crossed by an axis/.test(i) && /line/.test(i)),
+    `line overlap not flagged: ${JSON.stringify(issues)}`,
+  );
+});
+test("the audit flags two texts whose boxes overlap, and an end-anchored one", () => {
+  const issues = overlapIssues(label(20, 60, "the first text is long") + label(90, 62, "second"));
+  assert.ok(
+    issues.some((i) => /second/.test(i) && /first text/.test(i)),
+    `text-text overlap not flagged: ${JSON.stringify(issues)}`,
+  );
+  const end = overlapIssues(
+    label(20, 60, "left") + label(120, 60, "right-aligned and long", ` text-anchor="end"`),
+  );
+  assert.ok(end.length > 0, `end-anchored text over another not flagged: ${end}`);
+});
+test("the audit flags a text whose box runs off the canvas", () => {
+  // miniSvg is 400 wide: an end-anchored text past x=0, a start-anchored one past 400
+  assert.ok(
+    auditMini(label(380, 60, "runs past the right edge")).some((i) => /off the 400x200/.test(i)),
+  );
+  assert.ok(
+    auditMini(label(30, 60, "runs past the left edge", ` text-anchor="end"`)).some((i) =>
+      /off the/.test(i),
+    ),
+  );
+  assert.deepEqual(auditMini(label(20, 60, "inside")), []);
+});
+test("the audit passes a text that clears its neighbours (no-overlap guard)", () => {
+  assert.deepEqual(
+    overlapIssues(
+      label(20, 60, "a short label") +
+        `<rect x="150" y="50" width="120" height="13" fill="#3f4b5b"/>` +
+        label(277, 60, "58.1s", ` font-weight="600"`) +
+        label(20, 80, "a second line below the first") +
+        `<line x1="140" y1="30" x2="140" y2="100" stroke="#e4e8ec"/>`,
+    ),
+    [],
+  );
+  // a GRID hairline through a text is decoration, not an overlap
+  assert.deepEqual(
+    overlapIssues(
+      label(20, 60, "over a gridline") + `<line x1="50" y1="40" x2="50" y2="80" stroke="#e4e8ec"/>`,
+    ),
+    [],
+  );
+});
+test("the audit exempts the rect that frames a text, and only that rect", () => {
+  // an outline drawn after the text around it frames it
+  assert.deepEqual(
+    overlapIssues(
+      label(30, 60, "framed text") +
+        `<rect x="20" y="45" width="120" height="25" fill="none" stroke="#3a4656"/>`,
+    ),
+    [],
+  );
+  // a rect drawn after the text that frames ANOTHER text (anchored low in it, clear of
+  // this one) is not this text's frame: its outline crossing this text's tail is reported,
+  // naming the rect
+  const issues = overlapIssues(
+    label(30, 60, "a text whose tail is under a box") +
+      `<rect x="100" y="45" width="120" height="60" fill="none" stroke="#3a4656"/>${label(110, 95, "box")}`,
+  );
+  assert.ok(
+    issues.some(
+      (i) => /tail is under/.test(i) && /overlaps the rect stroke drawn after it/.test(i),
+    ),
+    `a rect framing another text exempted this one: ${JSON.stringify(issues)}`,
+  );
+  assert.ok(
+    !issues.some((i) => /"box"/.test(i)),
+    `the other text collides on its own, so the fixture tests nothing: ${issues}`,
+  );
+});
+test("the chart kit measures text with the audit's estimate", () => {
+  assert.equal(typeof textWidth, "function", "_text-width.mjs exports textWidth");
+  for (const [s, px, bold] of [
+    ["the whole workspace's source, once", 10, false],
+    ["58.9s batch · 10.3s sliced", 11, false],
+    ["per-package pipeline", 12, true],
+  ])
+    assert.equal(approxW(s, px, bold), textWidth(s, px, bold ? "600" : ""));
+  // the audit's box for a text is that width: a rect drawn after the text starting just
+  // past it passes, one starting just inside it is an overlap
+  const s = "the whole workspace's source, once";
+  const w = textWidth(s, 10);
+  const at = (x) =>
+    auditMini(
+      `<text x="20" y="60" font-size="10" fill="#1c2330">${s}</text><rect x="${x}" y="50" width="40" height="13" fill="#3f4b5b"/>`,
+    ).filter((i) => /overlap|is covered by/.test(i));
+  assert.deepEqual(at(20 + w + 0.5), []);
+  assert.ok(at(20 + w - 0.5).length > 0, "a rect inside the text's estimated width passed");
+});
+
+test("the width estimate holds the widest system-ui face, DejaVu Sans", () => {
+  // advances of these strings in DejaVu Sans 2.37 (px, at the size given), read from the
+  // font files; each must fit inside the estimate, as must Arial's x 1.1
+  for (const [s, px, weight, dejavu] of [
+    ["the whole workspace's source, once", 10, "", 180.6],
+    ["a breaking rev turns all 30,000 apps red: 58.9s batch · 10.3s sliced", 11, "", 369.0],
+    ["30,171 = 30,171", 13, "650", 120.3],
+  ])
+    assert.ok(
+      textWidth(s, px, weight) >= dejavu,
+      `"${s}" estimated ${textWidth(s, px, weight).toFixed(1)}px < DejaVu Sans ${dejavu}px`,
+    );
+});
+
+test("a framing rect exempts a text only while the text's box fits inside its inner edge", () => {
+  const frame = (x, w) =>
+    `<rect x="${x}" y="40" width="${w}" height="34" rx="6" fill="#fcf4f0" stroke="#e2c0b0" stroke-width="1"/>`;
+  // drawn before the text, the frame holds it: no issue
+  assert.deepEqual(overlapIssues(frame(20, 220) + label(30, 61, "fits inside its box")), []);
+  // the same text in a narrower frame runs across its right edge: reported, naming the rect
+  const over = auditMini(frame(20, 100) + label(30, 61, "fits inside its box"));
+  assert.ok(
+    over.some(
+      (i) => /fits inside/.test(i) && /crosses the edge of the rect painted under it/.test(i),
+    ),
+    `a text crossing its own frame's edge passed: ${JSON.stringify(over)}`,
+  );
+  // the inner edge is inset by half the stroke: a text ending on the stroke is reported
+  const w = textWidth("edge", 11);
+  const onStroke = overlapIssues(frame(20, 10 + w + 0.2) + label(30, 61, "edge"));
+  assert.ok(onStroke.length > 0, "a text ending under its frame's stroke passed");
+});
+test("a fill painted before a text that its glyph box crosses collides, whatever the anchor", () => {
+  // a label emitted after a filled bar, dot or arrowhead, its anchor outside the mark and
+  // its glyphs over the fill: the fill is not the label's backdrop, so it collides
+  const mark = "#3f4b5b";
+  const cases = [
+    [
+      `<rect x="100" y="50" width="200" height="14" fill="${mark}"/>`,
+      label(40, 60, "label over the bar"),
+    ],
+    [`<circle cx="100" cy="56" r="5" fill="${mark}"/>`, label(40, 60, "label over the dot")],
+    [`<path d="M110 56L98 50L98 62z" fill="${mark}"/>`, label(40, 60, "label over the head")],
+    [
+      `<circle cx="60" cy="56" r="5" fill="${mark}"/>`,
+      label(170, 60, "end-anchored over the dot", ' text-anchor="end"'),
+    ],
+    // a stripe of 3px or less is not a backdrop either
+    [
+      `<rect x="100" y="45" width="3" height="20" fill="${mark}"/>`,
+      label(40, 60, "label over the stripe"),
+    ],
+  ];
+  for (const [fill, text] of cases) {
+    const issues = overlapIssues(fill + text);
+    assert.ok(
+      issues.some((i) =>
+        /overlaps the (circle|path|rect) fill drawn before it|crosses the edge of the (rect|circle|path)/.test(
+          i,
+        ),
+      ),
+      `a label over a fill painted before it passed: ${fill}${text} -> ${JSON.stringify(issues)}`,
+    );
+  }
+  // controls: the same labels clear of the marks
+  assert.deepEqual(
+    overlapIssues(
+      `<rect x="250" y="50" width="100" height="14" fill="${mark}"/>` +
+        `<circle cx="300" cy="100" r="5" fill="${mark}"/>` +
+        `<path d="M310 140L298 134L298 146z" fill="${mark}"/>` +
+        label(40, 60, "label over the bar") +
+        label(40, 104, "label over the dot") +
+        label(40, 144, "label over the head"),
+    ),
+    [],
+  );
+});
+test("a filled rect painted after a text: its fill over the box covers it, its stroke alone collides", () => {
+  const box = (y) =>
+    `<rect x="40" y="${y}" width="100" height="20" fill="#ffffff" stroke="#3f4b5b" stroke-width="6"/>`;
+  // the fill over the box: one covering issue
+  const covered = overlapIssues(label(40, 60, "label by a box") + box(55));
+  assert.deepEqual(
+    covered.map((i) => i.replace(/ \(fill.*/, "")),
+    ['"label by a box" is covered by a rect drawn after it'],
+  );
+  // the fill clear of the box, its stroke (outset by half its width) reaching it
+  assert.ok(
+    overlapIssues(label(40, 60, "label by a box") + box(63)).some((i) =>
+      /overlaps the rect stroke drawn after it/.test(i),
+    ),
+    "a filled rect's stroke painted over the label passed",
+  );
+});
+test("a stroke drawn before a text that crosses its box is an overlap, a hairline is not", () => {
+  const series = `<polyline points="20,70 200,40" fill="none" stroke="#556375" stroke-width="2.25" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const issues = overlapIssues(series + label(60, 62, "10,185"));
+  assert.ok(
+    issues.some((i) => /10,185/.test(i) && /overlaps the polyline stroke drawn before it/.test(i)),
+    `a series line under a label passed: ${JSON.stringify(issues)}`,
+  );
+  // clear of the line: no issue
+  assert.deepEqual(overlapIssues(series + label(60, 40, "10,185")), []);
+  // a GRID hairline, a filled backdrop drawn before: no issue
+  assert.deepEqual(
+    overlapIssues(
+      `<line x1="70" y1="20" x2="70" y2="100" stroke="#e4e8ec"/>` +
+        `<rect x="10" y="80" width="300" height="40" fill="#eef1f4"/>` +
+        label(60, 62, "over a gridline") +
+        label(20, 100, "on a backdrop"),
+    ),
+    [],
+  );
+  // the frame's own stroke is judged by the frame rule, not as a crossing stroke
+  assert.deepEqual(
+    overlapIssues(
+      `<rect x="20" y="40" width="220" height="34" fill="none" stroke="#3a4656"/>` +
+        label(30, 61, "framed"),
+    ),
+    [],
+  );
+});
+test("a rounded frame's corners count: text in a corner square crosses the curve", () => {
+  const pill = `<rect x="20" y="20" width="100" height="60" rx="30" fill="none" stroke="#000000"/>`;
+  // inside the rectangular inner edge, but in the top-left corner the arc cuts through
+  assert.ok(
+    overlapIssues(pill + label(22, 35, "ab")).some((i) =>
+      /overlaps the rect stroke drawn before it/.test(i),
+    ),
+    "text in a rounded corner passed",
+  );
+  // clear of the corners: no issue
+  assert.deepEqual(overlapIssues(pill + label(55, 55, "ab")), []);
+  // the kit's chip shape (rx 4, 20 tall) with a padded label passes
+  assert.deepEqual(
+    overlapIssues(
+      `<rect x="20" y="40" width="70" height="20" rx="4" fill="#ffffff" stroke="#c9d3e6" stroke-width="1"/>` +
+        `<text x="55" y="53.5" font-size="9.5" fill="#1c2330" text-anchor="middle">@demo libs</text>`,
+    ),
+    [],
+  );
+});
+test("a dark rule may not select a none value (a dark-only paint the checks would skip)", () => {
+  const svg = (css) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<style>@media (prefers-color-scheme: dark){${css}}</style><rect width="400" height="200" fill="#ffffff"/>` +
+    `<line x1="20" y1="40" x2="200" y2="40" stroke="none"/></svg>`;
+  for (const css of [`line[stroke="none"]{stroke:#000000}`, `rect[fill="none"]{fill:#000000}`])
+    assert.throws(
+      () => auditSvg(svg(css), { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT }),
+      /unsupported dark rule selector/,
+      css,
+    );
+});
+test("the background rect may not carry a stroke", () => {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<rect width="400" height="200" fill="#ffffff" stroke="#000000" stroke-width="30"/>` +
+    `<text x="5" y="20" font-size="13" fill="#1c2330">edge</text></svg>`;
+  assert.throws(
+    () => auditSvg(svg, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT }),
+    /unsupported stroke on the background rect/,
+  );
+});
+test("one paint-order model: a filled rect painted over a text covers it, once", () => {
+  // a small black rect painted after the label, over its anchor: one covering issue, not
+  // also a frame-edge collision from a second rule
+  const mine = auditMini(
+    label(20, 60, "a long label under a patch") +
+      `<rect x="15" y="50" width="40" height="15" fill="#000000"/>`,
+  );
+  assert.equal(mine.length, 1, JSON.stringify(mine));
+  assert.match(mine[0], /"a long label under a patch" is covered by a rect drawn after it/);
+  // an outline painted after the text around it still frames it
+  assert.deepEqual(
+    auditMini(
+      label(30, 60, "framed") +
+        `<rect x="20" y="45" width="120" height="25" fill="none" stroke="#3a4656"/>`,
+    ),
+    [],
+  );
+});
+test("an untabled glyph is unsupported: the width estimate refuses it", () => {
+  // œ is ~1.02 em in DejaVu Sans; a 0.66 em guess would let it overflow
+  for (const s of ["œ", "tab\there", "e\u0301"])
+    assert.throws(() => textWidth(s, 10), /unsupported glyph/, JSON.stringify(s));
+  // every symbol the chart sources (kit, generators, derived-claim helpers) write is tabled
+  for (const f of [
+    "_chartstyle.mjs",
+    "figures.mjs",
+    "fleet-chart.mjs",
+    "comparison-chart.mjs",
+    "scale-chart.mjs",
+    "net-cache-chart.mjs",
+    "chart.mjs",
+    "_net-cache-finding.mjs",
+    "_install-speed-context.mjs",
+  ]) {
+    const src = readFileSync(new URL(`./${f}`, import.meta.url), "utf8");
+    for (const ch of new Set(src.match(/[^\x20-\x7e\n\r]/gu) || []))
+      assert.doesNotThrow(() => textWidth(ch, 10), `${f}: "${ch}" is not tabled`);
+  }
+});
+test("the GRID exemption covers hairlines only (stroke-width 1 or less)", () => {
+  const across = (w) =>
+    label(20, 60, "a label under a gridline") +
+    `<line x1="60" y1="20" x2="60" y2="100" stroke="#e4e8ec"${w ? ` stroke-width="${w}"` : ""}/>`;
+  assert.deepEqual(overlapIssues(across()), [], "a 1px GRID hairline is decoration");
+  assert.ok(
+    overlapIssues(across(30)).some((i) => /overlaps the line stroke/.test(i)),
+    "a 30px GRID-coloured line across the text passed",
+  );
+  // the mark check holds a wide GRID stroke to 3:1 like any other mark
+  assert.ok(
+    auditMini(`<line x1="20" y1="150" x2="300" y2="150" stroke="#e4e8ec" stroke-width="30"/>`).some(
+      (i) => /line stroke #e4e8ec/.test(i),
+    ),
+  );
+});
+test("a hollow circle collides only where its ring meets the text", () => {
+  const ring = `<circle cx="96" cy="60" r="40" fill="none" stroke="#3a4656"/>`;
+  // a ring whose hole holds the text: no ink meets the text
+  assert.deepEqual(overlapIssues(label(90, 64, "in") + ring), []);
+  // the same ring across the text: it runs through the glyphs
+  assert.ok(
+    overlapIssues(label(130, 64, "on the ring") + ring).some((i) =>
+      /overlaps the circle stroke/.test(i),
+    ),
+    "a text across a ring passed",
+  );
 });
 
 console.log(`1..${n}`);

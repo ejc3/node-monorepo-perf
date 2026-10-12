@@ -108,13 +108,23 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M. At 1M Flo
 
 [High-resolution PNG](bench/charts/fig-save-loop.png)
 
-**Figure 1.** The four mechanics differ in what they redo after an edit: the CLI relaunches and re-reads its saved incremental state, `--watch` stays resident but rebuilds the program, the LSP recomputes diagnostics for the open file only, and Flow's server keeps the checked program resident and rechecks incrementally.
+**Figure 1.** The four mechanics differ in what they redo after an edit: the CLI relaunches and re-reads its saved incremental state, `--watch` stays resident but rebuilds the program, the LSP recomputes diagnostics for the open file only, and Flow's server keeps the checked program resident and rechecks incrementally. The CLI, `--watch` and Flow lanes time a valid one-module edit with a verdict over the whole program; the LSP lane times an edit that seeds a type error, with a verdict for the open file only. The hollow dot on each lane is that mechanic's one-time entry cost.
 
-<details><summary>Figure 1 fields</summary>
+<!-- chart-data:fig-save-loop -->
+<details>
+<summary>The figure's numbers as a table</summary>
 
-`bench/tsgo-scale-bench.json`, `points.1000000`: `tsgo.incrOneEdit.{killed,medianMs}`, `tsgo.incrPrimeMs`, `flow.incrOneEdit.{killed,medianMs}`, `flow.serverInitMs`; `versions.tsgo`, `versions.flow`, `cores`, `layers`, `tsgoInvocation`. `bench/lsp-scale-bench.json`, the `results` entry whose `modules` is 1,000,000: `tsgoWatch.oneEditRecheckMs`, `tsgoWatch.firstBuildMs`, `tsgoLsp.warm.errorAppearsMs`, `tsgoLsp.cold.coldOpenMs`; `meta.cores`, `meta.layers`, `meta.tsgoInvocation`, `meta.tsgoVersion`. The two records are drawn on one axis on the fields they share (cores, corpus depth, tsgo version and invocation); `lsp-scale-bench.json` records no architecture, mount or node version.
+| mechanic | one edit → verdict | one-time entry |
+| --- | ---: | --- |
+| tsgo CLI, incremental rerun (relaunch + tsbuildinfo re-read) | 53.7s | 96.6s incremental prime |
+| tsgo --watch (resident; rebuilds the program) | 22.6s | 82.8s first build |
+| tsgo --lsp squiggle (didChange → error appears) | 2.4s | 17.5s cold open |
+| Flow server (main build) (live server: notify + status) | 324ms | 92.8s server init |
+
+Fields: `bench/tsgo-scale-bench.json`, `points.1000000`: `tsgo.incrOneEdit.{killed,medianMs}`, `tsgo.incrPrimeMs`, `flow.incrOneEdit.{killed,medianMs}`, `flow.serverInitMs`; `versions.tsgo`, `versions.flow`, `cores`, `layers`, `tsgoInvocation`. `bench/lsp-scale-bench.json`, the `results` entry whose `modules` is 1,000,000: `tsgoWatch.oneEditRecheckMs`, `tsgoWatch.firstBuildMs`, `tsgoLsp.warm.errorAppearsMs`, `tsgoLsp.cold.coldOpenMs`; `meta.cores`, `meta.layers`, `meta.tsgoInvocation`, `meta.tsgoVersion`. The two records share one axis on the fields they share (cores, corpus depth, tsgo version and invocation); `lsp-scale-bench.json` records no architecture, mount or node version.
 
 </details>
+<!-- /chart-data:fig-save-loop -->
 
 ### The daemons and codegen
 
@@ -128,11 +138,21 @@ tsgo is **near-linear**: 60ms per thousand modules at 10k, 71ms at 1M. At 1M Flo
 
 **Figure 2.** Relay's output is byte-stable on every timed no-change rerun, so a codegen run over an up-to-date tree leaves `git status --porcelain` over `__generated__` with nothing to list, and any listed path — changed, or new and untracked, which a plain diff would miss — means a query and its committed artifact have drifted.
 
-<details><summary>Figure 2 fields</summary>
+<!-- chart-data:fig-freshness-gate -->
+<details>
+<summary>The figure's numbers as a table</summary>
 
-`bench/relay-codegen-bench.json`: `components`, `samples`, `schemaTypes`, `freshness.gateMedianMs`, `freshness.gateSamplesMs`, `freshness.byteStable`, `freshness.driftDetected`; `fleetPoint.components`, `fleetPoint.samples`, `fleetPoint.codegenNoChangeMs`, `fleetPoint.statusMs`, `fleetPoint.freshnessMs`, `fleetPoint.byteStable`; `versions.relayCompiler`, `cores`.
+Artifacts byte-stable on every timed no-change rerun, and an edited query is detected as drift (both asserted by the bench).
+
+| tree | one gate pass | codegen | git status | samples |
+| --- | ---: | ---: | ---: | ---: |
+| 10,000 components | 3.0s | — (not split at this size) | — (not split at this size) | 3 (median) |
+| 30,000 components (fleet anchor) | 9.5s | 9.5s | 38ms | 1 |
+
+Fields: `bench/relay-codegen-bench.json`: `components`, `samples`, `schemaTypes`, `freshness.{gateMedianMs,gateSamplesMs,byteStable,driftDetected}`; `fleetPoint.{components,samples,codegenNoChangeMs,statusMs,freshnessMs,byteStable}`; `versions.relayCompiler`, `cores`.
 
 </details>
+<!-- /chart-data:fig-freshness-gate -->
 
 ## Flow on the Fleet Shape
 

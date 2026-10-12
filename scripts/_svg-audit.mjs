@@ -17,9 +17,10 @@
 //     role="img", aria-label, font-family (the kit's FONT),
 //     style="font-variant-numeric:tabular-nums".
 //   - style: one `@media (prefers-color-scheme: dark){...}` block of
-//     `tag[fill|stroke="value"]` selectors (tag: rect, text, line, path, polyline, circle),
-//     each rule setting only the property its selector reads: fill (a colour) and
-//     fill-opacity (a number) on a [fill] selector, stroke (a colour) on a [stroke] one.
+//     `tag[fill|stroke="colour"]` selectors (tag: rect, text, line, path, polyline,
+//     circle; the selected value a colour, never none), each rule setting only the
+//     property its selector reads: fill (a colour) and fill-opacity (a number) on a
+//     [fill] selector, stroke (a colour) on a [stroke] one.
 //   - g: transform; a: href (a link around a text).
 //   - rect: x y width height rx fill stroke stroke-width transform; fill required (SVG
 //     fills an element without one black, a paint no dark rule can select).
@@ -42,22 +43,37 @@
 // stroke's inner edge, and where its stroke's ring paints. The page is the first painted
 // element when its fill covers the whole canvas, opaque in both themes; each theme's page
 // colour is its fill in that theme. An SVG without one is reported, and the rest of the
-// audit then runs against white. A canvas-covering fill painted later is ordinary paint.
+// audit then runs against white. A canvas-covering fill painted later is ordinary paint. A
+// background rect with a stroke is unsupported.
 //
-// A text is judged over its glyph box, never its anchor point: the box runs from its
-// placed anchor by its text-anchor over the kit's advance-width estimate (approxW in
-// _chartstyle.mjs, the estimate its layout uses), 0.75em above the baseline and 0.21em
-// below it. Every fill (rect, circle or path) that meets the box was painted either before
-// the text, where it holds the whole box inside its stroke's inner edge (a frame) or
-// crosses the box's edge (reported), or after it (reported as covering it). The text's
-// backdrop is the page plus its frames composited in document order; a crossing fill
-// painted under an opaque frame is hidden by it and not reported. Text is at least
-// minText, and at least minBoxText inside a figure box: the topmost rect painted under it,
-// filled or fill="none", that holds its glyph box, when that rect has a visible border (a
-// stroke of width above 0 whose colour has alpha above 0 in a theme) and is wider than
-// 40px and taller than 20px.
+// Text is at least minText, and at least minBoxText inside a figure box: a text is inside
+// one when any rect painted under it, filled or fill="none", that holds its glyph box
+// inside its stroke's inner edge has a painted border (a stroke of width above 0 whose
+// colour has alpha above 0 in either theme), whatever the rect's size. A 20px package chip
+// is a box; an unbordered tint (a heat cell) is not.
+//
+// A text is judged over its glyph box, never its anchor point: the box is estimated from
+// its placed anchor, text-anchor, font-size and font-weight with the per-glyph advances
+// of _text-width.mjs (the wider of Arial x 1.1 and DejaVu Sans, regular or bold), so it
+// holds Arial/Liberation Sans, SF Pro and DejaVu Sans. Every fill (rect, circle or path)
+// that meets the box was painted either before the text, where it holds the whole box
+// inside its stroke's inner edge (a frame) or crosses the box's edge (reported), or after
+// it (reported as covering it). The text's backdrop is the page plus its frames
+// composited in document order; a crossing fill painted under an opaque frame is hidden
+// by it and not reported.
+//
+// It also checks that no text runs into what is drawn next to it: any other paint that
+// meets the box collides with it, whichever side of the text it was painted on. That is
+// a stroke (a line's, polyline's or path's segments widened by half the stroke, a rect's
+// or circle's ring), the fill of a rect stripe of 3px or less (every other fill is judged
+// by the paint model above), and another text's box painted after it; and the box may
+// not leave the canvas. Strokes and fills are read from shapeOf(), so a box inside a
+// shape's inner edge (its frame, a hollow ring's hole) or in a rounded shape's bare corner
+// is clear. GRID-coloured hairlines (line, polyline, path; stroke-width 1 or less) are
+// exempt, as in the mark check. The chart kit (_chartstyle.mjs) lays text out with the
+// same estimate, which throws on a glyph it has no width for.
 
-import { approxW } from "./_chartstyle.mjs";
+import { glyphCells } from "./_text-width.mjs";
 
 const lum = ([r, g, b]) => {
   const f = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -165,7 +181,9 @@ const darkRules = (css) => {
     }
     for (const sel of sels.split(",")) {
       const m = DARK_SEL.exec(sel.trim());
-      if (!m) unsupported(`dark rule selector "${sel.trim()}"`);
+      // the selected value must be a colour: a rule on a none value would give the dark
+      // theme a paint the light theme does not have, which the checks never look at
+      if (!m || !COLOR.test(m[3])) unsupported(`dark rule selector "${sel.trim()}"`);
       // a rule restyles only the property its selector reads (fill-opacity goes with
       // fill): paint() looks a rule up by the element's value of that same property
       for (const k of Object.keys(props))
@@ -483,7 +501,30 @@ const pageRect = (els, texts, W, H, rules) => {
   return full ? e : undefined;
 };
 
+// a text's inked box [x0, y0, x1, y1] (spaces at either end carry no ink); null if none
+const textBox = (t) => {
+  const size = +(t.a["font-size"] || 16);
+  const { width, cells } = glyphCells(t.text, size, t.a["font-weight"] || "");
+  const share = { start: 0, middle: 0.5, end: 1 }[t.a["text-anchor"] || "start"];
+  const [x, y] = place(t, +t.a.x, +t.a.y);
+  const x0 = x - width * share;
+  const inked = cells.filter((c) => c.ink);
+  if (!inked.length) return null;
+  return [
+    x0 + Math.min(...inked.map((c) => c.x0)),
+    y - Math.max(...inked.map((c) => c.up)),
+    x0 + Math.max(...inked.map((c) => c.x1)),
+    y + Math.max(...inked.map((c) => c.down)),
+  ];
+};
 const GRID = "#e4e8ec";
+// a gridline or rule: a GRID-coloured line, path or polyline stroke no wider than 1px.
+// It is decoration, exempt from the mark check and the overlap check; a wider stroke in
+// the GRID colour is a mark like any other.
+const isHairline = (e) =>
+  ["line", "path", "polyline"].includes(e.tag) &&
+  (e.a.stroke || "").toLowerCase() === GRID &&
+  +(e.a["stroke-width"] || 1) <= 1;
 const sameRgb = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.5);
 
 export function auditSvg(svg, { minText, minBoxText }) {
@@ -503,6 +544,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
   // each theme's page colour is the page's fill in that theme; without a page the rest of
   // the audit runs against white in both themes
   const bgRect = pageRect(els, texts, W, H, rules);
+  if (bgRect && bgRect.a.stroke && bgRect.a.stroke !== "none")
+    unsupported(`stroke on the background rect (stroke="${bgRect.a.stroke}")`);
   if (!bgRect)
     out.push(
       `no full-canvas background rect: the page colour is unknown (white assumed in both themes)`,
@@ -525,23 +568,6 @@ export function auditSvg(svg, { minText, minBoxText }) {
   // crossing
   const fills = els.filter((e) => e !== bgRect && S(e).hasFill);
   const backdrops = fills.filter((e) => !stripe(e));
-  // a text's glyph box [x0, y0, x1, y1] (spaces at either end carry no ink); null if none
-  const glyphBox = (t) => {
-    const size = +(t.a["font-size"] || 16);
-    const bold = +(t.a["font-weight"] || 400) >= 600;
-    const s = t.text;
-    if (!s.trim()) return null;
-    const share = { start: 0, middle: 0.5, end: 1 }[t.a["text-anchor"] || "start"];
-    const [x, y] = place(t, +t.a.x, +t.a.y);
-    const x0 = x - approxW(s, size, bold) * share;
-    const lead = s.length - s.trimStart().length;
-    return [
-      x0 + approxW(s.slice(0, lead), size, bold),
-      y - 0.75 * size,
-      x0 + approxW(s.trimEnd(), size, bold),
-      y + 0.21 * size,
-    ];
-  };
   const opaque = (e) => ["light", "dark"].every((th) => paint(e, "fill", th, rules)?.a === 1);
   // The paint-order model, the one place backdrops, crossings and covers are decided, over
   // a text's glyph box b. Of the fills meeting b: painted before the text, those holding b
@@ -563,7 +589,7 @@ export function auditSvg(svg, { minText, minBoxText }) {
   const bordered = (e) =>
     +(e.a["stroke-width"] ?? 1) > 0 &&
     ["light", "dark"].some((th) => (paint(e, "stroke", th, rules)?.a ?? 0) > 0);
-  const boxes = new Map(texts.map((t) => [t, glyphBox(t)]));
+  const boxes = new Map(texts.map((t) => [t, textBox(t)]));
   for (const t of texts) {
     const size = +(t.a["font-size"] || 16);
     if (size < minText) out.push(`"${t.s}" is ${size}px (floor ${minText}px)`);
@@ -574,14 +600,13 @@ export function auditSvg(svg, { minText, minBoxText }) {
       out.push(`"${t.s}" crosses the edge of the ${e.tag} painted under it (fill ${e.a.fill})`);
     for (const e of above)
       out.push(`"${t.s}" is covered by a ${e.tag} drawn after it (fill ${e.a.fill})`);
-    // a figure box: the topmost rect painted under the text, filled or outline-only, that
-    // holds its glyph box, when it has a visible border and is wider than 40px and taller
-    // than 20px
-    const under = els
-      .filter((e) => e.tag === "rect" && e !== bgRect && e.ord < t.ord && S(e).holds(b))
-      .pop();
-    const box = under && S(under).bounds;
-    const isBox = under && bordered(under) && box[2] - box[0] > 40 && box[3] - box[1] > 20;
+    // a figure box is a bordered rect: the text is inside one when any rect painted under
+    // it, filled or outline-only, holds its glyph box inside its stroke's inner edge and has
+    // a visible border, whatever its size (a 20px package chip is a box); an unbordered
+    // tint (a heat cell) is not
+    const isBox = els.some(
+      (e) => e.tag === "rect" && e !== bgRect && e.ord < t.ord && bordered(e) && S(e).holds(b),
+    );
     if (isBox && size < minBoxText)
       out.push(`"${t.s}" is ${size}px inside a figure box (floor ${minBoxText}px)`);
     for (const theme of ["light", "dark"]) {
@@ -610,7 +635,7 @@ export function auditSvg(svg, { minText, minBoxText }) {
   // inner edge, composited in document order, and every fill painted after it that holds
   // the extent is composited over both the mark and its backdrop. An opaque one hides it,
   // which is reported.
-  // Stripes of 3px or less and GRID hairlines are not marks. A channel (fill or stroke)
+  // Stripes of 3px or less and GRID hairlines (width 1 or less) are not marks. A channel (fill or stroke)
   // coloured like its backdrop is not a mark only when the element's other channel is
   // painted (a colour of alpha above 0; a stroke also of width above 0) and itself passes
   // as a mark: the page-coloured halo around a filled dot, the page-coloured centre of a
@@ -677,8 +702,7 @@ export function auditSvg(svg, { minText, minBoxText }) {
     const raw = e.a[attr];
     // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
     // a dot is a mark like any other
-    const hairline = attr === "stroke" && ["line", "path", "polyline"].includes(e.tag);
-    if (!raw || raw === "none" || (hairline && raw.toLowerCase() === GRID)) return;
+    if (!raw || raw === "none" || (attr === "stroke" && isHairline(e))) return;
     const v = drawn(e, attr, theme);
     if (!v.c0 || v.c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
@@ -694,6 +718,57 @@ export function auditSvg(svg, { minText, minBoxText }) {
       out.push(`${theme}: ${e.tag} ${attr} ${raw}${alpha} at ${c.toFixed(2)}:1 (marks need 3:1)`);
     }
   };
+  // ---- overlap: a text's box against every element drawn after it ----
+  // paint exists if it is painted in the light theme: no dark rule can make a light paint
+  // of alpha 0 visible, since that paint is an rgba() value and a dark selector on an rgba()
+  // value is unsupported (chartstyle-selftest pins it)
+  const painted = (e, attr) => {
+    const raw = e.a[attr];
+    if (!raw || raw === "none") return false;
+    const c = paint(e, attr, "light", rules);
+    return Boolean(c && c.a > 0);
+  };
+  // does element e paint inside box b? Both channels are read from the shape primitive: its
+  // fill where the fill paints, its stroke where the stroke's ring or widened segments
+  // paint (so a box inside a hollow shape's hole or a rounded shape's bare corner is
+  // clear). With `strokeOnly`, only its stroke counts: a fill paintAround() judges is left
+  // to it.
+  const hits = (e, b, strokeOnly = false) => {
+    if (!strokeOnly && painted(e, "fill") && S(e).fillMeets(b)) return "fill";
+    if (painted(e, "stroke") && !isHairline(e) && S(e).strokeMeets(b)) return "stroke";
+    return null;
+  };
+  const f1 = (n) => +n.toFixed(1);
+  for (const t of texts) {
+    const tb = boxes.get(t);
+    if (!tb) continue;
+    const where = `"${t.s}" (box ${tb.map(f1).join(",")})`;
+    if (tb[0] < 0 || tb[2] > W || tb[1] < 0 || tb[3] > H)
+      out.push(`${where} runs off the ${W}x${H} canvas`);
+    for (const e of els) {
+      if (e === bgRect) continue;
+      const after = e.ord > t.ord;
+      // a fill paintAround() judges (any fill but a stripe) is left to it: painted after the
+      // text over its box it covers it (reported once there), painted before it is a frame
+      // or a crossing; otherwise only its stroke is judged here
+      const judged = backdrops.includes(e);
+      if (after && judged && S(e).fillMeets(tb)) continue;
+      // any other paint over the box, painted before or after the text, collides with it:
+      // a stroke runs through its glyphs, a fill (a stripe) is not its backdrop. A shape
+      // that holds the box inside its stroke's inner edge (its frame, or an outline drawn
+      // after it) does not collide: its ring misses the box
+      const how = hits(e, tb, judged);
+      if (how)
+        out.push(`${where} overlaps the ${e.tag} ${how} drawn ${after ? "after" : "before"} it`);
+    }
+    for (const o of texts) {
+      if (o.ord < t.ord) continue;
+      const ob = boxes.get(o);
+      if (o !== t && ob && meets(ob, tb))
+        out.push(`${where} overlaps the text "${o.s}" (box ${ob.map(f1).join(",")})`);
+    }
+  }
+
   for (const e of els) {
     if (e === bgRect) continue;
     const attrsToCheck = [];

@@ -40,11 +40,22 @@ Every CI runner starts with an empty local cache. Turborepo stores each task's o
 
 **Figure 1.** A task's outputs are stored under a hash of its inputs, so the first runner to compute a task pays for it and uploads the result, every later runner with the same inputs downloads it instead, and an edit changes only the hashes of the tasks downstream of it — a leaf edit leaves most tasks restorable, a foundation edit none.
 
-<details><summary>Figure 1 fields</summary>
+<!-- chart-data:fig-remote-cache -->
+<details>
+<summary>The figure's numbers as a table</summary>
 
-`bench/ci-cache-bench.json`: per `headline` row `task`, `scale`, `apps`, `libs`, `totalTasks`, `coldNoRemoteMs`, `coldSeedMs`, `restoreMs`, `speedupVsCold`; `partialInvalidation` — `task`, `scale`, `apps`, `libs`, `totalTasks`, and per `leaf`/`foundation` `lib`, `restored`, `recomputed`, `total`; `env.cores`, `versions.remoteCacheServer`, `remoteCache.transport`, `samples.{cold,buildCold,restore}`, `concurrency`.
+After an edit (typecheck, 300 apps / 100 libs, 500 tasks): a leaf-lib edit (`@demo/lib-100`) leaves 486 restored and 14 recomputed; a foundation-lib edit (`@demo/lib-001`) leaves 0 restored and 500 recomputed. Restore runs against turborepo-remote-cache@2.11.2 on localhost, 192 cores.
+
+| task | tasks | no-cache cold | seed run | restore | cold / restore |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| typecheck · 300 apps / 100 libs | 500 | 9.9s | 9.9s | 1.5s | ×6.8 |
+| typecheck · 1,000 apps / 200 libs | 1,400 | 24.8s | 24.6s | 3.9s | ×6.4 |
+| build · 300 apps / 100 libs | 400 | 24.8s | 25.0s | 3.8s | ×6.5 |
+
+Fields: `bench/ci-cache-bench.json`: per `headline` row `task`, `scale`, `apps`, `libs`, `totalTasks`, `coldNoRemoteMs`, `coldSeedMs`, `restoreMs`, `speedupVsCold`; `partialInvalidation` — `task`, `scale`, `apps`, `libs`, `totalTasks`, and per `leaf`/`foundation` `lib`, `restored`, `recomputed`, `total`; `env.cores`, `versions.remoteCacheServer`, `remoteCache.transport`, `samples.{cold,buildCold,restore}`, `concurrency`.
 
 </details>
+<!-- /chart-data:fig-remote-cache -->
 
 **Someone still pays the first build.** The first runner computes and uploads (the "seed"). On localhost the upload overhead is within compute noise; over a network, artifact transfer adds to the compute cost.
 

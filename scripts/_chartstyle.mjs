@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "no
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import { textWidth } from "./_text-width.mjs";
 
 // --- palette -------------------------------------------------------------------
 export const INK = "#1c2330";
@@ -30,17 +31,35 @@ export const MARGIN = 20;
 // whole-repo series never reads as a ×100 cell) and off every TOOL_COLORS hue; the two
 // separate by lightness as well as hue, so they hold under colour-vision deficiency.
 // Marks clear 3:1 against the page in both themes (the dark block lifts the charcoal).
-export const REPO = { mark: "#3a4656", tint: "rgba(58,70,86,0.12)" };
-export const SCOPE = { mark: "#1b8aa0", tint: "rgba(27,138,160,0.14)" };
+export const REPO = { mark: "#3a4656", tint: "#eff1f4" };
+export const SCOPE = { mark: "#1b8aa0", tint: "#e8f4f6" };
 // a neutral single series (no repo/closure meaning, no tool identity)
 export const SLATE = "#556375";
 // box tints: [fill, border] — semantic, not decorative
+// (figure grammar v2: lighter fills, quieter borders; each pair has a dark-mode
+// twin in TINT_DARK, which the dark block below is generated from)
 export const TINT = {
-  blue: ["#eef3fb", "#b9cdec"], // component / neutral
-  green: ["#f0faf5", "#a9d8bd"], // fast path / green verdict
-  rust: ["#fdf3ef", "#e4b9a6"], // slow path / red verdict / blast radius
-  amber: ["#fbf6e9", "#eee3bb"], // caveat / incident window
+  blue: ["#f3f6fb", "#c5d4ea"], // component / neutral
+  green: ["#f1f9f4", "#b2d8c1"], // fast path / green verdict
+  rust: ["#fcf4f0", "#e2c0b0"], // slow path / red verdict / blast radius
+  amber: ["#fbf7ea", "#e6d8a8"], // caveat / incident window
+  repo: [REPO.tint, "#b8c0ca"], // a whole-repo selection (the REPO pair)
+  scope: [SCOPE.tint, "#a6d0d9"], // one closure (the SCOPE pair)
 };
+const TINT_DARK = {
+  blue: ["#172435", "#34507a"],
+  green: ["#13281f", "#2c6049"],
+  rust: ["#2b1b15", "#6c4232"],
+  amber: ["#2a2414", "#6e5a24"],
+  repo: ["#1a2029", "#465260"],
+  scope: ["#0f2529", "#2a6470"],
+};
+// edges (arrows, connectors): one step lighter than MUTED so lines recede behind text
+export const EDGE = "#8794a1";
+// two neutral series fills for a comparison that is not a verdict (the same run on
+// two machines): no green/rust, so neither side reads as the winner
+// Both clear 3:1 against the page in both themes; the dark block lifts the first.
+export const MACHINE_SERIES = ["#3f4b5b", "#7a8899"];
 
 // Stable categorical tool colors: a tool keeps ONE hue across every chart in the
 // repo (a series color, a header chip, a legend swatch — always this value).
@@ -77,11 +96,17 @@ rect[stroke="${GRID}"]{stroke:#39424c}
 rect[fill="${GRID}"]{fill:#2b333c}
 line[stroke="${MUTED}"],path[stroke="${MUTED}"],polyline[stroke="${MUTED}"]{stroke:#8b98a4}
 path[fill="${MUTED}"]{fill:#8b98a4}
-rect[fill="#eef3fb"]{fill:#1f2f45}rect[stroke="#b9cdec"]{stroke:#3d5a85}
-rect[fill="#f0faf5"]{fill:#173029}rect[stroke="#a9d8bd"]{stroke:#2e6b52}
-rect[fill="#fdf3ef"]{fill:#331f18}rect[stroke="#e4b9a6"]{stroke:#7a4630}
-rect[fill="#fbf6e9"]{fill:#c9a13b;fill-opacity:.14}rect[stroke="#eee3bb"]{stroke:#7a6224}
-rect[fill="#e4b9a6"]{fill:#7a4630}
+line[stroke="${EDGE}"],path[stroke="${EDGE}"],polyline[stroke="${EDGE}"]{stroke:#6f7c88}
+path[fill="${EDGE}"]{fill:#6f7c88}
+circle[stroke="${EDGE}"]{stroke:#6f7c88}rect[stroke="${EDGE}"]{stroke:#6f7c88}circle[fill="${EDGE}"]{fill:#6f7c88}
+${Object.keys(TINT)
+  .map(
+    (k) =>
+      `rect[fill="${TINT[k][0]}"]{fill:${TINT_DARK[k][0]}}rect[stroke="${TINT[k][1]}"]{stroke:${TINT_DARK[k][1]}}rect[fill="${TINT[k][1]}"]{fill:${TINT_DARK[k][1]}}`,
+  )
+  .join("\n")}
+rect[fill="${MACHINE_SERIES[0]}"]{fill:#c3cfdc}
+circle[fill="${BG}"]{fill:#0d1117}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
@@ -106,8 +131,8 @@ export const svgDoc = (w, h, aria, body) =>
   ].join("\n");
 
 // --- box / text / arrow grammar --------------------------------------------------
-export const box = (x, y, w, h, tint, rx = 7) =>
-  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${TINT[tint][0]}" stroke="${TINT[tint][1]}" stroke-width="1.2"/>`;
+export const box = (x, y, w, h, tint, rx = 6) =>
+  `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="${TINT[tint][0]}" stroke="${TINT[tint][1]}" stroke-width="1"/>`;
 
 export const txt = (x, y, s, { size = 11, fill = INK, weight = "", anchor = "" } = {}) =>
   `<text x="${x}" y="${y}" font-size="${size}" fill="${fill}"${weight ? ` font-weight="${weight}"` : ""}${anchor ? ` text-anchor="${anchor}"` : ""}>${esc(s)}</text>`;
@@ -135,7 +160,7 @@ export const dashes = (x1, y1, x2, y2, on = 6, off = 5) => {
     const e = n === 1 ? len : s + on;
     d += `M${f(x1 + ux * s)} ${f(y1 + uy * s)}L${f(x1 + ux * e)} ${f(y1 + uy * e)}`;
   }
-  return `<path d="${d}" stroke="${MUTED}" stroke-width="1.5" fill="none"/>`;
+  return `<path d="${d}" stroke="${EDGE}" stroke-width="1.25" fill="none"/>`;
 };
 
 // arrow-ended edge. The head is an explicit triangle, not a <marker>: ImageMagick's
@@ -147,7 +172,7 @@ export const arrow = (x1, y1, x2, y2, dashed = false) => {
   const len = Math.hypot(dx, dy);
   const ux = dx / len;
   const uy = dy / len;
-  const hl = 7; // head length
+  const hl = 6.5; // head length
   const hw = 3; // head half-width
   const bx = x2 - ux * hl;
   const by = y2 - uy * hl;
@@ -155,8 +180,8 @@ export const arrow = (x1, y1, x2, y2, dashed = false) => {
   return (
     (dashed
       ? dashes(x1, y1, bx, by)
-      : `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(bx)}" y2="${f(by)}" stroke="${MUTED}" stroke-width="1.5"/>`) +
-    `<path d="M${f(x2)} ${f(y2)}L${f(bx - uy * hw)} ${f(by + ux * hw)}L${f(bx + uy * hw)} ${f(by - ux * hw)}z" fill="${MUTED}"/>`
+      : `<line x1="${f(x1)}" y1="${f(y1)}" x2="${f(bx)}" y2="${f(by)}" stroke="${EDGE}" stroke-width="1.25"/>`) +
+    `<path d="M${f(x2)} ${f(y2)}L${f(bx - uy * hw)} ${f(by + ux * hw)}L${f(bx + uy * hw)} ${f(by - ux * hw)}z" fill="${EDGE}"/>`
   );
 };
 
@@ -167,6 +192,43 @@ export const footer = (w, y, sources, pad = MARGIN) => [
   `<line x1="${pad}" y1="${y - 14}" x2="${w - pad}" y2="${y - 14}" stroke="${GRID}"/>`,
   txt(pad, y, `data: ${sources}`, { size: TYPE.note, fill: MUTED }),
 ];
+
+// --- figure grammar (v2) -----------------------------------------------------------
+// The mechanism figures share the heat and line charts' type scale (TYPE): title,
+// lede, value and note sizes are TYPE's (chartstyle-selftest asserts it); text inside
+// a box is at least MIN_BOX_TEXT, secondary text inside a box is CELL_INK2, and text
+// on the page may drop to TYPE.note. One weight step (600–650) carries emphasis.
+export const FIG = {
+  title: 17, // = TYPE.title
+  lede: 12, // = TYPE.lede
+  label: 12, // a box's or panel's bold first line
+  body: 11, // = MIN_BOX_TEXT: any text inside a figure box
+  value: 13, // = TYPE.value
+  note: 10, // = TYPE.note: text on the page, outside boxes
+  edge: 10, // edge labels, on the page
+};
+// title + optional lede; returns the parts and the baseline below them
+export const figTitle = (x, y, title, lede) => {
+  const parts = [txt(x, y, title, { size: FIG.title, weight: "650" })];
+  if (lede) parts.push(txt(x, y + 18, lede, { size: FIG.lede, fill: MUTED }));
+  return { parts, y: y + (lede ? 18 : 0) };
+};
+// a labeled node: tinted box, a bold first line, then body lines
+export const node = (x, y, w, h, tint, label, lines = [], { rx = 6, size = FIG.body } = {}) => {
+  const parts = [box(x, y, w, h, tint, rx)];
+  const top = y + 18;
+  parts.push(txt(x + 11, top, label, { size: FIG.label, weight: "600" }));
+  lines.forEach((ln, i) => parts.push(txt(x + 11, top + 15 + i * 14, ln, { size })));
+  return parts;
+};
+// small edge label, centered (anchor default) on (x, y)
+export const edgeLabel = (x, y, s, anchor = "middle") =>
+  txt(x, y, s, { size: FIG.edge, fill: MUTED, anchor });
+// a dot mark (filled, or hollow ring for a secondary value) in a series colour
+export const dot = (cx, cy, color, { r = 4.5, hollow = false } = {}) =>
+  hollow
+    ? `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${BG}" stroke="${color}" stroke-width="1.75"/>`
+    : `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
 
 // --- the heat ramp ---------------------------------------------------------------
 // Anchored at MULTIPLES of the row's fastest and interpolated in log-multiple
@@ -724,8 +786,10 @@ export const labelBaseline = (pts, i, label, size, { stroke = 2.25, r = 3.25 } =
 };
 
 // --- text measurement / wrapping --------------------------------------------------
-// Rough advance-width estimate (px) so canvases widen to fit prose, never clip.
-export const approxW = (str, px, bold = false) => str.length * px * (bold ? 0.58 : 0.53);
+// Advance-width estimate (px): _text-width.mjs's, the one the legibility audit checks
+// every text's box with (per glyph the wider of Arial x 1.1 and DejaVu Sans), so what the
+// layout reserves for a text is what a reader on any of the system-ui faces sees.
+export const approxW = (str, px, bold = false) => textWidth(String(str), px, bold ? "bold" : "");
 // wrap to a pixel width with the same advance estimate the layout uses everywhere
 export const wrapPx = (s, px, maxW, bold = false) => {
   const lines = [];

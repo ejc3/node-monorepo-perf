@@ -10,6 +10,20 @@ Whole-workspace operations (install, typecheck, warm `turbo run`, `turbo prune`'
 
 **Figure 1.** A command whose selection is the whole repo — here the fleet gate, a filter on the foundation lib that selects every dependent — runs a task count that tracks repo size; a command filtered to one app selects that app's dependency closure, so its task count tracks that closure. The two sides are different trees on different machines (the 64-core fleet-gate record, the 192-core scaling record); the filtered command's wall time also carries a per-invocation graph load that grows with the repo ([Results](#results-scaling-behavior)).
 
+<!-- chart-data:fig-orepo-oclosure -->
+<details>
+<summary>The figure's numbers as a table</summary>
+
+|  | command | tasks | wall time | tree |
+| --- | --- | ---: | ---: | --- |
+| O(repo) | `turbo run typecheck:tsgo --filter=...@demo/lib-001` | 30,708 | 633.9s | 30,000-app fleet tree |
+| O(closure) | `turbo run build --filter=@demo/app-10000...` | 100 of 20,300 | 39.5s | 20,000 apps / 300 libs |
+
+Fields: `bench/fleet-gate-bench.json`: `apps`, `foundationLib`, `turboGate.{kind,ms,total,ran}`. `bench/results.json`, the largest-scale row: `apps`, `libs`, `phases.focus.{ms,app,ok}`, `phases.graph.{focusTasks,totalBuildTasks}`.
+
+</details>
+<!-- /chart-data:fig-orepo-oclosure -->
+
 Focus applies at three layers (install, task, artifact; [OPTIMIZATIONS.md §0](OPTIMIZATIONS.md#0-the-mental-model-three-layers-of-focus)). Measured by `scripts/measure.mjs` → [`bench/results.json`](bench/results.json).
 
 ## The Workspace Under Test

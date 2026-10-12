@@ -8,7 +8,7 @@ make gen-fleet APPS=3000       # same lib graph, scaled-down app count
 make fleet-verify              # recompute the tree's graph metrics vs the targets
 make fleet-gate-bench          # bun install + tsgo whole-program gate + turbo + oxlint
 make typecheck-whole           # the one-command whole-program gate (pre-push)
-make fleet-chart               # re-render the results infographic from the bench JSONs
+make fleet-chart               # re-render the two-machine figure from the bench JSONs
 ```
 
 ## The Shape
@@ -95,18 +95,60 @@ blast-radius contrast is structural: a universal rev re-runs 30,708 tasks (a typ
 each of the 30,248 packages in the foundation's closure plus the 460 lib builds), a leaf rev
 100 (307× fewer).
 
-![Fleet blast radius: a breaking foundation rev turns every app red, a leaf edit touches a corner of the grid](bench/charts/fig-blast-radius.svg)
+![Fleet blast radius in turbo tasks: a breaking foundation rev re-runs every task, a leaf edit re-runs a corner of the grid](bench/charts/fig-blast-radius.svg)
 
 [High-resolution PNG](bench/charts/fig-blast-radius.png)
 
 **Figure 1.** A foundation lib sits under every app's import graph, so revving it
 invalidates the whole fleet at once, while a leaf lib's edit reaches only the packages
-that import it.
+that import it. Both grids are the same turbo task set drawn schematically, a cell per block
+of tasks: the foundation rev re-runs all of them, the leaf edit its own share.
 
-![Fleet-scale results: blast radius, the worst case two ways, and whether a bigger machine helps](bench/charts/fleet-gate.svg)
+<!-- chart-data:fig-blast-radius -->
+<details>
+<summary>The figure's numbers as a table</summary>
+
+The grids are schematic: each cell stands for about 51 of the 30,708 turbo tasks; an edit to the foundation lib re-runs all of them, a leaf edit its share.
+
+| edit | reach | verdict |
+| --- | --- | --- |
+| foundation-lib edit (`@demo/lib-001`) | 30,708 of 30,708 tasks re-run | a breaking rev turns all 30,000 apps red: 58.9s batch · 10.3s sliced |
+| leaf-lib edit (`@demo/lib-460`) | 100 of 30,708 tasks re-run | a leaf lib has 21 dependents at 1,000 apps (dev-sim) |
+
+Fields: `bench/fleet-gate-bench.json`: `apps`, `libs`, `shape`, `foundationLib`, `leafLib`, `breakingChange.{ms,appsWithErrors,caught}`, `turboGate.{total,ran}`, `leafGate.{ran,total}`, `machine.{cores,arch}`, `versions.{tsgo,node}`. `bench/sliced-gate-bench.json`: `summary.breakingSlicedMs`, `unionCheck.matchesWholeProgram`. `bench/dev-sim.json`: `apps`, `blast[].dependentsClosure`.
+
+</details>
+<!-- /chart-data:fig-blast-radius -->
+
+![The worst case on two machines: one checker process and the per-package pipeline, each on 64 and 192 cores](bench/charts/fleet-gate.svg)
 
 [High-resolution PNG](bench/charts/fleet-gate.png) · rendered by `scripts/fleet-chart.mjs`
 (`make fleet-chart`) from the two gate records + `bench/fleet-shape.json`, byte-gated in CI.
+
+**Figure 2.** The worst case asks one question two ways: one checker process over the whole
+workspace's source, or the per-package pipeline, which also builds each lib's `dist` output,
+so the two are not like-for-like. The single checker keeps only about 8 to 14 cores busy
+(786% and 1,416% CPU in the sliced-gate records), so a bigger box does not speed it up; the
+pipeline's independent processes spread across the cores. Each mechanism ran once on each machine; the comparison is a
+cross-machine observation, not a controlled core-scaling experiment, and the pipeline rows
+also differ in bun version, which turbo starts every task through.
+
+<!-- chart-data:fleet-gate -->
+<details>
+<summary>The figure's numbers as a table</summary>
+
+|  | 64 cores | 192 cores |
+| --- | ---: | ---: |
+| one checker process | 58.1s | 66.6s |
+| per-package pipeline (30,708 tasks) | 10.6 min | 5.8 min |
+| bun | 1.3.14 | 1.4.2 |
+
+On the 64-core box: one checker process peaks at 51,262MB RSS; a breaking rev is caught in 58.9s with all 30,000 apps flagged; a leaf-lib edit re-runs 100 tasks; the 30,460-package install takes 181s (bun, warm store) and linting the tree 2.4s (oxlint). The tree is 30,000 apps + 460 libs, about 1.03 million generated files; 5 libs are imported by every app. turbo 2.9.18 · tsgo 7.0.2 · oxlint 1.86.0 · node 22.23.3.
+
+Fields: `bench/fleet-gate-bench.json` and `bench/fleet-gate-bench.pbox.json`: `optimalGate.{ms,maxRssMB,kind}`, `turboGate.{ms,total,ran,kind}`, `leafGate.{total,ran}`, `breakingChange.{ms,appsWithErrors,caught}`, `install.ms`, `summary.oxlintMs`, `machine.{cores,arch}`, `versions.{bun,turbo,tsgo,oxlint,node}`, `apps`, `libs`, `modulesPerLib`, `shape`, `foundationLib`, `leafLib`. `bench/fleet-shape.json`: `fleetContext.presetParams.approxFilesFullScale`, `generated.universalLibs`.
+
+</details>
+<!-- /chart-data:fleet-gate -->
 
 ## The Sliced Gate: Using the Whole Box
 
@@ -161,9 +203,30 @@ coincide.
 
 [High-resolution PNG](bench/charts/fig-sliced-gate.png)
 
-**Figure 2.** Partitioning the apps across K concurrent checker programs trades one
+**Figure 3.** Partitioning the apps across K concurrent checker programs trades one
 high-RSS, mostly-idle process for K concurrent lower-RSS ones, and the union check proves
 the partition changes nothing about the verdict.
+
+<!-- chart-data:fig-sliced-gate -->
+<details>
+<summary>The figure's numbers as a table</summary>
+
+K=16 within 2.6% of K=32 (64c).
+
+|  | 64 cores | 192 cores |
+| --- | ---: | ---: |
+| one program: wall | 58.2s | 67.7s |
+| one program: peak RSS | 51.2GB | 52.7GB |
+| one program: CPU | 786% of 6,400% | 1,416% of 19,200% |
+| best K | 32 | 48 |
+| sliced: wall at best K | 10.3s | 6.2s |
+| sliced: max slice RSS | 2.2GB | 1.6GB |
+| union check: error locations | 30,171 = 30,171 | 30,171 = 30,171 |
+
+Fields: `bench/sliced-gate-bench.json` and `bench/sliced-gate-bench.pbox.json`: `machine.{cores,arch}`, `whole.{cleanMs,rssMB,cpuPct,breakingLocations}`, `summary.{bestK,bestKWallMs}`, `ks.<K>.{wallMs,maxSliceRssMB}`, `unionCheck.{k,locations,matchesWholeProgram}`, `apps`, `libs`, `shape`, `versions.{tsgo,node}`.
+
+</details>
+<!-- /chart-data:fig-sliced-gate -->
 
 ## The Pre-Push Command
 
