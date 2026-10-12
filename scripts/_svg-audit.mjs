@@ -33,7 +33,10 @@
 // marker, dash array or other transform: each is unsupported, not modelled.
 // Every position is read through one placement primitive, place(), that applies the
 // translate() of the element and of its groups. An SVG without a full-canvas, opaque
-// background rect is reported, and the rest of the audit then runs against white.
+// background rect is reported, and the rest of the audit then runs against white; with
+// one, each theme's page colour is its fill in that theme. A text's backdrop is the page
+// plus the filled rects under its anchor painted before it, composited in document order;
+// a filled rect painted after it over its anchor is reported as covering it.
 
 const lum = ([r, g, b]) => {
   const f = (c) => ((c /= 255), c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
@@ -160,6 +163,7 @@ const parse = (svg) => {
   let css = null;
   const open = []; // { tag, dx, dy }
   let text = null; // the <text> being read
+  let ord = 0; // paint order
   for (const tok of svg.split(/(<[^>]*>)/)) {
     if (!tok.startsWith("<")) {
       const top = open[open.length - 1];
@@ -189,7 +193,7 @@ const parse = (svg) => {
     const t = a.transform ? TRANSLATE.exec(a.transform) : null;
     const dx = parent.dx + (t ? +t[1] : 0);
     const dy = parent.dy + (t ? +(t[2] ?? 0) : 0);
-    const e = { tag, a, dx, dy };
+    const e = { tag, a, dx, dy, ord: ++ord };
     if (tag === "text") {
       if (selfClose) unsupported(`markup "${tok}"`);
       text = { ...e, raw: "" };
@@ -249,38 +253,50 @@ export function auditSvg(svg, { minText, minBoxText }) {
     unsupported("document: no <svg height>"))[1];
   const { els, texts, css } = parse(svg);
   const rules = css === null ? new Map() : darkRules(css);
-  const page = { light: [255, 255, 255], dark: null };
   const out = [];
-  // without a page rect the rest of the audit runs against white in both themes
+  // each theme's page colour is the page rect's fill in that theme; without a page rect
+  // the rest of the audit runs against white in both themes
   const bgRect = pageRect(els, W, H, rules);
   if (!bgRect)
     out.push(
       `no full-canvas background rect: the page colour is unknown (white assumed in both themes)`,
     );
-  page.dark = ((bgRect && paint(bgRect, "fill", "dark", rules)) || { rgb: [255, 255, 255] }).rgb;
+  const page = Object.fromEntries(
+    ["light", "dark"].map((t) => [
+      t,
+      bgRect ? paint(bgRect, "fill", t, rules).rgb : [255, 255, 255],
+    ]),
+  );
   const geom = (e) => {
     const [x, y] = place(e, +e.a.x || 0, +e.a.y || 0);
     return { e, x, y, w: +e.a.width, h: +e.a.height };
   };
+  // filled rects (wider and taller than a 3px stripe), in paint order
   const rects = els
     .filter((e) => e.tag === "rect" && e !== bgRect && e.a.fill && e.a.fill !== "none")
     .map(geom)
     .filter((r) => r.w > 3 && r.h > 3);
+  // The paint-order model, the one place backdrops and covers are decided: the filled
+  // rects whose interior holds a text's anchor point, split into those painted before the
+  // text (its backdrop stack, bottom first) and those painted after it (covering it).
   // a text's anchor point (x, mid-height of the glyphs)
   const anchor = (t) => {
     const [x, y] = place(t, +t.a.x, +t.a.y);
     return { x, y: y - +(t.a["font-size"] || 16) * 0.35 };
   };
+  const stackAt = (t) => {
+    const p = anchor(t);
+    const all = rects.filter((r) => p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h);
+    return { below: all.filter((r) => r.e.ord < t.ord), above: all.filter((r) => r.e.ord > t.ord) };
+  };
   for (const t of texts) {
-    const [x, y] = place(t, +t.a.x, +t.a.y);
     const size = +(t.a["font-size"] || 16);
     if (size < minText) out.push(`"${t.s}" is ${size}px (floor ${minText}px)`);
-    // the smallest filled rect drawn under the text's anchor point
-    const under = rects
-      .filter(
-        (r) => x > r.x && x < r.x + r.w && y - size * 0.35 > r.y && y - size * 0.35 < r.y + r.h,
-      )
-      .sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    const { below, above } = stackAt(t);
+    for (const r of above)
+      out.push(`"${t.s}" is covered by a rect drawn after it (fill ${r.e.a.fill})`);
+    // the topmost rect painted under the text's anchor point
+    const under = below[below.length - 1];
     const isBox =
       under && under.e.a.stroke && under.e.a.stroke !== "none" && under.w > 40 && under.h > 20;
     if (isBox && size < minBoxText)
@@ -290,9 +306,10 @@ export function auditSvg(svg, { minText, minBoxText }) {
         rgb: theme === "light" ? [0, 0, 0] : [0, 0, 0],
         a: 1,
       };
+      // the page, then every rect under the anchor in paint order
       let bg = page[theme];
-      if (under) {
-        const f = paint(under.e, "fill", theme, rules);
+      for (const r of below) {
+        const f = paint(r.e, "fill", theme, rules);
         if (f) bg = over(f, bg);
       }
       const c = contrast(over(ink, bg), bg);

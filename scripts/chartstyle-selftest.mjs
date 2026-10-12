@@ -500,6 +500,55 @@ test("only an opaque rect covering the whole canvas from 0,0 is the page", () =>
       `taken as the page: ${rect}`,
     );
 });
+test("both themes' page colours come from the page rect", () => {
+  // a black page that a dark rule turns white, with black text: unreadable in light
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+    `<style>@media (prefers-color-scheme: dark){rect[fill="#000000"]{fill:#ffffff}}</style>` +
+    `<rect width="400" height="200" fill="#000000"/>${ink(20, 60, "black on black", "#000000")}</svg>`;
+  const issues = auditSvg(svg, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT });
+  assert.ok(
+    issues.some((i) => /^light: "black on black"/.test(i)),
+    `light-theme text on a black page passed: ${JSON.stringify(issues)}`,
+  );
+  assert.ok(!issues.some((i) => /^dark:/.test(i)), "dark theme: black text on the white page");
+});
+test("a text's backdrop is the paint stack under its anchor, in document order", () => {
+  // a covering rect painted after the label hides it: reported, and the label is judged
+  // against what was painted before it (the white page)
+  const covered = auditMini(
+    ink(20, 60, "hidden", "#ffffff") +
+      `<rect x="10" y="40" width="200" height="30" fill="#000000"/>`,
+  );
+  assert.ok(
+    covered.some((i) => /"hidden" is covered by a rect drawn after it/.test(i)),
+    `a rect painted over the label passed: ${JSON.stringify(covered)}`,
+  );
+  assert.ok(
+    covered.some((i) => /^light: "hidden"/.test(i)),
+    "white label judged against black",
+  );
+  // overlapping earlier rects: the topmost one painted before the text is its backdrop,
+  // not the smallest
+  const stacked = auditMini(
+    `<rect x="15" y="45" width="90" height="20" fill="#ffffff"/>` +
+      `<rect x="10" y="40" width="200" height="30" fill="#000000"/>` +
+      ink(20, 60, "on black", "#1c2330"),
+  );
+  assert.ok(
+    stacked.some((i) => /^light: "on black"/.test(i)),
+    `dark ink over the topmost black rect passed: ${JSON.stringify(stacked)}`,
+  );
+  // control: the same stack in the other order (white on top) is readable
+  assert.deepEqual(
+    auditMini(
+      `<rect x="10" y="40" width="200" height="30" fill="#000000"/>` +
+        `<rect x="15" y="45" width="90" height="20" fill="#ffffff"/>` +
+        ink(20, 60, "on white", "#1c2330"),
+    ),
+    [],
+  );
+});
 test("an SVG without a full-canvas background rect is reported, not thrown on", () => {
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
