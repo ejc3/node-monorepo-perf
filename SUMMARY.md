@@ -78,9 +78,9 @@ separate cost:
 
 - **Install** of the whole workspace (~2.6s warm store at 4,000:400), paid on clean clone or CI.
   The fastest installer depends on scale and install state: bun is ~1.6× faster than pnpm-isolated
-  cold at 200 apps and leads the fresh CI frozen install, while pnpm-hoisted is 3.1–3.4× faster
-  than bun cold at 1,000–2,000 apps; pnpm 12's Rust CLI removed pnpm 10's 307.4s cold resolve
-  (1,000:200). yarn-PnP is second-fastest cold at 2,000 apps but cannot run stock tsgo or Next's
+  cold (no lockfile, warm store) at 200 apps and leads the fresh CI frozen install, while
+  pnpm-hoisted is 3.1–3.4× faster than bun cold at 1,000–2,000 apps; pnpm 12's Rust CLI removed
+  pnpm 10's 307.4s cold resolve (1,000:200). yarn-PnP is second-fastest cold at 2,000 apps but cannot run stock tsgo or Next's
   default Turbopack. Numbers: [TOOLING.md](TOOLING.md#install-bun-vs-pnpm-vs-yarn-4); the
   bun-vs-yarn reconciliation: [OPTIMAL-STACK.md](OPTIMAL-STACK.md#installing-the-workspace).
 - **A whole-repo dist build** scales with package count.
