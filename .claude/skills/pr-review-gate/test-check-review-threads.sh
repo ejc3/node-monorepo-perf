@@ -13,7 +13,9 @@
 # REQUIRE_HEAD_REVIEW_FROM), each observed red against the unmodified upstream script,
 # and for the three classifier additions for the bot traffic on this repository (Codex's
 # changing sign-off, its inline-comment container review, CodeRabbit's summary comment and
-# acknowledgements), each observed red against the script before them.
+# acknowledgements), each observed red against the script before them, and for the
+# HEAD-REVIEW-OVERRIDE line (addition 11), observed red against the script before it except
+# the cases marked as guards.
 #
 # One deliberate divergence from upstream: this repository does not treat the CodeRabbit
 # summary comment as a claim (see is_cr_summary_comment). Eight upstream cases asserted that
@@ -2996,6 +2998,158 @@ if [ "$rc" != 0 ] && grep -q "post $H1 pending" "$d/calls"; then
   echo "  PASS  a refused pending fails the invalidation step"; pass=$((pass+1))
 else
   echo "  FAIL  a refused pending fails the invalidation step (rc=$rc)"; sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1))
+fi
+
+echo "== addition 11: a HEAD-REVIEW-OVERRIDE comment stands in for one required reviewer =="
+# When a required bot cannot review (Codex out of quota), a top-level comment or review body
+# whose first line is "HEAD-REVIEW-OVERRIDE: <login> <sha>: <what was done instead>" covers
+# that login for that head only: the sha names the head, the comment is written after the
+# head arrived, and the text says what was done. It answers nothing and is not a claim.
+OV_HEAD=$HEAD40
+OV_OLD=9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d
+# $1 reviews, $2 top-level comments (JSON array bodies without brackets), $3 threads (an array).
+wrapO() { printf '{"data":{"repository":{"pullRequest":{"author":{"login":"me"},"headRefOid":"%s","commits":{"nodes":[{"commit":{"committedDate":"2026-01-02T00:00:00Z","checkSuites":{"nodes":[{"createdAt":"2026-01-02T00:30:00Z"}]}}}]},"prcommits":{"totalCount":2,"nodes":[{"commit":{"oid":"%s"}},{"commit":{"oid":"%s"}}]},"reviewThreads":{"nodes":%s},"reviews":{"nodes":[%s]},"comments":{"nodes":[%s]},"recheck":{"comments":{"nodes":[%s]}}}}}}' \
+  "$OV_HEAD" "$OV_OLD" "$OV_HEAD" "${3:-[]}" "${1:-}" "${2:-}" "${2:-}"; }
+# A top-level comment: $1 login, $2 createdAt, $3 body text, $4 updatedAt (default createdAt).
+ovc() { cmt "$1" User "$2" "$(jq -n --arg b "$3" '$b')" "${4:-}"; }
+# A review body: $1 login, $2 state, $3 submittedAt, $4 body text.
+ovr() { printf '{"author":{"login":"%s","__typename":"User"},"state":"%s","submittedAt":"%s","lastEditedAt":null,"body":%s,"commit":{"oid":"%s"},"comments":{"totalCount":0,"nodes":[]}}' \
+  "$1" "$2" "$3" "$(jq -n --arg b "$4" '$b')" "$OV_HEAD"; }
+OV_TEXT='local `codex exec -s read-only` review of main..5f8a63e, no findings'
+OV_LINE="HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}: $OV_TEXT"
+REQO="REQUIRE_HEAD_REVIEW_FROM=chatgpt-codex-connector"
+# $1 name, $2 env, $3 json, $4 rc, $5 and $6 substrings that must appear, $7 one that must not.
+ov_case() {
+  local name=$1 envs=$2 json=$3 want_rc=$4 w1=${5:-} w2=${6:-} absent=${7:-} out rc envarr=()
+  printf '%s' "$json" > "$TMP/f.json"
+  [ -z "$envs" ] || IFS='|' read -r -a envarr <<<"$envs"
+  out=$(env -u REQUIRE_HEAD_REVIEW_FROM "${envarr[@]}" bash "$GATE" --from-file "$TMP/f.json" 2>&1); rc=$?
+  if [ "$rc" = "$want_rc" ] && { [ -z "$w1" ] || grep -qF -- "$w1" <<<"$out"; } \
+     && { [ -z "$w2" ] || grep -qF -- "$w2" <<<"$out"; } && { [ -z "$absent" ] || ! grep -qF -- "$absent" <<<"$out"; }; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=$want_rc)"; sed 's/^/          /' <<<"$out" | head -8; fail=$((fail+1))
+  fi
+}
+ov_case "an override naming the head clears a missing Codex review" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 0 \
+  "HEAD OVERRIDDEN  chatgpt-codex-connector on ${OV_HEAD:0:9}: $OV_TEXT (by me, 2026-01-02T01:00:00Z)" \
+  "verdict: CLEAR (with 1 head-review override)" "UNANSWERED"
+ov_case "an override naming the head by its full sha clears it" "$REQO" \
+  "$(wrapO "" "$(ovc example-user 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector $OV_HEAD: $OV_TEXT")")" 0 \
+  "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR (with 1 head-review override)"
+ov_case "an override in a review body clears it and is not itself a claim" "$REQO" \
+  "$(wrapO "$(ovr example-user COMMENTED 2026-01-02T01:00:00Z "$OV_LINE")")" 0 \
+  "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR (with 1 head-review override)" "UNANSWERED"
+ov_case "an override naming an older head does not cover the head" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_OLD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+ov_case "an override naming an abbreviation two PR commits share does not cover the head" "$REQO" \
+  "$(OV_OLD=${OV_HEAD:0:7}0000000000000000000000000000000000 wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "MISSING HEAD REVIEW  chatgpt-codex-connector" "does not name the head" "verdict: CLEAR"
+ov_case "an override dated before the head arrived does not cover it" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T00:10:00Z "$OV_LINE")")" 1 \
+  "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+ov_case "an override written before the head arrived and edited after it is dated by the edit" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T00:10:00Z "$OV_LINE" 2026-01-02T01:00:00Z)")" 0 \
+  "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR (with 1 head-review override)"
+for t in '' ' ' 'n/a' 'none' 'skip' '-' 'ran the tests' 'skip skip skip skip skip' 'N/A, none, skipped, TBD, todo'; do
+  ov_case "an override whose text is '$t' does not cover the head" "$REQO" \
+    "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 1 \
+    "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+done
+ov_case "an override for another reviewer does not cover the required one" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: coderabbitai ${OV_HEAD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  chatgpt-codex-connector" "" "UNANSWERED"
+ov_case "an override in a DISMISSED review does not cover the head" "$REQO" \
+  "$(wrapO "$(ovr example-user DISMISSED 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+ov_case "an override does not clear an unresolved thread" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")" \
+     '[{"isResolved":false,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-02T00:40:00Z","lastEditedAt":null,"body":"P1: this drops records"}]}}]')" 1 \
+  "UNRESOLVED" "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR"
+ov_case "an override does not clear a resolved thread with no disposition" "$REQO" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")" \
+     '[{"isResolved":true,"comments":{"nodes":[{"author":{"login":"x"},"path":"a.ts","line":1,"createdAt":"2026-01-02T00:40:00Z","lastEditedAt":null,"body":"P1: this drops records"}]}}]')" 1 \
+  "UNDISPOSED" "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR"
+ov_case "an override does not answer an earlier review-body finding" "$REQO" \
+  "$(wrapO "$(ovr coderabbitai COMMENTED 2026-01-02T00:40:00Z "P1: this drops records")" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "UNANSWERED coderabbitai" "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR"
+ov_case "text below the override line is an ordinary comment that needs a disposition" "$REQO" \
+  "$(wrapO "" "$(ovc example-user 2026-01-02T01:00:00Z "$OV_LINE"$'\n\nP1: also, this drops records')")" 1 \
+  "UNANSWERED example-user" "HEAD OVERRIDDEN  chatgpt-codex-connector" "verdict: CLEAR"
+# Guards, green before and after: an override covers only a required login. With no list it
+# stands in for nobody, so a PR nobody reviewed is still an unreviewed head.
+ov_case "without REQUIRE_HEAD_REVIEW_FROM an override covers nothing" "" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "UNREVIEWED HEAD" "" "verdict: CLEAR"
+ov_case "a set but empty REQUIRE_HEAD_REVIEW_FROM is still refused with an override present" "REQUIRE_HEAD_REVIEW_FROM=" \
+  "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_LINE")")" 2 \
+  "names no reviewer" "" "verdict: CLEAR"
+# An unfinished placeholder is not a statement of what was done, however long it is.
+for t in ' TODO: describe what was done instead' ' <describe replacement review here>' \
+         ' local codex exec review of the diff, fixme: list findings' ' tbd, local codex exec review of the diff' \
+         ' local codex exec review of main..head XXX no findings yet'; do
+  ov_case "an override whose text is the placeholder '${t# }' does not cover the head" "$REQO" \
+    "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 1 \
+    "MISSING HEAD REVIEW  chatgpt-codex-connector" "OVERRIDE REJECTED" "verdict: CLEAR"
+done
+# Concrete content in angle brackets is not a placeholder: a sha range or an autolink.
+for t in ' local codex exec review of <9c1d2e3>..<5f8a63e>, no findings' \
+         ' local codex exec -s read-only review, log at <https://example.com/run/1>, no findings'; do
+  ov_case "an override whose text is '${t# }' covers the head" "$REQO" \
+    "$(wrapO "" "$(ovc me 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${OV_HEAD:0:7}:$t")")" 0 \
+    "HEAD OVERRIDDEN  chatgpt-codex-connector" "" "OVERRIDE REJECTED"
+done
+# A review body that is only an override line is the override and nothing else: it is not
+# its author's review of the head, for a required login or for the any-reviewer rule.
+ov_case "an override-only review body is not its author's own review of the head" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice,example-bob" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-bob ${OV_HEAD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "HEAD OVERRIDDEN  example-bob" "verdict: CLEAR"
+ov_case "a required login's own override review naming an older head is validated, not a review" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_OLD:0:7}: $OV_TEXT")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "OVERRIDE REJECTED  example-alice" "verdict: CLEAR"
+ov_case "a required login's own override review with text 'n/a' is validated, not a review" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_HEAD:0:7}: n/a")")" 1 \
+  "MISSING HEAD REVIEW  example-alice" "OVERRIDE REJECTED  example-alice" "verdict: CLEAR"
+ov_case "a required login's own valid override review is reported as an override" \
+  "REQUIRE_HEAD_REVIEW_FROM=example-alice" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "HEAD-REVIEW-OVERRIDE: example-alice ${OV_HEAD:0:7}: $OV_TEXT")")" 0 \
+  "HEAD OVERRIDDEN  example-alice" "verdict: CLEAR (with 1 head-review override)"
+ov_case "without REQUIRE_HEAD_REVIEW_FROM an override-only review body is not a review of the head" "" \
+  "$(wrapO "$(ovr example-alice COMMENTED 2026-01-02T01:00:00Z "$OV_LINE")")" 1 \
+  "UNREVIEWED HEAD" "" "verdict: CLEAR"
+
+# merge-pr.sh runs the real gate on a payload whose head is the PR head (the gh shim of 8b).
+d="$TMP/mp.override"; mkdir "$d"
+OV_MP_LINE="HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector ${PS_SHA:0:7}: $OV_TEXT"
+OV_HEAD=$PS_SHA wrapO "" "$(ovc me 2026-01-02T01:00:00Z "$OV_MP_LINE")" > "$d/payload.json"
+printf '#!/bin/bash\nexec bash "%s" --from-file "%s"\n' "$GATE" "$d/payload.json" > "$d/gate.sh"
+out=$(env -u REQUIRE_HEAD_REVIEW_FROM MP_DIR="$d" MP_VIEW="$MP_OPEN" MERGE_GATE_SCRIPT="$d/gate.sh" \
+      PATH="$TMP/mpbin:$PATH" GITHUB_REPOSITORY=o/r bash "$MERGER" 7 2>&1); rc=$?
+if [ "$rc" = 0 ] && grep -qF -- "--match-head-commit $PS_SHA" "$d/calls" 2>/dev/null \
+   && grep -qF "HEAD OVERRIDDEN  chatgpt-codex-connector" <<<"$out"; then
+  echo "  PASS  merge-pr.sh merges a head the gate clears by override"; pass=$((pass+1))
+else
+  echo "  FAIL  merge-pr.sh merges a head the gate clears by override (rc=$rc)"; sed 's/^/          /' <<<"$out" | head -6; fail=$((fail+1))
+fi
+
+# The verdict step's success description names the override, inside GitHub's 140 characters.
+d="$TMP/fb.override"; mkdir -p "$d/.claude/skills/pr-review-gate"
+printf '#!/bin/bash\nprintf "%%s\\n" "$3" > "%s/desc"\n' "$d" > "$d/.claude/skills/pr-review-gate/post-status.sh"
+printf '%s\n' "=== PR #7 at ${H1:0:9}" "  HEAD OVERRIDDEN  chatgpt-codex-connector on ${H1:0:9}: $OV_TEXT (by me, 2026-01-02T01:00:00Z)" \
+  "verdict: CLEAR (with 1 head-review override) — every thread resolved and disposed, every review body answered." > "$d/gate.log"
+out=$(cd "$d" && env SHA="$H1" STATUS_CONTEXT=review-gate RUN_URL="$OURS_URL" RC=0 EVAL_STARTED=2026-01-02T02:00:00Z PRS=7 \
+      GITHUB_EVENT_NAME=issue_comment bash -c "$POST_RUN" 2>&1); rc=$?
+desc=$(cat "$d/desc" 2>/dev/null)
+if [ "$rc" = 0 ] && grep -qF "head-review override" <<<"$desc" && [ "${#desc}" -le 140 ]; then
+  echo "  PASS  the success status description names the head-review override ($desc)"; pass=$((pass+1))
+else
+  echo "  FAIL  the success status description names the head-review override (rc=$rc, desc='$desc')"
+  sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1))
 fi
 
 # The verdict step when the checkout failed: post-status.sh is absent, and the step posts

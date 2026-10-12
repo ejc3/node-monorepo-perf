@@ -17,7 +17,8 @@
 # GITHUB_REPOSITORY, EXPECT_HEAD, REQUIRE_HEAD_REVIEW_FROM) and three classifier rules for
 # the bot traffic on this repository (Codex's changing no-findings sign-off, Codex's
 # inline-comment container review, CodeRabbit's summary comment and two more of its
-# command acknowledgements). The summary-comment rule is a deliberate divergence: upstream
+# command acknowledgements), plus the HEAD-REVIEW-OVERRIDE line that stands in for one
+# required reviewer (OVERRIDE_JQ). The summary-comment rule is a deliberate divergence: upstream
 # treats that comment as a claim. It also dates every claim by the later of its creation
 # and its last edit (written_at) and every answer by its creation only (answered_at);
 # upstream reads no lastEditedAt and dates a comment answer by its updatedAt.
@@ -1280,6 +1281,33 @@ CODEX_LOGIN=${CODEX_LOGIN:-chatgpt-codex-connector}
 # not-completed and summary notices are CodeRabbit's. From any other account they are
 # ordinary comments.
 CODERABBIT_LOGIN=${CODERABBIT_LOGIN:-coderabbitai}
+# node-monorepo-perf addition. A HEAD-REVIEW-OVERRIDE stands in for ONE required reviewer
+# (REQUIRE_HEAD_REVIEW_FROM) that cannot review, e.g. Codex out of quota. It is a top-level
+# comment or a review body whose first line is
+#   HEAD-REVIEW-OVERRIDE: <reviewer-login> <sha>: <what was done instead>
+# from anyone, the PR author included: the gate is a process check, and the override is a
+# visible record of what replaced the review, which the gate prints. It covers that login
+# on that head only, and only when the sha names the head (names_head), the comment was
+# written after the head arrived (written_at, as a claim is dated), and the text holds at
+# least 20 letters or digits, is not only placeholder words, and carries no unfinished
+# placeholder (TODO, TBD, FIXME or XXX as a word, in any case, or an angle-bracket <...>). It
+# satisfies no thread or review-body disposition and answers nothing (it does not open with
+# a disposition marker).
+#
+# A body that is the override line and nothing else is not a claim, and a review whose body
+# is only that line is not its author's review of the head: it is the override it names and
+# nothing more. Text below the line is ordinary comment text and keeps the whole body
+# claimable: nothing is removed unread.
+OVERRIDE_JQ='def override_re: "\\A[[:space:]]*HEAD-REVIEW-OVERRIDE:[ \t]+(?<who>[A-Za-z0-9][A-Za-z0-9-]*(\\[bot\\])?)[ \t]+(?<sha>[0-9a-fA-F]{7,40}):(?<text>[^\n]*)";
+  def override_parts: ((. // "") | [capture(override_re)] | first) // null;
+  def is_override_only: (. // "") | test(override_re + "[[:space:]]*\\z");
+  def override_text_ok:
+    ([scan("[A-Za-z0-9]")] | length) >= 20
+    and ([scan("[A-Za-z0-9]+") | ascii_downcase]
+         | all(IN("n", "a", "na", "none", "nil", "null", "skip", "skipped", "nothing", "tbd", "todo",
+                  "x", "ok", "done", "override", "overridden")) | not)
+    and (test("\\b(todo|tbd|fixme|xxx)\\b"; "i") | not)
+    and (test("<(?![0-9a-fA-F]{7,40}>)(?![A-Za-z][A-Za-z0-9+.-]*://)[^<>]*[A-Za-z][^<>]*>") | not);'
 
 prauthor=$(jq -r '.data.repository.pullRequest.author.login // ""' <<<"$payload" 2>/dev/null)
 
@@ -1365,16 +1393,19 @@ fi
 # arrival, so a comment carrying several results is judged row by row.
 bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" --arg bots "$VERDICT_BOTS" \
    --arg codex "$CODEX_LOGIN" --arg cr "$CODERABBIT_LOGIN" --arg me "$prauthor" \
-   "$TS_JQ""$VERDICT_JQ"'($ignore | split(",")) as $skip
+   "$TS_JQ""$VERDICT_JQ""$OVERRIDE_JQ"'($ignore | split(",")) as $skip
   | ($bots | split(",")) as $botlogins
   # `when` dates an item as a CLAIM: the instant its text was written (written_at, shared
   # with the thread rule), a review by the later of its submission and its last edit, a
   # comment by the later of its creation and its updatedAt. Dated by submittedAt, a finding
   # added by editing a review after it was answered inherited that older answer. `posted`
   # dates it as an ANSWER: its submission or creation only (answered_at).
+  # `override` is the parsed HEAD-REVIEW-OVERRIDE line, or null (node-monorepo-perf addition).
   | (.[0] | map({author, state, body, when: written_at(.submittedAt), posted: answered_at(.submittedAt),
+                 override: ((.body // "") | override_parts),
                  claimable: (((.state // "COMMENTED") != "APPROVED")
                              and (($me == "") or ((.author.login // "") != $me))
+                             and ((.body // "") | is_override_only | not)
                              # node-monorepo-perf addition: is_codex_review_container
                              and ((((.author.__typename // "") == "Bot")
                                    and ((.author.login // "") == $codex)
@@ -1391,6 +1422,7 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
       | ($listed and (($c.author.login // "") == $cr) and ($c.body | is_cr_summary_comment)) as $crsum
       | {author, state: "COMMENT", body, when: written_at(.createdAt; .updatedAt),
          posted: answered_at(.createdAt),
+         override: ((.body // "") | override_parts),
          verdict: ($v or $sum), notice: $notice,
          reviewed_rows: ((if $notice then []
                           elif $v then [{sha: ($c.body | verdict_sha), at: .createdAt}]
@@ -1400,6 +1432,7 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
                          | map(select((.sha // "") != "" and (.at // "") != ""))),
          claimable: ((.author.login | IN($skip[]) | not)
                      and ((.body // "") | test($trig; "i") | not)
+                     and ((.body // "") | is_override_only | not)
                      and (($v or $sum or $notice or $crsum) | not))}))' \
          <(echo "$reviews") <(echo "$prcomments")) || {
   echo "verdict: BLOCKED — could not merge PR-level bodies." >&2; exit 2; }
@@ -1558,6 +1591,7 @@ fi
 # leaves no review object, so a PR whose only review ever was a clean Codex pass on an
 # OLDER commit had no review objects at all, and after a push it went CLEAR with nothing
 # reviewing the head. The head must be covered whether or not any review object exists.
+overridden=()  # HEAD OVERRIDDEN lines, one per required login an override covers
 if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
   # Only SOMEONE ELSE's review is coverage. Counting any review on the head meant the
   # author's own `gh pr review --comment` disposition — posted after the push, as the
@@ -1606,8 +1640,11 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
         (((.body // "") | type) == "string" and ((.body // "") | test("[^[:space:]]")))
         or ((.state // "") | IN("APPROVED", "CHANGES_REQUESTED"))
         or (any(.comments.nodes[]?; has("replyTo") and .replyTo == null)));'
-  headreviews=$(jq -c --arg h "$headoid" --arg me "$prauthor" \
-             '[ .[] | select((.commit.oid // "") == $h) | select(.author.login != $me) ]' \
+  # node-monorepo-perf addition: a review whose body is only a HEAD-REVIEW-OVERRIDE line is
+  # not a review of the head by its author; it counts only as the override it names, below.
+  headreviews=$(jq -c --arg h "$headoid" --arg me "$prauthor" "$OVERRIDE_JQ"'
+             [ .[] | select((.commit.oid // "") == $h) | select(.author.login != $me)
+                   | select((.body // "") | is_override_only | not) ]' \
              <<<"$reviews") || {
     echo "verdict: BLOCKED — could not evaluate head-commit review coverage." >&2; exit 2; }
   # A review object this gate cannot read is not one it may wave through as coverage, and
@@ -1725,21 +1762,22 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
   fi
   arrived=$(jq -r "$TS_JQ"'min_by(ts) // ""' <<<"$suitetimes") || {
     echo "verdict: BLOCKED — could not date the head's arrival." >&2; exit 2; }
+  # names_head: whether a sha a reviewer wrote names the head (see above). One definition for
+  # the no-findings results and the HEAD-REVIEW-OVERRIDE lines, so both bind the same way.
+  names_head_jq='def names_head($sha):
+      ($sha | ascii_downcase) as $s | ($h | ascii_downcase) as $hl
+      | if $s == "" then false
+        elif $s == $hl then true
+        else ([ $oids[] | ascii_downcase | select(startswith($s)) ] | unique) as $cand
+             | ($cand | length) == 1 and ($cand[0] == $hl)
+        end;'
   # $who narrows the count to one login (node-monorepo-perf addition, used by
   # REQUIRE_HEAD_REVIEW_FROM below); "" counts every author but the PR's, as upstream. One
   # program serves both, so the per-bot rule binds a result to the head exactly as the
   # any-reviewer rule does.
-  bound_verdicts_jq="$TS_JQ"'
+  bound_verdicts_jq="$TS_JQ$names_head_jq"'
     ($hd | ts) as $hat
-    | ($h | ascii_downcase) as $hl
-    | def names_head($sha):
-        ($sha | ascii_downcase) as $s
-        | if $s == "" then false
-          elif $s == $hl then true
-          else ([ $oids[] | ascii_downcase | select(startswith($s)) ] | unique) as $cand
-               | ($cand | length) == 1 and ($cand[0] == $hl)
-          end;
-      [ .[] | select(.state == "COMMENT" and .author.login != $me)
+    | [ .[] | select(.state == "COMMENT" and .author.login != $me)
         | select($who == "" or .author.login == $who)
         | select(any(.reviewed_rows[]?; . as $row
                      | ($row.at | ts) as $rat
@@ -1749,34 +1787,41 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
   verdicts=$(jq -r --arg me "$prauthor" --arg hd "$arrived" --arg h "$headoid" --arg who "" \
              --argjson oids "$proids" "$bound_verdicts_jq" <<<"$bodies") || {
     echo "verdict: BLOCKED — could not evaluate no-findings verdicts." >&2; exit 2; }
-  # A head is covered by a review object on it from someone other than the author, or by
-  # a verdict bound to it. Nothing else counts, and in particular the existence of review
-  # objects on OTHER commits does not: the blocking branch used to require one, so a PR
-  # with no review objects and an unbound verdict printed neither line and went CLEAR.
-  if [ "${reviewed:-0}" -eq 0 ] && [ "${verdicts:-0}" -gt 0 ]; then
-    echo
-    echo "  HEAD COVERED  ${headoid:0:9}: no review object, but $verdicts no-findings verdict(s) bound to it (arrived $arrived)"
-  elif [ "${reviewed:-0}" -eq 0 ]; then
-    echo
-    echo "  UNREVIEWED HEAD  ${headoid:0:9} — no review of this commit from anyone but the author (an empty review object is a reply container, not a review), and no no-findings verdict bound to it"
-    echo
-    echo "verdict: BLOCKED — the head commit has not been reviewed."
-    echo "Every finding raised so far is answered, but the code being merged is not the code"
-    echo "anyone reviewed. Wait for a review of ${headoid:0:9}, or re-request one."
-    rc=1
-  fi
 
   # node-monorepo-perf addition: REQUIRE_HEAD_REVIEW_FROM names reviewers who must EACH have
-  # covered the head. Upstream's rule above is satisfied by any one reviewer, so on a PR both
+  # covered the head. Upstream's rule below is satisfied by any one reviewer, so on a PR both
   # bots review, the first clean result made the head CLEAR while the second was still
   # running, and its findings landed on a PR that could already merge. Each login is held to
-  # the rule above, restricted to that login: a covering review object on the head (the
+  # the rule below, restricted to that login: a covering review object on the head (the
   # `covers` test, so a reply container does not count), or a no-findings result from it
   # bound to the head. A login listed in VERDICT_BOTS must also be a Bot account, the same
   # condition the verdict rows already carry, so a user account of the same name is not
   # that bot.
+  #
+  # A login with neither may be covered by a HEAD-REVIEW-OVERRIDE (OVERRIDE_JQ) naming it
+  # and the head. Each override that does not qualify is printed with the reason, so a
+  # rejected one is visible rather than silently ignored. Overrides count only for a listed
+  # login: with REQUIRE_HEAD_REVIEW_FROM unset, an override covers nothing.
+  override_jq="$TS_JQ$names_head_jq$OVERRIDE_JQ"'
+    ($hd | ts) as $hat
+    | [ .[] | select(.override != null)
+        | select((.override.who | ascii_downcase) == ($who | ascii_downcase))
+        | (.override.text | gsub("[[:cntrl:]]"; " ") | gsub("^[[:space:]]+|[[:space:]]+$"; "")) as $t
+        | {when, sha: .override.sha, text: $t, by: (.author.login // "?"),
+           at: (if .when == null then "undated" else (.when | floor | todate) end),
+           why: (if ((.state // "") | IN("COMMENT", "COMMENTED", "APPROVED", "CHANGES_REQUESTED") | not)
+                   then "it is in a review that is \(.state // "unsubmitted"), not a submitted one"
+                 elif (names_head(.override.sha) | not) then "\(.override.sha) does not name the head"
+                 elif (.when == null or $hat == null or .when <= $hat) then "it was not written after the head arrived"
+                 elif ($t | override_text_ok | not)
+                   then "it does not say what was done instead (needs 20+ letters or digits, not only placeholder words)"
+                 else "" end)} ]
+    | ([ .[] | select(.why == "") ] | sort_by(.when) | last) as $ok
+    | if $ok != null
+      then "Y\t  HEAD OVERRIDDEN  \($who) on \($h[0:9]): \($ok.text[0:300]) (by \($ok.by), \($ok.at))"
+      else (.[] | "N\t  OVERRIDE REJECTED  \($who) \(.sha) (by \(.by), \(.at)): \(.why)") end'
+  missing=() rejected=()
   if [ -n "${REQUIRE_HEAD_REVIEW_FROM:-}" ]; then
-    missing=()
     IFS=',' read -r -a required_logins <<<"$REQUIRE_HEAD_REVIEW_FROM"
     for who in "${required_logins[@]}"; do
       who=${who//[[:space:]]/}
@@ -1791,24 +1836,63 @@ if [ "${REQUIRE_REVIEWED_HEAD:-1}" = "1" ]; then
                  --argjson oids "$proids" "$bound_verdicts_jq" <<<"$bodies") || {
         echo "verdict: BLOCKED — could not evaluate no-findings verdicts by $who." >&2; exit 2; }
       if [ "${by_review:-0}" -eq 0 ] && [ "${by_verdict:-0}" -eq 0 ]; then
-        missing+=("$who")
+        ov=$(jq -r --arg hd "$arrived" --arg h "$headoid" --arg who "$who" \
+                --argjson oids "$proids" "$override_jq" <<<"$bodies") || {
+          echo "verdict: BLOCKED — could not evaluate head-review overrides for $who." >&2; exit 2; }
+        if [ "${ov:0:2}" = $'Y\t' ]; then
+          overridden+=("${ov#Y$'\t'}")
+        else
+          missing+=("$who")
+          while IFS= read -r line; do
+            [ -z "$line" ] || rejected+=("${line#N$'\t'}")
+          done <<<"$ov"
+        fi
       fi
     done
-    if [ "${#missing[@]}" -gt 0 ]; then
-      echo
-      for who in "${missing[@]}"; do
-        echo "  MISSING HEAD REVIEW  $who has not reviewed ${headoid:0:9} (no covering review object on it, no no-findings result bound to it)"
-      done
-      echo
-      echo "verdict: BLOCKED — ${#missing[@]} required reviewer(s) have not reviewed the head."
-      echo "REQUIRE_HEAD_REVIEW_FROM=$REQUIRE_HEAD_REVIEW_FROM: each must review ${headoid:0:9}."
-      echo "Trigger them with a PR comment: \"@codex review\", \"@coderabbitai review\"."
-      rc=1
-    fi
+  fi
+
+  # A head is covered by a review object on it from someone other than the author, or by
+  # a verdict bound to it. Nothing else counts, and in particular the existence of review
+  # objects on OTHER commits does not: the blocking branch used to require one, so a PR
+  # with no review objects and an unbound verdict printed neither line and went CLEAR.
+  # (node-monorepo-perf addition: or by a HEAD-REVIEW-OVERRIDE for a required login, above.)
+  if [ "${reviewed:-0}" -eq 0 ] && [ "${verdicts:-0}" -gt 0 ]; then
+    echo
+    echo "  HEAD COVERED  ${headoid:0:9}: no review object, but $verdicts no-findings verdict(s) bound to it (arrived $arrived)"
+  elif [ "${reviewed:-0}" -eq 0 ] && [ "${#overridden[@]}" -eq 0 ]; then
+    echo
+    echo "  UNREVIEWED HEAD  ${headoid:0:9} — no review of this commit from anyone but the author (an empty review object is a reply container, not a review), and no no-findings verdict bound to it"
+    echo
+    echo "verdict: BLOCKED — the head commit has not been reviewed."
+    echo "Every finding raised so far is answered, but the code being merged is not the code"
+    echo "anyone reviewed. Wait for a review of ${headoid:0:9}, or re-request one."
+    rc=1
+  fi
+
+  if [ "${#overridden[@]}" -gt 0 ]; then
+    echo
+    printf '%s\n' "${overridden[@]}"
+  fi
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo
+    [ "${#rejected[@]}" -eq 0 ] || printf '%s\n' "${rejected[@]}"
+    for who in "${missing[@]}"; do
+      echo "  MISSING HEAD REVIEW  $who has not reviewed ${headoid:0:9} (no covering review object on it, no no-findings result bound to it)"
+    done
+    echo
+    echo "verdict: BLOCKED — ${#missing[@]} required reviewer(s) have not reviewed the head."
+    echo "REQUIRE_HEAD_REVIEW_FROM=$REQUIRE_HEAD_REVIEW_FROM: each must review ${headoid:0:9}."
+    echo "Trigger them with a PR comment: \"@codex review\", \"@coderabbitai review\"."
+    echo "If one cannot review (e.g. out of quota), post a comment whose first line is"
+    echo "\"HEAD-REVIEW-OVERRIDE: <login> <sha>: <what was done instead>\" (SKILL.md)."
+    rc=1
   fi
 fi
 
-if [ "$rc" -eq 0 ]; then
+if [ "$rc" -eq 0 ] && [ "${#overridden[@]}" -gt 0 ]; then
+  n=${#overridden[@]}
+  echo "verdict: CLEAR (with $n head-review override$([ "$n" -eq 1 ] || echo s)) — every thread resolved and disposed, every review body answered."
+elif [ "$rc" -eq 0 ]; then
   echo "verdict: CLEAR — every thread resolved and disposed, every review body answered."
 fi
 exit $rc
