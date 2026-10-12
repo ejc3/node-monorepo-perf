@@ -28,6 +28,7 @@ on:
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
       - "scripts/chartstyle-selftest.mjs"
+      - "scripts/_svg-audit.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -48,6 +49,7 @@ on:
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
       - "scripts/chartstyle-selftest.mjs"
+      - "scripts/_svg-audit.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -78,7 +80,7 @@ jobs:
 
       - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
           node scripts/net-cache-chart.mjs
@@ -107,7 +109,7 @@ jobs:
 
       - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png; do
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png; do
             test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
             dims=$(identify -format '%wx%h %m' "$png")
             echo "PNG: $png $dims"
@@ -120,14 +122,14 @@ jobs:
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png)" ]; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
             # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
             # the build (the PNGs were still validated above; refresh locally with the chart make targets).
-            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart scale-chart net-cache-chart fleet-chart' and commit them"
+            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit them"
           fi
 
       - name: Upload the freshly-rendered PNGs (PR builds)
@@ -148,4 +150,7 @@ jobs:
             bench/charts/fig-linker-layouts.png
             bench/charts/fig-next-pnp-node.png
             bench/charts/fig-remote-cache.png
+            bench/charts/typecheck-cold-vs-warm.png
+            bench/charts/focus-vs-full.png
+            bench/charts/lockfile-vs-scale.png
           if-no-files-found: error

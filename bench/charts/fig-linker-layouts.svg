@@ -17,6 +17,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
 }</style>
 <rect width="660" height="344" fill="#ffffff"/>
 <text x="16" y="22" font-size="12.5" fill="#1c2330" font-weight="600">hoisted: one flat tree</text>
@@ -86,6 +88,6 @@ text[fill="#8f2a23"]{fill:#f0847b}
 <rect x="448" y="270" width="196" height="36" rx="6" fill="#fbf6e9" stroke="#eee3bb" stroke-width="1.2"/>
 <text x="458" y="284" font-size="9.5" fill="#1c2330">64 entries, all inside unplugged</text>
 <text x="458" y="297" font-size="9.5" fill="#1c2330">native packages · .pnp.cjs 3.5 MB</text>
-<line x1="16" y1="318" x2="644" y2="318" stroke="#e4e8ec"/>
-<text x="16" y="332" font-size="10" fill="#6b7885">data: bench/install-bench.json · pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1</text>
+<line x1="20" y1="318" x2="640" y2="318" stroke="#e4e8ec"/>
+<text x="20" y="332" font-size="10" fill="#6b7885">data: bench/install-bench.json · pnpm 12.8.1 · bun 1.3.14 · yarn 4.18.1</text>
 </svg>

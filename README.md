@@ -92,9 +92,67 @@ The whole-program gate is cheap on the recommended checker: tsgo checks all 2,00
 Scope with `--filter=<app>...` / `--affected` (an unscoped `turbo run` enumerates the whole graph even on cache hits); at 20,000 apps the graph-load term above argues for sharding. What stays irreducibly O(repo) is in [LIMITS.md](LIMITS.md).
 
 ### Charts
-![whole-workspace typecheck via turbo-orchestrated tsc, cold vs warm](bench/charts/typecheck-cold-vs-warm.svg)
-![focus vs full](bench/charts/focus-vs-full.svg)
-![lockfile size vs scale](bench/charts/lockfile-vs-scale.svg)
+
+![Whole-workspace typecheck through turbo-orchestrated tsc at the largest typechecked scale: cold cache vs a full cache hit](bench/charts/typecheck-cold-vs-warm.svg)
+
+[High-resolution PNG](bench/charts/typecheck-cold-vs-warm.png)
+
+**Figure 2.** The cold run builds each lib's dist and type-checks every package; the warm run finds every task's inputs unchanged and restores its cached output instead of running tsc, so it pays only turbo's hashing and restore.
+
+<!-- chart-data:typecheck-cold-vs-warm -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| scale | cold | warm (full cache hit) |
+| --- | ---: | ---: |
+| 10,000 apps + 300 libs | 222.8s | 23.9s |
+
+</details>
+<!-- /chart-data:typecheck-cold-vs-warm -->
+
+![Build tasks selected at each scale: the whole workspace grows with the repo, one app's closure stays roughly flat](bench/charts/focus-vs-full.svg)
+
+[High-resolution PNG](bench/charts/focus-vs-full.png)
+
+**Figure 3.** Both lines count build tasks. The unscoped run selects a task per package, so it grows with the repo; `--filter=<app>...` selects the app and the libs it imports, and the generator's layered graph keeps that closure a similar size at every scale.
+
+<!-- chart-data:focus-vs-full -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| apps (libs) | whole-workspace build tasks | one app's closure |
+| --- | ---: | ---: |
+| 200 (100) | 300 | 75 (@demo/app-100) |
+| 1,000 (200) | 1,200 | 124 (@demo/app-0500) |
+| 2,000 (300) | 2,300 | 100 (@demo/app-1000) |
+| 5,000 (300) | 5,300 | 100 (@demo/app-2500) |
+| 10,000 (300) | 10,300 | 121 (@demo/app-05000) |
+| 20,000 (300) | 20,300 | 100 (@demo/app-10000) |
+
+</details>
+<!-- /chart-data:focus-vs-full -->
+
+![Lockfile lines vs workspace packages, log-log](bench/charts/lockfile-vs-scale.svg)
+
+[High-resolution PNG](bench/charts/lockfile-vs-scale.png)
+
+**Figure 4.** The lockfile holds one importer entry per workspace package next to the shared external packages, so its length grows with the package count.
+
+<!-- chart-data:lockfile-vs-scale -->
+<details>
+<summary>The chart's numbers as a table</summary>
+
+| apps (libs) | workspace packages | lockfile lines |
+| --- | ---: | ---: |
+| 200 (100) | 300 | 10,185 |
+| 1,000 (200) | 1,200 | 41,515 |
+| 2,000 (300) | 2,300 | 80,255 |
+| 5,000 (300) | 5,300 | 191,255 |
+| 10,000 (300) | 10,300 | 376,255 |
+| 20,000 (300) | 20,300 | 746,255 |
+
+</details>
+<!-- /chart-data:lockfile-vs-scale -->
 
 ### The 64-Core Machine
 

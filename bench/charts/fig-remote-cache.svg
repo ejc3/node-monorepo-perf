@@ -17,6 +17,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
 }</style>
 <rect width="660" height="426" fill="#ffffff"/>
 <text x="16" y="22" font-size="13" fill="#1c2330" font-weight="600">a shared cache: one runner seeds, the rest restore</text>
@@ -73,6 +75,6 @@ text[fill="#8f2a23"]{fill:#f0847b}
 <rect x="240" y="364" width="262" height="12" rx="3" fill="#fdf3ef" stroke="#e4b9a6" stroke-width="1.2"/>
 <text x="509" y="370" font-size="10.5" fill="#1c2330" font-weight="600">0 of 500 restored</text>
 <text x="509" y="384" font-size="10.5" fill="#1c2330">500 recomputed</text>
-<line x1="16" y1="400" x2="644" y2="400" stroke="#e4e8ec"/>
-<text x="16" y="414" font-size="10" fill="#6b7885">data: bench/ci-cache-bench.json · headline · partialInvalidation</text>
+<line x1="20" y1="400" x2="640" y2="400" stroke="#e4e8ec"/>
+<text x="20" y="414" font-size="10" fill="#6b7885">data: bench/ci-cache-bench.json · headline · partialInvalidation</text>
 </svg>

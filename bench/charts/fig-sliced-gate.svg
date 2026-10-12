@@ -17,6 +17,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
 }</style>
 <rect width="660" height="298" fill="#ffffff"/>
 <text x="16" y="24" font-size="13" fill="#1c2330" font-weight="600">one tsgo program</text>
@@ -58,6 +60,6 @@ text[fill="#8f2a23"]{fill:#f0847b}
 <text x="234" y="136" font-size="9.5" fill="#6b7885" text-anchor="middle">K ways</text>
 <line x1="440" y1="118" x2="479" y2="118" stroke="#6b7885" stroke-width="1.5"/><path d="M486 118L479 121L479 115z" fill="#6b7885"/>
 <text x="462" y="110" font-size="9.5" fill="#6b7885" text-anchor="middle">union</text>
-<line x1="16" y1="272" x2="644" y2="272" stroke="#e4e8ec"/>
-<text x="16" y="286" font-size="10" fill="#6b7885">data: bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json · tsgo 7.0.2</text>
+<line x1="20" y1="272" x2="640" y2="272" stroke="#e4e8ec"/>
+<text x="20" y="286" font-size="10" fill="#6b7885">data: bench/sliced-gate-bench.json · bench/sliced-gate-bench.pbox.json · tsgo 7.0.2</text>
 </svg>

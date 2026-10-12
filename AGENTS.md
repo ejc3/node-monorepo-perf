@@ -74,7 +74,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `make bench`: one full per-phase record (gen, install, graph-load, cold+warm
   typecheck, focus build, prune) appended to `bench/results.json` (`measure.mjs`).
 - `make sweep`: run `measure.mjs` across the scale matrix; `--from <label>` resumes (`sweep.mjs`).
-- `make chart`: render `bench/charts/*.svg` + `bench/summary.md` from `results.json` (`chart.mjs`).
+- `make chart`: render the three scaling charts (SVG + PNG), their README chart-data tables, and `bench/summary.md` from `results.json` (`chart.mjs`).
 
 ### Decomposition / Axes
 - `node scripts/axis-bench.mjs`: separate the apps axis from the libs axis
@@ -932,7 +932,28 @@ Shared helpers the bench scripts import rather than run directly:
   run by `charts.yml` before rendering): text fits at the 9px floor or throws, row labels
   wrap inside their column, headers clear the section rule, the key lists only states the
   chart shows, the markdown twin carries the context line and the SVG's standings,
-  secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers.
+  secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers,
+  log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
+  committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text
+  at the 9px floor and 11px inside a figure box (a rect wider than 40px and taller than
+  20px, filled or `fill="none"`, with a visible border, holding the text's glyph box),
+  4.5:1 for every text against what is drawn behind it, taken over its glyph box rather
+  than its anchor point (a fill under part of the box, or drawn after the text over any
+  of it, is reported), 3:1 for every series mark as drawn: against the page and the fills
+  painted under it that hold it, and under any fill painted after it that holds it (an
+  opaque one hides it, reported). A fill or stroke in its backdrop's colour is exempt
+  only when the element's other channel is painted and passes as a mark (the
+  page-coloured halo around a filled dot, the centre of a hollow ring). Every check reads
+  a shape's geometry through one primitive, `shapeOf`: a rect's fill less its rounded
+  corners (rx, and ry following it, each clamped to half the side), a circle's disk, a
+  filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
+  stroke's ring. The page is the first painted element when its fill covers the whole
+  canvas and is opaque in both themes (a canvas-sized rect with rounded corners is not
+  the page); a canvas-covering fill painted later is ordinary paint. The audit refuses (throws "unsupported" on) any SVG construct outside
+  the subset it models, including a nested `<svg>`, a viewBox other than the canvas, a
+  rect, circle or path without a fill, and a dark rule that sets a property other than
+  the one its selector reads. A chart not yet on the
+  shared grammar is listed in the test's `LEGACY` set; the PR that redraws it removes it.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold
   ratio range and, per task, each shaped profile's restore time against the localhost
@@ -1070,7 +1091,10 @@ bench/turbopack-gym/cache-drift.md against the records.
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
 integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
 lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
-(re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
+(re)generates its three scaling charts (`typecheck-cold-vs-warm`, `focus-vs-full`,
+`lockfile-vs-scale`: SVG + 300 DPI PNG each, real axes, log-log with domains derived from
+the plotted points so no record can draw past the frame, the shared grey data footer,
+a mechanism caption per chart in the README), their README chart-data tables, and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
 names the rows' pnpm version and points at the README for the machine, since the record
@@ -1182,6 +1206,14 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   `<style>` block with an explicit light background it retargets (a transparent SVG with
   dark text is unreadable on GitHub dark), the heat ramp + cell painters, and the
   SVG+PNG emit step. No generator redefines a palette constant or ramp anchor locally.
+  One outer margin (`MARGIN`) and one grey "data: bench/…" footer (`footer`) for every
+  chart without per-section source links.
+- **Whole repo vs one closure has one colour pair.** `REPO` (charcoal) and `SCOPE` (cyan),
+  each as a `mark` for lines, bars and dots and a `tint` for areas behind text. They sit
+  off the heat ramp's hues, so a whole-repo series never reads as a ×100 cell, and off
+  every tool hue; they separate by lightness as well as hue. A neutral single series is
+  `SLATE`, which also draws the warm bar of `typecheck-cold-vs-warm` beside the `REPO` cold
+  bar (a warm run is still the whole workspace, so it never takes the closure cyan).
 - **Stable tool colors.** A tool keeps ONE hue in every chart (the short rule under its
   column header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
   yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)
@@ -1215,7 +1247,8 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   are committed back). The doc embeds the SVG with the PNG linked below it.
 - **Charts carry a text alternative.** A chart scaled to a phone screen is unreadable,
   and GitHub's mobile views ignore width media queries, so the heat charts
-  (`comparison-chart`, `scale-chart`, `net-cache-chart`) also write the chart's context
+  (`comparison-chart`, `scale-chart`, `net-cache-chart`) and `chart.mjs`'s scaling charts
+  also write the chart's context
   line and numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
   `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
   block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and

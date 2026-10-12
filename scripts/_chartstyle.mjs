@@ -23,6 +23,17 @@ export const MUTED = "#6b7885";
 export const ACCENT = "#1a73e8";
 export const GRID = "#e4e8ec";
 export const BG = "#ffffff";
+// One outer margin for every chart and figure.
+export const MARGIN = 20;
+// The whole-repo vs scoped-closure pair, at two strengths: `mark` for lines, bars and
+// dots, `tint` for areas behind text. Deliberately off the heat ramp's hues (so a
+// whole-repo series never reads as a ×100 cell) and off every TOOL_COLORS hue; the two
+// separate by lightness as well as hue, so they hold under colour-vision deficiency.
+// Marks clear 3:1 against the page in both themes (the dark block lifts the charcoal).
+export const REPO = { mark: "#3a4656", tint: "rgba(58,70,86,0.12)" };
+export const SCOPE = { mark: "#1b8aa0", tint: "rgba(27,138,160,0.14)" };
+// a neutral single series (no repo/closure meaning, no tool identity)
+export const SLATE = "#556375";
 // box tints: [fill, border] — semantic, not decorative
 export const TINT = {
   blue: ["#eef3fb", "#b9cdec"], // component / neutral
@@ -74,6 +85,8 @@ rect[fill="#e4b9a6"]{fill:#7a4630}
 text[fill="#146b3a"]{fill:#5cc48c}
 text[fill="#46505b"]{fill:#aab4be}
 text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="${REPO.mark}"]{stroke:#a7b6c8}circle[fill="${REPO.mark}"],rect[fill="${REPO.mark}"]{fill:#a7b6c8}
+text[fill="${REPO.mark}"]{fill:#a7b6c8}
 }</style>`;
 
 export const esc = (s) =>
@@ -148,10 +161,11 @@ export const arrow = (x1, y1, x2, y2, dashed = false) => {
 };
 
 // provenance footer: a hairline + one muted "data: …" line (the number-tracing
-// rule made visible inside the image)
-export const footer = (w, y, sources, pad = 16) => [
+// rule made visible inside the image). One style for every figure, fleet chart and
+// line chart; the heat charts carry per-section source links instead.
+export const footer = (w, y, sources, pad = MARGIN) => [
   `<line x1="${pad}" y1="${y - 14}" x2="${w - pad}" y2="${y - 14}" stroke="${GRID}"/>`,
-  txt(pad, y, `data: ${sources}`, { size: 10, fill: MUTED }),
+  txt(pad, y, `data: ${sources}`, { size: TYPE.note, fill: MUTED }),
 ];
 
 // --- the heat ramp ---------------------------------------------------------------
@@ -211,6 +225,9 @@ export const TYPE = {
   note: 10, // per-section note, legend, axis
 };
 export const MIN_TEXT = 9;
+// text inside a figure box (a labelled node) has a higher floor: at phone width a
+// figure scales to roughly half size
+export const MIN_BOX_TEXT = 11;
 
 // text colours for verdicts and for secondary text ON a tinted cell. Each clears
 // WCAG AA (4.5:1) on the strongest light tint; the dark block recolours them.
@@ -312,14 +329,14 @@ export const naCell = (x, y, w, h, why) => {
     `<rect x="${x + CELL_GAP / 2}" y="${y + CELL_GAP / 2}" width="${w - CELL_GAP}" height="${h - CELL_GAP}" rx="3" fill="none" stroke="${GRID}"/>`,
     txt(cx, cy + (why ? -1 : 4.5), "—", { size: TYPE.value, fill: MUTED, anchor: "middle" }),
   ];
-  if (why)
-    parts.push(
-      txt(cx, cy + 13, why, {
-        size: fitSize(why, w - 14, TYPE.note),
-        fill: MUTED,
-        anchor: "middle",
-      }),
-    );
+  if (why) {
+    // the bordered outline makes the cell a figure box: its reason holds the box floor
+    if (approxW(why, MIN_BOX_TEXT) > w - 14)
+      throw new Error(
+        `"—" cell reason "${why}" needs ${Math.round(approxW(why, MIN_BOX_TEXT))}px at the ${MIN_BOX_TEXT}px box floor but has ${Math.round(w - 14)}px — shorten it or widen the column`,
+      );
+    parts.push(txt(cx, cy + 13, why, { size: MIN_BOX_TEXT, fill: MUTED, anchor: "middle" }));
+  }
   return parts;
 };
 // column headers: every header in a section sits in one band whose height fits the
@@ -557,6 +574,154 @@ export function heatChart({
   }
   return { svg: svgDoc(W, y - 18, aria, T), md: md.join("\n\n") };
 }
+
+// --- axes / series (v2) ----------------------------------------------------------------
+// The plotting grammar for the scaling charts: real axes (ticks, gridlines, titles),
+// log scales where the data spans more than ~10×, direct labels instead of legends.
+// Series colours: the REPO/SCOPE pair (whole repo vs one closure, also used by the
+// mechanism figures) and SLATE for a neutral single series.
+export const SERIES = {
+  scoped: SCOPE.mark,
+  repo: REPO.mark,
+  neutral: SLATE,
+};
+// A log domain that contains every value, on 1–3 bounds (…, 100, 300, 1k, 3k, …), and
+// its ticks. Derived from the data, so a record outside any fixed range can never be
+// drawn past the frame.
+const LOG_STEPS = [1, 3];
+const logStops = (lo, hi) => {
+  const out = [];
+  for (let e = Math.floor(Math.log10(lo)) - 1; e <= Math.ceil(Math.log10(hi)) + 1; e++)
+    for (const m of LOG_STEPS) out.push(+(m * 10 ** e).toPrecision(12));
+  return out;
+};
+export const logDomain = (values) => {
+  const vs = values.filter((v) => v != null);
+  if (!vs.length || vs.some((v) => !(v > 0)))
+    throw new Error(`log domain needs positive values, got [${values}]`);
+  const lo = Math.min(...vs);
+  const hi = Math.max(...vs);
+  const stops = logStops(lo, hi);
+  let d0 = Math.max(...stops.filter((s) => s <= lo));
+  let d1 = Math.min(...stops.filter((s) => s >= hi));
+  // a single value sitting on a stop (one benchmark row at 300 packages) would give a
+  // zero-span domain and NaN coordinates: widen to the neighbouring stops
+  if (d0 === d1) {
+    const wide = logStops(lo / 10, hi * 10);
+    d0 = Math.max(...wide.filter((s) => s < lo));
+    d1 = Math.min(...wide.filter((s) => s > hi));
+    return { domain: [d0, d1], ticks: wide.filter((s) => s >= d0 && s <= d1) };
+  }
+  return { domain: [d0, d1], ticks: stops.filter((s) => s >= d0 && s <= d1) };
+};
+export const linScale = (d0, d1, r0, r1) => (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
+export const logScale = (d0, d1, r0, r1) => {
+  const l0 = Math.log10(d0);
+  const span = Math.log10(d1) - l0;
+  return (v) => {
+    if (!(v > 0)) throw new Error(`log scale: non-positive value ${v}`);
+    return r0 + ((Math.log10(v) - l0) / span) * (r1 - r0);
+  };
+};
+// compact tick label: 300 · 1k · 20k · 1M
+export const fmtTick = (n) =>
+  n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${+(n / 1000).toFixed(1)}k` : String(n);
+const f1 = (n) => +n.toFixed(1);
+// Plot frame: gridlines at the value-axis ticks, a baseline, tick labels, axis titles.
+// `grid` picks which axis carries the gridlines ("y" for line charts, "x" for
+// horizontal bars). Ticks are explicit: the caller chooses round values inside the
+// domain, so no label is invented by an auto-tick heuristic.
+export function plotFrame({
+  x,
+  y,
+  w,
+  h,
+  sx,
+  sy,
+  xTicks = [],
+  yTicks = [],
+  xFmt = fmtTick,
+  yFmt = fmtTick,
+  xTitle,
+  yTitle,
+  grid = "y",
+}) {
+  const parts = [];
+  if (grid === "y")
+    for (const t of yTicks)
+      parts.push(
+        `<line x1="${x}" y1="${f1(sy(t))}" x2="${x + w}" y2="${f1(sy(t))}" stroke="${GRID}"/>`,
+      );
+  if (grid === "x")
+    for (const t of xTicks)
+      parts.push(
+        `<line x1="${f1(sx(t))}" y1="${y}" x2="${f1(sx(t))}" y2="${y + h}" stroke="${GRID}"/>`,
+      );
+  // baseline: the domain-floor edge of the plot
+  parts.push(`<line x1="${x}" y1="${y + h}" x2="${x + w}" y2="${y + h}" stroke="${MUTED}"/>`);
+  for (const t of xTicks) {
+    const tx = f1(sx(t));
+    parts.push(`<line x1="${tx}" y1="${y + h}" x2="${tx}" y2="${y + h + 4}" stroke="${MUTED}"/>`);
+    parts.push(txt(tx, y + h + 17, xFmt(t), { size: TYPE.note, fill: MUTED, anchor: "middle" }));
+  }
+  for (const t of yTicks)
+    parts.push(
+      txt(x - 8, f1(sy(t)) + 3.5, yFmt(t), { size: TYPE.note, fill: MUTED, anchor: "end" }),
+    );
+  if (xTitle)
+    parts.push(txt(x + w, y + h + 36, xTitle, { size: TYPE.note, fill: MUTED, anchor: "end" }));
+  if (yTitle) parts.push(txt(x, y - 12, yTitle, { size: TYPE.note, fill: MUTED }));
+  return parts;
+}
+// One series: a polyline broken at missing points, with a dot per measured point.
+export function seriesLine(points, sx, sy, color, { width = 2.25, r = 3.25 } = {}) {
+  const parts = [];
+  let seg = [];
+  const flush = () => {
+    if (seg.length > 1)
+      parts.push(
+        `<polyline points="${seg.join(" ")}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"/>`,
+      );
+    seg = [];
+  };
+  for (const [px, py] of points) {
+    if (py == null) flush();
+    else seg.push(`${f1(sx(px))},${f1(sy(py))}`);
+  }
+  flush();
+  for (const [px, py] of points)
+    if (py != null)
+      parts.push(`<circle cx="${f1(sx(px))}" cy="${f1(sy(py))}" r="${r}" fill="${color}"/>`);
+  return parts;
+}
+
+// The baseline of a value label centred above point i of a series: 9px above the point,
+// raised until the label's box (its measured width; 0.75 em above the baseline, 0.21 em
+// below) clears the point's dot and each series segment that meets the point by
+// LABEL_GAP px past the stroke's edge. `pts` are the series' screen points in order, null
+// where the series breaks (no segment crosses a break). Stroke width and dot radius are
+// seriesLine's defaults.
+export const LABEL_GAP = 2;
+export const labelBaseline = (pts, i, label, size, { stroke = 2.25, r = 3.25 } = {}) => {
+  const [cx, cy] = pts[i];
+  const half = approxW(label, size) / 2;
+  const down = 0.21 * size;
+  let bottom = Math.min(cy - 9 + down, cy - r - LABEL_GAP);
+  for (const j of [i - 1, i + 1]) {
+    if (!pts[j]) continue;
+    const [bx, by] = pts[j];
+    if (bx === cx) {
+      // a vertical segment (two points on one x): the label clears its upper end
+      bottom = Math.min(bottom, Math.min(cy, by) - stroke / 2 - LABEL_GAP);
+      continue;
+    }
+    const lo = Math.max(Math.min(cx, bx), cx - half);
+    const hi = Math.min(Math.max(cx, bx), cx + half);
+    const yAt = (x) => cy + ((by - cy) * (x - cx)) / (bx - cx);
+    for (const x of [lo, hi]) bottom = Math.min(bottom, yAt(x) - stroke / 2 - LABEL_GAP);
+  }
+  return bottom - down;
+};
 
 // --- text measurement / wrapping --------------------------------------------------
 // Rough advance-width estimate (px) so canvases widen to fit prose, never clip.
