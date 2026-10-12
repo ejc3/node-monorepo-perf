@@ -2771,11 +2771,28 @@ rr_case "make merge-pr refuses REVIEW_GATE_REQUIRED set empty" 2 gate \
   make -s -C "$ROOT" merge-pr PR=7 REVIEW_GATE_REQUIRED=
 rr_case "make review-gate refuses REVIEW_GATE_REQUIRED set empty" 2 merge \
   make -s -C "$ROOT" review-gate PR=7 REVIEW_GATE_REQUIRED=
+# One PR per merge: a second number (`make merge-pr PR='7 8'`) is refused before any read,
+# not dropped, so the gate never runs and nothing merges.
+two_case() {  # $1 name, $2.. the command
+  local name=$1 d out rc merged; shift
+  ps_n=$((ps_n + 1)); d="$TMP/two.$ps_n"; mkdir "$d"
+  out=$(env MP_DIR="$d" MP_VIEW="$MP_OPEN" MP_GATE_RC=0 MERGE_GATE_SCRIPT="$TMP/mpgate.sh" \
+        PATH="$TMP/mpbin:$PATH" GITHUB_REPOSITORY=o/r "$@" 2>&1); rc=$?
+  merged=$(grep -c '^pr merge' "$d/calls" 2>/dev/null || true)
+  if [ "$rc" = 2 ] && [ "${merged:-0}" = 0 ] && [ ! -s "$d/gate" ]; then
+    echo "  PASS  $name"; pass=$((pass+1))
+  else
+    echo "  FAIL  $name (rc=$rc want=2, merges=${merged:-0}, gate ran: $([ -s "$d/gate" ] && echo yes || echo no))"
+    sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1))
+  fi
+}
+two_case "merge-pr.sh refuses two PR numbers" bash "$MERGER" 7 8
+two_case "make merge-pr refuses PR='7 8'" make -s -C "$ROOT" merge-pr "PR=7 8"
 # Guard, green before and after: unset, merge-pr.sh hands the gate the default list.
 d="$TMP/mp.unset"; mkdir "$d"
 env -u REQUIRE_HEAD_REVIEW_FROM MP_DIR="$d" MP_VIEW="$MP_OPEN" MERGE_GATE_SCRIPT="$TMP/mpgate.sh" PATH="$TMP/mpbin:$PATH" \
   GITHUB_REPOSITORY=o/r bash "$MERGER" 7 >/dev/null 2>&1
-if grep -qF "REQ=chatgpt-codex-connector,coderabbitai" "$d/gate" 2>/dev/null; then
+if grep -qF "REQ=chatgpt-codex-connector pr=" "$d/gate" 2>/dev/null; then
   echo "  PASS  merge-pr.sh with the list unset requires the default reviewers"; pass=$((pass+1))
 else
   echo "  FAIL  merge-pr.sh with the list unset requires the default reviewers"; fail=$((fail+1))

@@ -14,13 +14,14 @@
 # resolution rule still blocks an unresolved thread; for anything else, run this command
 # again immediately before merging rather than reusing an earlier verdict.
 #
-# Environment: REQUIRE_HEAD_REVIEW_FROM (unset: chatgpt-codex-connector,coderabbitai; set
+# Environment: REQUIRE_HEAD_REVIEW_FROM (unset: chatgpt-codex-connector; set
 # but naming nobody: refused),
 # GITHUB_REPOSITORY or REPO_OWNER/REPO_NAME as for the gate, MERGE_GATE_SCRIPT (tests only:
 # the gate to run).
 set -euo pipefail
 
-pr=${1:?usage: merge-pr.sh <pr-number>}
+[ $# -eq 1 ] || { echo "usage: merge-pr.sh <pr-number> (exactly one; got $#)" >&2; exit 2; }
+pr=$1
 [[ $pr =~ ^[0-9]+$ ]] || { echo "merge-pr: '$pr' is not a PR number" >&2; exit 2; }
 for tool in gh jq; do
   command -v "$tool" >/dev/null 2>&1 || { echo "merge-pr: '$tool' is not installed; not merging" >&2; exit 2; }
@@ -50,7 +51,7 @@ base=$(jq -r '.baseRefName' <<<"$info")
 echo "PR #$pr: head ${sha:0:9}, base $base"
 
 set +e
-EXPECT_HEAD=$sha REQUIRE_HEAD_REVIEW_FROM=${REQUIRE_HEAD_REVIEW_FROM-chatgpt-codex-connector,coderabbitai} \
+EXPECT_HEAD=$sha REQUIRE_HEAD_REVIEW_FROM=${REQUIRE_HEAD_REVIEW_FROM-chatgpt-codex-connector} \
   bash "$gate" "$pr"
 rc=$?
 set -e

@@ -103,7 +103,7 @@ env:
   STATUS_CONTEXT: review-gate
   # Each of these must have reviewed the head. Keep in sync with REVIEW_GATE_REQUIRED in the
   # Makefile (the harness checks that they agree).
-  REQUIRE_HEAD_REVIEW_FROM: chatgpt-codex-connector,coderabbitai
+  REQUIRE_HEAD_REVIEW_FROM: chatgpt-codex-connector
   # The error status for a run whose checkout failed, so post-status.sh is not there. Both
   # fallbacks call it (`eval "$POST_ERROR_DIRECT"`, then `post_error_direct <sha> <description>`).
   # It posts only when that changes the head's status: a failure that persists (the 10-minute

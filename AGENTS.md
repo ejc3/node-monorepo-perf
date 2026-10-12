@@ -1385,13 +1385,14 @@ Every commit goes through this loop before it lands, no exceptions, docs include
 6. **`prettier --check` clean,** then commit. The message describes what's
    in the diff (see the global `~/.claude/CLAUDE.md` commit conventions).
 7. **On the PR, the merge gate.** The two local reviewers above do not replace the bot
-   reviews on the PR; the gate below requires both.
+   reviews on the PR; the gate below requires the Codex review.
 
 ### Merge Gate
 
 No PR merges into `main` until every review finding on it is adjudicated and its head
-commit has been reviewed by Codex and CodeRabbit. The ruleset on `main` requires the
-commit status **`review-gate`** to be `success` on the PR head.
+commit has been reviewed by Codex. Once the ruleset on `main` is configured (a settings
+change applied after this gate merges), it requires the commit status **`review-gate`** to
+be `success` on the PR head; until then `make merge-pr` is the enforcing path.
 `.github/workflows/review-gate.yml` posts it from
 `.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
 go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
@@ -1411,8 +1412,8 @@ The gate blocks on:
   comment, the author's included) with no disposition posted after it;
 - a head commit nobody but the author reviewed (an empty review object is a reply
   container, not a review);
-- a head commit not reviewed by each of `chatgpt-codex-connector` and `coderabbitai`
-  (`REQUIRE_HEAD_REVIEW_FROM`): a covering review object from that bot on the head, or its
+- a head commit not reviewed by each login in `REQUIRE_HEAD_REVIEW_FROM` (here
+  `chatgpt-codex-connector`): a covering review object from that bot on the head, or its
   no-findings result naming the head and dated after the head arrived.
 
 Dispositions open a reply of their own and are newer than the claim they answer. A claim
@@ -1440,7 +1441,8 @@ summary is a claim. Findings from either bot arrive as review bodies and inline 
 and those are claims. Treating a clean CodeRabbit summary as no claim is this
 repository's choice; the upstream gate in ejc3/fcvm treats it as one.
 
-Get both bot reviews after every push, by PR comment:
+Get a Codex review after every push, and a CodeRabbit review where useful (its findings
+are answered like any other; its review is not required on each head), by PR comment:
 
 ```bash
 gh pr comment <n> --body "@codex review"

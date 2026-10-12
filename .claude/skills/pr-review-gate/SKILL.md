@@ -7,8 +7,8 @@ user-invocable: true
 
 # PR review gate
 
-A PR merges into `main` only when the commit status `review-gate` on its head is
-`success`. `.github/workflows/review-gate.yml` posts that status from
+Once the ruleset on `main` requires it, a PR merges into `main` only when the commit
+status `review-gate` on its head is `success`. `.github/workflows/review-gate.yml` posts that status from
 `check-review-threads.sh` in this directory. Run the same check locally:
 
 ```bash
@@ -45,7 +45,7 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
 - **UNREVIEWED HEAD**: nobody but the author reviewed the head commit. An empty review
   object is a reply container, not a review.
 - **MISSING HEAD REVIEW**: a login in `REQUIRE_HEAD_REVIEW_FROM` (here
-  `chatgpt-codex-connector,coderabbitai`) has not reviewed the head: no covering review
+  `chatgpt-codex-connector`) has not reviewed the head: no covering review
   object from it on the head, and no no-findings result from it that names the head and is
   dated after the head arrived.
 
@@ -74,7 +74,9 @@ top-level comment is.
 
 ## Getting the head reviewed
 
-Both bots must review the head, after every push:
+Codex must review the head after every push. CodeRabbit reviews on request; its findings
+are answered like any other, but its review is not required on each head (it is rate
+limited to about one review an hour):
 
 ```bash
 gh pr comment <n> --body "@codex review"

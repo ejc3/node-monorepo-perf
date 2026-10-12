@@ -139,15 +139,15 @@ gym-record: ## Write bench/turbopack-graph-{ab,scaling}.json from one canonical 
 
 # Merge gate (AGENTS.md "Reviewing Each Commit"). Each login here must have reviewed the PR
 # head; keep in sync with REQUIRE_HEAD_REVIEW_FROM in .github/workflows/review-gate.yml.
-REVIEW_GATE_REQUIRED ?= chatgpt-codex-connector,coderabbitai
+REVIEW_GATE_REQUIRED ?= chatgpt-codex-connector
 
 review-gate: ## Run the PR merge gate the review-gate status runs: make review-gate PR=<n>
 	@test -n "$(PR)" || { echo "usage: make review-gate PR=<number>" >&2; exit 2; }
-	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/check-review-threads.sh $(PR)
+	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/check-review-threads.sh "$(PR)"
 
 merge-pr: ## Merge a PR only if the gate is CLEAR for its exact head: make merge-pr PR=<n>
 	@test -n "$(PR)" || { echo "usage: make merge-pr PR=<number>" >&2; exit 2; }
-	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/merge-pr.sh $(PR)
+	REQUIRE_HEAD_REVIEW_FROM="$(REVIEW_GATE_REQUIRED)" .claude/skills/pr-review-gate/merge-pr.sh "$(PR)"
 
 test-review-gate: ## Run the merge gate's test harness
 	bash .claude/skills/pr-review-gate/test-check-review-threads.sh
