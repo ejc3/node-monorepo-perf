@@ -1057,15 +1057,14 @@ from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to 
 record; the same build's time differed between them, so its sets compare only within
 themselves); `cache-drift-probes.json` holds the operation-counter probes.
 bench/turbopack-gym/cache-drift.md explains them.
-Apart from the upstream-readiness heap tie-break A/Bs below, which ran earlier on a shared
-box, nothing measured on a shared box is published: other users' processes there move the
+Nothing measured on a shared box is published: other users' processes there move the
 numbers. `make gym-canonical` re-measures the canonical two; `report.mjs --check` verifies
 the Turbopack numbers in TURBOPACK-GRAPH.md, README.md, SUMMARY.md and
 bench/turbopack-gym/cache-drift.md against the records.
 `bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
-integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
-lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
+integration runs, a `next dev` correctness check) and whether the heap tie-break flip changes
+the output; their timings ran on a shared box and are left out. `chart.mjs`
 (re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header

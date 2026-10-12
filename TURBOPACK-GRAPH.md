@@ -272,8 +272,9 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   propose alone.
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
-- New imports rerun the whole-app analyses on restored task state; not re-profiled on a
-  dedicated box yet.
+- New imports rerun the whole-app analyses on restored task state, on many cores; after 56,
+  part of a warm build's emit after many new imports is still one-core collectible updates
+  (bench/turbopack-gym/cache-drift.md, Open).
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.
 - The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a

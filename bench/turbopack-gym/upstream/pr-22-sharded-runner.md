@@ -43,18 +43,14 @@ Same app and method as the record (`bench/turbopack-graph-ab.json` in the node-m
 bench repo, label `22`; a generated App Router app shaped like #98043, `next build
 --experimental-build-mode=compile`, A and B side by side on two 24-core lanes, 6 reps):
 
-- `turbopack-module-graph` phase: 12.72 s → 8.66 s, **0.677×** (swap pairs 0.664, 0.697,
-  0.669).
-- `run-turbopack`: 45.48 s → 40.23 s, 0.880×.
+- `turbopack-module-graph` phase: 13.16 s → 8.74 s, **0.676×** (swap pairs 0.725, 0.647,
+  0.659).
+- `run-turbopack`: 45.41 s → 40.74 s, 0.900×.
 - Output: the same normalized fingerprint as v16.4.0.
 
 `next dev` on the generated 401-route app on 32 CPUs, 3 rounds alternating with v16.4.0
 (`bench/turbopack-gym/upstream-readiness.json`, `devCheck22`): all 744 responses 200 with the
-same visible page text as v16.4.0, step by step and route by route. Per round, 5 cold routes
-took 4.51–4.69 s on v16.4.0 and 3.92–4.03 s with the change, and 80 routes with 16 requests
-in flight 10.62–11.42 s and 9.42–9.90 s. Median edit-to-visible latency over 18 edits per
-layer: page 253 → 247 ms, server component 204 → 202 ms, client component behind an `export *`
-barrel 253 → 259 ms.
+same visible page text as v16.4.0, step by step and route by route.
 
 The measurements used the change as first written; the version here adds a `rustfmt` pass and
 two clippy fixes (a type alias, `is_multiple_of` in the test), with no change in behavior.

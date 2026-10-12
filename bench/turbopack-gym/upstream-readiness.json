@@ -355,137 +355,33 @@
    "client component C023 behind the @/ui export* barrel"
   ],
   "burst": "80 distinct page routes, 16 requests in flight",
-  "perBinding": {
-   "22": {
-    "readyMs": [
-     503,
-     503,
-     502
-    ],
-    "cold5RoutesMs": [
-     4033,
-     3924,
-     3983
-    ],
-    "burst80Ms": [
-     9896,
-     9900,
-     9417
-    ],
-    "editToVisibleMedianMs": {
-     "page": 247,
-     "feature": 202,
-     "ui-barrel": 259
-    }
-   },
-   "base": {
-    "readyMs": [
-     402,
-     504,
-     503
-    ],
-    "cold5RoutesMs": [
-     4681,
-     4687,
-     4511
-    ],
-    "burst80Ms": [
-     10617,
-     11417,
-     10807
-    ],
-    "editToVisibleMedianMs": {
-     "page": 253,
-     "feature": 204,
-     "ui-barrel": 253
-    }
-   }
-  },
   "correctness": {
    "responsesChecked": 744,
    "non200": 0,
    "textHashMismatchesVsBase": 0,
    "serverLogErrorLines": 0
-  }
+  },
+  "timing": "not published: measured on a shared box"
  },
  "heapOrder": {
-  "abMonolith": {
-   "a": "base",
-   "b": "upstream-heap",
-   "app": "monolith",
-   "reps": 6,
-   "laneCpus": 16,
-   "metric": "graph",
-   "ratio": 0.6015,
-   "swapRatios": [
-    0.6037,
-    0.6017,
-    0.5991
-   ],
-   "guardMetric": "turbopack",
-   "guardRatio": 0.9034,
-   "aMedianS": 10.138,
-   "bMedianS": 6.032,
-   "aCores": 7.48,
-   "bCores": 12.02,
-   "sameOutput": false,
-   "machine": {
-    "arch": "arm64",
-    "cpuModel": "Neoverse-V2",
-    "cores": 96,
-    "node": "v22.23.3"
-   }
-  },
-  "abQuick": {
-   "a": "base",
-   "b": "upstream-heap",
-   "app": "quick",
-   "reps": 2,
-   "laneCpus": 16,
-   "metric": "graph",
-   "ratio": 0.9415,
-   "swapRatios": [
-    0.9415
-   ],
-   "guardMetric": "turbopack",
-   "guardRatio": 0.9915,
-   "aMedianS": 1.975,
-   "bMedianS": 1.86,
-   "aCores": 8.45,
-   "bCores": 9.15,
-   "sameOutput": false,
-   "machine": {
-    "arch": "arm64",
-    "cpuModel": "Neoverse-V2",
-    "cores": 96,
-    "node": "v22.23.3"
-   }
-  },
-  "ab11SameLanesMonolith": {
-   "a": "base",
-   "b": "11",
-   "app": "monolith",
-   "reps": 6,
-   "laneCpus": 16,
-   "metric": "graph",
-   "ratio": 0.5856,
-   "swapRatios": [
-    0.5928,
-    0.5826,
-    0.5815
-   ],
-   "guardMetric": "turbopack",
-   "guardRatio": 0.9101,
-   "aMedianS": 10.198,
-   "bMedianS": 6.021,
-   "aCores": 7.67,
-   "bCores": 12.27,
-   "sameOutput": true,
-   "machine": {
-    "arch": "arm64",
-    "cpuModel": "Neoverse-V2",
-    "cores": 96,
-    "node": "v22.23.3"
+  "outputChecks": {
+   "abMonolith": {
+    "a": "base",
+    "b": "upstream-heap",
+    "app": "monolith",
+    "sameOutput": false
+   },
+   "abQuick": {
+    "a": "base",
+    "b": "upstream-heap",
+    "app": "quick",
+    "sameOutput": false
+   },
+   "ab11SameLanesMonolith": {
+    "a": "base",
+    "b": "11",
+    "app": "monolith",
+    "sameOutput": true
    }
   },
   "outputDiff": {
@@ -509,7 +405,8 @@
     "chunksWithSameModuleIdMultisetAsBase": 112
    },
    "nature": "Every differing chunk holds the same module ids as a chunk of base (all 112 monolith chunks matched by module-id multiset); what changes is the member order of scope-hoisted merged module groups and with it the order of their hoisted imports, and so the content-hashed chunk names. Example (quick app): base emits the merged group of C017 and u147 with the JSX runtime and react imported before u147 and its imports, matching C017 source import order; with the flipped tie-break u147 and its imports come first and the JSX runtime and react are imported after them."
-  }
+  },
+  "timing": "not published: the A/Bs ran on a shared box, where other processes move the numbers; re-measure on a dedicated box"
  },
  "canaryMerge": {
   "command": "git merge-tree --write-tree --merge-base v16.4.0 <canary> <branch>",
