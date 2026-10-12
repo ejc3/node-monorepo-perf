@@ -176,10 +176,10 @@ The 64-core records not listed ran on a shared dev box of the same instance type
 | build-before-push: edit an app, build it + closure | median 5.0s |
 | lib-edit: rebuild your lib + dependents (21 packages) | median 8.3s |
 | independence: a teammate's unrelated edit | adds 0 rebuilds |
-| edit foundation lib (`lib-003`, low layer) | 1,080 of 1,200 packages rebuild |
-| edit high-layer lib (`lib-197`) | 21 packages rebuild |
+| edit foundation lib (`lib-003`, low layer) | 1,080 of 1,200 packages selected |
+| edit high-layer lib (`lib-197`) | 21 packages selected |
 
-The inner loop is O(closure). Editing a low-layer foundation lib rebuilds ~90% of packages, which is why foundation edits lean on CI `--affected`, and on the remote cache only for runners after the first. The optimization playbook is in [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md).
+The inner loop is O(closure). Editing a low-layer foundation lib selects ~90% of packages for a rebuild (a `turbo --dry=json` selection, not a timed build), which is why foundation edits lean on CI `--affected`, and on the remote cache only for runners after the first. The optimization playbook is in [`OPTIMIZATIONS.md`](OPTIMIZATIONS.md).
 
 ## Artifacts
 
