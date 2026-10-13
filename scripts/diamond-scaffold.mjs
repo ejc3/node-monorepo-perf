@@ -5,8 +5,9 @@
 // monorepo convention — so we can show:
 //   * a real diamond: consumer → alpha → widget@1  AND  consumer → beta → widget@2
 //     (pnpm keeps BOTH versions; each dependent gets its compatible API)
-//   * flipping ONE lib to workspace: via root pnpm.overrides, which COLLAPSES the
-//     diamond to a single version and breaks whichever dependent expected the other
+//   * flipping ONE lib to workspace: via the root's `overrides` (pnpm-workspace.yaml),
+//     which COLLAPSES the diamond to a single version and breaks whichever dependent
+//     expected the other
 //
 // Packages are intentionally SELF-CONTAINED (inline tsconfig, no shared root
 // config) — lesson from turbo prune: published artifacts must not depend on
@@ -139,11 +140,18 @@ writeFileSync(
   join(ovr, "pnpm-workspace.yaml"),
   // minimumReleaseAge 0: the driver installs @ejc3/alpha + @ejc3/beta here minutes
   // after publishing them — pnpm 12's default minimum-release-age supply-chain gate
-  // would reject the fresh publish.
+  // would reject the fresh publish. linkWorkspacePackages false (pnpm's default, stated):
+  // semver internal deps resolve from the registry. overrides: flip the shared lib to
+  // the LOCAL workspace copy for everyone, which collapses the diamond. pnpm 12 reads
+  // both only here: it ignores the package.json "pnpm" field and every .npmrc key
+  // except registry, auth and network ones.
   `packages:
   - "packages/*"
   - "consumer"
 minimumReleaseAge: 0
+linkWorkspacePackages: false
+overrides:
+  "@ejc3/widget": "workspace:*"
 `,
 );
 writeFileSync(
@@ -153,18 +161,10 @@ writeFileSync(
       name: "diamond-override-root",
       version: "0.0.0",
       private: true,
-      // Flip the shared lib to the LOCAL workspace copy for everyone — collapses the diamond.
-      pnpm: { overrides: { "@ejc3/widget": "workspace:*" } },
     },
     null,
     2,
   ) + "\n",
-);
-writeFileSync(
-  join(ovr, ".npmrc"),
-  `# semver internal deps resolve from the registry by default (pnpm 8+).
-link-workspace-packages=false
-`,
 );
 
 console.log(

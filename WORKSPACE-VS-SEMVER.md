@@ -2,16 +2,16 @@
 
 Internal packages are independently versioned and normally consumed by plain semver from a registry (AWS CodeArtifact). To develop one locally and have its consumers pick it up, flip that lib to `workspace:` transiently. The proofs run on small throwaway scaffolds published to CodeArtifact (§§3–4 the diamond, §7 the per-app workspaces), not on [the workspace under test](README.md#the-workspace-under-test). Reproduce: `bash scripts/diamond-demo.sh`.
 
-## 1. The Gate: `link-workspace-packages`
+## 1. The Gate: `linkWorkspacePackages`
 
-Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to. pnpm 12 reads the gate as `linkWorkspacePackages` in `pnpm-workspace.yaml` and ignores the `.npmrc` key:
+Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to. pnpm 12 reads the gate as `linkWorkspacePackages` in `pnpm-workspace.yaml`; it reads only registry, auth and network keys from `.npmrc`, so an `.npmrc` `link-workspace-packages` line has no effect:
 
-| `link-workspace-packages` | `"b": "^1.2.0"` resolves to |
+| `linkWorkspacePackages` | `"b": "^1.2.0"` resolves to |
 |---|---|
 | `false` (pnpm 8+ default) | the registry, even if a matching local `b` exists |
 | `true` | the local `b` if its version satisfies `^1.2.0`, else the registry |
 
-Only `workspace:` forces local linking unconditionally, and that is what separates the two halves of this repo. The benchmark workspace references its internal packages with `workspace:*`, so they always link local; the `link-workspace-packages=true` and `prefer-workspace-packages=true` lines in its root `.npmrc` are not read by pnpm 12. The independently-published model this doc describes runs with the gate closed, at pnpm's `false` default: the demo scaffolds (§§3–7) either keep that default in their standalone roots or write `link-workspace-packages=false` in their own `.npmrc`, a key pnpm 12 ignores. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
+Only `workspace:` forces local linking unconditionally, and that is what separates the two halves of this repo. The benchmark workspace references its internal packages with `workspace:*`, so they always link local, and leaves the gate at its `false` default. The independently-published model this doc describes runs with the gate closed: the demos' workspace roots for registry-pinned apps (§§3–7) set `linkWorkspacePackages: false` in their `pnpm-workspace.yaml`, and the standalone diamond consumer, installed with `--ignore-workspace`, keeps the default. That is the setting ROLLOUT.md requires for a registry-pinned cohort.
 
 ## 2. `workspace:<range>`
 
@@ -45,10 +45,12 @@ Under the isolated linker two majors do not conflict: pnpm installs both (`@ejc3
 
 ## 4. Overriding One Lib to `workspace:`
 
-Root `pnpm.overrides` ignore declared ranges and apply workspace-wide, to direct and transitive edges:
+Root `overrides` ignore declared ranges and apply workspace-wide, to direct and transitive edges. pnpm 12 reads them from `pnpm-workspace.yaml`; it no longer reads the `pnpm` field of `package.json` and warns that its keys were ignored:
 
-```jsonc
-{ "pnpm": { "overrides": { "@ejc3/widget": "workspace:*" } } }
+```yaml
+# pnpm-workspace.yaml
+overrides:
+  "@ejc3/widget": "workspace:*"
 ```
 
 A local `@ejc3/widget@2.0.0` forces both `alpha` and `beta` onto it, collapsing the diamond. `alpha`, built against v1's `render()`, then breaks: `SyntaxError: ... does not provide an export named 'render'`. A local v1 breaks `beta` instead. To revert, remove the override, delete `node_modules` and the lockfile, and reinstall.
@@ -57,11 +59,11 @@ A local `@ejc3/widget@2.0.0` forces both `alpha` and `beta` onto it, collapsing 
 
 Two apps depend on `@ejc3/alpha`, and `alpha` depends on `@ejc3/widget`. The goal: `web` links the local `widget` while `admin` keeps the registry copy. Difficulty depends on direct vs transitive.
 
-**Direct dependency.** If `web` lists `widget` directly, there is nothing to coordinate. With `link-workspace-packages=false` only `workspace:` forces linking, so flipping `web`'s own spec to `workspace:*` switches that one app, and `admin` stays on registry semver (one lockfile, one app changed).
+**Direct dependency.** If `web` lists `widget` directly, there is nothing to coordinate. With `linkWorkspacePackages: false` only `workspace:` forces linking, so flipping `web`'s own spec to `workspace:*` switches that one app, and `admin` stays on registry semver (one lockfile, one app changed).
 
 **Transitive dependency.** `web` never names `widget`, so its manifest has nothing to flip. Every mechanism that reaches a transitive edge is root-level and resolves into one shared lockfile:
 
-- **Root `pnpm.overrides`** forces *every* consumer (the §4 collapse), not one app.
+- **Root `overrides`** forces *every* consumer (the §4 collapse), not one app.
 - An **edge-scoped override** (`"@ejc3/alpha>@ejc3/widget": "workspace:*"`) narrows to one edge but still hits every app whose graph has `alpha → widget`.
 - A **`.pnpmfile.cjs` `readPackage` hook** rewrites the spec during resolution but runs for the whole install into one lockfile, so it cannot give `web` and `admin` different resolutions.
 - **Per-app isolation** is the only way: resolve `web` outside the shared graph (its own workspace root and lockfile, or `pnpm install --ignore-workspace` with a `link:`/`file:` dep), and `admin` keeps the registry version.
@@ -92,7 +94,7 @@ web    require("@ejc3/ui") = {"SOURCE":"registry@1.0.0","util":"workspace-local"
 admin  require("@ejc3/ui") = {"SOURCE":"registry@1.0.0","util":"registry@1.0.0"}
 ```
 
-The same registry `@ejc3/ui` gets a local `@ejc3/util` in `web` and a registry one in `admin`, because `web`'s root carries `pnpm.overrides { "@ejc3/util": "workspace:*" }` and `admin`'s does not. The apps hold separate lockfiles. Separate roots can scope this; a shared root cannot.
+The same registry `@ejc3/ui` gets a local `@ejc3/util` in `web` and a registry one in `admin`, because `web`'s `pnpm-workspace.yaml` carries `overrides: { "@ejc3/util": "workspace:*" }` and `admin`'s does not. The apps hold separate lockfiles. Separate roots can scope this; a shared root cannot.
 
 This buys per-app divergence on a transitive dep and per-app install and lockfile scope. Against the single root it loses the shared catalog (replaced by per-app pins), the fleet `turbo` graph and cross-app `--affected`, instant lib-edit feedback (replaced by publish-then-bump), and the atomic lib+consumers refactor. [FEASIBILITY.md](FEASIBILITY.md) has the cost model and decision criteria.
 
@@ -105,9 +107,9 @@ local symlink; a plain semver edge in a registry-installed package's *transitive
 the registry. If one package is reached through one of each (the app links `workspace:*` core while a
 registry-installed ui's baked `^2.5.0` pulls a registry core), there are **two copies**, even when the
 version numbers match: pnpm does not compare a workspace copy's committed version against a registry
-edge's range to unify them. This holds at `link-workspace-packages=false` (the default) and at `true`,
+edge's range to unify them. This holds at `linkWorkspacePackages: false` (the default) and at `true`,
 which local-links only a workspace project's own *direct* plain edges (§1); the one setting that
-reaches transitive edges is `link-workspace-packages=deep`. One copy therefore means picking a side
+reaches transitive edges is `linkWorkspacePackages: deep`. One copy therefore means picking a side
 for that package: all-workspace (every consumer on `workspace:`, or a root override forcing the
 transitive edges there, §4) or all-registry (your own edge becomes a plain range, and Rule 2 decides).
 
