@@ -523,6 +523,69 @@ c8gd.48xlarge; 192 CPUs is both NUMA nodes). Wall time of the whole build, base 
   (Open, below).
 - Same output in every sweep (each record's outputs match across bindings and modes).
 
+## A larger app
+
+The same comparison on a monolith with twice the routes, features, UI components and utils
+(`monolith-gen.mjs --routes 4140 --features 840 --ui 1400 --utils 1000`: 4,141 routes, 31,941
+files), 2 reps, page-data pool matched to the CPUs (`bench/turbopack-graph-drift-2x-24.json`,
+a dedicated c8gd.48xlarge). Wall time, base → stack:
+
+| CPUs | cold | warm, nothing changed | warm, 1 new import | warm, 1,000 new imports |
+|---|---|---|---|---|
+| 24 | <!--v:dr.big24.import.base.0.cold.wall-->230.5s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.cold.wall-->134.0s<!--/v--> | <!--v:dr.big24.import.base.0.warm.wall-->115.5s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.warm.wall-->47.2s<!--/v--> | <!--v:dr.big24.import.base.1.warm.wall-->248.8s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.1.warm.wall-->126.2s<!--/v--> | <!--v:dr.big24.import.base.1000.warm.wall-->350.7s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.1000.warm.wall-->150.2s<!--/v--> |
+
+- Cold `run-turbopack`: <!--v:dr.big24.import.base.0.cold.turbopack-->176.3s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.cold.turbopack-->85.3s<!--/v-->, against <!--v:dr.cores24.import.base.0.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.turbopack-->26.4s<!--/v--> for
+  the monolith on the same machine type: twice the app takes about four times as long with
+  base and a bit over three times with the stack. The profile below shows where.
+- With the stack, a warm build after 1,000 new imports takes longer than a cold one
+  (<!--v:dr.big24.import.15+22+55+56+57+59+61.1000.warm.wall-->150.2s<!--/v--> against <!--v:dr.big24.import.15+22+55+56+57+59+61.1000.cold.wall-->134.6s<!--/v-->).
+
+## 52 at 192 CPUs
+
+At 24 CPUs 52 did not change warm builds (above). On all 192 CPUs of the machine, stacked on
+15 + 22 + 55 + 56 + 57 + 59 + 61 (`bench/turbopack-graph-drift-52s-192.json`, `import` edits,
+2 reps, page-data pool matched to the CPUs), cold and warm `run-turbopack`, stack → stack + 52:
+
+| new imports | cold | warm |
+|---|---|---|
+| 0 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.0.cold.turbopack-->33.5s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.0.cold.turbopack-->28.8s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.0.warm.turbopack-->5.6s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.0.warm.turbopack-->5.4s<!--/v--> |
+| 1 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1.cold.turbopack-->34.9s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1.cold.turbopack-->28.5s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1.warm.turbopack-->31.7s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1.warm.turbopack-->26.7s<!--/v--> |
+| 10 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.10.cold.turbopack-->34.6s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.10.cold.turbopack-->28.5s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.10.warm.turbopack-->33.2s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.10.warm.turbopack-->28.0s<!--/v--> |
+| 1,000 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1000.cold.turbopack-->34.3s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1000.cold.turbopack-->29.3s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1000.warm.turbopack-->37.2s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1000.warm.turbopack-->30.7s<!--/v--> |
+
+Same output in every build. Shorter with 52 everywhere except the warm build with nothing
+changed, which does almost no work.
+
+## Profiles: 192 CPUs and a larger app
+
+Whole-build profiles of 15 + 22 + 55 + 56 + 57 + 59 + 61 built with frame pointers (`perf`
+cpu-clock and `sched_switch`, the build's CPUs, a dedicated c8gd.48xlarge; profiles, not
+records; the perf data is not kept).
+
+**A warm build after one new import, on all 192 CPUs** (`run-turbopack` 31.7s):
+
+- Emit runs for 9s on 91 cores (819 CPU-s); 85% of that CPU is under
+  `client_reference_manifest::build_manifest`. 55% of the samples end in one atomic add
+  (`__aarch64_ldadd8_acq_rel`), the shared operation counter that 52 stripes (above), and 8%
+  in `TaskStatisticsApi::get`, a load of a read-only field, which suggests it shares a cache
+  line with that counter.
+- 126 CPU-s are the kernel migrating pages between the two NUMA nodes
+  (`do_numa_page` → `migrate_misplaced_folio`: automatic NUMA balancing), and about 110
+  CPU-s, in emit and in the persistence step, are write-protect faults (`do_wp_page`) on
+  pages of the build's own heap. The forks of the page-data workers write-protect the
+  parent's pages, and they run while Turbopack's persistence still writes.
+- After `run-turbopack`, 15s run on one core: about 5s copying and tearing down page tables
+  for the worker forks (`copy_page_range`, `zap_pte_range` from `exec_mmap`), and most of
+  the rest compiling the client reference manifests with `require()` for the route bundle
+  stats (candidate 60's step).
+
+**A cold build of drift-monolith-2x on 24 CPUs** (the larger app above; `run-turbopack`
+82.5s): 26s of `turbopack-write-entrypoints` run on one core. `compute_chunk_group_info`
+(roaring bitmap `is_subset` and unions) takes about 10s of it, and the merged-modules
+reconciliation in `compute_merged_modules` about 9.5s. On the monolith the two take about
+4.75s together (`next-limit.md`). They are what 41 and 42 change; 41 + 42 are not in the
+stack measured above.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
