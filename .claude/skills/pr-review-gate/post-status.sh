@@ -15,9 +15,9 @@
 #
 # For a success that means: the statuses on the commit can be read; no review-gate status
 # other than a success was posted after EVAL_STARTED (another run's error or pending); no
-# review-gate run other than this one and the sweep that can evaluate this head (its title
-# names the sha, a PR on it or its branch, or names nothing parsable) was created after
-# EVAL_STARTED; and for
+# review-gate run other than this one that can evaluate this head (its title names the sha,
+# a PR on it or its branch, or names nothing parsable, as a scheduled sweep's does) was
+# created after EVAL_STARTED; and for
 # each PR in PRS the PR can be read, its head is still <sha>, and no activity on it (the PR's
 # own updatedAt, any comment, review, or review-thread comment created, updated or edited)
 # is newer than EVAL_STARTED. Every list is read to its last page and checked against its
@@ -255,13 +255,16 @@ verify_snapshot() {
     done
   fi
   if [ "$state" = success ]; then
-    # Runs of this workflow created after the evaluation began, other than this run and the
-    # sweep, that can evaluate this head. A run's title (review-gate.yml `run-name`) names
+    # Runs of this workflow created after the evaluation began, other than this run, that can
+    # evaluate this head. A scheduled sweep counts: it evaluates every open head, its job for
+    # this head queues behind this one (one concurrency group per sha), and it may be the only
+    # run to see a change that fires no event (a thread resolved or unresolved). A run's title (review-gate.yml `run-name`) names
     # its target: "review-gate <event> sha=<head|-> prs=<n,n|-> branch=<name|->". It counts
     # when it names this sha, a PR in PRS, or the head branch of one of them. A run for
     # another head does not: it never re-posts this one, so steady activity on other PRs
     # would keep a valid success pending. Fail closed: a title that does not parse, that
-    # names no target, or that names a branch while a PR's branch is unknown ("?"), counts.
+    # names no target (the sweep's "sha=- prs=- branch=-"), or that names a branch while a
+    # PR's branch is unknown ("?"), counts.
     # A list that cannot be read is a failed read.
     # Every page is filtered on its own and the pages summed (list_sum): a page that fails is
     # a failed read, and a list holding fewer runs than its total_count is incomplete.
@@ -270,7 +273,7 @@ verify_snapshot() {
         --jq "($(jq -cn --arg s "$PRS" '$s | [splits(" +") | select(. != "")]') ) as \$prs
               | ($(jq -cn --arg s "$branches" '$s | [splits(" +") | select(. != "")]') ) as \$branches
               | . as \$page
-              | [\$page.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\" and .event != \"schedule\"
+              | [\$page.workflow_runs[] | select((.id | tostring) != \"${GITHUB_RUN_ID:-}\"
                                            and .created_at >= \"$EVAL_STARTED\")
                  | ((.display_title // \"\") | capture(\"^review-gate [a-z_]+ sha=(?<sha>-|[0-9a-f]{40}) prs=(?<prs>-|[0-9]+(,[0-9]+)*) branch=(?<branch>[^[:space:]]+)\$\") // null) as \$t
                  | select(\$t == null

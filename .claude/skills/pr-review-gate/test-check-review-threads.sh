@@ -15,7 +15,12 @@
 # changing sign-off, its inline-comment container review, CodeRabbit's summary comment and
 # acknowledgements), each observed red against the script before them, and for the
 # HEAD-REVIEW-OVERRIDE line (addition 11), observed red against the script before it except
-# the cases marked as guards.
+# the cases marked as guards, and for an APPROVED review's body (addition 12), a newer
+# scheduled sweep in post-status.sh's newer-run guard (addition 13) and the retried
+# side-branch push of charts.yml's PNG commit-back (addition 14), each observed red against
+# the scripts before them except the guards (an answered approval, an empty one, the Codex
+# container, the author's approval, a sweep from before the snapshot or that is this run,
+# the first commit-back case and the no-status check).
 #
 # One deliberate divergence from upstream: this repository does not treat the CodeRabbit
 # summary comment as a claim (see is_cr_summary_comment). Eight upstream cases asserted that
@@ -23,6 +28,10 @@
 # "node-monorepo-perf: text inside a CodeRabbit summary region is not a claim (upstream:
 # ...)", and now expect CLEAR. Text outside the regions is still a claim, and those
 # upstream cases are unchanged.
+#
+# A third: an APPROVED review's body is classified like any other review body (addition 12),
+# so upstream's "an APPROVED review body is not a finding" is kept renamed
+# "node-monorepo-perf: an APPROVED review body is a claim" and now expects BLOCKED.
 #
 # A second divergence: an answer is dated by its creation, never by its own edits (addition
 # 6d), so upstream's "a disposition edited after the claim answers it" is kept renamed
@@ -217,9 +226,10 @@ run_case "author's own defect report is claimable" \
 run_case "a standalone bot finding with no review history is claimable" \
   "$(wrap4 me '[]' '[]' '[{"author":{"login":"codex","__typename":"Bot"},"createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","body":"P1: this drops the last row"}]')" \
   1 "BLOCKED"
-run_case "an APPROVED review body is not a finding" \
+# Flipped by addition 12: an approval's body is classified like any other review body.
+run_case "node-monorepo-perf: an APPROVED review body is a claim (upstream: an APPROVED review body is not a finding)" \
   "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"APPROVED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"LGTM, nice work"}]' '[]')" \
-  0 "CLEAR"
+  1 "UNANSWERED reviewer (APPROVED)"
 run_case "a COMMENTED review body still is" \
   "$(wrap4 me '[]' '[{"author":{"login":"reviewer"},"state":"COMMENTED","submittedAt":"2026-01-01T00:00:00Z","lastEditedAt":null,"body":"LGTM, nice work"}]' '[]')" \
   1 "BLOCKED"
@@ -2454,7 +2464,7 @@ gql() { printf '{"data":{"repository":{"pullRequest":{"headRefOid":"%s","updated
 # (UNREADABLE makes the read fail) or its env column.
 SNAP="EVAL_STARTED=2026-01-02T00:04:00Z|PRS=7|GITHUB_RUN_ID=88"
 NOW_OK=$(st success 'CLEAR' 'github-actions[bot]' "$OURS_URL" 2026-01-02T00:06:00Z)
-QUIET_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:05:00Z)")
+QUIET_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(wrun 90 schedule 2026-01-02T00:03:00Z)")
 QUIET_PR=$(gql "$PS_SHA" 2026-01-02T00:03:00Z)
 # $1 name, $2 statuses JSON (newest first, or UNREADABLE), $3 run JSON for run 77 (or ""),
 # $4 env, $5 state, $6 description, $7 expected exit, $8 expected POSTs, $9 text the POST
@@ -3161,6 +3171,98 @@ if grep -q "statuses/$H1.*state=error" "$d/calls" 2>/dev/null && [ "$rc" != 0 ];
   echo "  PASS  the verdict step without its checkout posts error and fails"; pass=$((pass+1))
 else
   echo "  FAIL  the verdict step without its checkout posts error and fails (rc=$rc)"; sed 's/^/          /' <<<"$out" | head -3; fail=$((fail+1))
+fi
+
+echo "== addition 12: an APPROVED review body is classified like any other review body =="
+# GitHub's APPROVED says the reviewer is not asking for changes; it says nothing about what
+# the body holds. A finding written into an approval needs a disposition like one in a
+# COMMENTED review. An approval with no body, or whose body is a shape the gate already
+# treats as no claim (the Codex container review, an override line), stays no claim.
+run_env_case "a finding in an APPROVED review body is a claim" \
+  "" "$(wrapQ "$(rv reviewer User deadbeef '"P1: this drops the last row"' APPROVED)")" \
+  1 "UNANSWERED reviewer (APPROVED)"
+run_env_case "an APPROVED review body answered after it clears" \
+  "" "$(wrapQ "$(rv reviewer User deadbeef '"P1: this drops the last row"' APPROVED),$ANS")" \
+  0 "CLEAR"
+run_env_case "an APPROVED review with an empty body is not a claim" \
+  "" "$(wrapQ "$(rv reviewer User deadbeef '""' APPROVED)")" 0 "CLEAR" "UNANSWERED"
+run_env_case "the Codex container review is not a claim when APPROVED either" \
+  "" "$(wrapQ "$(rv chatgpt-codex-connector Bot 0ldc0mm1t "$(codex_container abc1234)" APPROVED "$ONE_INLINE"),$APPROVE")" \
+  0 "CLEAR" "UNANSWERED"
+run_env_case "an APPROVED review by the PR author is an answer, not a claim" \
+  "" "$(wrapQ "$(rv me User deadbeef '"looks fine to me"' APPROVED),$APPROVE")" 0 "CLEAR" "UNANSWERED"
+
+echo "== addition 13: a newer scheduled sweep holds back an older evaluation's success =="
+# The sweep evaluates every open head, and its job for this head queues behind the running
+# evaluation (one concurrency group per sha). The newer-run guard skipped scheduled runs, so
+# a success from an evaluation that began before the sweep was created stood, although the
+# sweep may have been the only run to see the change (a thread resolved or unresolved fires
+# no event). The sweep's title names no target ("sha=- prs=- branch=-"), so it counts.
+PS_RUNS=$(runs "$(wrun 88 issue_comment 2026-01-02T00:04:00Z),$(trun 90 schedule 2026-01-02T00:05:00Z "review-gate schedule sha=- prs=- branch=-")") \
+  ps_case "a sweep created after the evaluation began turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_RUNS=$(runs "$(wrun 90 schedule 2026-01-02T00:05:00Z)") \
+  ps_case "a sweep without a title turns a success into pending" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=pending"
+PS_RUNS=$(runs "$(trun 90 schedule 2026-01-02T00:03:00Z "review-gate schedule sha=- prs=- branch=-")") \
+  ps_case "a sweep created before the evaluation began does not defer it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_RUNS=$(runs "$(wrun 88 schedule 2026-01-02T00:04:00Z)") \
+  ps_case "the sweep that is this run does not defer itself" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 1 "state=success"
+PS_AFTER_RUNS=$(runs "$(trun 90 schedule 2026-01-02T00:05:00Z "review-gate schedule sha=- prs=- branch=-")") \
+  ps_case "a sweep created while the success was posted re-posts pending over it" "$FAIL_ST" "$OURS_RUN" "$SNAP" success "CLEAR" 0 2 "state=success" "Raced a success"
+
+echo "== addition 14: charts.yml retries the PNG commit-back's side-branch push once =="
+# The side-branch push failed once with GitHub's transient "cannot lock ref ...: reference
+# already exists". The step retries it once under a fresh name (<side>-r2) before failing,
+# and its EXIT trap deletes every side branch it may have created. The step runs as GitHub
+# runs it (bash -eo pipefail), with a git and gh that record their calls; CB_FAIL names the
+# side-branch pushes that fail (base, r2).
+CB_RUN=$(python3 - "$WORKFLOWS_DIR/charts.yml" <<'PY'
+import sys, yaml
+wf = yaml.safe_load(open(sys.argv[1]))
+steps = [s for j in wf["jobs"].values() for s in j.get("steps") or [] if "Commit the refreshed PNG" in s.get("name", "")]
+print(steps[0]["run"] if len(steps) == 1 else "echo 'no unique step'; exit 99")
+PY
+)
+mkdir -p "$TMP/cbbin"
+cat > "$TMP/cbbin/git" <<'SHIM'
+#!/bin/bash
+printf 'git %s\n' "$*" >> "$CB_DIR/calls"
+case "$*" in
+  "status --porcelain"*) echo " M bench/charts/tool-comparison.png" ;;
+  "rev-parse HEAD") echo 3333333333333333333333333333333333333333 ;;
+  "push --force origin HEAD:refs/heads/"*)
+    ref=${*: -1}; ref=${ref#HEAD:refs/heads/}
+    which=base; case "$ref" in *-r2) which=r2 ;; esac
+    case " ${CB_FAIL:-} " in *" $which "*)
+      echo "error: cannot lock ref 'refs/heads/$ref': reference already exists" >&2; exit 1 ;; esac ;;
+esac
+exit 0
+SHIM
+printf '#!/bin/bash\nprintf "gh %%s\\n" "$*" >> "$CB_DIR/calls"\n' > "$TMP/cbbin/gh"
+chmod +x "$TMP/cbbin/git" "$TMP/cbbin/gh"
+CB_SIDE=ci/charts-png-123-1
+# $1 name, $2 CB_FAIL, $3 expected exit (0 or 1), then the call lines that must appear
+cb_case() {
+  local name=$1 failing=$2 want_rc=$3 d out rc missing=""; shift 3
+  ps_n=$((ps_n + 1)); d="$TMP/cb.$ps_n"; mkdir "$d"; CB_LAST=$d
+  out=$(cd "$d" && env CB_DIR="$d" CB_FAIL="$failing" PATH="$TMP/cbbin:$PATH" GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=123 \
+        GITHUB_RUN_ATTEMPT=1 GH_TOKEN=x bash --noprofile --norc -eo pipefail -c "$CB_RUN" 2>&1); rc=$?
+  [ "$rc" = 0 ] || rc=1
+  for want in "$@"; do grep -qxF -- "$want" "$d/calls" 2>/dev/null || missing+=" [$want]"; done
+  if [ "$rc" = "$want_rc" ] && [ -z "$missing" ]; then echo "  PASS  $name"; pass=$((pass+1))
+  else echo "  FAIL  $name (rc=$rc want=$want_rc, missing:$missing)"; sed 's/^/          /' <<<"$out" | head -4; fail=$((fail+1)); fi
+}
+cb_case "a side-branch push that succeeds is marked, fast-forwarded and deleted" "" 0 \
+  "git push --force origin HEAD:refs/heads/$CB_SIDE" "git push origin HEAD:main" "git push origin --delete $CB_SIDE"
+cb_case "a side-branch push refused once is retried under -r2, then marked and deleted" "base" 0 \
+  "git push --force origin HEAD:refs/heads/$CB_SIDE-r2" "git push origin HEAD:main" \
+  "git push origin --delete $CB_SIDE" "git push origin --delete $CB_SIDE-r2"
+cb_case "a side-branch push refused twice fails the step and still deletes both names" "base r2" 1 \
+  "git push --force origin HEAD:refs/heads/$CB_SIDE-r2" "git push origin --delete $CB_SIDE" "git push origin --delete $CB_SIDE-r2"
+# the status is posted on the commit only after a side push succeeded, and never twice
+if ! grep -q "statuses/" "$CB_LAST/calls" && ! grep -q "HEAD:main" "$CB_LAST/calls"; then
+  echo "  PASS  a step whose side push failed twice posts no status and does not push main"; pass=$((pass+1))
+else
+  echo "  FAIL  a step whose side push failed twice posts no status and does not push main"; fail=$((fail+1))
 fi
 
 echo

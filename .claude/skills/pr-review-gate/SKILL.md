@@ -32,8 +32,9 @@ unreadable payload, the PR moved while it was read). Treat `2` as blocked.
   CodeRabbit acknowledging the answer on its own finding (the closing marker turned into
   its reply marker, then "✅ Confirmed as addressed by @<login>"): when the edit history
   proves every later edit was that and only that, by the CodeRabbit Bot, the answer stands.
-- **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, or a
-  top-level PR comment) with no disposition posted after it. Not claims: APPROVED reviews,
+- **UNANSWERED**: a PR-level finding (a review body from anyone but the PR author, whatever
+  the review's state, APPROVED included, or a top-level PR comment) with no disposition
+  posted after it. Not claims: an empty review body,
   `@codex review` / `@coderabbitai review` and the other documented bot commands, a listed
   bot's no-findings verdict (Codex's may end with a sign-off from the list of ones it has
   posted), a listed bot's notice that it did not run,
@@ -137,7 +138,8 @@ unresolving a thread triggers no workflow; the sweep picks it up, or run
   `scripts/check-review-threads.sh`; fixes go upstream first. This copy adds three knobs
   (the repository from `GITHUB_REPOSITORY`, default `ejc3/node-monorepo-perf`;
   `EXPECT_HEAD`; `REQUIRE_HEAD_REVIEW_FROM`), three classifier rules for this
-  repository's bot traffic, and the `HEAD-REVIEW-OVERRIDE` line, each marked
+  repository's bot traffic, an APPROVED review's body judged like any other review body,
+  and the `HEAD-REVIEW-OVERRIDE` line, each marked
   "node-monorepo-perf addition".
 - `test-check-review-threads.sh`: one case per hole the gate has had, plus the fixture
   cases and the cases for this copy's knobs.

@@ -141,8 +141,15 @@ jobs:
             # vouches for it in writing: stage it on a side branch, mark it, then fast-forward main.
             sha=$(git rev-parse HEAD)
             side="ci/charts-png-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-            trap 'git push origin --delete "$side" >/dev/null 2>&1 || true' EXIT
-            git push --force origin "HEAD:refs/heads/$side"
+            # On exit, delete every side branch this step may have pushed.
+            drop_side() { for b in "$side" "$side-r2"; do git push origin --delete "$b" >/dev/null 2>&1 || true; done; }
+            trap drop_side EXIT
+            # GitHub has refused this push once with a transient "cannot lock ref ...: reference
+            # already exists"; retry it once under a fresh name before failing.
+            if ! git push --force origin "HEAD:refs/heads/$side"; then
+              echo "::warning::pushing $side failed; retrying once as $side-r2"
+              git push --force origin "HEAD:refs/heads/$side-r2"
+            fi
             gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=success -f context=review-gate \
               -f description="CI: chart PNGs re-rendered from the SVGs already gated on main; no reviewed content changed" >/dev/null
             # Best-effort: warn rather than failing the build (the PNGs were still validated above;

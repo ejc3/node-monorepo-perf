@@ -6,9 +6,11 @@
 //   node scripts/chartstyle-selftest.mjs
 
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   MIN_TEXT,
   TYPE,
@@ -1866,6 +1868,118 @@ test("a hollow circle collides only where its ring meets the text", () => {
     ),
     "a text across a ring passed",
   );
+});
+
+// A colour channel outside 0-255 is outside the subset: browsers clamp it, and a luminance
+// taken from the raw value would certify a contrast no reader sees. The audit refuses it.
+test("an rgb()/rgba() channel above 255 is unsupported, in an attribute and in a dark rule", () => {
+  // an upper-case RGB() is refused too: the colour parser reads only lower case
+  for (const c of ["rgb(999,999,999)", "rgb(0,256,0)", "rgba(300,0,0,0.5)", "RGB(0,0,255)"]) {
+    assert.throws(
+      () => auditMini(`<rect x="20" y="20" width="40" height="40" fill="${c}"/>`),
+      /unsupported/,
+      `fill="${c}" was audited`,
+    );
+    assert.throws(
+      () => auditMini(`<text x="20" y="100" font-size="13" fill="${c}">ab</text>`),
+      /unsupported/,
+      `text fill="${c}" was audited`,
+    );
+  }
+  assert.throws(
+    () =>
+      auditSvg(
+        `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">` +
+          `<style>@media (prefers-color-scheme: dark){rect[fill="#ffffff"]{fill:rgb(0,0,999)}}</style>` +
+          `<rect width="400" height="200" fill="#ffffff"/></svg>`,
+        { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT },
+      ),
+    /unsupported/,
+  );
+  // the edges of the range stay supported
+  assert.doesNotThrow(() =>
+    auditMini(`<rect x="20" y="20" width="40" height="40" fill="rgb(0,0,255)"/>`),
+  );
+});
+
+// A stroke of width 0 paints nothing. Beside a painted fill it is no stroke; on a mark that
+// paints nothing else (a line, a polyline, a hollow circle or rect) the mark is invisible.
+test("a stroke-only mark with stroke-width 0 is reported as invisible", () => {
+  const dark = "#1c2330";
+  for (const body of [
+    `<line x1="20" y1="20" x2="200" y2="20" stroke="${dark}" stroke-width="0"/>`,
+    `<polyline points="20,40 100,60 200,40" fill="none" stroke="${dark}" stroke-width="0" stroke-linejoin="round" stroke-linecap="round"/>`,
+    `<circle cx="60" cy="120" r="6" fill="none" stroke="${dark}" stroke-width="0"/>`,
+    `<rect x="100" y="100" width="20" height="20" fill="none" stroke="${dark}" stroke-width="0"/>`,
+    // in the GRID colour too: width 0 is checked before the hairline exemption
+    `<line x1="20" y1="20" x2="200" y2="20" stroke="#e4e8ec" stroke-width="0"/>`,
+    `<path d="M20 60L200 60" fill="none" stroke="#e4e8ec" stroke-width="0"/>`,
+  ])
+    assert.ok(
+      auditMini(body).some((i) => /stroke-width 0 .*invisible/.test(i)),
+      `a width-0 stroke-only mark passed: ${body}`,
+    );
+  // a filled mark with a width-0 stroke: the stroke is judged as absent, even a faint one
+  assert.deepEqual(
+    auditMini(
+      `<circle cx="60" cy="120" r="6" fill="${dark}" stroke="#fdfdfd" stroke-width="0"/>` +
+        `<rect x="100" y="100" width="20" height="20" fill="${dark}" stroke="#fdfdfd" stroke-width="0"/>`,
+    ),
+    [],
+  );
+});
+
+// The figure-box floor does not depend on paint order: an outline-only frame drawn after
+// its label holds it as much as one drawn before it.
+test("an outline-only frame painted after its label is a figure box", () => {
+  const frame = `<rect x="60" y="20" width="280" height="160" fill="none" stroke="#1c2330"/>`;
+  const label10 = geoText(...CENTRE, "#1c2330", { size: 10, anchor: "middle" });
+  for (const body of [frame + label10, label10 + frame])
+    assert.ok(
+      auditGeo(body).some((i) => /"ab" is 10px inside a figure box/.test(i)),
+      `10px text in an outline-only frame passed: ${body}`,
+    );
+});
+
+// chart.mjs's typecheck chart adds a tsgo clause to its lede when bench/tsgo-scale-table.json
+// has the charted scale. The committed records do not have it, so the committed chart never
+// shows that path: render it from synthetic records in a scratch tree (chart.mjs reads and
+// writes relative to its working directory) and require the chart to stay on its canvas.
+test("chart.mjs: the typecheck chart's tsgo lede stays inside the canvas", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chart-tsgo-note-"));
+  try {
+    mkdirSync(join(dir, "bench"));
+    const row = {
+      label: "10kx300",
+      apps: 10000,
+      libs: 300,
+      versions: { pnpm: "12.8.1" },
+      phases: {
+        typecheck: { coldOk: true, warmOk: true, warmupOk: true, coldMs: 61234, warmMs: 4321 },
+      },
+    };
+    writeFileSync(join(dir, "bench", "results.json"), JSON.stringify([row]));
+    writeFileSync(
+      join(dir, "bench", "tsgo-scale-table.json"),
+      JSON.stringify({ cores: 192, scales: [{ apps: 10000, libs: 300, coldMedianMs: 4321 }] }),
+    );
+    writeFileSync(
+      join(dir, "README.md"),
+      "<!-- chart-data:typecheck-cold-vs-warm -->\n<!-- /chart-data:typecheck-cold-vs-warm -->\n",
+    );
+    // PATH without ImageMagick: the PNG step warns and the SVG is still written
+    const r = spawnSync(
+      process.execPath,
+      [fileURLToPath(new URL("./chart.mjs", import.meta.url))],
+      { cwd: dir, encoding: "utf8", env: { PATH: dirname(process.execPath) } },
+    );
+    assert.equal(r.status, 0, `chart.mjs exited ${r.status}: ${r.stderr}`);
+    const svg = readFileSync(join(dir, "bench", "charts", "typecheck-cold-vs-warm.svg"), "utf8");
+    assert.match(svg, /whole-program tsgo: 4\.3s on 192 cores/, "the tsgo clause was not drawn");
+    assert.deepEqual(auditSvg(svg, { minText: MIN_TEXT, minBoxText: MIN_BOX_TEXT }), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 console.log(`1..${n}`);
