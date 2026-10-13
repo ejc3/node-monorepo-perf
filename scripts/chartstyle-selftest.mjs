@@ -1911,6 +1911,9 @@ test("a stroke-only mark with stroke-width 0 is reported as invisible", () => {
     `<polyline points="20,40 100,60 200,40" fill="none" stroke="${dark}" stroke-width="0" stroke-linejoin="round" stroke-linecap="round"/>`,
     `<circle cx="60" cy="120" r="6" fill="none" stroke="${dark}" stroke-width="0"/>`,
     `<rect x="100" y="100" width="20" height="20" fill="none" stroke="${dark}" stroke-width="0"/>`,
+    // in the GRID colour too: width 0 is checked before the hairline exemption
+    `<line x1="20" y1="20" x2="200" y2="20" stroke="#e4e8ec" stroke-width="0"/>`,
+    `<path d="M20 60L200 60" fill="none" stroke="#e4e8ec" stroke-width="0"/>`,
   ])
     assert.ok(
       auditMini(body).some((i) => /stroke-width 0 .*invisible/.test(i)),

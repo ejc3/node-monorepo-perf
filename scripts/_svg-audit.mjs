@@ -709,11 +709,10 @@ export function auditSvg(svg, { minText, minBoxText }) {
   };
   const check = (e, attr, theme) => {
     const raw = e.a[attr];
-    // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
-    // a dot is a mark like any other
-    if (!raw || raw === "none" || (attr === "stroke" && isHairline(e))) return;
+    if (!raw || raw === "none") return;
     // a stroke of width 0 paints nothing (as in passes()): beside a fill it is no stroke, and
-    // a mark with nothing else painted (a line, a polyline, a hollow dot) is invisible
+    // a mark with nothing else painted (a line, a polyline, a hollow dot) is invisible. This
+    // comes before the hairline exemption: a width-0 line in the GRID colour paints nothing too.
     if (attr === "stroke" && !(+(e.a["stroke-width"] ?? 1) > 0)) {
       if (!e.a.fill || e.a.fill === "none")
         out.push(
@@ -721,6 +720,9 @@ export function auditSvg(svg, { minText, minBoxText }) {
         );
       return;
     }
+    // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
+    // a dot is a mark like any other
+    if (attr === "stroke" && isHairline(e)) return;
     const v = drawn(e, attr, theme);
     if (!v.c0 || v.c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);
