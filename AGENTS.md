@@ -935,16 +935,17 @@ Shared helpers the bench scripts import rather than run directly:
   secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers,
   log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
   committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text at
-  the 9px floor and 11px inside a figure box (any rect under the text, filled or
-  `fill="none"`, with a visible border, that holds its glyph box, whatever its size: a 20px
-  chip is a box, an unbordered heat cell is not), 4.5:1 for every text against what is drawn
+  the 9px floor and 11px inside a figure box (any rect, painted before or after the text,
+  filled or `fill="none"`, with a visible border, that holds its glyph box, whatever its
+  size: a 20px chip is a box, an unbordered heat cell is not), 4.5:1 for every text against what is drawn
   behind it, taken over its glyph box rather than its anchor point (a fill under part of the
   box, or drawn after the text over any of it, is reported), 3:1 for every series mark as
   drawn: against the page and the fills painted under it that hold it, and under any fill
   painted after it that holds it (an opaque one hides it, reported). A fill or stroke in its
   backdrop's colour is exempt only when the element's other channel is painted and passes as
-  a mark (the page-coloured halo around a filled dot, the centre of a hollow ring). Every
-  check reads a shape's geometry through one primitive, `shapeOf`: a rect's fill less its
+  a mark (the page-coloured halo around a filled dot, the centre of a hollow ring). A stroke
+  of width 0 paints nothing: beside a fill it is no stroke, and a mark with nothing else
+  painted is reported as invisible. Every check reads a shape's geometry through one primitive, `shapeOf`: a rect's fill less its
   rounded corners (rx, and ry following it, each clamped to half the side), a circle's disk,
   a filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
   stroke's ring. The page is the first painted element when its fill covers the whole canvas
@@ -955,7 +956,7 @@ Shared helpers the bench scripts import rather than run directly:
   text drawn after it, or leave the canvas (exempt: GRID hairlines). The audit refuses
   (throws "unsupported" on) any SVG construct outside the subset it models, including a
   nested `<svg>`, a viewBox other than the canvas, a rect, circle or path without a fill,
-  and a dark rule that sets a property other than the one its selector reads. Every chart is
+  an `rgb()`/`rgba()` channel above 255, and a dark rule that sets a property other than the one its selector reads. Every chart is
   in the matrix; the test's `LEGACY` set is empty and a new chart joins as is. It also
   asserts the figures' `FIG` scale is `TYPE`'s, and that `charts.yml` lists every module the
   chart scripts reach through their imports.
@@ -1474,7 +1475,8 @@ the merge path.
 `.github/workflows/review-gate.yml` posts it from
 `.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
 go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
-`GITHUB_REPOSITORY` default, and the bot-traffic rules below). The status is `failure`
+`GITHUB_REPOSITORY` default, judges an APPROVED review's body like any other, and adds the
+bot-traffic rules below). The status is `failure`
 while the gate blocks and `error` when it cannot evaluate, or when a run ended without a
 verdict; both block the merge. The classic branch protection on `main` keeps GitHub's own
 "require conversation resolution" on, which blocks an unresolved thread at once, without
@@ -1486,8 +1488,9 @@ The gate blocks on:
 - a resolved thread with no reply that opens with a disposition and was written after the
   finding's last edit (a finding edited after its disposition needs a new one, unless its
   edit history shows only the CodeRabbit Bot acknowledging the answer);
-- a PR-level finding (a review body from anyone but the PR author, or a top-level PR
-  comment, the author's included) with no disposition posted after it;
+- a PR-level finding (a review body from anyone but the PR author, whatever the review's
+  state, or a top-level PR comment, the author's included) with no disposition posted
+  after it;
 - a head commit nobody but the author reviewed (an empty review object is a reply
   container, not a review);
 - a head commit not reviewed by each login in `REQUIRE_HEAD_REVIEW_FROM` (here

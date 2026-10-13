@@ -8,12 +8,14 @@ on:
     paths:
       - ".claude/skills/pr-review-gate/**"
       - ".github/workflows/review-gate*.yml"
+      - ".github/workflows/charts.yml" # the harness runs its PNG commit-back step
       - "Makefile"
   push:
     branches: [main]
     paths:
       - ".claude/skills/pr-review-gate/**"
       - ".github/workflows/review-gate*.yml"
+      - ".github/workflows/charts.yml" # the harness runs its PNG commit-back step
       - "Makefile"
 
 permissions:

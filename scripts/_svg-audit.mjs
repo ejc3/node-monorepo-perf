@@ -32,8 +32,8 @@
 //   - path: d of absolute M/L moves and segments, optionally closed by z; fill (required),
 //     stroke, stroke-width, transform.
 //   - circle: cx cy r fill (required) stroke stroke-width transform.
-//   - values: numbers; colours #rgb, #rrggbb, rgb(r,g,b), rgba(r,g,b,a) or none;
-//     transform translate(x[ y]) only.
+//   - values: numbers; colours #rgb, #rrggbb, rgb(r,g,b), rgba(r,g,b,a) (each channel
+//     0-255) or none; transform translate(x[ y]) only.
 // No opacity, fill-opacity or stroke-opacity attribute, no clip-path, mask, filter,
 // marker, dash array or other transform: each is unsupported, not modelled.
 // Every position is read through one placement primitive, place(), that applies the
@@ -47,10 +47,10 @@
 // background rect with a stroke is unsupported.
 //
 // Text is at least minText, and at least minBoxText inside a figure box: a text is inside
-// one when any rect painted under it, filled or fill="none", that holds its glyph box
-// inside its stroke's inner edge has a painted border (a stroke of width above 0 whose
-// colour has alpha above 0 in either theme), whatever the rect's size. A 20px package chip
-// is a box; an unbordered tint (a heat cell) is not.
+// one when any rect, filled or fill="none" and painted before or after it, that holds its
+// glyph box inside its stroke's inner edge has a painted border (a stroke of width above 0
+// whose colour has alpha above 0 in either theme), whatever the rect's size. A 20px package
+// chip is a box; an unbordered tint (a heat cell) is not.
 //
 // A text is judged over its glyph box, never its anchor point: the box is estimated from
 // its placed anchor, text-anchor, font-size and font-weight with the per-glyph advances
@@ -98,8 +98,17 @@ const over = (top, bottom) => top.rgb.map((c, i) => c * top.a + bottom[i] * (1 -
 // ---- the allowlist ----
 const NUM_SRC = "-?\\d+(?:\\.\\d+)?";
 const NUM = new RegExp(`^${NUM_SRC}$`);
-const COLOR =
+// rgb() and rgba() channels must be 0-255: a browser clamps a larger one, so its raw value
+// would give a luminance no reader sees. No generator writes one; refusing it (rather than
+// clamping) fails the generator that starts to, instead of certifying a colour it did not
+// mean.
+const COLOR_FORM =
   /^(#[0-9a-f]{3}|#[0-9a-f]{6}|rgb\(\d+,\d+,\d+\)|rgba\(\d+,\d+,\d+,(?:0|1|0?\.\d+)\))$/i;
+const COLOR = {
+  // parseColor reads rgb() in lower case only: an upper-case RGB() is refused, not read as
+  // no colour
+  test: (v) => COLOR_FORM.test(v) && parseColor(v)?.rgb.every((c) => c <= 255) === true,
+};
 const PAINT = { test: (v) => v === "none" || COLOR.test(v) };
 const TRANSLATE = new RegExp(`^translate\\((${NUM_SRC})(?:[ ,](${NUM_SRC}))?\\)$`);
 const XY = `${NUM_SRC} ${NUM_SRC}`;
@@ -600,13 +609,11 @@ export function auditSvg(svg, { minText, minBoxText }) {
       out.push(`"${t.s}" crosses the edge of the ${e.tag} painted under it (fill ${e.a.fill})`);
     for (const e of above)
       out.push(`"${t.s}" is covered by a ${e.tag} drawn after it (fill ${e.a.fill})`);
-    // a figure box is a bordered rect: the text is inside one when any rect painted under
-    // it, filled or outline-only, holds its glyph box inside its stroke's inner edge and has
-    // a visible border, whatever its size (a 20px package chip is a box); an unbordered
-    // tint (a heat cell) is not
-    const isBox = els.some(
-      (e) => e.tag === "rect" && e !== bgRect && e.ord < t.ord && bordered(e) && S(e).holds(b),
-    );
+    // a figure box is a bordered rect: the text is inside one when any rect, filled or
+    // outline-only and painted before or after it, holds its glyph box inside its stroke's
+    // inner edge and has a visible border, whatever its size (a 20px package chip is a box);
+    // an unbordered tint (a heat cell) is not
+    const isBox = els.some((e) => e.tag === "rect" && e !== bgRect && bordered(e) && S(e).holds(b));
     if (isBox && size < minBoxText)
       out.push(`"${t.s}" is ${size}px inside a figure box (floor ${minBoxText}px)`);
     for (const theme of ["light", "dark"]) {
@@ -635,6 +642,8 @@ export function auditSvg(svg, { minText, minBoxText }) {
   // inner edge, composited in document order, and every fill painted after it that holds
   // the extent is composited over both the mark and its backdrop. An opaque one hides it,
   // which is reported.
+  // A stroke of width 0 paints nothing: beside a painted fill it is no stroke, and a mark
+  // with nothing else painted (a line, a polyline, a hollow dot) is reported as invisible.
   // Stripes of 3px or less and GRID hairlines (width 1 or less) are not marks. A channel (fill or stroke)
   // coloured like its backdrop is not a mark only when the element's other channel is
   // painted (a colour of alpha above 0; a stroke also of width above 0) and itself passes
@@ -703,6 +712,15 @@ export function auditSvg(svg, { minText, minBoxText }) {
     // a GRID-coloured hairline (gridline, rule) is decoration; a GRID outline on a rect or
     // a dot is a mark like any other
     if (!raw || raw === "none" || (attr === "stroke" && isHairline(e))) return;
+    // a stroke of width 0 paints nothing (as in passes()): beside a fill it is no stroke, and
+    // a mark with nothing else painted (a line, a polyline, a hollow dot) is invisible
+    if (attr === "stroke" && !(+(e.a["stroke-width"] ?? 1) > 0)) {
+      if (!e.a.fill || e.a.fill === "none")
+        out.push(
+          `${theme}: ${e.tag} stroke ${raw} has stroke-width ${e.a["stroke-width"]} and nothing else painted: an invisible mark`,
+        );
+      return;
+    }
     const v = drawn(e, attr, theme);
     if (!v.c0 || v.c0.a === 0)
       return out.push(`${theme}: ${e.tag} ${attr} ${raw} is fully transparent`);

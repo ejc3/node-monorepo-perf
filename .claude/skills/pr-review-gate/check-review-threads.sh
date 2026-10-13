@@ -774,9 +774,11 @@ fi
 # Authorship cannot answer the question. So this no longer asks it. Two explicit signals
 # do the work, and both fail CLOSED for anything unrecognised:
 #
-#   - REVIEWS carry a state. GitHub's own APPROVED means "I am not asking for changes";
-#     that is a semantic fact, not a guess about the prose. COMMENTED and
-#     CHANGES_REQUESTED carry findings and need answers — from anyone EXCEPT the PR author.
+#   - REVIEW BODIES carry findings and need answers — from anyone EXCEPT the PR author —
+#     whatever the review's state. GitHub's APPROVED means "I am not asking for changes";
+#     it says nothing about the body, and a finding written into an approval is a finding
+#     (a node-monorepo-perf addition; upstream exempts every APPROVED body). An empty body
+#     and the no-claim shapes below are no claim in any state.
 #     A review body from the author is the answer this gate asks for two paragraphs below
 #     ("Post a review on the PR OPENING with one of ..."), so counting it as a claim made
 #     every acknowledgement create the obligation it was posted to discharge, and the count
@@ -1403,8 +1405,8 @@ bodies=$(jq -s --arg ignore "$IGNORED_COMMENT_AUTHORS" --arg trig "$TRIGGER_RE" 
   # `override` is the parsed HEAD-REVIEW-OVERRIDE line, or null (node-monorepo-perf addition).
   | (.[0] | map({author, state, body, when: written_at(.submittedAt), posted: answered_at(.submittedAt),
                  override: ((.body // "") | override_parts),
-                 claimable: (((.state // "COMMENTED") != "APPROVED")
-                             and (($me == "") or ((.author.login // "") != $me))
+                 # node-monorepo-perf addition: the body decides, not the state
+                 claimable: ((($me == "") or ((.author.login // "") != $me))
                              and ((.body // "") | is_override_only | not)
                              # node-monorepo-perf addition: is_codex_review_container
                              and ((((.author.__typename // "") == "Bot")

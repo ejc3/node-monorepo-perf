@@ -23,6 +23,7 @@ import {
   mdDetails,
   writeDocBlock,
   labelBaseline,
+  wrapPx,
 } from "./_chartstyle.mjs";
 
 const ROOT = process.cwd();
@@ -57,11 +58,15 @@ const W = 680;
 const PAD = MARGIN;
 const SOURCE = "bench/results.json";
 
-// title + one-line lede, the header every chart here shares; returns the next free y
+// title + lede, the header every chart here shares; the lede wraps to the canvas width
+// (18px apart, as in the heat charts) so a longer one cannot run off it. Returns the next
+// free y.
 function header(T, title, lede) {
   T.push(txt(PAD, 30, title, { size: TYPE.title, weight: "650" }));
-  if (lede) T.push(txt(PAD, 50, lede, { size: TYPE.lede, fill: MUTED }));
-  return lede ? 76 : 56;
+  if (!lede) return 56;
+  const lines = wrapPx(lede, TYPE.lede, W - 2 * PAD);
+  lines.forEach((ln, i) => T.push(txt(PAD, 50 + i * 18, ln, { size: TYPE.lede, fill: MUTED })));
+  return 76 + (lines.length - 1) * 18;
 }
 
 // round tick step (1/2/5 × 10^k) giving at most `max` intervals over [0, top]
