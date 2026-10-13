@@ -52,6 +52,18 @@ const SRC = "packages/next/src/";
 const DIST = ".next-ab";
 const WARM_OPTIONAL = ["turbopack-module-graph", "turbopack-write-entrypoints", "turbopack-emit"];
 
+// Every build's environment. A patched binding is built from a modified next.js tree, and
+// Turbopack writes such a build's cache to a directory the next build deletes unless
+// TURBO_ENGINE_IGNORE_DIRTY is set (as drift.mjs sets it), so no warm build would be warm.
+export const buildEnv = (env) => ({ TURBO_ENGINE_IGNORE_DIRTY: "1", ...env });
+
+// A warm build of an unchanged tree reads the module graph from its cache; one that rebuilt
+// it did not use the cache.
+export function checkWarm(r, side) {
+  if (r.graph)
+    throw new Error(`${side}: a warm build rebuilt the module graph; its cache was not used`);
+}
+
 const sha = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 const r2 = (x) => Math.round(x * 100) / 100;
 
@@ -185,13 +197,17 @@ export async function nextAb({
         binding,
         app: appDir,
         cpus,
-        env: { ...(patch ? overlayEnv(sides[side].overlay, log) : {}), ...sides[side].env },
+        env: buildEnv({
+          ...(patch ? overlayEnv(sides[side].overlay, log) : {}),
+          ...sides[side].env,
+        }),
         node: sides[side].node,
         distDir: DIST,
         keep: mode === "seed",
         label: `next-ab-${side}-${mode}`,
         optional: mode === "warm" ? WARM_OPTIONAL : [],
       });
+      if (mode === "warm") checkWarm(r, side);
       const loads = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
       const processes = new Set(loads.map((l) => l.split(" ")[0])).size;
       if (patch && !processes)

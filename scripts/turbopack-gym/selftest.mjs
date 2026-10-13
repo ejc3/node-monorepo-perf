@@ -938,6 +938,27 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- next-ab.mjs warm builds use the cache -------------------------------------------
+{
+  // a patched binding is built from a dirty next.js tree and, without
+  // TURBO_ENGINE_IGNORE_DIRTY, writes its cache where the next build deletes it: next-ab must
+  // set it like drift.mjs, and refuse a warm build that rebuilt the module graph
+  const { buildEnv, checkWarm } = await import("./next-ab.mjs");
+  let refused = "";
+  try {
+    checkWarm({ graph: { s: 4 } }, "candidate");
+  } catch (e) {
+    refused = e.message;
+  }
+  check(
+    buildEnv?.({ A: "1" }).TURBO_ENGINE_IGNORE_DIRTY === "1" &&
+      buildEnv({ A: "1" }).A === "1" &&
+      /rebuilt the module graph/.test(refused) &&
+      checkWarm({ graph: null }, "base") === undefined,
+    "next-ab.mjs keeps the cache of a patched binding and refuses a warm build that did not use it",
+  );
+}
+
 // --- bench.mjs --node ----------------------------------------------------------------
 {
   // a build with another node binary records that binary's version and hash
