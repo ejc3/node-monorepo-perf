@@ -1425,6 +1425,17 @@ Gotchas found the hard way:
   (`@demo/app-03511`/`@demo/app-13215`). Corollary: benches resolve a target
   app's package name from its on-disk manifest (`scripts/_app-name.mjs`), never
   by index formula — a reconstructed name silently misses the rename.
+- **pnpm 12 takes its settings from `pnpm-workspace.yaml`, not `.npmrc`.** From
+  `.npmrc` it reads registry and auth keys only; `node-linker`,
+  `link-workspace-packages`, `auto-install-peers`, `strict-peer-dependencies` and
+  the like are dropped without a warning. It also ignores the `package.json` `pnpm`
+  field (`overrides`, `onlyBuiltDependencies`; it warns) and
+  `npm_config_strict_peer_dependencies`, while `--config.*` flags and
+  `PNPM_CONFIG_*` env apply. `confirmModulesPurge` is not a pnpm 12 setting: it
+  purges a stale `node_modules` without prompting. Put a pnpm setting in
+  `pnpm-workspace.yaml` (or on the command line) and check it by its effect, not by
+  `pnpm config get`. The root `.npmrc` keeps `node-linker=isolated` for bun, which
+  reads it.
 
 ## Writing Style
 
