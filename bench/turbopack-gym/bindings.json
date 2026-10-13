@@ -219,5 +219,20 @@
     ],
     "diffSha256": "28f24c5f79cde0ce",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+41+42+55+56+57+59+61": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch"
+    ],
+    "diffSha256": "d90d27892cc537ef",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }
