@@ -410,7 +410,7 @@ const oddTgz = mkTarball(
 // Pin auto-install-peers to pnpm's DEFAULT (true), stated in the scaffold rather than left implicit,
 // AND fair: comparing each tool at its default. (Pinning false would be non-default and would manufacture
 // a pnpm "leaves the peer absent" result bun was never offered.) pnpm 12 reads the pin from
-// pnpm-workspace.yaml (`autoInstallPeers`): it reads only registry and auth keys from .npmrc, so an
+// pnpm-workspace.yaml (`autoInstallPeers`): it reads only registry, auth and network keys from .npmrc, so an
 // .npmrc `auto-install-peers` line has no effect. In a single-package scaffold the yaml carries only
 // this setting; the project stays a single package (no `packages` list).
 const PNPM_NPMRC = `registry=${REGISTRY}\n`;

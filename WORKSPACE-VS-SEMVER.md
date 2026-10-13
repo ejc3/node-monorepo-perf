@@ -4,7 +4,7 @@ Internal packages are independently versioned and normally consumed by plain sem
 
 ## 1. The Gate: `linkWorkspacePackages`
 
-Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to. pnpm 12 reads the gate as `linkWorkspacePackages` in `pnpm-workspace.yaml`; it reads only registry and auth keys from `.npmrc`, so an `.npmrc` `link-workspace-packages` line has no effect:
+Being in a workspace does not force the `workspace:` protocol. App `foo` can declare `"b": "^1.2.0"` for a same-workspace `b`; the gate decides what that plain range resolves to. pnpm 12 reads the gate as `linkWorkspacePackages` in `pnpm-workspace.yaml`; it reads only registry, auth and network keys from `.npmrc`, so an `.npmrc` `link-workspace-packages` line has no effect:
 
 | `linkWorkspacePackages` | `"b": "^1.2.0"` resolves to |
 |---|---|

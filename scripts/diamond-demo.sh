@@ -10,7 +10,7 @@
 #
 # Auth lives in LOCAL .npmrc files (scoped @ejc3) so the main workspace's installs
 # are never hijacked. npm needs --userconfig (it does NOT walk ancestor .npmrc);
-# pnpm reads the per-project .npmrc (pnpm 12 reads only its registry and auth keys;
+# pnpm reads the per-project .npmrc (pnpm 12 reads only its registry, auth and network keys;
 # the override root's pnpm settings are in its scaffolded pnpm-workspace.yaml).
 # Tokens are never committed.
 set -euo pipefail

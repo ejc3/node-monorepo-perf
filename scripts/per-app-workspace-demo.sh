@@ -116,7 +116,7 @@ pubone ui
 # as a member; admin's root has neither. Each app root sets linkWorkspacePackages:
 # false (pnpm's default, stated). pnpm 12 reads these settings only from
 # pnpm-workspace.yaml: it ignores the package.json "pnpm" field and every .npmrc key
-# except registry and auth. The repo root is a libs-only workspace; each app's own
+# except registry, auth and network ones. The repo root is a libs-only workspace; each app's own
 # pnpm-workspace.yaml shadows it on install.
 # ─────────────────────────────────────────────────────────────────────────────
 mkdir -p "$DIR/libs/util" "$DIR/apps/web" "$DIR/apps/admin"

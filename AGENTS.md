@@ -1426,9 +1426,10 @@ Gotchas found the hard way:
   app's package name from its on-disk manifest (`scripts/_app-name.mjs`), never
   by index formula — a reconstructed name silently misses the rename.
 - **pnpm 12 takes its settings from `pnpm-workspace.yaml`, not `.npmrc`.** From
-  `.npmrc` it reads registry and auth keys only; `node-linker`,
-  `link-workspace-packages`, `auto-install-peers`, `strict-peer-dependencies` and
-  the like are dropped without a warning. It also ignores the `package.json` `pnpm`
+  `.npmrc` it reads registry and auth keys, and network settings (proxy, TLS,
+  `local-address`; pnpm's 11.0 release notes); pnpm's own settings there, such as
+  `node-linker`, `link-workspace-packages`, `auto-install-peers` and
+  `strict-peer-dependencies`, are dropped without a warning. It also ignores the `package.json` `pnpm`
   field (`overrides`, `onlyBuiltDependencies`; it warns) and
   `npm_config_strict_peer_dependencies`, while `--config.*` flags and
   `PNPM_CONFIG_*` env apply. `confirmModulesPurge` is not a pnpm 12 setting: it

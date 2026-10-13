@@ -67,7 +67,7 @@ echo "   published."
 echo "== workspace with a LOCAL @ejc3/reslib (same name+version, SOURCE=workspace-local) + app 'web' =="
 printf '{ "name": "@ejc3/reslib", "version": "%s", "main": "index.js" }\n' "$VER" > "$DIR/ws/packages/reslib/package.json"
 printf 'module.exports = { SOURCE: "workspace-local" };\n' > "$DIR/ws/packages/reslib/index.js"
-# scoped @ejc3 → CodeArtifact (pnpm 12 reads only registry and auth keys from .npmrc)
+# scoped @ejc3 → CodeArtifact (pnpm 12 reads only registry, auth and network keys from .npmrc)
 printf '%s\n' "$AUTH" > "$DIR/ws/.npmrc"
 
 # write the app manifest with a given @ejc3/reslib spec, and the root manifest

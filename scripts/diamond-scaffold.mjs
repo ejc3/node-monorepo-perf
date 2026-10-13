@@ -144,7 +144,7 @@ writeFileSync(
   // semver internal deps resolve from the registry. overrides: flip the shared lib to
   // the LOCAL workspace copy for everyone, which collapses the diamond. pnpm 12 reads
   // both only here: it ignores the package.json "pnpm" field and every .npmrc key
-  // except registry and auth.
+  // except registry, auth and network ones.
   `packages:
   - "packages/*"
   - "consumer"
