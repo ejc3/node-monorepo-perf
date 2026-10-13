@@ -4,12 +4,15 @@
 #      @ejc3/beta@1 (dep widget^2) to AWS CodeArtifact   [timed]
 #   2. a consumer depends on alpha + beta by SEMVER -> pnpm resolves a real
 #      DIAMOND: widget@1 (under alpha) AND widget@2 (under beta) coexist
-#   3. flip the shared lib to workspace: via root pnpm.overrides -> the diamond
-#      COLLAPSES to one local version and the dependent built for the other API breaks
+#   3. flip the shared lib to workspace: via the root's overrides (pnpm-workspace.yaml)
+#      -> the diamond COLLAPSES to one local version and the dependent built for the
+#      other API breaks
 #
 # Auth lives in LOCAL .npmrc files (scoped @ejc3) so the main workspace's installs
 # are never hijacked. npm needs --userconfig (it does NOT walk ancestor .npmrc);
-# pnpm reads the per-project .npmrc. Tokens are never committed.
+# pnpm reads the per-project .npmrc (pnpm 12 reads only its registry and auth keys;
+# the override root's pnpm settings are in its scaffolded pnpm-workspace.yaml).
+# Tokens are never committed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,7 +54,7 @@ TOKEN=$(aws codeartifact get-authorization-token --domain "$DOMAIN" --domain-own
 AUTH=$(printf '@ejc3:registry=%s\n//%s:_authToken=%s\n//%s:always-auth=true\n' "$EP" "$HOST" "$TOKEN" "$HOST")
 printf '%s\n' "$AUTH" > "$NPMRC"
 printf '%s\n' "$AUTH" > "$DIR/consumer/.npmrc"
-printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/override/.npmrc"
+printf '%s\n' "$AUTH" > "$DIR/override/.npmrc"
 echo "wrote scoped .npmrc (registry=$EP)"
 
 echo "════════ pre-delete any prior versions (publish fresh) ════════"
