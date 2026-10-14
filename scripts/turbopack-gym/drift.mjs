@@ -349,6 +349,16 @@ async function sweep(o) {
           prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
         plan.sweep = id;
         if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
+        // this attempt and its machine, before anything else: a machine lost at any point after
+        // this still counts as one of the sweep's boots
+        appendJsonl(LOG, {
+          sweep: id,
+          attempt,
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: machine(),
+        });
         // points an earlier attempt finished, with the mismatches it found in them
         const donePoints = new Map(
           readJsonl(LOG)
@@ -366,9 +376,6 @@ async function sweep(o) {
       checkPristine(app);
       const pristine = appTreeHash(app);
       const log = (rec) => appendJsonl(LOG, { sweep: id, attempt, ...rec });
-      // this attempt and its machine, before any build: a machine lost during the first build
-      // still counts as one of the sweep's boots
-      log({ rep: -2, n: 0, mode: "attempt", machine: machine() });
       const run = async ({ env = {}, ...args }) => {
         const rec = await bench({
           cpus: o.cpus,
@@ -740,8 +747,15 @@ function record(o) {
   );
   for (const l of readJsonl(LOG)) {
     if (!plans.some((p) => p.sweep === l.sweep)) continue;
-    if (l.mode === "attempt") check({ id: `attempt ${l.attempt}`, machine: l.machine });
-    else if (l.id && !counted.has(l.id))
+    if (l.mode === "attempt") {
+      // an attempt line has the machine but no build, so no build Node
+      const { buildNode: _, ...m } = publicMachine(l.machine);
+      const { buildNode: __, ...want } = publicMachine(first_machine);
+      if (JSON.stringify(m) !== JSON.stringify(want))
+        throw new Error(`attempt ${l.attempt} ran on a different machine type`);
+      if (!l.machine.boot) throw new Error(`attempt ${l.attempt} has no boot`);
+      boots.add(l.machine.boot);
+    } else if (l.id && !counted.has(l.id))
       check(JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8")));
   }
   const published = publicMachine(first_machine);

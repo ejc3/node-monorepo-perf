@@ -375,7 +375,15 @@ rmSync(scratch, { recursive: true, force: true });
   const map = JSON.parse(
     readFileSync(new URL("../../bench/turbopack-gym/bindings.json", import.meta.url), "utf8"),
   );
-  const machine = { arch: "arm64", cpuModel: "test", cores: 2, sharedBox: false, boot: "b" };
+  // as bench.mjs saves it for a run: with the Node the build ran on
+  const machine = {
+    arch: "arm64",
+    cpuModel: "test",
+    cores: 2,
+    sharedBox: false,
+    buildNode: "v0",
+    boot: "b",
+  };
   const phase = (s, at) => ({ s, at, cores: 1 });
   const attempt = (tamper = () => {}) => {
     rmSync(join(root, "runs"), { recursive: true, force: true });
@@ -465,6 +473,11 @@ rmSync(scratch, { recursive: true, force: true });
   // a resumed sweep: attempt a1 built the seed and point (0, 0), then a cold build of
   // (0, 1) before its machine went away; attempt a2 rebuilt the seed on another boot and
   // finished (0, 1). The record counts each point's finishing attempt and a1's seed only.
+  // an attempt line holds machine() as drift logs it: no build Node (that is per build)
+  const attemptMachine = (boot) => {
+    const { buildNode: _, ...m } = machine;
+    return { ...m, boot };
+  };
   const resumed = (lines, runs, extra = () => {}) => {
     for (const l of lines) l.attempt = l.n === 1 ? "a2" : "a1";
     lines.push({ ...line(lines, "cold1"), id: "cold1-a1", attempt: "a1" });
@@ -509,11 +522,26 @@ rmSync(scratch, { recursive: true, force: true });
           rep: -2,
           n: 0,
           mode: "attempt",
-          machine: { ...machine, boot: "b3" },
+          machine: attemptMachine("b3"),
         });
       }),
     ) === 0 && published().boots === 3,
     "drift record counts the boot of an attempt lost during its first build",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        lines.push({
+          sweep: "drift-t",
+          attempt: "a3",
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: { ...attemptMachine("b3"), cores: 4 },
+        });
+      }),
+    ) !== 0,
+    "drift record refuses an attempt on a different machine type",
   );
   {
     const { resumable, countedRuns } = await import(
@@ -1185,7 +1213,11 @@ function reportWith(keys, extra = {}, args = []) {
     lockAt > 0 &&
       logsAt > lockAt &&
       src.indexOf("resumable(readJsonl(PLANS)") > logsAt &&
-      src.indexOf("repairJsonl(f)") > logsAt,
+      src.indexOf("repairJsonl(f)") > logsAt &&
+      // the attempt is logged in that same step, before the tree is restored or hashed
+      src.search(/mode: "attempt",\s+machine: machine\(\)/) > logsAt &&
+      src.search(/mode: "attempt",\s+machine: machine\(\)/) <
+        src.indexOf("const restored = restoreJournal"),
     "drift chooses the sweep to resume under the app lock, and repairs the shared logs under their own lock",
   );
 }
