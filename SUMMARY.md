@@ -98,6 +98,9 @@ separate cost:
   Collecting emit's issues without one aggregation root per endpoint (candidate 59) takes the
   warm build's `run-turbopack` at 1,000 new imports from <!--v:dr.c59.import.15+22+55+56+57.1000.warm.turbopack-->52.7s<!--/v--> to
   <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.turbopack-->34.2s<!--/v-->.
+  With every binding change that kept the output, on 24 CPUs a cold `next build` goes from
+  <!--v:dr.full24.import.base.0.cold.wall-->63.1s<!--/v--> to <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->35.8s<!--/v--> and a warm one after one new import from <!--v:dr.full24.import.base.1.warm.wall-->74.5s<!--/v--> to
+  <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->28.6s<!--/v--> ([cache-drift.md](bench/turbopack-gym/cache-drift.md#everything-together)).
 
 Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
 1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at

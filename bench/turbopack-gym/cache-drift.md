@@ -468,6 +468,197 @@ monolith's 1,709 page manifests share most of their client references.
   the builds of each not overlapping. The cache is about 5% smaller
   (0.81 → 0.77 GiB after a warm build with one new import).
 
+## After `run-turbopack`: starting the page-data workers
+
+After the compile, `next build` starts its page-data workers (`jest-worker`, one
+`child_process.fork` each). Node's libuv (1.51 in Node 22) starts a child on Linux with
+`fork()` and then `exec()`, and the parent waits until the child has called `exec()`: the
+kernel copies the parent's page tables into the child and the child tears them down again,
+all before the next worker can start. The parent here holds Turbopack's heap, so each start
+costs time in proportion to that heap, on the main thread, once per worker.
+
+`cache-drift-probes.json` (`processStart`; `scripts/turbopack-gym/process-start-cost.{py,mjs}`,
+a dedicated c8gd.48xlarge): starting `/bin/true` from a process holding 0, 1, 4, 8 and 16 GiB
+of touched memory takes 1.1, 25, 108, 176 and 295 ms with fork + exec, and 0.3 ms at every size
+with `posix_spawn` (glibc's uses `clone(CLONE_VM | CLONE_VFORK)`, no page-table copy). Node's
+own `spawnSync` follows fork + exec: 1.0, 24.5, 104, 172 and 291 ms.
+
+Next.js sizes the pool from `os.cpus()` (`experimental.cpus`, the machine's CPUs minus one),
+so a build limited to some of the machine's CPUs still starts one worker per machine CPU:
+191 here, whatever the build's own CPUs.
+
+- **62 `available-parallelism`** (next, JavaScript): the default is
+  `os.availableParallelism() - 1`, the CPUs in the process's affinity mask. Where the
+  process may use every CPU the value is unchanged; `CIRCLE_NODE_TOTAL` still wins.
+- `bench/turbopack-gym/next-ab-62.json` (`scripts/turbopack-gym/next-ab.mjs`, stock binding,
+  drift-monolith on 24 CPUs, 3 reps, warm builds with nothing changed): the worker count is
+  part of the config the build writes, so the candidate's output is compared with base given
+  `CIRCLE_NODE_TOTAL=24` (the same count by setting): the same. Cold builds:
+  <!--v:na.c62.cold.base.wall-->83.7s<!--/v--> → <!--v:na.c62.cold.candidate.wall-->64.2s<!--/v--> (×<!--v:na.c62.cold.ratio-->0.767<!--/v-->), the time after
+  `run-turbopack` <!--v:na.c62.cold.base.after-->39.6s<!--/v--> → <!--v:na.c62.cold.candidate.after-->18.9s<!--/v-->; base's after-compile
+  time was 28.9s in one rep and 39.7s and 39.6s in the others, the candidate's 17.6 to 19.0s.
+  Warm builds: <!--v:na.c62.warm.base.wall-->50.2s<!--/v--> → <!--v:na.c62.warm.candidate.wall-->49.4s<!--/v--> (×<!--v:na.c62.warm.ratio-->0.984<!--/v-->), after
+  `run-turbopack` <!--v:na.c62.warm.base.after-->12.1s<!--/v--> → <!--v:na.c62.warm.candidate.after-->11.1s<!--/v-->. A warm build's peak memory (its cgroup, workers included) was
+  3.5 to 4.9 GiB against 11.6 to 12.9 GiB for a cold one, so each worker start copies less.
+
+- **Node with libuv's `posix_spawn`.** libuv 1.53.0 starts children on Linux with
+  `posix_spawn` (libuv commits 40d45efebf and 49b1c06471); no Node release ships it yet (Node
+  22 and 25 have libuv 1.51, 24 and 26 have 1.52.1). Node 22.23.3 built from source twice with
+  the same `./configure`, stock and with those two commits applied to its `deps/uv` (the
+  binaries' hashes are in the records), measured with `next-ab.mjs --candidate-node` on
+  15 + 22 + 55 + 56 + 57 + 59 + 61, drift-monolith, 3 reps (a c9gd.48xlarge), same output:
+  - all 192 CPUs, Next.js's default pool (191 workers; `bench/turbopack-gym/next-ab-node-192.json`):
+    cold builds <!--v:na.node192.cold.base.wall-->49.8s<!--/v--> → <!--v:na.node192.cold.candidate.wall-->35.1s<!--/v--> (×<!--v:na.node192.cold.ratio-->0.706<!--/v-->), the time after `run-turbopack`
+    <!--v:na.node192.cold.base.after-->23.2s<!--/v--> → <!--v:na.node192.cold.candidate.after-->7.2s<!--/v-->; warm builds with nothing changed <!--v:na.node192.warm.base.wall-->13.6s<!--/v--> → <!--v:na.node192.warm.candidate.wall-->11.2s<!--/v-->;
+  - 24 CPUs and 23 workers (`next-ab-node-24.json`): cold <!--v:na.node24.cold.base.wall-->35.6s<!--/v--> → <!--v:na.node24.cold.candidate.wall-->29.6s<!--/v--> (×<!--v:na.node24.cold.ratio-->0.834<!--/v-->),
+    after `run-turbopack` <!--v:na.node24.cold.base.after-->12.9s<!--/v--> → <!--v:na.node24.cold.candidate.after-->6.8s<!--/v-->; warm <!--v:na.node24.warm.base.wall-->11.4s<!--/v--> → <!--v:na.node24.warm.candidate.wall-->10.8s<!--/v-->.
+
+## Everything together
+
+Base against every binding change that kept the output and won: 15 + 22 + 41 + 42 + 52 + 55 +
+56 + 57 + 59 + 61 (`bench/turbopack-graph-drift-full-24.json`, drift-monolith, 24 CPUs, `import`
+edits, 2 reps, page-data pool matched to the CPUs, a dedicated c8gd.48xlarge). 60 and 62 change
+Next.js's JavaScript and are measured on their own (above), so they are not in these builds.
+
+| new imports | cold wall | warm wall | cold `run-turbopack` | warm `run-turbopack` |
+|---|---|---|---|---|
+| 0 | <!--v:dr.full24.import.base.0.cold.wall-->63.1s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->35.8s<!--/v--> | <!--v:dr.full24.import.base.0.warm.wall-->48.8s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.warm.wall-->17.0s<!--/v--> | <!--v:dr.full24.import.base.0.cold.turbopack-->44.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->19.1s<!--/v--> | <!--v:dr.full24.import.base.0.warm.turbopack-->37.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.1s<!--/v--> |
+| 1 | <!--v:dr.full24.import.base.1.cold.wall-->65.7s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.cold.wall-->36.3s<!--/v--> | <!--v:dr.full24.import.base.1.warm.wall-->74.5s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->28.6s<!--/v--> | <!--v:dr.full24.import.base.1.cold.turbopack-->47.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->18.9s<!--/v--> | <!--v:dr.full24.import.base.1.warm.turbopack-->61.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->16.6s<!--/v--> |
+| 10 | <!--v:dr.full24.import.base.10.cold.wall-->62.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.cold.wall-->35.8s<!--/v--> | <!--v:dr.full24.import.base.10.warm.wall-->89.0s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.warm.wall-->33.3s<!--/v--> | <!--v:dr.full24.import.base.10.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->19.0s<!--/v--> | <!--v:dr.full24.import.base.10.warm.turbopack-->74.2s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->19.0s<!--/v--> |
+| 1,000 | <!--v:dr.full24.import.base.1000.cold.wall-->64.0s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.wall-->37.2s<!--/v--> | <!--v:dr.full24.import.base.1000.warm.wall-->115.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.warm.wall-->37.9s<!--/v--> | <!--v:dr.full24.import.base.1000.cold.turbopack-->45.6s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->19.8s<!--/v--> | <!--v:dr.full24.import.base.1000.warm.turbopack-->100.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->21.2s<!--/v--> |
+
+Same output in every build. A warm build is faster than a cold one at 0, 1 and 10 new imports;
+at 1,000 its wall time is within a second of the cold build's.
+
+On all 192 CPUs of the same machine type (`bench/turbopack-graph-drift-full-192.json`, 2 reps):
+
+| new imports | cold wall | warm wall | cold `run-turbopack` | warm `run-turbopack` |
+|---|---|---|---|---|
+| 0 | <!--v:dr.full192.import.base.0.cold.wall-->121.5s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->55.5s<!--/v--> | <!--v:dr.full192.import.base.0.warm.wall-->55.4s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.warm.wall-->19.1s<!--/v--> | <!--v:dr.full192.import.base.0.cold.turbopack-->91.6s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->24.8s<!--/v--> | <!--v:dr.full192.import.base.0.warm.turbopack-->40.6s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.5s<!--/v--> |
+| 1 | <!--v:dr.full192.import.base.1.cold.wall-->121.9s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.cold.wall-->54.1s<!--/v--> | <!--v:dr.full192.import.base.1.warm.wall-->94.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->45.0s<!--/v--> | <!--v:dr.full192.import.base.1.cold.turbopack-->92.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->25.5s<!--/v--> | <!--v:dr.full192.import.base.1.warm.turbopack-->74.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->22.8s<!--/v--> |
+| 10 | <!--v:dr.full192.import.base.10.cold.wall-->122.8s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.cold.wall-->53.0s<!--/v--> | <!--v:dr.full192.import.base.10.warm.wall-->116.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.warm.wall-->49.1s<!--/v--> | <!--v:dr.full192.import.base.10.cold.turbopack-->93.0s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->25.3s<!--/v--> | <!--v:dr.full192.import.base.10.warm.turbopack-->89.0s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->25.4s<!--/v--> |
+| 1,000 | <!--v:dr.full192.import.base.1000.cold.wall-->120.5s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.wall-->51.6s<!--/v--> | <!--v:dr.full192.import.base.1000.warm.wall-->156.2s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.wall-->58.0s<!--/v--> | <!--v:dr.full192.import.base.1000.cold.turbopack-->92.7s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->26.0s<!--/v--> | <!--v:dr.full192.import.base.1000.warm.turbopack-->128.8s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->30.0s<!--/v--> |
+
+Same output in every build. Base's cold `run-turbopack` doubles from 24 to 192 CPUs; with the
+changes it grows by about 30%.
+
+## More cores
+
+The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
+15 + 22 + 55 + 56 + 57 + 59 + 61, `import` edits, warm and cold, 2 reps, the page-data pool
+matched to the CPUs (`bench/turbopack-graph-drift-cores-{24,48,96,192}.json`, a dedicated
+c8gd.48xlarge; 192 CPUs is both NUMA nodes). Wall time of the whole build, base → stack:
+
+| CPUs | cold | warm, nothing changed | warm, 1 new import | warm, 1,000 new imports |
+|---|---|---|---|---|
+| 24 | <!--v:dr.cores24.import.base.0.cold.wall-->63.3s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.wall-->43.2s<!--/v--> | <!--v:dr.cores24.import.base.0.warm.wall-->48.2s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.warm.wall-->15.3s<!--/v--> | <!--v:dr.cores24.import.base.1.warm.wall-->73.2s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.1.warm.wall-->33.9s<!--/v--> | <!--v:dr.cores24.import.base.1000.warm.wall-->115.4s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.1000.warm.wall-->43.5s<!--/v--> |
+| 48 | <!--v:dr.cores48.import.base.0.cold.wall-->71.6s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.cold.wall-->49.2s<!--/v--> | <!--v:dr.cores48.import.base.0.warm.wall-->50.4s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.warm.wall-->15.9s<!--/v--> | <!--v:dr.cores48.import.base.1.warm.wall-->78.7s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.1.warm.wall-->34.5s<!--/v--> | <!--v:dr.cores48.import.base.1000.warm.wall-->114.4s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.1000.warm.wall-->50.1s<!--/v--> |
+| 96 | <!--v:dr.cores96.import.base.0.cold.wall-->74.8s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.cold.wall-->52.7s<!--/v--> | <!--v:dr.cores96.import.base.0.warm.wall-->52.0s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.warm.wall-->17.2s<!--/v--> | <!--v:dr.cores96.import.base.1.warm.wall-->78.5s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.1.warm.wall-->42.3s<!--/v--> | <!--v:dr.cores96.import.base.1000.warm.wall-->120.9s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.1000.warm.wall-->48.9s<!--/v--> |
+| 192 | <!--v:dr.cores192.import.base.0.cold.wall-->124.6s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.wall-->62.6s<!--/v--> | <!--v:dr.cores192.import.base.0.warm.wall-->54.5s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.warm.wall-->19.3s<!--/v--> | <!--v:dr.cores192.import.base.1.warm.wall-->96.5s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.1.warm.wall-->58.0s<!--/v--> | <!--v:dr.cores192.import.base.1000.warm.wall-->156.4s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.1000.warm.wall-->64.9s<!--/v--> |
+
+- Cold `run-turbopack`, base → stack: 24: <!--v:dr.cores24.import.base.0.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.turbopack-->26.4s<!--/v-->; 48: <!--v:dr.cores48.import.base.0.cold.turbopack-->46.6s<!--/v--> → <!--v:dr.cores48.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.1s<!--/v-->; 96: <!--v:dr.cores96.import.base.0.cold.turbopack-->48.9s<!--/v--> → <!--v:dr.cores96.import.15+22+55+56+57+59+61.0.cold.turbopack-->25.7s<!--/v-->; 192: <!--v:dr.cores192.import.base.0.cold.turbopack-->93.0s<!--/v--> → <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.turbopack-->34.1s<!--/v-->.
+- Neither gets faster with more CPUs: every column is fastest at 24 or 48 CPUs and slowest
+  at 192. Base slows most: at 192 CPUs its graph phase alone takes <!--v:dr.cores192.import.base.0.cold.graph-->39.0s<!--/v--> (cold), against
+  <!--v:dr.cores192.import.15+22+55+56+57+59+61.0.cold.graph-->5.6s<!--/v--> with the stack, so the stack's gain grows with the CPU count. The stack's
+  own warm build after one new import goes from <!--v:dr.cores24.import.15+22+55+56+57+59+61.1.warm.wall-->33.9s<!--/v--> at 24 CPUs to <!--v:dr.cores192.import.15+22+55+56+57+59+61.1.warm.wall-->58.0s<!--/v--> at 192
+  (Open, below).
+- Same output in every sweep (each record's outputs match across bindings and modes).
+
+## A larger app
+
+The same comparison on a monolith with twice the routes, features, UI components and utils
+(`monolith-gen.mjs --routes 4140 --features 840 --ui 1400 --utils 1000`: 4,141 routes, 31,941
+files), 2 reps, page-data pool matched to the CPUs (`bench/turbopack-graph-drift-2x-24.json`,
+a dedicated c8gd.48xlarge). Wall time, base → stack:
+
+| CPUs | cold | warm, nothing changed | warm, 1 new import | warm, 1,000 new imports |
+|---|---|---|---|---|
+| 24 | <!--v:dr.big24.import.base.0.cold.wall-->230.5s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.cold.wall-->134.0s<!--/v--> | <!--v:dr.big24.import.base.0.warm.wall-->115.5s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.warm.wall-->47.2s<!--/v--> | <!--v:dr.big24.import.base.1.warm.wall-->248.8s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.1.warm.wall-->126.2s<!--/v--> | <!--v:dr.big24.import.base.1000.warm.wall-->350.7s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.1000.warm.wall-->150.2s<!--/v--> |
+
+- Cold `run-turbopack`: <!--v:dr.big24.import.base.0.cold.turbopack-->176.3s<!--/v--> → <!--v:dr.big24.import.15+22+55+56+57+59+61.0.cold.turbopack-->85.3s<!--/v-->, against <!--v:dr.cores24.import.base.0.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.cores24.import.15+22+55+56+57+59+61.0.cold.turbopack-->26.4s<!--/v--> for
+  the monolith on the same machine type: twice the app takes about four times as long with
+  base and a bit over three times with the stack. The profile below shows where.
+- With the stack, a warm build after 1,000 new imports takes longer than a cold one
+  (<!--v:dr.big24.import.15+22+55+56+57+59+61.1000.warm.wall-->150.2s<!--/v--> against <!--v:dr.big24.import.15+22+55+56+57+59+61.1000.cold.wall-->134.6s<!--/v-->).
+
+## 52 at 192 CPUs
+
+At 24 CPUs, before 57, 59 and 61, 52 did not change warm builds (above). On all 192 CPUs of the machine, stacked on
+15 + 22 + 55 + 56 + 57 + 59 + 61 (`bench/turbopack-graph-drift-52s-192.json`, `import` edits,
+2 reps, page-data pool matched to the CPUs), cold and warm `run-turbopack`, stack → stack + 52:
+
+| new imports | cold | warm |
+|---|---|---|
+| 0 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.0.cold.turbopack-->33.5s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.0.cold.turbopack-->28.8s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.0.warm.turbopack-->5.6s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.0.warm.turbopack-->5.4s<!--/v--> |
+| 1 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1.cold.turbopack-->34.9s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1.cold.turbopack-->28.5s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1.warm.turbopack-->31.7s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1.warm.turbopack-->26.7s<!--/v--> |
+| 10 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.10.cold.turbopack-->34.6s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.10.cold.turbopack-->28.5s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.10.warm.turbopack-->33.2s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.10.warm.turbopack-->28.0s<!--/v--> |
+| 1,000 | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1000.cold.turbopack-->34.3s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1000.cold.turbopack-->29.3s<!--/v--> | <!--v:dr.c52s192.import.15+22+55+56+57+59+61.1000.warm.turbopack-->37.2s<!--/v--> → <!--v:dr.c52s192.import.15+22+52+55+56+57+59+61.1000.warm.turbopack-->30.7s<!--/v--> |
+
+Same output in every build. Shorter with 52 everywhere except the warm build with nothing
+changed, which does almost no work.
+
+A probe on the same machine (`cache-drift-probes.json`, `numaBalancing192`, 3 reps, not a
+record) turned the kernel's automatic NUMA balancing off and on around the same builds. Off,
+the stack's `run-turbopack` was 2.9s shorter cold and 2.8s shorter warm after one new import
+(medians); with 52 in, 0.9s and 0.6s. Same output in every build.
+
+Again at 24 CPUs, now on top of 57, 59 and 61 (`bench/turbopack-graph-drift-52s-24.json`, 3 reps;
+this run landed on a c9gd.48xlarge, so its times are not comparable with the c8gd records):
+cold `run-turbopack` <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.cold.turbopack-->21.4s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1.cold.turbopack-->18.4s<!--/v--> at one new import; warm
+<!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.9s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1.warm.turbopack-->16.0s<!--/v--> at 1, <!--v:dr.c52s24.import.15+22+55+56+57+59+61.10.warm.turbopack-->20.5s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.10.warm.turbopack-->17.8s<!--/v--> at 10 and <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1000.warm.turbopack-->23.3s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1000.warm.turbopack-->20.7s<!--/v--> at 1,000;
+the same with nothing changed. Same output.
+
+## Profiles: 192 CPUs and a larger app
+
+Whole-build profiles of 15 + 22 + 55 + 56 + 57 + 59 + 61 built with frame pointers (`perf`
+cpu-clock and `sched_switch`, the build's CPUs, a dedicated c8gd.48xlarge). The perf data is
+not kept, so they locate the costs below and no figure here comes from them; the effects are
+measured in the records named.
+
+**A warm build after one new import, on all 192 CPUs:**
+
+- Emit runs on most of the machine's cores, and most of that CPU is under
+  `client_reference_manifest::build_manifest`. The largest leaf is one atomic add
+  (`__aarch64_ldadd8_acq_rel`), the shared operation counter that 52 stripes (52 at 192
+  CPUs, above). The next is `TaskStatisticsApi::get`, a load of a field written once, which
+  suggests it shares a cache line with that counter.
+- The kernel spends CPU migrating pages between the two NUMA nodes (`do_numa_page` →
+  `migrate_misplaced_folio`: automatic NUMA balancing; the probe in the 52 section measures
+  it), and on write-protect faults (`do_wp_page`) on pages of the build's own heap in emit
+  and in the persistence step: the forks of the page-data workers write-protect the parent's
+  pages while Turbopack's persistence still writes.
+- After `run-turbopack`, the main thread copies and tears down page tables for the worker
+  forks (`copy_page_range`, `zap_pte_range` from `exec_mmap`; measured with Node's
+  `posix_spawn` above) and compiles the client reference manifests with `require()` for the
+  route bundle stats (candidate 60's step).
+
+**A cold build of drift-monolith-2x on 24 CPUs** (the larger app above): much of
+`turbopack-write-entrypoints` runs on one core, in `compute_chunk_group_info` (roaring bitmap
+`is_subset` and unions) and in the merged-modules reconciliation in `compute_merged_modules`,
+the two algorithms `next-limit.md` found single-core on the monolith. They are what 41 and 42
+change; 41 + 42 are not in the stack measured above.
+
+## 41 + 42 on the larger app
+
+41 (chunk groups interned) and 42 (merged-module exposure without "before") change the two
+single-core algorithms the profile above names (`next-limit.md` describes them; on the monolith
+they shortened `run-turbopack` by 11 to 12% on top of 15 + 22). Stacked on 15 + 22 + 55 + 56 + 57 + 59 + 61, on
+drift-monolith-2x at 24 CPUs (`bench/turbopack-graph-drift-4142-2x.json`, `import` edits, 2 reps),
+`run-turbopack`, stack → stack + 41 + 42:
+
+| new imports | cold | warm |
+|---|---|---|
+| 0 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.0.cold.turbopack-->84.1s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.0.cold.turbopack-->66.0s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.0.warm.turbopack-->11.6s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.0.warm.turbopack-->11.8s<!--/v--> |
+| 1 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.cold.turbopack-->85.9s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.cold.turbopack-->65.0s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.warm.turbopack-->88.9s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.warm.turbopack-->68.3s<!--/v--> |
+| 1,000 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1000.cold.turbopack-->87.0s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1000.cold.turbopack-->66.5s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1000.warm.turbopack-->99.5s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1000.warm.turbopack-->81.5s<!--/v--> |
+
+Whole cold builds <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.cold.wall-->134.3s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.cold.wall-->114.3s<!--/v--> at one new import. Same output in every build.
+
+On the monolith (`bench/turbopack-graph-drift-4142.json`, 24 CPUs, 3 reps; a c9gd.48xlarge, so
+not comparable with the c8gd records), where the two algorithms take less of the build:
+cold `run-turbopack` <!--v:dr.c4142.import.15+22+55+56+57+59+61.0.cold.turbopack-->23.2s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.0.cold.turbopack-->20.6s<!--/v--> with nothing changed and <!--v:dr.c4142.import.15+22+55+56+57+59+61.1000.cold.turbopack-->23.3s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1000.cold.turbopack-->19.0s<!--/v--> at 1,000 new
+imports; warm <!--v:dr.c4142.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.7s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1.warm.turbopack-->15.9s<!--/v--> at 1, <!--v:dr.c4142.import.15+22+55+56+57+59+61.10.warm.turbopack-->19.9s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.10.warm.turbopack-->19.2s<!--/v--> at 10 and <!--v:dr.c4142.import.15+22+55+56+57+59+61.1000.warm.turbopack-->24.1s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1000.warm.turbopack-->20.0s<!--/v--> at 1,000. Same output.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
@@ -484,18 +675,24 @@ monolith's 1,709 page manifests share most of their client references.
   probe comparing two cold builds; the profile's and the probe's counts are not kept). 61
   (above) shares the per-reference parts; each changed page's manifest is still rebuilt
   whole.
-- The rest of the single-core JavaScript after `run-turbopack` is mostly forking the
-  page-data workers: `child_process.fork` from a process holding Turbopack's heap copies
-  its page tables once per worker (about 3s on the main thread, and 4s more in the
-  children before `exec`, in the profile with 24 workers).
+- The rest of the single-core JavaScript after `run-turbopack` is mostly starting the
+  page-data workers: fork + exec from a process holding Turbopack's heap (see "starting the
+  page-data workers" above; Node with libuv's `posix_spawn` takes the time after
+  `run-turbopack` from 23.2s to 7.2s on 192 CPUs). Until Node ships libuv 1.53, Next.js could
+  avoid most of it by starting the pool before Turbopack's heap grows; not tried.
   Letting mimalloc use transparent huge pages (`MIMALLOC_ALLOW_LARGE_OS_PAGES=1`, a probe:
   a paired cold A/B of 15 + 22 + 55 + 56 + 57 + 59 on the monolith, 6 reps, not a record)
-  changed neither `run-turbopack` (×1.018) nor the time after it. In those builds, with
-  Next.js's default page-data pool (191 workers on this instance), the time after
-  `run-turbopack` was about 35s in some builds and about 52s in others, on both sides.
+  changed neither `run-turbopack` (×1.018) nor the time after it.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
-- 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
-  explained yet.
+- 41 + 42 and 52, measured above on top of 15 + 22 + 55 + 56 + 57 + 59 + 61, are not in the
+  canonical run. 52's slower graph phase in its first A/B on the monolith (cold, on 15 + 22
+  alone) is not explained yet.
+- In the 192-CPU profile (without 52), the leaf after the counter's atomic add is
+  `TaskStatisticsApi::get`, a load of a field written once; it may share a cache line with the
+  counter that 52 stripes. Not profiled with 52 in.
+- On the larger app, a warm build after 1,000 new imports is still slower than a cold one, and
+  the whole-app analyses (module graph, chunk groups, merged modules) rerun in full after any
+  new import.
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.

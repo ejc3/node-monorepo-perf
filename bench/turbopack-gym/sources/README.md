@@ -1,8 +1,14 @@
 # Next.js sources
 
-`route-bundle-stats.ts` is `packages/next/src/build/route-bundle-stats.ts` from vercel/next.js at
-v16.4.0, byte for byte: the base side of `scripts/turbopack-gym/route-stats.mjs`. It is used under
-Next.js's license, reproduced below.
+Files from vercel/next.js at v16.4.0, byte for byte, used as the base side of the gym's
+JavaScript candidates:
+
+- `route-bundle-stats.ts`: `packages/next/src/build/route-bundle-stats.ts`, for
+  `scripts/turbopack-gym/route-stats.mjs`.
+- `config-shared.ts`: `packages/next/src/server/config-shared.ts`, for
+  `scripts/turbopack-gym/next-ab.mjs`.
+
+They are used under Next.js's license, reproduced below.
 
 ```text
 The MIT License (MIT)

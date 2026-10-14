@@ -656,6 +656,36 @@ function reportWith(keys, extra = {}, args = []) {
     "report.mjs names a missing route-stats record",
   );
 }
+// na.* keys: a next-ab record's medians and ratio; an error naming a record that is absent
+{
+  const rec = JSON.stringify({
+    median: {
+      cold: {
+        base: { wall: 80, turbopack: 45, after: 35 },
+        candidate: { wall: 60, turbopack: 45, after: 15 },
+        ratio: 0.75,
+      },
+    },
+  });
+  const r = reportWith(
+    ["na.c62.cold.base.after", "na.c62.cold.candidate.wall", "na.c62.cold.ratio"],
+    {
+      "bench/turbopack-gym/next-ab-62.json": rec,
+    },
+  );
+  check(
+    r.status === 0 &&
+      r.doc.includes("<!--v:na.c62.cold.base.after-->35.0s<!--/v-->") &&
+      r.doc.includes("<!--v:na.c62.cold.candidate.wall-->60.0s<!--/v-->") &&
+      r.doc.includes("<!--v:na.c62.cold.ratio-->0.750<!--/v-->"),
+    "report.mjs renders na.* keys from a next-ab record",
+  );
+  const missing = reportWith(["na.c62.cold.ratio"]);
+  check(
+    missing.status !== 0 && missing.stderr.includes("no next-ab record c62"),
+    "report.mjs names a missing next-ab record",
+  );
+}
 // cr.* keys: the median over a cache-read set's reps, a ratio of two medians, and an
 // error naming a set the record does not have.
 {
@@ -821,6 +851,197 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- next-ab.mjs and next-overlay.cjs ---------------------------------------------------
+{
+  const { buildOverlays, overlayEnv, patchedFiles } = await import("./next-ab.mjs");
+  const throws = (f) => {
+    try {
+      f();
+      return "";
+    } catch (e) {
+      return e.message;
+    }
+  };
+  check(
+    /under packages\/next\/src\//.test(
+      throws(() => patchedFiles("--- a/crates/x.rs\n+++ b/crates/x.rs\n")),
+    ) && /changes no file/.test(throws(() => patchedFiles("nothing\n"))),
+    "next-ab.mjs takes patches to Next.js TypeScript sources only",
+  );
+  // the preload runs a replacement in place of a dist file, under its name, and logs the load
+  const dir = mkdtempSync(join(tmpdir(), "gym-selftest-overlay-"));
+  try {
+    const dist = join(dir, "node_modules", "next", "dist");
+    mkdirSync(join(dist, "lib"), { recursive: true });
+    writeFileSync(join(dist, "lib", "dep.js"), "module.exports = 'dep';\n");
+    writeFileSync(join(dist, "x.js"), "module.exports = 'stock';\n");
+    writeFileSync(join(dir, "x-new.js"), "module.exports = 'replaced ' + require('./lib/dep');\n");
+    const log = join(dir, "overlay.log");
+    const r = spawnSync(
+      process.execPath,
+      ["-p", `require(${JSON.stringify(join(dist, "x.js"))})`],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          ...overlayEnv({ [join(dist, "x.js")]: join(dir, "x-new.js") }, log),
+        },
+      },
+    );
+    const logged = existsSync(log) ? readFileSync(log, "utf8") : "";
+    check(
+      r.stdout.trim() === "replaced dep" && logged.includes(`${r.pid} ${join(dist, "x.js")}`),
+      `next-overlay.cjs loads the replacement under the dist file's name and logs it (${r.stdout.trim() || r.stderr.slice(0, 200)})`,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  // on the quick app (its own typescript and next): candidate 62 replaces the app's
+  // dist/server/config-shared.js, base and candidate compiled from the vendored source
+  const quick = join(APPS, "quick");
+  if (existsSync(join(quick, "node_modules", "typescript"))) {
+    const work = mkdtempSync(join(tmpdir(), "gym-selftest-next-ab-"));
+    try {
+      const { overlays, sources } = buildOverlays({
+        app: quick,
+        patch: join(lib.CANDIDATES, "62-available-parallelism.patch"),
+        work,
+      });
+      const [target] = Object.keys(overlays.candidate);
+      const text = (side) => readFileSync(overlays[side][target], "utf8");
+      check(
+        target.endsWith("/next/dist/server/config-shared.js") &&
+          existsSync(target) &&
+          Object.keys(overlays.base).join() === target &&
+          sources["config-shared.ts"] &&
+          text("candidate").includes("availableParallelism()") &&
+          !text("base").includes("availableParallelism()"),
+        "next-ab.mjs compiles base and candidate 62 over the app's dist/server/config-shared.js",
+      );
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  } else check(false, "the quick app has typescript (next-ab.mjs overlay test)");
+}
+
+// --- published records carry no boot id ----------------------------------------------
+{
+  // the boot id is for raw logs only; records written straight to bench/ take the machine
+  // fields without it
+  const pub = lib.publicMachine ? lib.publicMachine() : lib.machine();
+  const writers = ["route-stats.mjs", "next-ab.mjs"].filter((f) =>
+    /machine: machine\(\)/.test(readFileSync(new URL(`./${f}`, import.meta.url), "utf8")),
+  );
+  check(
+    !("boot" in pub) && pub.instanceType !== undefined && writers.length === 0,
+    `records written by route-stats.mjs and next-ab.mjs leave out the boot id (${writers.join(", ") || "none embed machine()"})`,
+  );
+}
+
+// --- next-ab.mjs warm builds use the cache -------------------------------------------
+{
+  // a patched binding is built from a dirty next.js tree and, without
+  // TURBO_ENGINE_IGNORE_DIRTY, writes its cache where the next build deletes it: next-ab must
+  // set it like drift.mjs, and refuse a warm build that rebuilt the module graph
+  const { buildEnv, checkWarm } = await import("./next-ab.mjs");
+  let refused = "";
+  try {
+    checkWarm({ graph: { s: 4 } }, "candidate");
+  } catch (e) {
+    refused = e.message;
+  }
+  check(
+    buildEnv?.({ A: "1" }).TURBO_ENGINE_IGNORE_DIRTY === "1" &&
+      buildEnv({ A: "1" }).A === "1" &&
+      /rebuilt the module graph/.test(refused) &&
+      checkWarm({ graph: null }, "base") === undefined,
+    "next-ab.mjs keeps the cache of a patched binding and refuses a warm build that did not use it",
+  );
+}
+
+// --- bench.mjs --node ----------------------------------------------------------------
+{
+  // a build with another node binary records that binary's version and hash
+  const { prepare } = await import("./bench.mjs");
+  const quick = join(APPS, "quick");
+  const p = prepare({ binding: "stock", app: quick, node: process.execPath });
+  const plain = prepare({ binding: "stock", app: quick });
+  check(
+    p.node === process.execPath &&
+      p.buildNode.startsWith(`${process.version} (`) &&
+      /\([0-9a-f]{16}\)$/.test(p.buildNode) &&
+      plain.buildNode === process.version,
+    `bench.mjs records the node binary a build runs on (${p.buildNode})`,
+  );
+}
+
+// --- bench.mjs --node on the command line ------------------------------------------------
+{
+  // the CLI takes --node and hands it to bench(): with a binary that does not exist the run
+  // fails resolving that binary, not on an unknown flag
+  const r = spawnSync(
+    process.execPath,
+    [
+      new URL("./bench.mjs", import.meta.url).pathname,
+      "--node",
+      "/nonexistent/gym-selftest-node",
+      "--binding",
+      "stock",
+      "--app",
+      "quick",
+      "--cpus",
+      "0-1",
+    ],
+    { encoding: "utf8", env: process.env, timeout: 60000 },
+  );
+  check(
+    r.status !== 0 && !/unknown flag/.test(r.stderr) && /gym-selftest-node|ENOENT/.test(r.stderr),
+    `bench.mjs accepts --node and runs the build with it (${(r.stderr.match(/Error[^\n]*/) || [""])[0].slice(0, 100)})`,
+  );
+}
+
+// --- process-start probes count successful launches only ------------------------------
+{
+  // a launch that failed (resource limits at a large heap) would otherwise be timed as a
+  // fast start: both probes check the child's exit before keeping a sample
+  const py = readFileSync(new URL("./process-start-cost.py", import.meta.url), "utf8");
+  const js = readFileSync(new URL("./process-start-cost.mjs", import.meta.url), "utf8");
+  check(
+    /waitstatus_to_exitcode|WEXITSTATUS|status != 0/.test(py) && /\.status !== 0|\.error/.test(js),
+    "process-start-cost.{py,mjs} refuse a launch that did not exit 0",
+  );
+}
+
+// --- record writers check each build's binding against bindings.json ------------------
+{
+  // a record names a binding from bindings.json; each build's binding source must be that
+  // entry's head and diff, or the record would credit results to a stack it did not measure
+  const map = { x: { head: "h1", diffSha256: "d1", patches: [] } };
+  const good = { id: "r1", binding: "x", bindingSource: { head: "h1", diffSha256: "d1" } };
+  const stale = { id: "r2", binding: "x", bindingSource: { head: "h1", diffSha256: "d2" } };
+  const unknown = { id: "r3", binding: "y", bindingSource: { head: "h1", diffSha256: "d1" } };
+  const throws = (f) => {
+    try {
+      f();
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const fn = lib.checkBindingSource;
+  const users = ["drift.mjs", "next-ab.mjs"].filter(
+    (f) => !/checkBindingSource\(/.test(readFileSync(new URL(`./${f}`, import.meta.url), "utf8")),
+  );
+  check(
+    typeof fn === "function" &&
+      !throws(() => fn(map, good)) &&
+      throws(() => fn(map, stale)) &&
+      throws(() => fn(map, unknown)) &&
+      users.length === 0,
+    `drift.mjs and next-ab.mjs check each build's binding against bindings.json (missing: ${users.join(", ") || "none"})`,
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run
@@ -935,6 +1156,38 @@ if (a.builds) {
     rmSync(dir, { recursive: true, force: true });
     rmSync(run.distDir, { recursive: true, force: true });
   }
+}
+
+// --- next-ab.mjs ---------------------------------------------------------------------
+if (a.builds) {
+  // candidate 62 on the quick app: with the reference (base told the worker count the
+  // candidate computes) the outputs match; against base's default count they do not, and the
+  // run is refused
+  const { nextAb } = await import("./next-ab.mjs");
+  const opts = {
+    patch: join(lib.CANDIDATES, "62-available-parallelism.patch"),
+    app: "quick",
+    cpus: "0-15",
+    reps: 1,
+    modes: ["cold"],
+  };
+  const rec = await nextAb({ ...opts, referenceEnv: { CIRCLE_NODE_TOTAL: "16" } });
+  check(
+    rec.sameOutput &&
+      rec.outputs.candidate === rec.outputs.reference &&
+      rec.runs.every((r) => r.overlayProcesses >= 1),
+    "next-ab.mjs: candidate 62's output equals base's with the same worker count set",
+  );
+  let refused = "";
+  try {
+    await nextAb(opts);
+  } catch (e) {
+    refused = e.message;
+  }
+  check(
+    /candidate's output \w+ differs from base's/.test(refused),
+    `next-ab.mjs refuses a candidate whose output differs (${refused.slice(0, 120)})`,
+  );
 }
 
 if (a.builds) {

@@ -1,0 +1,239 @@
+{
+  "description": "whole builds (next build --experimental-build-mode=compile), base against a candidate: a patch to Next.js sources as of v16.4.0 loaded over the app's next/dist files, or another node binary; see scripts/turbopack-gym/next-ab.mjs",
+  "machine": {
+    "arch": "arm64",
+    "cpuModel": "0xd84",
+    "cores": 192,
+    "numaNodes": 2,
+    "memGiB": 371,
+    "instanceType": "c9gd.48xlarge",
+    "node": "v22.23.3",
+    "sharedBox": false
+  },
+  "app": "drift-monolith",
+  "binding": "15+22+55+56+57+59+61",
+  "cpus": "0-191",
+  "reps": 3,
+  "modes": [
+    "cold",
+    "warm"
+  ],
+  "patch": null,
+  "sources": {},
+  "nodes": {
+    "base": "v22.23.3 (9fc3129e3d6c8bfe)",
+    "candidate": "v22.23.3 (76ca579a073ac9bc)"
+  },
+  "env": {},
+  "referenceEnv": null,
+  "outputs": {
+    "base": "d9de5b0997ee3545",
+    "candidate": "d9de5b0997ee3545"
+  },
+  "sameOutput": true,
+  "against": "base",
+  "median": {
+    "cold": {
+      "base": {
+        "wall": 49.751,
+        "turbopack": 26.554,
+        "after": 23.2,
+        "overlayProcesses": 0
+      },
+      "candidate": {
+        "wall": 35.102,
+        "turbopack": 27.836,
+        "after": 7.22,
+        "overlayProcesses": 0
+      },
+      "ratio": 0.7056
+    },
+    "warm": {
+      "base": {
+        "wall": 13.637,
+        "turbopack": 3.812,
+        "after": 9.95,
+        "overlayProcesses": 0
+      },
+      "candidate": {
+        "wall": 11.234,
+        "turbopack": 3.762,
+        "after": 7.47,
+        "overlayProcesses": 0
+      },
+      "ratio": 0.8238
+    }
+  },
+  "seeds": [
+    {
+      "side": "base",
+      "mode": "seed",
+      "rep": -1,
+      "id": "mv7ecmnz-83af8c",
+      "wall": 49.416,
+      "turbopack": 27.029,
+      "after": 22.39,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "seed",
+      "rep": -1,
+      "id": "mv7ee1uc-8522cd",
+      "wall": 34.617,
+      "turbopack": 27.594,
+      "after": 7.02,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    }
+  ],
+  "runs": [
+    {
+      "side": "base",
+      "mode": "cold",
+      "rep": 0,
+      "id": "mv7ef61p-b2a4c0",
+      "wall": 46.83,
+      "turbopack": 27.579,
+      "after": 19.25,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "cold",
+      "rep": 0,
+      "id": "mv7egi01-58a770",
+      "wall": 35.106,
+      "turbopack": 27.836,
+      "after": 7.27,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "base",
+      "mode": "warm",
+      "rep": 0,
+      "id": "mv7ehlo5-8f0d98",
+      "wall": 13.637,
+      "turbopack": 3.824,
+      "after": 9.81,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "warm",
+      "rep": 0,
+      "id": "mv7ei8qt-321a3a",
+      "wall": 11.234,
+      "turbopack": 3.762,
+      "after": 7.47,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "cold",
+      "rep": 1,
+      "id": "mv7eit89-35fc2e",
+      "wall": 32.919,
+      "turbopack": 25.697,
+      "after": 7.22,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "base",
+      "mode": "cold",
+      "rep": 1,
+      "id": "mv7ejuf5-8a76fa",
+      "wall": 49.751,
+      "turbopack": 26.554,
+      "after": 23.2,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "warm",
+      "rep": 1,
+      "id": "mv7el9bj-782b6a",
+      "wall": 11.236,
+      "turbopack": 3.779,
+      "after": 7.46,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "base",
+      "mode": "warm",
+      "rep": 1,
+      "id": "mv7eluhg-ee7896",
+      "wall": 14.234,
+      "turbopack": 3.812,
+      "after": 10.42,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "base",
+      "mode": "cold",
+      "rep": 2,
+      "id": "mv7emhad-3c071b",
+      "wall": 50.047,
+      "turbopack": 26.26,
+      "after": 23.79,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "cold",
+      "rep": 2,
+      "id": "mv7envx8-4e6ddc",
+      "wall": 35.102,
+      "turbopack": 27.989,
+      "after": 7.11,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "base",
+      "mode": "warm",
+      "rep": 2,
+      "id": "mv7eozn4-77d3fb",
+      "wall": 13.636,
+      "turbopack": 3.685,
+      "after": 9.95,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (9fc3129e3d6c8bfe)",
+      "overlayProcesses": 0
+    },
+    {
+      "side": "candidate",
+      "mode": "warm",
+      "rep": 2,
+      "id": "mv7epmsp-b831f8",
+      "wall": 11.132,
+      "turbopack": 3.652,
+      "after": 7.48,
+      "output": "d9de5b0997ee3545",
+      "node": "v22.23.3 (76ca579a073ac9bc)",
+      "overlayProcesses": 0
+    }
+  ]
+}
