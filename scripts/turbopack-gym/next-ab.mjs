@@ -42,7 +42,19 @@ import {
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { bench } from "./bench.mjs";
-import { APPS, REPO, ROOT, ensureDir, publicMachine, median, parseArgs, withCpus } from "./lib.mjs";
+import {
+  APPS,
+  REPO,
+  ROOT,
+  bindingsMap,
+  checkBindingSource,
+  ensureDir,
+  median,
+  parseArgs,
+  publicMachine,
+  publishedBinding,
+  withCpus,
+} from "./lib.mjs";
 import { transpile } from "./route-stats.mjs";
 
 const HOOK = join(dirname(new URL(import.meta.url).pathname), "next-overlay.cjs");
@@ -181,6 +193,9 @@ export async function nextAb({
         : {}),
     };
     const names = Object.keys(sides);
+    const map = bindingsMap();
+    if (!map[binding]) throw new Error(`binding ${binding} is not in bindings.json`);
+    let appHash = null;
     const log = join(work, "overlay.log");
     const snap = (side) => join(work, `snap-${side}`);
     const runs = [];
@@ -208,6 +223,9 @@ export async function nextAb({
         optional: mode === "warm" ? WARM_OPTIONAL : [],
       });
       if (mode === "warm") checkWarm(r, side);
+      checkBindingSource(map, r);
+      appHash ??= r.appHash;
+      if (r.appHash !== appHash) throw new Error(`run ${r.id}: the app changed during the A/B`);
       const loads = existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
       const processes = new Set(loads.map((l) => l.split(" ")[0])).size;
       if (patch && !processes)
@@ -278,6 +296,8 @@ export async function nextAb({
       machine: publicMachine(),
       app: basename(appDir),
       binding,
+      bindings: { [binding]: publishedBinding(map, binding) },
+      appHash,
       cpus,
       reps,
       modes,

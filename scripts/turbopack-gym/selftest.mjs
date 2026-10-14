@@ -1012,6 +1012,36 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- record writers check each build's binding against bindings.json ------------------
+{
+  // a record names a binding from bindings.json; each build's binding source must be that
+  // entry's head and diff, or the record would credit results to a stack it did not measure
+  const map = { x: { head: "h1", diffSha256: "d1", patches: [] } };
+  const good = { id: "r1", binding: "x", bindingSource: { head: "h1", diffSha256: "d1" } };
+  const stale = { id: "r2", binding: "x", bindingSource: { head: "h1", diffSha256: "d2" } };
+  const unknown = { id: "r3", binding: "y", bindingSource: { head: "h1", diffSha256: "d1" } };
+  const throws = (f) => {
+    try {
+      f();
+      return false;
+    } catch {
+      return true;
+    }
+  };
+  const fn = lib.checkBindingSource;
+  const users = ["drift.mjs", "next-ab.mjs"].filter(
+    (f) => !/checkBindingSource\(/.test(readFileSync(new URL(`./${f}`, import.meta.url), "utf8")),
+  );
+  check(
+    typeof fn === "function" &&
+      !throws(() => fn(map, good)) &&
+      throws(() => fn(map, stale)) &&
+      throws(() => fn(map, unknown)) &&
+      users.length === 0,
+    `drift.mjs and next-ab.mjs check each build's binding against bindings.json (missing: ${users.join(", ") || "none"})`,
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run

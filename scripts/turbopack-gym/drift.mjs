@@ -54,6 +54,7 @@ import {
   RUNS,
   appendJsonl,
   checkAborted,
+  checkBindingSource,
   ensureDir,
   median,
   pageWorkersEnv,
@@ -473,13 +474,7 @@ function series(plan, check) {
     .filter((l) => l.sweep === plan.sweep)
     .map((l) => {
       const r = JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8"));
-      const entry = map[r.binding];
-      if (
-        !entry ||
-        r.bindingSource?.head !== entry.head ||
-        r.bindingSource?.diffSha256 !== entry.diffSha256
-      )
-        throw new Error(`run ${r.id}: binding ${r.binding} does not match bindings.json`);
+      checkBindingSource(map, r);
       if (r.cpus !== plan.cpus) throw new Error(`run ${r.id} ran on ${r.cpus}, not ${plan.cpus}`);
       if (l.binding !== r.binding || l.appHash !== r.appHash)
         throw new Error(`run ${r.id}: drift.jsonl's binding or tree is not its run's`);

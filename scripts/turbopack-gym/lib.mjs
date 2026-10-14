@@ -40,6 +40,23 @@ export const CANDIDATES = join(REPO, "bench", "turbopack-gym", "candidates");
 // How a record names a binding: bindings.json's diff hash and each patch file's hash. A
 // one-patch binding's diff is that patch, so a record refuses the two disagreeing (a patch
 // file edited after the binding was built, or bindings.json not updated after a rebuild).
+// bench/turbopack-gym/bindings.json: each published binding's patches, head and diff hash.
+export const bindingsMap = () =>
+  JSON.parse(readFileSync(join(REPO, "bench", "turbopack-gym", "bindings.json"), "utf8"));
+
+// A build's binding must be the one bindings.json names: the same head and diff. A record
+// whose builds ran a rebuilt or stale binding would credit its results to a stack it did not
+// measure.
+export function checkBindingSource(map, r) {
+  const entry = map[r.binding];
+  if (
+    !entry ||
+    r.bindingSource?.head !== entry.head ||
+    r.bindingSource?.diffSha256 !== entry.diffSha256
+  )
+    throw new Error(`run ${r.id}: binding ${r.binding} does not match bindings.json`);
+}
+
 export function publishedBinding(map, name) {
   const { diffSha256, patches } = map[name];
   const files = patches.map((f) => ({
