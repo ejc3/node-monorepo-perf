@@ -296,20 +296,18 @@ passes 276 of 276.
 
 After 56, a warm build with 1,000 new imports still spends <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> in emit
 (`bench/turbopack-graph-drift-57.json`). Counters added to the backend in a diagnostic
-build (15 + 22 + 55 + 56 plus the counters; one warm build with 10 new imports, on a
-dedicated box, not in a record) show where it goes:
+build (one warm build with 10 new imports on a dedicated box; its counts are not kept, so
+they are not quoted here) show where it goes:
 
-- `emit_assets` completes with 4,352 new children. Connecting them queues 8.25 M
-  `AggregatedDataUpdate` jobs, which apply 16.5 M collectible changes; removing its old
-  children (`cleanup_old_edges`) queues another 0.93 M jobs with 9.0 M changes. The
-  completion takes 5.9s.
-- The task that takes the build's 41,875 collectibles
-  (`entrypoints_without_collectibles_operation`) has 3,791 aggregating ancestors: 3,789
-  `pick_endpoint` tasks, the `EntrypointsOperation` and the emit operation above them.
-  `pick_endpoint` (`crates/next-api/src/operation.rs`) is a `root` operation, one per
-  endpoint of the app, and each reads the whole `Entrypoints` operation strongly
-  consistently, so each is an aggregation root over all of it: a collectible change below
-  it is applied on each of the 3,789.
+- `emit_assets` completes with thousands of new children. Connecting them queues millions of
+  `AggregatedDataUpdate` jobs carrying collectible changes, and removing its old children
+  (`cleanup_old_edges`) queues more.
+- The task that takes the build's collectibles (`entrypoints_without_collectibles_operation`)
+  has an aggregating ancestor per endpoint of the app: the `pick_endpoint` tasks, plus the
+  `EntrypointsOperation` and the emit operation above them. `pick_endpoint`
+  (`crates/next-api/src/operation.rs`) is a `root` operation, one per endpoint, and each
+  reads the whole `Entrypoints` operation strongly consistently, so each is an aggregation
+  root over all of it: a collectible change below it is applied once per endpoint.
 - In the aggregation update queue, when one job gives an upper new followers, the diff that
   each follower's data makes on the upper is pushed to the upper's own uppers as a job of
   its own, so a task that completes with k new children has the graph above walked k times.
