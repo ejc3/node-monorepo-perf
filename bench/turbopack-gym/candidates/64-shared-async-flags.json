@@ -1,0 +1,5 @@
+{
+  "description": "next-core client reference manifests: whether a client reference's client, SSR and RSC modules are async is read in the shared per-reference task of 61 (client_reference_ids), three keyed reads of the app's one AsyncModulesInfo per client reference, instead of in every page's build_manifest for every client reference it uses, where all pages' keyed reads land on that one task. Same manifests, same order",
+  "patch": "bench/turbopack-gym/candidates/64-shared-async-flags.patch",
+  "base": "vercel/next.js v16.4.0 + 61-shared-manifest-entry-parts"
+}
