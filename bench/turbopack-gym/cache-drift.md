@@ -530,6 +530,18 @@ Next.js's JavaScript and are measured on their own (above), so they are not in t
 Same output in every build. A warm build is faster than a cold one at 0, 1 and 10 new imports;
 at 1,000 its wall time is within a second of the cold build's.
 
+On all 192 CPUs of the same machine type (`bench/turbopack-graph-drift-full-192.json`, 2 reps):
+
+| new imports | cold wall | warm wall | cold `run-turbopack` | warm `run-turbopack` |
+|---|---|---|---|---|
+| 0 | <!--v:dr.full192.import.base.0.cold.wall-->121.5s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->55.5s<!--/v--> | <!--v:dr.full192.import.base.0.warm.wall-->55.4s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.warm.wall-->19.1s<!--/v--> | <!--v:dr.full192.import.base.0.cold.turbopack-->91.6s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->24.8s<!--/v--> | <!--v:dr.full192.import.base.0.warm.turbopack-->40.6s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.5s<!--/v--> |
+| 1 | <!--v:dr.full192.import.base.1.cold.wall-->121.9s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.cold.wall-->54.1s<!--/v--> | <!--v:dr.full192.import.base.1.warm.wall-->94.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->45.0s<!--/v--> | <!--v:dr.full192.import.base.1.cold.turbopack-->92.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->25.5s<!--/v--> | <!--v:dr.full192.import.base.1.warm.turbopack-->74.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->22.8s<!--/v--> |
+| 10 | <!--v:dr.full192.import.base.10.cold.wall-->122.8s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.cold.wall-->53.0s<!--/v--> | <!--v:dr.full192.import.base.10.warm.wall-->116.3s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.warm.wall-->49.1s<!--/v--> | <!--v:dr.full192.import.base.10.cold.turbopack-->93.0s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->25.3s<!--/v--> | <!--v:dr.full192.import.base.10.warm.turbopack-->89.0s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->25.4s<!--/v--> |
+| 1,000 | <!--v:dr.full192.import.base.1000.cold.wall-->120.5s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.wall-->51.6s<!--/v--> | <!--v:dr.full192.import.base.1000.warm.wall-->156.2s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.wall-->58.0s<!--/v--> | <!--v:dr.full192.import.base.1000.cold.turbopack-->92.7s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->26.0s<!--/v--> | <!--v:dr.full192.import.base.1000.warm.turbopack-->128.8s<!--/v--> → <!--v:dr.full192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->30.0s<!--/v--> |
+
+Same output in every build. Base's cold `run-turbopack` doubles from 24 to 192 CPUs; with the
+changes it grows by about 30%.
+
 ## More cores
 
 The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
