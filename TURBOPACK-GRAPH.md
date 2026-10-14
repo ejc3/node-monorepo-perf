@@ -290,7 +290,7 @@ client reference manifest (<!--v:rs.c60.manifests-->2,073 files, 774.6 MB<!--/v-
 Candidate 60 parses the JSON value each file assigns instead, falling back to `require()`
 for any other shape. Measured alone on one monolith build's output
 (`bench/turbopack-gym/route-stats-60.json`, `scripts/turbopack-gym/route-stats.mjs`): <!--v:rs.c60.base.s-->7.79s<!--/v-->
-→ <!--v:rs.c60.candidate.s-->2.95s<!--/v--> (×<!--v:rs.c60.ratio-->0.379<!--/v-->), peak RSS <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->, the same stats file as the build's.
+→ <!--v:rs.c60.candidate.s-->2.95s<!--/v--> (×<!--v:rs.c60.ratio-->0.379<!--/v-->), resident memory at the step's end <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->, the same stats file as the build's.
 
 ## A Counter Every Operation Writes
 

@@ -429,7 +429,7 @@ a kept build of the quick app and checks that a patch that changes the stats is 
 
 `bench/turbopack-gym/route-stats-60.json` (a cold monolith build of 15 + 22 + 55 + 56 + 57,
 7 runs per side, a dedicated c8gd.48xlarge): <!--v:rs.c60.base.s-->7.79s<!--/v--> → <!--v:rs.c60.candidate.s-->2.95s<!--/v--> (×<!--v:rs.c60.ratio-->0.379<!--/v-->), the runs not
-overlapping; the process's peak RSS <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->. Same stats file, and the same as the
+overlapping; the process's resident memory when the step ends (`process.memoryUsage().rss`, not a peak) <!--v:rs.c60.base.rssMiB-->1,310 MiB<!--/v--> → <!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->. Same stats file, and the same as the
 build's. The step runs on the main thread after `run-turbopack` in every build, warm or
 cold, and the build awaits it before finishing; whole builds with 60 were not measured.
 
