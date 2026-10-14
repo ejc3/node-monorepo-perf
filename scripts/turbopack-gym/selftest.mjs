@@ -759,6 +759,24 @@ function reportWith(keys, extra = {}, args = []) {
   }
 }
 
+// --- climb.mjs measures native candidates only ------------------------------------------
+{
+  // a candidate whose patch changes only Next.js's JavaScript/TypeScript would build an
+  // unchanged binding: climb must skip it (route-stats.mjs or next-ab.mjs measure those)
+  const ok = typeof lib.nativeCandidate === "function";
+  const rust = { patch: "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch" };
+  const js = { patch: "bench/turbopack-gym/candidates/60-route-stats-json-manifest.patch" };
+  const climbSrc = readFileSync(new URL("./climb.mjs", import.meta.url), "utf8");
+  check(
+    ok &&
+      lib.nativeCandidate(rust) === true &&
+      lib.nativeCandidate(js) === false &&
+      lib.nativeCandidate({ env: { A: "1" } }) === true &&
+      /nativeCandidate\(cand\)/.test(climbSrc),
+    "climb.mjs skips a candidate whose patch changes no native source",
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run

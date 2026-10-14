@@ -85,6 +85,17 @@ export function parseArgs(argv, spec) {
 }
 
 // "0-31,64-95" -> 64
+// Whether climb.mjs can measure a candidate by building a binding: env-only and worktree
+// candidates can; a patch must change some native source (crates/ or turbopack/). A patch to
+// Next.js's JavaScript alone (packages/) would build an unchanged binding.
+export function nativeCandidate(cand) {
+  if (!cand.patch) return true;
+  const files = [
+    ...readFileSync(join(REPO, cand.patch), "utf8").matchAll(/^\+\+\+ b\/(\S+)/gm),
+  ].map((m) => m[1]);
+  return files.some((f) => f.startsWith("crates/") || f.startsWith("turbopack/"));
+}
+
 // The number of distinct CPUs in a list: the cpuset and the CPU locks take each CPU once.
 export function cpuCount(list) {
   return expandCpus(list).length;

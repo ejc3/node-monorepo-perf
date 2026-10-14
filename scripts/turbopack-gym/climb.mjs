@@ -22,6 +22,7 @@ import { build, worktreeFor } from "./build.mjs";
 import {
   BINDINGS,
   CANDIDATES,
+  nativeCandidate,
   INCUMBENT,
   NEXTJS,
   REPO,
@@ -101,6 +102,12 @@ async function climb() {
     const path = join(CANDIDATES, `${name}.json`);
     const cand = JSON.parse(readFileSync(path, "utf8"));
     if (cand.result && !o.only) continue;
+    if (!nativeCandidate(cand)) {
+      console.error(
+        `[climb] ${name}: its patch changes no native source; measure it with route-stats.mjs or next-ab.mjs`,
+      );
+      continue;
+    }
     console.error(`\n[climb] ${name}: ${cand.description || ""}`);
 
     let binding = "incumbent";
