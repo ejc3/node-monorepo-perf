@@ -243,6 +243,22 @@ against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<
 `run-turbopack` ×1.005 (base → 56) and ×1.008 (stacked), same output
 (`bench/turbopack-gym/ab56-cold.json`).
 
+The task that takes those collectibles sits under one aggregation root per endpoint of the
+app (one `pick_endpoint` operation per endpoint), so every collectible change is applied on each of
+them, and when a task completes with many new children, each child's diff went up the graph
+as a job of its own. Candidate 57 merges the diffs that one job's new followers make on an
+upper into one update for that upper's uppers (`bench/turbopack-graph-drift-57.json`,
+another dedicated c8gd.48xlarge, same output at every point). Warm builds on top of
+15 + 22 + 55 + 56, `run-turbopack` / `turbopack-emit`:
+
+| new imports | 15 + 22 + 55 + 56 | + 57 |
+|---|---|---|
+| 10 | <!--v:dr.c57.import.15+22+55+56.10.warm.turbopack-->38.5s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.10.warm.emit-->8.4s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.10.warm.turbopack-->36.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.10.warm.emit-->5.5s<!--/v--> |
+| 1,000 | <!--v:dr.c57.import.15+22+55+56.1000.warm.turbopack-->62.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c57.import.15+22+55+56+57.1000.warm.turbopack-->52.1s<!--/v--> / <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> |
+
+Cold builds: a paired A/B gives `run-turbopack` ×0.989, same output
+(`bench/turbopack-gym/ab57-cold.json`).
+
 ## A Counter Every Operation Writes
 
 In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of
@@ -261,6 +277,10 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   accounts for it.
 - base → 52 on vizdash: `run-turbopack` <!--v:oc.viz-52.guard-->1.016<!--/v-->×, no gain.
 - 15 + 22 → 15 + 22 + 52 on the monolith: `run-turbopack` <!--v:oc.mono-15+22+52.guard-->0.922<!--/v-->× (<!--v:oc.mono-15+22+52.tpA-->32.47s<!--/v--> → <!--v:oc.mono-15+22+52.tpB-->29.77s<!--/v-->).
+- Stacked on 15 + 22 + 55 + 56, in the drift sweep's single builds
+  (`bench/turbopack-graph-drift-52w.json`): cold `run-turbopack` <!--v:dr.c52w.import.15+22+55+56.0.cold.turbopack-->31.6s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.0.cold.turbopack-->29.6s<!--/v-->
+  with nothing changed and <!--v:dr.c52w.import.15+22+55+56.1000.cold.turbopack-->32.4s<!--/v--> → <!--v:dr.c52w.import.15+22+52+55+56.1000.cold.turbopack-->30.5s<!--/v--> at 1,000 new imports; warm builds no
+  different outside the spread between reps.
 
 ## Open Items
 
@@ -272,8 +292,9 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   section).
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
-- New imports rerun the whole-app analyses on restored task state, on many cores; after 56,
-  part of a warm build's emit after many new imports is still one-core collectible updates
+- New imports rerun the whole-app analyses on restored task state, on many cores; after 57,
+  part of a warm build's emit after many new imports is still collectible updates: those for
+  removed children, and each change applied on every endpoint's root
   (bench/turbopack-gym/cache-drift.md, Open).
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.

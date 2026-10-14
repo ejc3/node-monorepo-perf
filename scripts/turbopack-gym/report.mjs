@@ -28,7 +28,12 @@ const abRecords = Object.fromEntries(
     .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
 );
 // optional: the persistent-cache drift records (dr.* keys), by name
-const DRIFT = { main: "turbopack-graph-drift.json", c56: "turbopack-graph-drift-56.json" };
+const DRIFT = {
+  main: "turbopack-graph-drift.json",
+  c56: "turbopack-graph-drift-56.json",
+  c52w: "turbopack-graph-drift-52w.json",
+  c57: "turbopack-graph-drift-57.json",
+};
 const drift = Object.fromEntries(
   Object.entries(DRIFT)
     .map(([k, f]) => [k, join(REPO, "bench", f)])

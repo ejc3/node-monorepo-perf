@@ -1,0 +1,99 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+index b38faa504e..f9d283c110 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/aggregation_update.rs
+@@ -610,6 +610,33 @@ impl AggregatedDataUpdate {
+         result
+     }
+ 
++    /// Adds `other` to this update, with the same effect on a task as applying this update and
++    /// then `other`: collectible changes are appended and dirty container counts of the same
++    /// container are summed. Returns `other` unchanged when both carry a dirty container update
++    /// for different containers, which one update cannot hold.
++    fn merge(&mut self, other: Self) -> Option<Self> {
++        let dirty_container_update =
++            match (self.dirty_container_update, other.dirty_container_update) {
++                (Some(a), Some(b)) if a.task_id != b.task_id => return Some(other),
++                (Some(a), Some(b)) => {
++                    let dirty_count = a.dirty_count + b.dirty_count;
++                    let current_session_clean_count =
++                        a.current_session_clean_count + b.current_session_clean_count;
++                    (dirty_count != 0 || current_session_clean_count != 0).then_some(
++                        DirtyContainerUpdate {
++                            task_id: a.task_id,
++                            dirty_count,
++                            current_session_clean_count,
++                        },
++                    )
++                }
++                (a, b) => a.or(b),
++            };
++        self.dirty_container_update = dirty_container_update;
++        self.collectibles_update.extend(other.collectibles_update);
++        None
++    }
++
+     /// Returns true, when the update is empty resp. a no-op.
+     fn is_empty(&self) -> bool {
+         let Self {
+@@ -2905,19 +2932,34 @@ impl AggregationUpdateQueue {
+                 // For performance reasons this should stay `Meta` and not `All`
+                 AGGREGATION_UPDATE_CATEGORY,
+             );
+-            let diffs = upper_data_updates
++            // The diffs all come from this upper, so they go to the same uppers: send them as
++            // one update, so the graph above is walked once for all new followers instead of
++            // once per follower.
++            let mut merged: Option<AggregatedDataUpdate> = None;
++            let mut unmerged = Vec::new();
++            for data in upper_data_updates {
++                let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
++                if diff.is_empty() {
++                    continue;
++                }
++                match &mut merged {
++                    None => merged = Some(diff),
++                    Some(merged) => {
++                        if let Some(diff) = merged.merge(diff) {
++                            unmerged.push(diff);
++                        }
++                    }
++                }
++            }
++            let diffs: SmallVec<[AggregatedDataUpdate; 1]> = merged
+                 .into_iter()
+-                .filter_map(|data| {
+-                    let diff = data.apply(&mut upper, ctx.should_track_activeness(), self);
+-                    (!diff.is_empty()).then_some(diff)
+-                })
+-                .collect::<Vec<_>>();
+-            let mut iter = diffs.into_iter();
+-            if let Some(mut diff) = iter.next() {
++                .chain(unmerged)
++                .filter(|diff| !diff.is_empty())
++                .collect();
++            if !diffs.is_empty() {
+                 let upper_ids = get_uppers(&upper);
+                 drop(upper);
+-                // TODO merge AggregatedDataUpdate
+-                for next_diff in iter {
++                for diff in diffs {
+                     self.push(
+                         AggregatedDataUpdateJob {
+                             upper_ids: upper_ids.clone(),
+@@ -2925,15 +2967,7 @@ impl AggregationUpdateQueue {
+                         }
+                         .into(),
+                     );
+-                    diff = next_diff;
+                 }
+-                self.push(
+-                    AggregatedDataUpdateJob {
+-                        upper_ids,
+-                        update: diff,
+-                    }
+-                    .into(),
+-                );
+             }
+         }
+         if !inner_tasks.is_empty() {

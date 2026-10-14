@@ -1,0 +1,5 @@
+{
+  "description": "turbo-tasks-backend: when an aggregated data update gives an upper several new followers in one job (a task completing with many new children), the diffs they produce on that upper are merged into one AggregatedDataUpdate (collectible changes appended, dirty container counts of one container summed) and pushed once to the upper's uppers, so the aggregation graph above is walked once for all new followers instead of once per follower",
+  "patch": "bench/turbopack-gym/candidates/57-merge-new-follower-data.patch",
+  "base": "vercel/next.js v16.4.0"
+}

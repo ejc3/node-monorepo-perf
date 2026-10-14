@@ -119,5 +119,34 @@
     ],
     "diffSha256": "cb779c4b2f57ecf5",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "57-merge-new-follower-data": {
+    "patches": [
+      "57-merge-new-follower-data.patch"
+    ],
+    "diffSha256": "4f0b9770db5535c6",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+52+55+56": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch"
+    ],
+    "diffSha256": "7d29dd27c1f206af",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55+56+57": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch"
+    ],
+    "diffSha256": "18e94a0735a38444",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

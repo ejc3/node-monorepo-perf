@@ -92,7 +92,9 @@ separate cost:
   changes up the task graph; recording a task's taken collectibles as one operation instead of
   one per collectible (candidate 56) takes emit at 1,000 new imports from
   <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> to <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v-->
-  ([cache-drift.md](bench/turbopack-gym/cache-drift.md)).
+  ([cache-drift.md](bench/turbopack-gym/cache-drift.md)); merging the updates a task's new
+  children make on each upper into one (candidate 57) takes it from <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> to
+  <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> on top of 15 + 22 + 55 + 56.
 
 Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
 1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at

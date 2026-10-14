@@ -620,6 +620,26 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   - `--host <name>` runs setup, A/B, scaling and record on a machine from the gitignored
     `scripts/turbopack-gym/hosts.local.json`; bindings are built here and shipped as store
     entries.
+  - Dedicated boxes: every published number comes from a machine running nothing else (a
+    `machine.sharedBox: false` record); a shared dev box is for building and testing only.
+    The workflow on such a box:
+    - `hosts.mjs`'s `sync(host, [bindings])` copies the gym scripts, `bench/turbopack-gym/`
+      (patches and `bindings.json`) and the named bindings' store entries.
+    - Launch the sweep or A/B detached on the box (`nohup setsid`), so a dropped ssh does not
+      kill it, and copy its logs back periodically.
+    - Run `record` there: it re-reads the per-run files, which stay on the box.
+    - Stop the box when the record is copied back.
+  - A record refuses a run whose binding is not in `bench/turbopack-gym/bindings.json` with
+    the same head and diff hash (`sha256` of the store entry's `candidate.diff`, 16 hex
+    digits), so add a stacked binding's entry (its patch list, in order) before `record`.
+    The entry ties the record to the patch files, so a measured patch is never edited: a
+    cleaned-up form (formatting, tests) goes in `bench/turbopack-gym/upstream/`. A
+    candidate worktree stays uncommitted on `gym/base`: the warm cache is keyed on the
+    commit, and a commit makes every "warm" build cold.
+  - Drift records other than the main one are named `bench/turbopack-graph-drift-<tag>.json`
+    and listed in `report.mjs`'s `DRIFT` map (`dr.<name>.*` keys). An A/B taken off a box
+    as `ab.jsonl` lines (`bench/turbopack-gym/ab56-cold.json`) drops `host` and
+    `machine.boot`.
   - `record.mjs` writes `bench/turbopack-graph-ab.json` and
     `bench/turbopack-graph-scaling.json` for one canonical run (`--tag`), recomputing every
     number from the per-run files and refusing a run whose binding (head, diff), app tree,
@@ -1093,7 +1113,9 @@ persistent cache against changed files, base and candidate 55, `drift.mjs record
 the host) ran on a dedicated 192-core c8gd.48xlarge whose gym root is btrfs on its local
 NVMe disks (`drift.mjs` needs reflink copies), as did `bench/turbopack-graph-drift-56.json`
 (candidate 56 alone and stacked, `import` edits) and `bench/turbopack-gym/ab56-cold.json`
-(candidate 56's paired cold A/Bs, `ab.mjs`). `bench/turbopack-gym/cache-read-probes.json`
+(candidate 56's paired cold A/Bs, `ab.mjs`), `bench/turbopack-graph-drift-52w.json` and
+`bench/turbopack-graph-drift-57.json` (candidates 52 and 57 on 15 + 22 + 55 + 56, `import`
+edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B). `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
@@ -1655,6 +1677,12 @@ short list and surface them rather than silently resolving them.
   formatting sweep as its own mechanical commit, separate from logic changes.
 - **Re-running benches is expensive;** get the code reviewed and correct first, then
   run once.
+- **Code someone else owns is not a reason to stop.** When the next bottleneck is in
+  Next.js, Turbopack or any other dependency (including a part outside the crates the gym
+  has patched so far), write the change there as a candidate, in a gym worktree or a
+  personal fork, and measure it like any other. Don't park it as a question for the
+  maintainers. What may be sent upstream (issues, pull requests, comments) is still the
+  owner's call.
 - **Session values stay out of the repository.** A value copied from a working
   session (a shell, an environment variable, a launch command or a transcript) is
   not useful to the repository and goes stale: profile names, account names,
