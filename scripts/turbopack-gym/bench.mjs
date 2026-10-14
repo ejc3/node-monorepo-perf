@@ -7,6 +7,7 @@
 //
 //   node scripts/turbopack-gym/bench.mjs --binding base --cpus 0-31
 //   node scripts/turbopack-gym/bench.mjs --binding stock --cpus 0-15 --env TURBO_TASKS_AVAILABLE_PARALLELISM=8
+//   node scripts/turbopack-gym/bench.mjs --binding base --cpus 0-23 --node /path/to/node  # another node binary
 //
 // A bare bench.mjs takes the CPU locks of its --cpus (lib.withCpus), so it waits for an
 // A/B on overlapping CPUs.
@@ -391,6 +392,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     keep: "bool",
     repeat: 1,
     "page-workers": 1,
+    node: 1,
   });
   if (!a.cpus) throw new Error("--cpus is required (e.g. 0-31)");
   const env = {
@@ -404,6 +406,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         binding: a.binding,
         cpus: a.cpus,
         app: a.app,
+        node: a.node,
         env,
         label: a.label,
         keep: a.keep,

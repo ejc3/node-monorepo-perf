@@ -975,6 +975,31 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- bench.mjs --node on the command line ------------------------------------------------
+{
+  // the CLI takes --node and hands it to bench(): with a binary that does not exist the run
+  // fails resolving that binary, not on an unknown flag
+  const r = spawnSync(
+    process.execPath,
+    [
+      new URL("./bench.mjs", import.meta.url).pathname,
+      "--node",
+      "/nonexistent/gym-selftest-node",
+      "--binding",
+      "stock",
+      "--app",
+      "quick",
+      "--cpus",
+      "0-1",
+    ],
+    { encoding: "utf8", env: process.env, timeout: 60000 },
+  );
+  check(
+    r.status !== 0 && !/unknown flag/.test(r.stderr) && /gym-selftest-node|ENOENT/.test(r.stderr),
+    `bench.mjs accepts --node and runs the build with it (${(r.stderr.match(/Error[^\n]*/) || [""])[0].slice(0, 100)})`,
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run
