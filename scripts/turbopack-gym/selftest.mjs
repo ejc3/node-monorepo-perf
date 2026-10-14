@@ -775,6 +775,37 @@ function reportWith(keys, extra = {}, args = []) {
       /nativeCandidate\(cand\)/.test(climbSrc),
     "climb.mjs skips a candidate whose patch changes no native source",
   );
+  // a patch that also changes Next.js's JavaScript would be climbed with that half unrun
+  const dir = mkdtempSync(join(tmpdir(), "gym-selftest-mixed-"));
+  try {
+    const mixed = join(dir, "mixed.patch");
+    writeFileSync(
+      mixed,
+      "--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\n--- a/packages/next/src/y.ts\n+++ b/packages/next/src/y.ts\n",
+    );
+    check(
+      ok && lib.nativeCandidate({ patch: mixed }) === false,
+      "climb.mjs skips a candidate whose patch also changes Next.js's JavaScript",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// --- route-stats.mjs samples do not block signals ---------------------------------------
+{
+  // each sample is an awaited child process, killed on abort, and the loop checks for an
+  // abort before each sample, so SIGINT/SIGTERM stop the run instead of waiting for all
+  const rs = await import("./route-stats.mjs");
+  const src = readFileSync(new URL("./route-stats.mjs", import.meta.url), "utf8");
+  let ticked = false;
+  const timer = setTimeout(() => (ticked = true), 50);
+  const r = typeof rs.runSample === "function" ? await rs.runSample("sleep", ["0.5"]) : null;
+  clearTimeout(timer);
+  check(
+    r?.status === 0 && ticked && !/spawnSync\(/.test(src) && /checkAborted\(\)/.test(src),
+    "route-stats.mjs runs each sample as an awaited child and checks for an abort between them",
+  );
 }
 
 // --- output fingerprint ------------------------------------------------------------

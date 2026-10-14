@@ -13,7 +13,7 @@
 // without its cache) under the dist directory name the build used; every run writes
 // diagnostics/route-bundle-stats.json there, and every run's file must equal base's first;
 // base's must also equal the build's own file, which checks the inputs the child passes.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -27,7 +27,17 @@ import {
 } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
-import { REPO, ROOT, ensureDir, machine, median, parseArgs, withCpus } from "./lib.mjs";
+import {
+  REPO,
+  ROOT,
+  checkAborted,
+  ensureDir,
+  machine,
+  median,
+  onAbort,
+  parseArgs,
+  withCpus,
+} from "./lib.mjs";
 
 const STATS = join("diagnostics", "route-bundle-stats.json");
 const CHILD = join(dirname(new URL(import.meta.url).pathname), "route-stats-child.cjs");
@@ -35,6 +45,31 @@ const TS_PATH = join("packages", "next", "src", "build", "route-bundle-stats.ts"
 export const BASE_TS = join(REPO, "bench", "turbopack-gym", "sources", "route-bundle-stats.ts");
 
 const sha = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+
+// One sample: an awaited child process (so the event loop, and with it the SIGINT/SIGTERM
+// handlers, keeps running), killed if the run is aborted. Resolves { status, stdout, stderr }.
+export function runSample(cmd, args) {
+  return new Promise((done, fail) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const out = [];
+    const err = [];
+    child.stdout.on("data", (d) => out.push(d));
+    child.stderr.on("data", (d) => err.push(d));
+    const off = onAbort(() => child.kill("SIGKILL"));
+    child.on("error", (e) => {
+      off();
+      fail(e);
+    });
+    child.on("close", (status) => {
+      off();
+      done({
+        status,
+        stdout: Buffer.concat(out).toString("utf8"),
+        stderr: Buffer.concat(err).toString("utf8"),
+      });
+    });
+  });
+}
 
 export function transpile(app, source, fileName) {
   const ts = createRequire(join(app, "package.json"))("typescript");
@@ -119,15 +154,19 @@ export async function routeStats({
       for (let rep = 0; rep < reps; rep++) {
         const order = rep % 2 ? ["candidate", "base"] : ["base", "candidate"];
         for (const side of order) {
+          checkAborted();
           rmSync(join(dist, STATS), { force: true });
-          const r = spawnSync(
-            "taskset",
-            ["-c", cpu, process.execPath, CHILD, app, compiled[side], dist, project],
-            {
-              encoding: "utf8",
-              maxBuffer: 1 << 24,
-            },
-          );
+          const r = await runSample("taskset", [
+            "-c",
+            cpu,
+            process.execPath,
+            CHILD,
+            app,
+            compiled[side],
+            dist,
+            project,
+          ]);
+          checkAborted();
           if (r.status !== 0)
             throw new Error(`${side} run ${rep} failed: ${r.stderr.slice(-2000)}`);
           const stats = readFileSync(join(dist, STATS), "utf8");
