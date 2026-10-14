@@ -1000,6 +1000,18 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- process-start probes count successful launches only ------------------------------
+{
+  // a launch that failed (resource limits at a large heap) would otherwise be timed as a
+  // fast start: both probes check the child's exit before keeping a sample
+  const py = readFileSync(new URL("./process-start-cost.py", import.meta.url), "utf8");
+  const js = readFileSync(new URL("./process-start-cost.mjs", import.meta.url), "utf8");
+  check(
+    /waitstatus_to_exitcode|WEXITSTATUS|status != 0/.test(py) && /\.status !== 0|\.error/.test(js),
+    "process-start-cost.{py,mjs} refuse a launch that did not exit 0",
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run

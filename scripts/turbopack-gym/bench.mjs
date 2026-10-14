@@ -19,7 +19,7 @@
 
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import {
   APPS,
@@ -406,7 +406,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         binding: a.binding,
         cpus: a.cpus,
         app: a.app,
-        node: a.node,
+        node: a.node && resolve(a.node),
         env,
         label: a.label,
         keep: a.keep,

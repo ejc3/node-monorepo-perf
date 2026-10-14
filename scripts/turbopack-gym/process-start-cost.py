@@ -7,14 +7,19 @@
 import os, sys, time, json, mmap, statistics
 reps = int(sys.argv[1]) if len(sys.argv) > 1 else 15
 sizes = [0, 1, 4, 8, 16]
+def reap(pid):
+    # a launch that did not run /bin/true to exit 0 is not a sample
+    status = os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1])
+    if status != 0:
+        sys.exit(f"child {pid} exited {status}")
 def spawn_fork():
     pid = os.fork()
     if pid == 0:
         os.execv("/bin/true", ["/bin/true"])
-    os.waitpid(pid, 0)
+    reap(pid)
 def spawn_posix():
     pid = os.posix_spawn("/bin/true", ["/bin/true"], os.environ)
-    os.waitpid(pid, 0)
+    reap(pid)
 heap = []
 held = 0
 for gib in sizes:

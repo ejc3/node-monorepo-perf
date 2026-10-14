@@ -5,6 +5,11 @@
 // process-start-cost.py's, method "node spawnSync".
 import { spawnSync } from "node:child_process";
 const reps = Number(process.argv[2] || 15);
+// a launch that did not run /bin/true to exit 0 is not a sample
+const run = () => {
+  const r = spawnSync("/bin/true");
+  if (r.error || r.status !== 0) throw new Error(`launch failed: ${r.error ?? `exit ${r.status}`}`);
+};
 const heap = [];
 for (const gib of [0, 1, 4, 8, 16]) {
   while (heap.length < gib) {
@@ -12,11 +17,11 @@ for (const gib of [0, 1, 4, 8, 16]) {
     for (let off = 0; off < b.length; off += 4096) b[off] = 1;
     heap.push(b);
   }
-  spawnSync("/bin/true");
+  run();
   const ts = [];
   for (let i = 0; i < reps; i++) {
     const t = performance.now();
-    spawnSync("/bin/true");
+    run();
     ts.push(performance.now() - t);
   }
   ts.sort((a, b) => a - b);
