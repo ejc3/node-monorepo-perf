@@ -472,6 +472,55 @@ monolith's 1,709 page manifests share most of their client references.
   the builds of each not overlapping. The cache is about 5% smaller
   (0.81 → 0.77 GiB after a warm build with one new import).
 
+## Client reference manifests: async flags read once per reference
+
+Profiles of a warm build with one new import on the full stack (15 + 22 + 41 + 42 + 52 + 55 +
+56 + 57 + 59 + 61, built with frame pointers, 24 and 192 CPUs; not kept as records) still put
+the largest share of the workers' CPU in `build_manifest`, most of it in one closure: for
+every client reference of every page, whether its client, SSR and RSC modules are async, three
+keyed reads of the app's one `AsyncModulesInfo` cell. Each keyed read records a dependency on
+that one task, so all 1,709 page manifests contend on it (the leaves are lock and atomic
+operations). The flags do not depend on the page.
+
+- **64 `shared-async-flags`** (on 61): `client_reference_ids`, the per-reference task of 61,
+  also reads the three flags, so they are read once per client reference and every page's
+  manifest takes them from that task's cell; the page also no longer awaits each reference's
+  module value, which only that task needs. Same manifests, same order; clippy on `next-core`
+  (`-D warnings`) is clean.
+
+`bench/turbopack-graph-drift-64-24.json` (the full stack against the same with 64, `import`
+edits, 3 reps, 24 CPUs, same output at every point; a resumed sweep, two boots of one instance
+type). Warm `run-turbopack`, then cold `run-turbopack` / `turbopack-emit`:
+
+| new imports | warm | warm, + 64 | cold | cold, + 64 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->18.8s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.0.cold.emit-->7.2s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->17.1s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.emit-->5.4s<!--/v--> |
+| 1 | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->16.8s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->13.1s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->19.5s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1.cold.emit-->7.3s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->17.2s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.emit-->5.4s<!--/v--> |
+| 10 | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->19.6s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->16.0s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->19.3s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.10.cold.emit-->7.5s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->17.2s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.emit-->5.4s<!--/v--> |
+| 1,000 | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->21.0s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->17.0s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->19.1s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.emit-->7.2s<!--/v--> | <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->18.0s<!--/v--> / <!--v:dr.c64s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.emit-->5.5s<!--/v--> |
+
+- Warm builds with new imports: `run-turbopack` 3.6 to 4.0s shorter at 1, 10 and 1,000, the
+  three builds of each not overlapping; with nothing changed, the same.
+- Cold builds: `run-turbopack` 1.1 to 2.3s shorter and emit 1.8 to 2.1s shorter at every N, the
+  builds of each not overlapping.
+
+`bench/turbopack-graph-drift-64-192.json`, the same on 192 CPUs (one boot). `run-turbopack` /
+`turbopack-emit`, warm then cold:
+
+| new imports | warm | warm, + 64 | cold | cold, + 64 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.8s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.0.warm.emit-->1.6s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.6s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.emit-->1.5s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->25.6s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.0.cold.emit-->11.1s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->20.9s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.emit-->6.3s<!--/v--> |
+| 1 | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->22.1s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1.warm.emit-->2.2s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->16.8s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.emit-->5.0s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->24.9s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1.cold.emit-->10.8s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->20.9s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.emit-->6.5s<!--/v--> |
+| 10 | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->24.9s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.10.warm.emit-->2.4s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->19.5s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.emit-->4.8s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->25.5s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.10.cold.emit-->10.8s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->20.8s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.emit-->6.4s<!--/v--> |
+| 1,000 | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->25.7s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1000.warm.emit-->2.5s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->22.2s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.emit-->5.5s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->25.3s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61.1000.cold.emit-->10.7s<!--/v--> | <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->20.9s<!--/v--> / <!--v:dr.c64s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.emit-->6.5s<!--/v--> |
+
+- Warm builds with new imports: `run-turbopack` 3.5 to 5.4s shorter, the builds of each not
+  overlapping; with nothing changed, the same. Their emit span is longer with 64 (about 2.2s
+  against 5.0s at one new import) while `run-turbopack` as a whole is shorter; why the work
+  shifts into emit there is not measured.
+- Cold builds: `run-turbopack` 4.0 to 4.7s shorter and emit 4.2 to 4.8s shorter at every N, the
+  builds of each not overlapping.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one
@@ -677,8 +726,8 @@ imports; warm <!--v:dr.c4142.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.7
   a warm build with one new import. One new import renames hundreds of content-hashed chunks,
   and about half of the client reference manifests change, each only by those chunk names (a
   probe comparing two cold builds; the profile's and the probe's counts are not kept). 61
-  (above) shares the per-reference parts; each changed page's manifest is still rebuilt
-  whole.
+  (above) shares the per-reference parts and 64 (above) the async flags; each changed page's
+  manifest is still rebuilt whole.
 - The rest of the single-core JavaScript after `run-turbopack` is mostly starting the
   page-data workers: fork + exec from a process holding Turbopack's heap (see "starting the
   page-data workers" above; Node with libuv's `posix_spawn` takes the time after
