@@ -95,6 +95,9 @@ separate cost:
   ([cache-drift.md](bench/turbopack-gym/cache-drift.md)); merging the updates a task's new
   children make on each upper into one (candidate 57) takes it from <!--v:dr.c57.import.15+22+55+56.1000.warm.emit-->26.9s<!--/v--> to
   <!--v:dr.c57.import.15+22+55+56+57.1000.warm.emit-->16.9s<!--/v--> on top of 15 + 22 + 55 + 56.
+  Collecting emit's issues without one aggregation root per endpoint (candidate 59) takes the
+  warm build's `run-turbopack` at 1,000 new imports from <!--v:dr.c59.import.15+22+55+56+57.1000.warm.turbopack-->52.7s<!--/v--> to
+  <!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.turbopack-->34.2s<!--/v-->.
 
 Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
 1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at

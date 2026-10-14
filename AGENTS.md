@@ -613,6 +613,14 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     the build's CPUs (`CIRCLE_NODE_TOTAL`) instead of every CPU of the machine; the setting
     changes the output fingerprint, so a record states it and refuses mixed sweeps.
     Write-up: `bench/turbopack-gym/cache-drift.md`.
+  - `route-stats.mjs`: Next.js's route bundle stats step (`writeRouteBundleStats`) alone, on
+    one build's output, for a JavaScript candidate: `route-bundle-stats.ts` as of v16.4.0
+    (`bench/turbopack-gym/sources/`, byte for byte) against it with `--patch`, both
+    transpiled with the app's TypeScript and loaded in place of the app's
+    `next/dist/build/route-bundle-stats.js`; fresh node process per run on one CPU, sides
+    alternating; every run's stats file must equal the first and base's the build's own.
+    Its record is read by `report.mjs` (`rs.*` keys). It needs a kept build output
+    (`bench.mjs --keep`).
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
     or is killed. SIGINT/SIGTERM set an abort flag that stops in-flight builds and lets
@@ -1115,7 +1123,11 @@ NVMe disks (`drift.mjs` needs reflink copies), as did `bench/turbopack-graph-dri
 (candidate 56 alone and stacked, `import` edits) and `bench/turbopack-gym/ab56-cold.json`
 (candidate 56's paired cold A/Bs, `ab.mjs`), `bench/turbopack-graph-drift-52w.json` and
 `bench/turbopack-graph-drift-57.json` (candidates 52 and 57 on 15 + 22 + 55 + 56, `import`
-edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B). `bench/turbopack-gym/cache-read-probes.json`
+edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B);
+`bench/turbopack-graph-drift-58.json`, `-59.json` and `-61.json` (candidates 58, 59 and 61,
+each stacked, `import` edits) likewise. `bench/turbopack-gym/route-stats-60.json` times
+Next.js's route bundle stats step alone (`route-stats.mjs`, candidate 60) on one build's
+output, on such an instance. `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within

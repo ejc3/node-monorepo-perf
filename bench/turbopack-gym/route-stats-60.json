@@ -1,0 +1,142 @@
+{
+  "description": "writeRouteBundleStats on one build's output, Next.js's route-bundle-stats.ts against a candidate's, each run a fresh node process on one CPU; see scripts/turbopack-gym/route-stats.mjs",
+  "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 192,
+    "numaNodes": 2,
+    "memGiB": 371,
+    "instanceType": "c8gd.48xlarge",
+    "node": "v22.23.3",
+    "sharedBox": false
+  },
+  "app": "monolith",
+  "cpu": "2",
+  "reps": 7,
+  "sources": {
+    "baseTs": "eb22f11eefe093d2",
+    "patch": {
+      "file": "60-route-stats-json-manifest.patch",
+      "sha256": "4947d75f412087d7"
+    }
+  },
+  "manifests": {
+    "files": 2073,
+    "mb": 774.6
+  },
+  "sameOutput": true,
+  "matchesBuild": true,
+  "median": {
+    "base": {
+      "s": 7.7909,
+      "cpuS": 7.7901,
+      "rssMiB": 1310
+    },
+    "candidate": {
+      "s": 2.9544,
+      "cpuS": 2.954,
+      "rssMiB": 113
+    }
+  },
+  "runs": [
+    {
+      "side": "base",
+      "rep": 0,
+      "s": 8.8942,
+      "cpuS": 8.1042,
+      "rssMiB": 1308
+    },
+    {
+      "side": "candidate",
+      "rep": 0,
+      "s": 3.0178,
+      "cpuS": 3.0172,
+      "rssMiB": 112
+    },
+    {
+      "side": "candidate",
+      "rep": 1,
+      "s": 2.9472,
+      "cpuS": 2.9468,
+      "rssMiB": 113
+    },
+    {
+      "side": "base",
+      "rep": 1,
+      "s": 7.7843,
+      "cpuS": 7.7828,
+      "rssMiB": 1308
+    },
+    {
+      "side": "base",
+      "rep": 2,
+      "s": 7.7909,
+      "cpuS": 7.7901,
+      "rssMiB": 1308
+    },
+    {
+      "side": "candidate",
+      "rep": 2,
+      "s": 2.9561,
+      "cpuS": 2.9556,
+      "rssMiB": 112
+    },
+    {
+      "side": "candidate",
+      "rep": 3,
+      "s": 2.9608,
+      "cpuS": 2.9604,
+      "rssMiB": 113
+    },
+    {
+      "side": "base",
+      "rep": 3,
+      "s": 7.8004,
+      "cpuS": 7.7993,
+      "rssMiB": 1310
+    },
+    {
+      "side": "base",
+      "rep": 4,
+      "s": 7.7692,
+      "cpuS": 7.7681,
+      "rssMiB": 1310
+    },
+    {
+      "side": "candidate",
+      "rep": 4,
+      "s": 2.8759,
+      "cpuS": 2.8756,
+      "rssMiB": 111
+    },
+    {
+      "side": "candidate",
+      "rep": 5,
+      "s": 2.9497,
+      "cpuS": 2.9492,
+      "rssMiB": 113
+    },
+    {
+      "side": "base",
+      "rep": 5,
+      "s": 7.8001,
+      "cpuS": 7.7989,
+      "rssMiB": 1310
+    },
+    {
+      "side": "base",
+      "rep": 6,
+      "s": 7.7663,
+      "cpuS": 7.7651,
+      "rssMiB": 1310
+    },
+    {
+      "side": "candidate",
+      "rep": 6,
+      "s": 2.9544,
+      "cpuS": 2.954,
+      "rssMiB": 114
+    }
+  ],
+  "ratio": 0.3792
+}

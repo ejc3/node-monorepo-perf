@@ -1,0 +1,88 @@
+diff --git a/packages/next/src/build/route-bundle-stats.ts b/packages/next/src/build/route-bundle-stats.ts
+index 3598be9788..e9ecab3ef7 100644
+--- a/packages/next/src/build/route-bundle-stats.ts
++++ b/packages/next/src/build/route-bundle-stats.ts
+@@ -1,5 +1,5 @@
+ import path from 'path'
+-import { promises as fs, statSync } from 'fs'
++import { promises as fs, readFileSync, statSync } from 'fs'
+ import {
+   APP_PATHS_MANIFEST,
+   CLIENT_REFERENCE_MANIFEST,
+@@ -67,9 +67,17 @@ function buildRouteToAppPathsMap(
+   return routeToAppPaths
+ }
+ 
+-// Reads the manfiest file and gets the entry JS files. The manifest file is
+-// a JavaScript file that sets a global variable (__RSC_MANIFEST). We require()
+-// it with a save/restore of the global
++// A line of a client reference manifest that assigns an entry. Turbopack writes
++// one, `globalThis.__RSC_MANIFEST[<key>] = <JSON>;`, on a line of its own.
++const MANIFEST_ENTRY_LINE =
++  /^globalThis\.__RSC_MANIFEST\[("(?:[^"\\\n]|\\.)*")\] = (.*);$/gm
++
++// Reads the manifest file and gets the entry JS files. The manifest file is a
++// JavaScript file that sets a global variable (__RSC_MANIFEST) from JSON. On a
++// large app these files add up to hundreds of megabytes, so the JSON is parsed
++// with JSON.parse instead of compiling and running each file with require(),
++// which is several times slower; require() (with a save/restore of the global)
++// remains the fallback for a manifest of any other shape.
+ function readEntryJSFiles(
+   distDir: string,
+   pagePath: string,
+@@ -82,14 +90,9 @@ function readEntryJSFiles(
+     `${pagePath}_${CLIENT_REFERENCE_MANIFEST}.js`
+   )
+   try {
+-    const g = global as Record<string, unknown>
+-    const prev = g.__RSC_MANIFEST
+-    g.__RSC_MANIFEST = undefined
+-    require(manifestFile)
+-    const rscManifest = g.__RSC_MANIFEST as
+-      | Record<string, { entryJSFiles?: Record<string, string[]> }>
+-      | undefined
+-    g.__RSC_MANIFEST = prev
++    const rscManifest =
++      parseClientReferenceManifest(readFileSync(manifestFile, 'utf8')) ??
++      requireClientReferenceManifest(manifestFile)
+ 
+     // The key in __RSC_MANIFEST is the app path (e.g. /blog/[slug]/page)
+     const manifestEntry = rscManifest?.[pagePath] ?? rscManifest?.[appRoute]
+@@ -99,6 +102,37 @@ function readEntryJSFiles(
+   }
+ }
+ 
++type ClientReferenceManifests = Record<
++  string,
++  { entryJSFiles?: Record<string, string[]> }
++>
++
++function parseClientReferenceManifest(
++  source: string
++): ClientReferenceManifests | undefined {
++  const matches = [...source.matchAll(MANIFEST_ENTRY_LINE)]
++  if (matches.length !== 1) return undefined
++  try {
++    return { [JSON.parse(matches[0][1])]: JSON.parse(matches[0][2]) }
++  } catch {
++    return undefined
++  }
++}
++
++function requireClientReferenceManifest(
++  manifestFile: string
++): ClientReferenceManifests | undefined {
++  const g = global as Record<string, unknown>
++  const prev = g.__RSC_MANIFEST
++  g.__RSC_MANIFEST = undefined
++  try {
++    require(manifestFile)
++    return g.__RSC_MANIFEST as ClientReferenceManifests | undefined
++  } finally {
++    g.__RSC_MANIFEST = prev
++  }
++}
++
+ function collectPagesRouterStats(
+   pages: ReadonlyArray<string>,
+   buildManifest: BuildManifest,

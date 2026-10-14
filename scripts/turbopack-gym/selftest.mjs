@@ -14,8 +14,10 @@
 //          drift.mjs record refuses a run whose log line does not fit it or its plan.
 // builds:  8 builds of the quick app with the base binding (4 lanes x 2 rounds, under
 //          CPU locks) have one normalized fingerprint; a copy of the app with one
-//          numeric constant changed (same length) does not. A run sent SIGTERM
-//          mid-build stops its build scope, exits non-zero and frees its CPUs.
+//          numeric constant changed (same length) does not. route-stats.mjs on a kept
+//          build: candidate 60 writes the build's own stats file, and a patch that
+//          changes the stats is refused. A run sent SIGTERM mid-build stops its build
+//          scope, exits non-zero and frees its CPUs.
 
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
@@ -30,7 +32,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { APPS, parseArgs } from "./lib.mjs";
 
 const a = parseArgs(process.argv.slice(2), { builds: "bool", child: 1, out: 1 });
@@ -628,6 +630,32 @@ function reportWith(keys, extra = {}, args = []) {
     "report.mjs names a missing optional record",
   );
 }
+// rs.* keys: a route-stats record's medians, ratio and manifest count; an error naming a
+// record that is absent.
+{
+  const rec = JSON.stringify({
+    ratio: 0.25,
+    manifests: { files: 2073, mb: 774.6 },
+    median: { base: { s: 8, rssMiB: 1310 }, candidate: { s: 2, rssMiB: 113 } },
+  });
+  const r = reportWith(
+    ["rs.c60.base.s", "rs.c60.candidate.rssMiB", "rs.c60.ratio", "rs.c60.manifests"],
+    { "bench/turbopack-gym/route-stats-60.json": rec },
+  );
+  check(
+    r.status === 0 &&
+      r.doc.includes("<!--v:rs.c60.base.s-->8.00s<!--/v-->") &&
+      r.doc.includes("<!--v:rs.c60.candidate.rssMiB-->113 MiB<!--/v-->") &&
+      r.doc.includes("<!--v:rs.c60.ratio-->0.250<!--/v-->") &&
+      r.doc.includes("<!--v:rs.c60.manifests-->2,073 files, 774.6 MB<!--/v-->"),
+    "report.mjs renders rs.* keys from a route-stats record",
+  );
+  const missing = reportWith(["rs.c60.ratio"]);
+  check(
+    missing.status !== 0 && missing.stderr.includes("no route-stats record c60"),
+    "report.mjs names a missing route-stats record",
+  );
+}
 // cr.* keys: the median over a cache-read set's reps, a ratio of two medians, and an
 // error naming a set the record does not have.
 {
@@ -695,6 +723,104 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- route-stats.mjs paths ---------------------------------------------------------
+{
+  // a relative --patch must be found although `patch -d` runs in another directory: the run
+  // gets past the patch and stops at the fixture app, which has no typescript
+  const { routeStats } = await import("./route-stats.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "gym-selftest-route-paths-"));
+  try {
+    mkdirSync(join(dir, "output", "diagnostics"), { recursive: true });
+    writeFileSync(join(dir, "output", "diagnostics", "route-bundle-stats.json"), "[]");
+    mkdirSync(join(dir, "app"));
+    writeFileSync(join(dir, "app", "package.json"), "{}");
+    const patch = relative(
+      process.cwd(),
+      join(lib.CANDIDATES, "60-route-stats-json-manifest.patch"),
+    );
+    let message = "";
+    try {
+      await routeStats({
+        output: join(dir, "output"),
+        app: join(dir, "app"),
+        patch,
+        reps: 1,
+        cpu: "0",
+      });
+    } catch (e) {
+      message = e.message;
+    }
+    check(
+      !patch.startsWith("/") && /typescript/.test(message) && !/patch file/.test(message),
+      `route-stats.mjs applies a patch given by a relative path (${message.split("\n")[0]})`,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// --- climb.mjs measures native candidates only ------------------------------------------
+{
+  // a candidate whose patch changes only Next.js's JavaScript/TypeScript would build an
+  // unchanged binding: climb must skip it (route-stats.mjs or next-ab.mjs measure those)
+  const ok = typeof lib.nativeCandidate === "function";
+  const rust = { patch: "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch" };
+  const js = { patch: "bench/turbopack-gym/candidates/60-route-stats-json-manifest.patch" };
+  const climbSrc = readFileSync(new URL("./climb.mjs", import.meta.url), "utf8");
+  check(
+    ok &&
+      lib.nativeCandidate(rust) === true &&
+      lib.nativeCandidate(js) === false &&
+      lib.nativeCandidate({ env: { A: "1" } }) === true &&
+      /nativeCandidate\(cand\)/.test(climbSrc),
+    "climb.mjs skips a candidate whose patch changes no native source",
+  );
+  // a patch that also changes Next.js's JavaScript would be climbed with that half unrun
+  const dir = mkdtempSync(join(tmpdir(), "gym-selftest-mixed-"));
+  try {
+    const mixed = join(dir, "mixed.patch");
+    writeFileSync(
+      mixed,
+      "--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\n--- a/packages/next/src/y.ts\n+++ b/packages/next/src/y.ts\n",
+    );
+    const deleted = join(dir, "deleted.patch");
+    writeFileSync(
+      deleted,
+      "diff --git a/crates/x/src/lib.rs b/crates/x/src/lib.rs\n--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\ndiff --git a/packages/next/src/y.ts b/packages/next/src/y.ts\ndeleted file mode 100644\n--- a/packages/next/src/y.ts\n+++ /dev/null\n",
+    );
+    const renamed = join(dir, "renamed.patch");
+    writeFileSync(
+      renamed,
+      "diff --git a/crates/x/src/lib.rs b/crates/x/src/lib.rs\n--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\ndiff --git a/packages/next/src/y.ts b/crates/x/src/y.rs\nsimilarity index 100%\nrename from packages/next/src/y.ts\nrename to crates/x/src/y.rs\n",
+    );
+    check(
+      ok &&
+        lib.nativeCandidate({ patch: mixed }) === false &&
+        lib.nativeCandidate({ patch: deleted }) === false &&
+        lib.nativeCandidate({ patch: renamed }) === false,
+      "climb.mjs skips a candidate whose patch also changes, deletes or renames Next.js's JavaScript",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// --- route-stats.mjs samples do not block signals ---------------------------------------
+{
+  // each sample is an awaited child process, killed on abort, and the loop checks for an
+  // abort before each sample, so SIGINT/SIGTERM stop the run instead of waiting for all
+  const rs = await import("./route-stats.mjs");
+  const src = readFileSync(new URL("./route-stats.mjs", import.meta.url), "utf8");
+  let ticked = false;
+  const timer = setTimeout(() => (ticked = true), 50);
+  const r = typeof rs.runSample === "function" ? await rs.runSample("sleep", ["0.5"]) : null;
+  clearTimeout(timer);
+  check(
+    r?.status === 0 && ticked && !/spawnSync\(/.test(src) && /checkAborted\(\)/.test(src),
+    "route-stats.mjs runs each sample as an awaited child and checks for an abort between them",
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run
@@ -750,6 +876,65 @@ if (a.builds) {
       rmSync(copy, { recursive: true, force: true });
     }
   });
+}
+
+// --- route-stats.mjs -----------------------------------------------------------------
+if (a.builds) {
+  // on a kept build of the quick app: candidate 60 writes the build's own stats file, and a
+  // patch that changes the stats is refused
+  const { bench } = await import("./bench.mjs");
+  const { routeStats, BASE_TS } = await import("./route-stats.mjs");
+  const quick = join(APPS, "quick");
+  const run = await lib.withCpus("0-15", () =>
+    bench({
+      binding: "base",
+      cpus: "0-15",
+      app: quick,
+      label: "selftest-route-stats",
+      keep: true,
+      quiet: true,
+    }),
+  );
+  const dir = mkdtempSync(join(tmpdir(), "gym-selftest-route-stats-"));
+  try {
+    const opts = { output: run.distDir, app: quick, reps: 1, cpu: "16" };
+    const real = await routeStats({
+      ...opts,
+      patch: join(lib.CANDIDATES, "60-route-stats-json-manifest.patch"),
+    });
+    check(
+      real.sameOutput && real.matchesBuild && real.manifests.files > 0,
+      `route-stats.mjs: candidate 60 writes the build's route-bundle-stats.json (${real.manifests.files} manifests)`,
+    );
+    const ts = "packages/next/src/build/route-bundle-stats.ts";
+    const changed = join(dir, "changed.ts");
+    writeFileSync(
+      changed,
+      readFileSync(BASE_TS, "utf8").replace("total += size\n", "total += size + 1\n"),
+    );
+    const diff = spawnSync(
+      "diff",
+      ["-u", "--label", `a/${ts}`, "--label", `b/${ts}`, BASE_TS, changed],
+      {
+        encoding: "utf8",
+      },
+    );
+    const tampered = join(dir, "tampered.patch");
+    writeFileSync(tampered, diff.stdout);
+    let refused = "";
+    try {
+      await routeStats({ ...opts, patch: tampered });
+    } catch (e) {
+      refused = e.message;
+    }
+    check(
+      diff.status === 1 && /different route-bundle-stats\.json/.test(refused),
+      "route-stats.mjs refuses a candidate whose stats differ",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(run.distDir, { recursive: true, force: true });
+  }
 }
 
 if (a.builds) {

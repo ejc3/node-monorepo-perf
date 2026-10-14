@@ -1,0 +1,29 @@
+diff --git a/crates/next-napi-bindings/src/next_api/project.rs b/crates/next-napi-bindings/src/next_api/project.rs
+index b853233b32..9b71ea5111 100644
+--- a/crates/next-napi-bindings/src/next_api/project.rs
++++ b/crates/next-napi-bindings/src/next_api/project.rs
+@@ -1694,15 +1694,17 @@ async fn emit_all_output_assets_once_with_issues_operation(
+     let start = Instant::now();
+     let wall_start = SystemTime::now();
+     let result = async {
+-        let entrypoints_operation =
+-            EntrypointsOperation::new(emit_all_output_assets_once_operation(
+-                container,
+-                app_dir_only,
+-                has_deferred_entrypoints,
+-            ));
++        // Only the issues and effects are kept, so collect them from the emit operation itself.
++        // Wrapping it in an `EntrypointsOperation` would create a root `pick_endpoint` operation
++        // per endpoint, each aggregating the whole emit graph below it, only to discard them.
++        let emit_operation = emit_all_output_assets_once_operation(
++            container,
++            app_dir_only,
++            has_deferred_entrypoints,
++        );
+         let filter = container.project().issue_filter().await?;
+         let (_, issues, effects) =
+-            strongly_consistent_catch_collectables(entrypoints_operation, &filter).await?;
++            strongly_consistent_catch_collectables(emit_operation, &filter).await?;
+         Ok(OperationResult { issues, effects }.cell())
+     }
+     .await;

@@ -33,6 +33,9 @@ const DRIFT = {
   c56: "turbopack-graph-drift-56.json",
   c52w: "turbopack-graph-drift-52w.json",
   c57: "turbopack-graph-drift-57.json",
+  c58: "turbopack-graph-drift-58.json",
+  c59: "turbopack-graph-drift-59.json",
+  c61: "turbopack-graph-drift-61.json",
 };
 const drift = Object.fromEntries(
   Object.entries(DRIFT)
@@ -43,6 +46,14 @@ const drift = Object.fromEntries(
 // optional: the warm-start cache-read probes (cr.* keys)
 const CACHE_READ = join(REPO, "bench", "turbopack-gym", "cache-read-probes.json");
 const cacheRead = existsSync(CACHE_READ) ? JSON.parse(readFileSync(CACHE_READ, "utf8")) : null;
+// optional: route-stats.mjs records (rs.* keys), by name
+const ROUTE_STATS = { c60: "route-stats-60.json" };
+const routeStats = Object.fromEntries(
+  Object.entries(ROUTE_STATS)
+    .map(([k, f]) => [k, join(REPO, "bench", "turbopack-gym", f)])
+    .filter(([, f]) => existsSync(f))
+    .map(([k, f]) => [k, JSON.parse(readFileSync(f, "utf8"))]),
+);
 
 const med = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -124,6 +135,9 @@ function scalingTable() {
 //                                     (seconds, 1 decimal); set names a cache-read-probes.json
 //                                     set (pageCache: mode is the page cache, cold|hot)
 //   cr.<set>.<binding>.<mode>.<N>.over.<binding2>.<mode2>  ratio of turbopack medians (1 decimal)
+//   rs.<rec>.<base|candidate>.<s|rssMiB>  route-stats median (seconds, 2 decimals; MiB)
+//   rs.<rec>.ratio                    candidate/base median time (3 decimals)
+//   rs.<rec>.manifests                manifest files and total size
 function value(key) {
   const k = key.split(".");
   const fail = (m) => {
@@ -147,6 +161,16 @@ function value(key) {
     return `a dedicated ${m.instanceType}: ${m.cores} ${m.cpuModel} vCPUs in ${m.numaNodes} NUMA nodes, ${m.memGiB} GiB, Node ${m.node.replace(/^v/, "")}`;
   }
   if (k[0] === "prod") return x3(row(k[1]).ratio * row(k[2]).ratio);
+  if (k[0] === "rs") {
+    const r = routeStats[k[1]] || fail(`no route-stats record ${k[1]}`);
+    if (k[2] === "ratio") return r.ratio.toFixed(3);
+    if (k[2] === "manifests")
+      return `${r.manifests.files.toLocaleString("en-US")} files, ${r.manifests.mb} MB`;
+    const m = r.median?.[k[2]] || fail(`no side ${k[2]}`);
+    if (k[3] === "s") return `${m.s.toFixed(2)}s`;
+    if (k[3] === "rssMiB") return `${m.rssMiB.toLocaleString("en-US")} MiB`;
+    fail(`field ${k[3]}`);
+  }
   if (k[0] === "cr") {
     const set = cacheRead && Object.hasOwn(cacheRead, k[1]) ? cacheRead[k[1]] : null;
     if (!Array.isArray(set?.builds)) fail(`no set ${k[1]} in cache-read-probes.json`);

@@ -148,5 +148,62 @@
     ],
     "diffSha256": "18e94a0735a38444",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "58-merge-lost-follower-data": {
+    "patches": [
+      "58-merge-lost-follower-data.patch"
+    ],
+    "diffSha256": "cb4fa38762940101",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55+56+58": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "58-merge-lost-follower-data.patch"
+    ],
+    "diffSha256": "9b2e92477ad484b9",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "59-emit-without-endpoint-ops": {
+    "patches": [
+      "59-emit-without-endpoint-ops.patch"
+    ],
+    "diffSha256": "9b2054adb9b0926f",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55+56+57+59": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch"
+    ],
+    "diffSha256": "df9febcb42215641",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "61-shared-manifest-entry-parts": {
+    "patches": [
+      "61-shared-manifest-entry-parts.patch"
+    ],
+    "diffSha256": "42b3059ac2b81826",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55+56+57+59+61": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch"
+    ],
+    "diffSha256": "74a96abf42b7d96a",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }
