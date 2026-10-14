@@ -1,0 +1,153 @@
+{
+  "description": "Paired A/Bs of cold builds (fresh output directory, cache on) for candidate 56, alone and on 15+22+55: ab.mjs --app monolith --reps 6 --lanes 0-23:24-47 --metric turbopack, one A/B at a time on a dedicated c8gd.48xlarge (the drift-56 sweep's instance type; Next.js page-data workers at its default). The lines as ab.mjs wrote them, without the host name and boot id; not re-verified by record.mjs, which must run on the host that holds the runs.",
+  "abs": [
+    {
+      "when": "2026-10-12T01:39:13.736Z",
+      "label": "cold-56",
+      "tag": null,
+      "a": {
+        "binding": "base",
+        "env": {}
+      },
+      "b": {
+        "binding": "56-batch-unemit-collectibles",
+        "env": {}
+      },
+      "reps": 6,
+      "guardMetric": "turbopack",
+      "threshold": 0.06,
+      "guard": 0.02,
+      "app": "monolith",
+      "lanes": [
+        "0-23",
+        "24-47"
+      ],
+      "metric": "turbopack",
+      "ratio": 1.0053,
+      "swapRatios": [
+        0.9853,
+        1.0144,
+        1.0164
+      ],
+      "guardRatio": 1.0053,
+      "sameOutput": true,
+      "consistent": false,
+      "win": false,
+      "aMedian": 44.669,
+      "bMedian": 45.2545,
+      "aCores": 12.515,
+      "bCores": 12.81,
+      "runs": [
+        [
+          "mv4knl2n-521afc",
+          "mv4knl2y-823af0"
+        ],
+        [
+          "mv4kq4ok-16b31f",
+          "mv4kq4ox-d50b15"
+        ],
+        [
+          "mv4ksq3s-7abb9b",
+          "mv4ksq3f-8b496d"
+        ],
+        [
+          "mv4kv9xi-4d1ebf",
+          "mv4kv9x5-a3a18a"
+        ],
+        [
+          "mv4kxutd-887632",
+          "mv4kxutq-f76cd0"
+        ],
+        [
+          "mv4l0pet-71fb50",
+          "mv4l0pf6-296779"
+        ]
+      ],
+      "machine": {
+        "arch": "arm64",
+        "cpuModel": "Neoverse-V2",
+        "cores": 192,
+        "numaNodes": 2,
+        "memGiB": 371,
+        "instanceType": "c8gd.48xlarge",
+        "node": "v22.23.3",
+        "sharedBox": false,
+        "buildNode": "v22.23.3"
+      }
+    },
+    {
+      "when": "2026-10-12T01:50:05.483Z",
+      "label": "cold-15+22+55+56",
+      "tag": null,
+      "a": {
+        "binding": "15+22+55",
+        "env": {}
+      },
+      "b": {
+        "binding": "15+22+55+56",
+        "env": {}
+      },
+      "reps": 6,
+      "guardMetric": "turbopack",
+      "threshold": 0.06,
+      "guard": 0.02,
+      "app": "monolith",
+      "lanes": [
+        "0-23",
+        "24-47"
+      ],
+      "metric": "turbopack",
+      "ratio": 1.0081,
+      "swapRatios": [
+        0.9895,
+        1.0089,
+        1.0263
+      ],
+      "guardRatio": 1.0081,
+      "sameOutput": true,
+      "consistent": false,
+      "win": false,
+      "aMedian": 32.995999999999995,
+      "bMedian": 33.926,
+      "aCores": 14.8,
+      "bCores": 15.035,
+      "runs": [
+        [
+          "mv4l3c1o-6aea52",
+          "mv4l3c20-1760b5"
+        ],
+        [
+          "mv4l5mkk-80da80",
+          "mv4l5mkx-c3e542"
+        ],
+        [
+          "mv4l7y8z-274194",
+          "mv4l7y8m-ff82c4"
+        ],
+        [
+          "mv4labqz-c318db",
+          "mv4labqm-82aad8"
+        ],
+        [
+          "mv4lcobb-cb16a6",
+          "mv4lcobo-32fd08"
+        ],
+        [
+          "mv4lf0sx-494a01",
+          "mv4lf0ta-f36ef3"
+        ]
+      ],
+      "machine": {
+        "arch": "arm64",
+        "cpuModel": "Neoverse-V2",
+        "cores": 192,
+        "numaNodes": 2,
+        "memGiB": 371,
+        "instanceType": "c8gd.48xlarge",
+        "node": "v22.23.3",
+        "sharedBox": false,
+        "buildNode": "v22.23.3"
+      }
+    }
+  ]
+}

@@ -36,16 +36,14 @@ On a generated App Router app shaped like #98043 (2,071 routes, 16,068 TypeScrip
 --experimental-build-mode=compile`, A and B built side by side on two 24-core lanes, 6 reps
 (`bench/turbopack-graph-ab.json` in the node-monorepo-perf bench repo, label `11`):
 
-- `turbopack-module-graph` phase: 13.05 s → 8.98 s, **0.683×** (swap pairs 0.693, 0.687,
-  0.669); cores busy in the phase 9.6 → 13.8.
-- `run-turbopack`: 45.43 s → 40.91 s, 0.894×.
+- `turbopack-module-graph` phase: 13.11 s → 8.80 s, **0.667×** (swap pairs 0.654, 0.637,
+  0.711); cores busy in the phase 9.6 → 13.6.
+- `run-turbopack`: 45.37 s → 40.53 s, 0.895×.
 - Output: the same fingerprint as v16.4.0 (every emitted file except cache and trace files and
   `server/preview-props.json`, compared after normalizing per-build hashes, chunk file names and
   minified identifiers).
 
-On two 16-core lanes the same comparison gives 0.586× (10.20 s → 6.02 s) on the graph phase and
-0.910× on `run-turbopack`, same fingerprint (`bench/turbopack-gym/upstream-readiness.json`,
-`heapOrder.ab11SameLanesMonolith`). Visit counts were not recorded.
+Visit counts were not recorded.
 
 ## Testing
 

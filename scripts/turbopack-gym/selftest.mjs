@@ -417,15 +417,6 @@ rmSync(scratch, { recursive: true, force: true });
         output: { sha: l.n ? "o1" : "o0" },
       };
     }
-    tamper(lines, runs);
-    for (const r of Object.values(runs)) {
-      mkdirSync(join(root, "runs", r.id), { recursive: true });
-      writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
-    }
-    writeFileSync(
-      join(root, "results", "drift.jsonl"),
-      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
-    );
     const plan = {
       sweep: "drift-t",
       tag: null,
@@ -440,6 +431,15 @@ rmSync(scratch, { recursive: true, force: true });
       pristine,
       mismatches: [],
     };
+    tamper(lines, runs, plan);
+    for (const r of Object.values(runs)) {
+      mkdirSync(join(root, "runs", r.id), { recursive: true });
+      writeFileSync(join(root, "runs", r.id, "run.json"), JSON.stringify(r));
+    }
+    writeFileSync(
+      join(root, "results", "drift.jsonl"),
+      lines.map((l) => JSON.stringify(l)).join("\n") + "\n",
+    );
     writeFileSync(join(root, "results", "drift-sweeps.jsonl"), JSON.stringify(plan) + "\n");
     const r = spawnSync(
       "node",
@@ -458,7 +458,30 @@ rmSync(scratch, { recursive: true, force: true });
     return r.status;
   };
   const line = (lines, id) => lines.find((l) => l.id === id);
+  const published = () => JSON.parse(readFileSync(join(root, "out.json"), "utf8"));
   check(attempt() === 0, "drift record publishes a consistent sweep");
+  check(
+    published().pageWorkers === "default",
+    "drift record calls a sweep without a page-workers setting default",
+  );
+  check(
+    attempt((_, runs, plan) => {
+      plan.pageWorkers = "match";
+      for (const r of Object.values(runs)) r.env.CIRCLE_NODE_TOTAL = "1";
+    }) === 0 && published().pageWorkers === "match",
+    "drift record publishes a match sweep whose runs set the pool to its CPUs",
+  );
+  check(
+    attempt((_, runs) => (runs.cold1.env.CIRCLE_NODE_TOTAL = "1")) !== 0,
+    "drift record refuses a run whose page-data pool is not the plan's",
+  );
+  check(
+    attempt((_, runs, plan) => {
+      plan.pageWorkers = "match";
+      for (const r of Object.values(runs)) if (r.id !== "warm1") r.env.CIRCLE_NODE_TOTAL = "1";
+    }) !== 0,
+    "drift record refuses a match sweep with a run left at the default pool",
+  );
   check(
     attempt((_, runs) => delete runs.off1.env.MONOLITH_TP_FS_CACHE) !== 0,
     "drift record refuses an off run built with the cache on",
@@ -499,6 +522,26 @@ rmSync(scratch, { recursive: true, force: true });
     "a record refuses a one-patch binding whose patch is not its diff",
   );
   rmSync(root, { recursive: true, force: true });
+}
+
+// --- page-data workers -------------------------------------------------------------
+// "match" sizes Next's page-data pool to the build's CPUs through CIRCLE_NODE_TOTAL; the
+// default leaves Next's own (every CPU of the machine) and an unknown mode is refused.
+{
+  const { pageWorkersEnv } = lib;
+  let refused = false;
+  try {
+    pageWorkersEnv("all", "0-23");
+  } catch {
+    refused = true;
+  }
+  check(
+    pageWorkersEnv("match", "0-23,48-55").CIRCLE_NODE_TOTAL === "32" &&
+      Object.keys(pageWorkersEnv("default", "0-23")).length === 0 &&
+      Object.keys(pageWorkersEnv(undefined, "0-23")).length === 0 &&
+      refused,
+    "page workers: match counts the build's CPUs, default sets nothing",
+  );
 }
 
 // --- remote records -----------------------------------------------------------------
@@ -636,6 +679,19 @@ function reportWith(keys, extra = {}, args = []) {
   check(
     pc.status === 0 && pc.doc.includes("<!--v:cr.p.base.hot.0.turbopack-->4.0s<!--/v-->"),
     "report.mjs reads a pageCache set by its page cache",
+  );
+}
+
+// --- cpuCount counts distinct CPUs ------------------------------------------------------
+{
+  // the cpuset and the CPU locks take the distinct CPUs of a list; the page-data pool sized
+  // to match (pageWorkersEnv) must count the same CPUs, not the length of each range
+  check(
+    lib.cpuCount("0-3,2-5") === 6 &&
+      lib.cpuCount("0-23") === 24 &&
+      lib.cpuCount("4,4") === 1 &&
+      lib.pageWorkersEnv("match", "0-3,2-5").CIRCLE_NODE_TOTAL === "6",
+    `cpuCount counts each CPU once (0-3,2-5 -> ${lib.cpuCount("0-3,2-5")})`,
   );
 }
 

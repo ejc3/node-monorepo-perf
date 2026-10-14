@@ -609,6 +609,9 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     skips the module graph, no build logs the cache as disabled. Raw runs in
     `drift.jsonl`, completed sweeps in `drift-sweeps.jsonl`; `drift.mjs record` writes
     `bench/turbopack-graph-drift.json` (the latest sweep per edit, or `--sweep a,b`).
+    `--page-workers match` (also on `bench.mjs`) sizes Next.js's page-data worker pool to
+    the build's CPUs (`CIRCLE_NODE_TOTAL`) instead of every CPU of the machine; the setting
+    changes the output fingerprint, so a record states it and refuses mixed sweeps.
     Write-up: `bench/turbopack-gym/cache-drift.md`.
   - Locks: every run, A/B, build, profile and sweep holds fcntl locks on the CPUs it uses
     (`withCpus`), taken by a python3 helper that the kernel releases when its owner exits
@@ -1088,21 +1091,22 @@ dedicated 192-core c8g.48xlarge, one A/B at a time on lanes of 24 CPUs, written 
 `record.mjs ab --host <name> --out <file>`. `bench/turbopack-graph-drift.json` (the
 persistent cache against changed files, base and candidate 55, `drift.mjs record`, run on
 the host) ran on a dedicated 192-core c8gd.48xlarge whose gym root is btrfs on its local
-NVMe disks (`drift.mjs` needs reflink copies). `bench/turbopack-gym/cache-read-probes.json`
+NVMe disks (`drift.mjs` needs reflink copies), as did `bench/turbopack-graph-drift-56.json`
+(candidate 56 alone and stacked, `import` edits) and `bench/turbopack-gym/ab56-cold.json`
+(candidate 56's paired cold A/Bs, `ab.mjs`). `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
 themselves); `cache-drift-probes.json` holds the operation-counter probes.
 bench/turbopack-gym/cache-drift.md explains them.
-Apart from the upstream-readiness heap tie-break A/Bs below, which ran earlier on a shared
-box, nothing measured on a shared box is published: other users' processes there move the
+Nothing measured on a shared box is published: other users' processes there move the
 numbers. `make gym-canonical` re-measures the canonical two; `report.mjs --check` verifies
 the Turbopack numbers in TURBOPACK-GRAPH.md, README.md, SUMMARY.md and
 bench/turbopack-gym/cache-drift.md against the records.
 `bench/turbopack-gym/upstream-readiness.json` (bench/turbopack-gym/upstream-readiness.md)
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
-integration runs, a `next dev` check) and the heap tie-break A/Bs, which ran on two 16-core
-lanes of a 96-vCPU Neoverse-V2 box, not the canonical machine. `chart.mjs`
+integration runs, a `next dev` correctness check) and whether the heap tie-break flip changes
+the output; their timings ran on a shared box and are left out. `chart.mjs`
 (re)generates its three scaling charts (`typecheck-cold-vs-warm`, `focus-vs-full`,
 `lockfile-vs-scale`: SVG + 300 DPI PNG each, real axes, log-log with domains derived from
 the plotted points so no record can draw past the frame, the shared grey data footer,

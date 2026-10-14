@@ -128,9 +128,7 @@ page, the server feature component `f76/m29`, the client component `C023` behind
 - **Correctness.** All 744 responses across the 6 rounds were 200, and every page's visible
   text (HTML with scripts, styles and tags stripped) hashed the same as base's, step by step
   and route by route. Neither server logged an error line.
-- **Timing** (per round, base → 22): 5 cold routes 4.51–4.69 s → 3.92–4.03 s; 80-route burst
-  10.62–11.42 s → 9.42–9.90 s. Median edit-to-visible latency over 18 edits per layer: page
-  253 → 247 ms, server component 204 → 202 ms, barrel'd client component 253 → 259 ms.
+- **Timing.** Measured only on a shared box, so not published here.
 
 ## The Heap Tie-Break
 
@@ -152,19 +150,13 @@ flip, `turbopack-core`, `turbopack`, `turbopack-tests` and `next-core` pass 710/
 snapshot updates (`rust.heap-order`). Its four callers are `compute_binding_usage_info`,
 `compute_chunk_group_info`, `merged_modules.rs` and `collect.rs`.
 
-The flip alone, A/B against base on two 16-core lanes (`heapOrder` in the JSON; binding
-`heap-order`, whose diff hash equals `upstream/heap-order-tie-break.patch`):
+The flip alone was built as binding `heap-order` (its diff hash equals
+`upstream/heap-order-tie-break.patch`), and its build output was compared with base's on the
+monolith and on the `quick` app (`heapOrder.outputChecks` in the JSON). Its effect on the graph phase was
+measured only on a shared box and is not published; `compute_binding_usage_info` passes the
+same priority for every module, so its visit order is decided entirely by the tie-break,
+and patch 11 replaces that with explicit priorities.
 
-| B (A = base) | app | reps | graph phase | ratio | swap pairs | run-turbopack | same fingerprint |
-|---|---|---|---|---|---|---|---|
-| tie-break flip | monolith | 6 | 10.14 s → 6.03 s | 0.602 | 0.604, 0.602, 0.599 | 0.903 | **no** |
-| 11 | monolith | 6 | 10.20 s → 6.02 s | 0.586 | 0.593, 0.583, 0.582 | 0.910 | yes |
-| tie-break flip | quick | 2 | 1.98 s → 1.86 s | 0.942 | 0.942 | 0.992 | **no** |
-
-- **Performance.** On the monolith the flip shortens the graph phase about as much as patch 11
-  on the same lanes. `compute_binding_usage_info` passes the same priority for every module,
-  so its order is decided entirely by the tie-break; patch 11 replaces that with explicit
-  priorities.
 - **Output.** The flip changes the build output on both apps: on the monolith 112 of 41,857
   emitted files are chunks whose normalized content differs, plus 7 source maps. Every
   differing chunk holds the same module ids as a chunk of base; what changes is the member
@@ -179,8 +171,8 @@ The flip alone, A/B against base on two 16-core lanes (`heapOrder` in the JSON; 
 
 Verdict: the comparator, its comment and its test disagree, but the one-line flip is not
 output-neutral; it changes the emitted import order inside scope-hoisted groups, which is for
-the Turbopack maintainers to decide. Patch 11 obtains the same graph-phase reduction with an
-unchanged fingerprint and does not depend on the tie-break. Upstream, either correct the comment
+the Turbopack maintainers to decide. Patch 11 shortens the graph phase with an unchanged
+fingerprint (the canonical A/B record) and does not depend on the tie-break. Upstream, either correct the comment
 and the test name to describe the depth-first order (no behavior change), or propose the flip
 as its own change together with the merged-modules ordering question; it should not ride along
 with patch 11.

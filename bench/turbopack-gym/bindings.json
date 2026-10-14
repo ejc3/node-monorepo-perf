@@ -93,5 +93,31 @@
     ],
     "diffSha256": "18a77ebeed78e759",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "56-batch-unemit-collectibles": {
+    "patches": [
+      "56-batch-unemit-collectibles.patch"
+    ],
+    "diffSha256": "b95392e75f941642",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch"
+    ],
+    "diffSha256": "27f0e2f051c936f1",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+55+56": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch"
+    ],
+    "diffSha256": "cb779c4b2f57ecf5",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

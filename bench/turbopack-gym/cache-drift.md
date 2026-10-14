@@ -9,6 +9,10 @@ candidates that came out of it. Every number here was measured on dedicated 192-
 - `bench/turbopack-graph-drift.json`: the drift sweeps, base and candidate 55, on a
   c8gd.48xlarge, one build at a time on 24 of its CPUs, the gym root on btrfs over the
   instance's local NVMe drives.
+- `ab56-cold.json`: paired A/Bs of cold builds for candidate 56, on another c8gd.48xlarge.
+- `bench/turbopack-graph-drift-56.json`: the `import` sweep for candidate 56, base and 56
+  alone and on top of 15 + 22 + 55, on another c8gd.48xlarge set up the same way, with
+  Next.js's page-data workers matched to the build's CPUs (below).
 - `cache-read-probes.json`: single warm builds that locate where a warm start waits (page
   cache, access mode, candidates 53 to 55, profiles), set up the same way, on four instances
   (A, B and D are c8gd.48xlarge, C an m8gd.48xlarge). The same build's time differed between
@@ -205,16 +209,80 @@ the probe.
   open: the profile shows no leaf for it, and no samples in glibc's TLS-descriptor paths
   (`stripe()` reads a thread-local).
 
+## New imports: the collectibles update in emit
+
+With new imports, most of a warm build's `turbopack-emit` runs on one core: in
+`bench/turbopack-graph-drift-56.json` (below), base at 1,000 new imports spends <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> in it (a cold build:
+<!--v:dr.c56.import.base.1000.cold.emit-->16.0s<!--/v-->, on about 19 cores). Whole-build profiles on a dedicated box (`perf`
+with frame pointers; the perf data went with the instance) put that one-core time in the
+backend's aggregation update queue, applying `AggregatedDataUpdate` jobs that carry
+collectible changes up the aggregation graph, queued by `UpdateCollectibleOperation` and by
+`cleanup_old_edges`. When a task takes the collectibles that an operation's subgraph emitted
+(`drop_collectibles` / `take_collectibles`), it records a negative count for each of them on
+itself, so they stop propagating above it (`unemit_collectibles`); the manager calls the
+backend once per collectible, and each call is its own operation that walks the graph above
+the task.
+
+- **56 `batch-unemit-collectibles`**: `unemit_collectibles` records those negative counts as
+  one `UpdateCollectibleOperation` (a new `Backend::unemit_collectibles`, whose default is
+  the old per-collectible loop). Each change is applied to the task as before; dependents of
+  a collectible type are invalidated once per type, as `cleanup_old_edges` does; the task's
+  uppers get one aggregated data update for the batch, so the graph above the task is walked
+  once instead of once per collectible. `turbo-tasks-backend`'s tests pass.
+
+`bench/turbopack-graph-drift-56.json` (`import` edits, 2 reps). Warm builds, `run-turbopack` /
+`turbopack-emit`; the last column is a cold build's `run-turbopack`:
+
+| new imports | base | 56 | 15 + 22 + 55 | 15 + 22 + 55 + 56 | cold, 15 + 22 + 55 |
+|---|---|---|---|---|---|
+| 1 | <!--v:dr.c56.import.base.1.warm.turbopack-->61.1s<!--/v--> / <!--v:dr.c56.import.base.1.warm.emit-->3.2s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.1.warm.turbopack-->60.6s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.1.warm.emit-->2.8s<!--/v--> | <!--v:dr.c56.import.15+22+55.1.warm.turbopack-->29.7s<!--/v--> / <!--v:dr.c56.import.15+22+55.1.warm.emit-->2.1s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.1.warm.turbopack-->27.8s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.1.warm.emit-->1.7s<!--/v--> | <!--v:dr.c56.import.15+22+55.1.cold.turbopack-->33.2s<!--/v--> |
+| 10 | <!--v:dr.c56.import.base.10.warm.turbopack-->74.8s<!--/v--> / <!--v:dr.c56.import.base.10.warm.emit-->12.2s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.turbopack-->72.2s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.emit-->9.4s<!--/v--> | <!--v:dr.c56.import.15+22+55.10.warm.turbopack-->42.0s<!--/v--> / <!--v:dr.c56.import.15+22+55.10.warm.emit-->11.5s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.10.warm.turbopack-->38.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.10.warm.emit-->8.5s<!--/v--> | <!--v:dr.c56.import.15+22+55.10.cold.turbopack-->33.7s<!--/v--> |
+| 1,000 | <!--v:dr.c56.import.base.1000.warm.turbopack-->99.7s<!--/v--> / <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.turbopack-->87.1s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c56.import.15+22+55.1000.warm.turbopack-->74.5s<!--/v--> / <!--v:dr.c56.import.15+22+55.1000.warm.emit-->39.1s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.1000.warm.turbopack-->60.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v--> | <!--v:dr.c56.import.15+22+55.1000.cold.turbopack-->32.2s<!--/v--> |
+
+- Same output for every binding at every point (the sweep's checks).
+- At 1,000 new imports 56 shortens emit by 12 to 13s, alone and stacked, and the seconds
+  of `run-turbopack` under 1.5 busy cores go from <!--v:dr.c56.import.base.1000.warm.lowCoreS-->44.5s<!--/v--> to <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.lowCoreS-->32.0s<!--/v--> (base → 56) and from
+  <!--v:dr.c56.import.15+22+55.1000.warm.lowCoreS-->27.5s<!--/v--> to <!--v:dr.c56.import.15+22+55+56.1000.warm.lowCoreS-->16.5s<!--/v--> (stacked). At 10, about 3s of emit. With one new import emit is short to start with.
+- With 15 + 22 + 55 + 56, a warm build with one new import spends <!--v:dr.c56.import.15+22+55+56.1.warm.turbopack-->27.8s<!--/v--> in `run-turbopack`
+  against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<!--/v-->; from 10 it is slower than cold, as without 56 (wall
+  <!--v:dr.c56.import.15+22+55+56.10.warm.wall-->54.0s<!--/v--> against <!--v:dr.c56.import.15+22+55+56.10.cold.wall-->52.1s<!--/v-->). What is left of the warm build with one new import is mostly parallel:
+  the recomputation outside emit (`run-turbopack` as a whole averages about 13 busy cores).
+- On this instance base's unchanged-tree warm build spent <!--v:dr.c56.import.base.0.warm.turbopack-->38.6s<!--/v--> in `run-turbopack`, as on
+  instances A and B of `cache-read-probes.json` (15 + 22 + 55: <!--v:dr.c56.import.15+22+55.0.warm.turbopack-->5.1s<!--/v-->), so its base numbers
+  are not comparable to the sweeps above; compare within this record.
+- Cold builds here are single builds per rep, not A/Bs. Their medians lean slower with 56:
+  56's cold `run-turbopack` is 0.0 to 1.9s longer than base's at every N, and 15 + 22 + 55 +
+  56's is 0.9s shorter to 2.6s longer than 15 + 22 + 55's. Paired A/Bs of cold builds
+  (`ab56-cold.json`: 6 reps on two 24-CPU lanes, same instance type) put it in the noise:
+  `run-turbopack` ×1.005 for base → 56 (swap pairs 0.985, 1.014, 1.016) and ×1.008 for
+  15 + 22 + 55 → 15 + 22 + 55 + 56 (0.990, 1.009, 1.026), same output.
+
+**Page-data workers.** Next.js sizes its page-data worker pool from `os.cpus()`, every CPU of
+the machine rather than the build's CPU set, so on these boxes a build pinned to 24 CPUs
+forks 191 workers from the process holding Turbopack's heap. `drift.mjs` and `bench.mjs`
+take `--page-workers match`, which sets `CIRCLE_NODE_TOTAL` (which Next.js reads first) to
+the build's CPU count. The count is part of the config that the output embeds, so the output
+fingerprint differs between settings; the drift-56 record states `pageWorkers: "match"`, and
+`drift.mjs record` refuses sweeps with different settings. With it, 15 + 22 + 55's
+unchanged-tree warm build takes <!--v:dr.c56.import.15+22+55.0.warm.wall-->16.3s<!--/v--> wall, <!--v:dr.c56.import.15+22+55.0.warm.turbopack-->5.1s<!--/v--> of it in `run-turbopack`.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
   run: on instances C and D (`candidatesC`, `candidatesD`), wall minus `run-turbopack` is
   11.4 to 23.1s, most builds near 12s or near 21s, the same configuration landing on either,
   in every access mode. Not explained yet.
-- New imports change the module graph, so a warm build reruns the whole-app analyses on
-  task state read back from the cache; after many edits an earlier profile (on a shared box,
-  discarded) showed a long single-threaded collectibles update. Not re-profiled on a
-  dedicated box yet; not a candidate.
+- After 56, a warm build with 1,000 new imports still spends <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v--> in emit, part of it on one
+  core. 56 was not profiled; candidates for the rest, from reading the code: the updates
+  `cleanup_old_edges` queues, and updates from different tasks that reach the same uppers,
+  are still applied one by one (the queue has a "TODO merge AggregatedDataUpdate").
+- 56 as measured is not ready to send upstream: its `update_collectible.rs` fails `rustfmt
+  --check` in four places, its `Backend::unemit_collectibles` doc comment says the task
+  emitted the collectibles (it records their removal), and it has no targeted test for
+  several collectibles crossing zero in one batch. Fixing those changes the patch hash, so
+  the binding and the record go together.
+- With one new import, a warm build's recomputation outside emit takes most of a cold
+  build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
   explained yet.
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it

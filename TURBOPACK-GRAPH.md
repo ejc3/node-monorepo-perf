@@ -223,6 +223,26 @@ cache (A/B of cold builds: `run-turbopack` ×1.004, same output). Candidates 53 
 block's whole range before its first access) and 54 (53 plus the meta files) help less than
 55: a warm start reads most of every SST, and read-ahead also fetches the blocks that follow.
 
+**With new imports, emit runs mostly on one core.** A warm build's `turbopack-emit` after
+1,000 new imports spends most of its time applying collectible changes up the aggregation
+graph, and a task that takes the collectibles of a subgraph records their removal one
+collectible at a time, each its own operation.
+Candidate 56 removes them as one operation with one aggregated update for the batch
+(`bench/turbopack-graph-drift-56.json`, another dedicated c8gd.48xlarge, page-data workers
+matched to the build's CPUs; same output at every point). Warm builds, `run-turbopack` /
+`turbopack-emit`:
+
+| new imports | base | 56 | 15 + 22 + 55 | 15 + 22 + 55 + 56 |
+|---|---|---|---|---|
+| 10 | <!--v:dr.c56.import.base.10.warm.turbopack-->74.8s<!--/v--> / <!--v:dr.c56.import.base.10.warm.emit-->12.2s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.turbopack-->72.2s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.10.warm.emit-->9.4s<!--/v--> | <!--v:dr.c56.import.15+22+55.10.warm.turbopack-->42.0s<!--/v--> / <!--v:dr.c56.import.15+22+55.10.warm.emit-->11.5s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.10.warm.turbopack-->38.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.10.warm.emit-->8.5s<!--/v--> |
+| 1,000 | <!--v:dr.c56.import.base.1000.warm.turbopack-->99.7s<!--/v--> / <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> | <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.turbopack-->87.1s<!--/v--> / <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v--> | <!--v:dr.c56.import.15+22+55.1000.warm.turbopack-->74.5s<!--/v--> / <!--v:dr.c56.import.15+22+55.1000.warm.emit-->39.1s<!--/v--> | <!--v:dr.c56.import.15+22+55+56.1000.warm.turbopack-->60.7s<!--/v--> / <!--v:dr.c56.import.15+22+55+56.1000.warm.emit-->25.8s<!--/v--> |
+
+Base's warm builds on that instance read the cache as slowly as on A and B above, so compare
+within the table. With one new import the stacked warm build spends <!--v:dr.c56.import.15+22+55+56.1.warm.turbopack-->27.8s<!--/v--> in `run-turbopack`
+against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<!--/v-->; the rest is the whole-app analyses rerunning, on many cores. Cold builds: paired A/Bs give
+`run-turbopack` ×1.005 (base → 56) and ×1.008 (stacked), same output
+(`bench/turbopack-gym/ab56-cold.json`).
+
 ## A Counter Every Operation Writes
 
 In cold builds the largest on-CPU leaf in Turbopack's workers is an atomic add: 9.29% of
@@ -252,8 +272,9 @@ c8g.48xlarge, lanes of 24 CPUs, one A/B at a time), all same output:
   section).
 - A warm build's wall time after `run-turbopack` varies from run to run (most builds near 12s
   or near 21s) in every access mode (bench/turbopack-gym/cache-drift.md); not explained yet.
-- New imports rerun the whole-app analyses on restored task state; not re-profiled on a
-  dedicated box yet.
+- New imports rerun the whole-app analyses on restored task state, on many cores; after 56,
+  part of a warm build's emit after many new imports is still one-core collectible updates
+  (bench/turbopack-gym/cache-drift.md, Open).
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.
 - The patches are against v16.4.0. Upstream checks of 11 and 22 (next.js's Rust checks, a
