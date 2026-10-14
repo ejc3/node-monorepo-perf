@@ -646,18 +646,24 @@ imports; warm <!--v:dr.c4142.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.7
   probe comparing two cold builds; the profile's and the probe's counts are not kept). 61
   (above) shares the per-reference parts; each changed page's manifest is still rebuilt
   whole.
-- The rest of the single-core JavaScript after `run-turbopack` is mostly forking the
-  page-data workers: `child_process.fork` from a process holding Turbopack's heap copies
-  its page tables once per worker (about 3s on the main thread, and 4s more in the
-  children before `exec`, in the profile with 24 workers).
+- The rest of the single-core JavaScript after `run-turbopack` is mostly starting the
+  page-data workers: fork + exec from a process holding Turbopack's heap (see "starting the
+  page-data workers" above; Node with libuv's `posix_spawn` takes the time after
+  `run-turbopack` from 23.2s to 7.2s on 192 CPUs). Until Node ships libuv 1.53, Next.js could
+  avoid most of it by starting the pool before Turbopack's heap grows; not tried.
   Letting mimalloc use transparent huge pages (`MIMALLOC_ALLOW_LARGE_OS_PAGES=1`, a probe:
   a paired cold A/B of 15 + 22 + 55 + 56 + 57 + 59 on the monolith, 6 reps, not a record)
-  changed neither `run-turbopack` (×1.018) nor the time after it. In those builds, with
-  Next.js's default page-data pool (191 workers on this instance), the time after
-  `run-turbopack` was about 35s in some builds and about 52s in others, on both sides.
+  changed neither `run-turbopack` (×1.018) nor the time after it.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
-- 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
-  explained yet.
+- 41 + 42 and 52, measured above on top of 15 + 22 + 55 + 56 + 57 + 59 + 61, are not in the
+  canonical run. 52's slower graph phase in its first A/B on the monolith (cold, on 15 + 22
+  alone) is not explained yet.
+- In the 192-CPU profile (without 52), the leaf after the counter's atomic add is
+  `TaskStatisticsApi::get`, a load of a field written once; it may share a cache line with the
+  counter that 52 stripes. Not profiled with 52 in.
+- On the larger app, a warm build after 1,000 new imports is still slower than a cold one, and
+  the whole-app analyses (module graph, chunk groups, merged modules) rerun in full after any
+  new import.
 - `drift.mjs` restores an interrupted sweep's tree when the next sweep on that app starts; it
   has no restore command of its own.
