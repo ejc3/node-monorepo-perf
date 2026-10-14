@@ -542,7 +542,7 @@ a dedicated c8gd.48xlarge). Wall time, base → stack:
 
 ## 52 at 192 CPUs
 
-At 24 CPUs 52 did not change warm builds (above). On all 192 CPUs of the machine, stacked on
+At 24 CPUs, before 57, 59 and 61, 52 did not change warm builds (above). On all 192 CPUs of the machine, stacked on
 15 + 22 + 55 + 56 + 57 + 59 + 61 (`bench/turbopack-graph-drift-52s-192.json`, `import` edits,
 2 reps, page-data pool matched to the CPUs), cold and warm `run-turbopack`, stack → stack + 52:
 
@@ -555,6 +555,12 @@ At 24 CPUs 52 did not change warm builds (above). On all 192 CPUs of the machine
 
 Same output in every build. Shorter with 52 everywhere except the warm build with nothing
 changed, which does almost no work.
+
+Again at 24 CPUs, now on top of 57, 59 and 61 (`bench/turbopack-graph-drift-52s-24.json`, 3 reps;
+this run landed on a c9gd.48xlarge, so its times are not comparable with the c8gd records):
+cold `run-turbopack` <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.cold.turbopack-->21.4s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1.cold.turbopack-->18.4s<!--/v--> at one new import; warm
+<!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.9s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1.warm.turbopack-->16.0s<!--/v--> at 1, <!--v:dr.c52s24.import.15+22+55+56+57+59+61.10.warm.turbopack-->20.5s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.10.warm.turbopack-->17.8s<!--/v--> at 10 and <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1000.warm.turbopack-->23.3s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1000.warm.turbopack-->20.7s<!--/v--> at 1,000;
+the same with nothing changed. Same output.
 
 ## Profiles: 192 CPUs and a larger app
 
