@@ -1138,7 +1138,14 @@ edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B)
 `bench/turbopack-graph-drift-58.json`, `-59.json` and `-61.json` (candidates 58, 59 and 61,
 each stacked, `import` edits) likewise. `bench/turbopack-gym/route-stats-60.json` times
 Next.js's route bundle stats step alone (`route-stats.mjs`, candidate 60) on one build's
-output, on such an instance. `bench/turbopack-gym/cache-read-probes.json`
+output, on such an instance. The scaling and larger-app sweeps are drift records too:
+`bench/turbopack-graph-drift-cores-{24,48,96,192}.json` (base against the stack at four CPU
+counts), `-2x-24.json` (a monolith with twice the routes), `-52s-192.json` and `-52s-24.json`
+(52 on the stack), `-4142-2x.json` and `-4142.json` (41 + 42 on the stack) and
+`-full-24.json` / `-full-192.json` (base against everything), each on a dedicated c8gd or
+c9gd.48xlarge named in the record. `bench/turbopack-gym/next-ab-62.json` (candidate 62) and
+`next-ab-node-{192,24}.json` (Node with libuv's `posix_spawn`) are whole-build A/Bs from
+`next-ab.mjs`; `cache-drift-probes.json` adds the process-start and NUMA-balancing probes. `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within

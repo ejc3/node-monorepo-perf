@@ -611,32 +611,32 @@ the same with nothing changed. Same output.
 ## Profiles: 192 CPUs and a larger app
 
 Whole-build profiles of 15 + 22 + 55 + 56 + 57 + 59 + 61 built with frame pointers (`perf`
-cpu-clock and `sched_switch`, the build's CPUs, a dedicated c8gd.48xlarge; profiles, not
-records; the perf data is not kept).
+cpu-clock and `sched_switch`, the build's CPUs, a dedicated c8gd.48xlarge). The perf data is
+not kept, so they locate the costs below and no figure here comes from them; the effects are
+measured in the records named.
 
-**A warm build after one new import, on all 192 CPUs** (`run-turbopack` 31.7s):
+**A warm build after one new import, on all 192 CPUs:**
 
-- Emit runs for 9s on 91 cores (819 CPU-s); 85% of that CPU is under
-  `client_reference_manifest::build_manifest`. 55% of the samples end in one atomic add
-  (`__aarch64_ldadd8_acq_rel`), the shared operation counter that 52 stripes (above), and 8%
-  in `TaskStatisticsApi::get`, a load of a read-only field, which suggests it shares a cache
-  line with that counter.
-- 126 CPU-s are the kernel migrating pages between the two NUMA nodes
-  (`do_numa_page` → `migrate_misplaced_folio`: automatic NUMA balancing), and about 110
-  CPU-s, in emit and in the persistence step, are write-protect faults (`do_wp_page`) on
-  pages of the build's own heap. The forks of the page-data workers write-protect the
-  parent's pages, and they run while Turbopack's persistence still writes.
-- After `run-turbopack`, 15s run on one core: about 5s copying and tearing down page tables
-  for the worker forks (`copy_page_range`, `zap_pte_range` from `exec_mmap`), and most of
-  the rest compiling the client reference manifests with `require()` for the route bundle
-  stats (candidate 60's step).
+- Emit runs on most of the machine's cores, and most of that CPU is under
+  `client_reference_manifest::build_manifest`. The largest leaf is one atomic add
+  (`__aarch64_ldadd8_acq_rel`), the shared operation counter that 52 stripes (52 at 192
+  CPUs, above). The next is `TaskStatisticsApi::get`, a load of a field written once, which
+  suggests it shares a cache line with that counter.
+- The kernel spends CPU migrating pages between the two NUMA nodes (`do_numa_page` →
+  `migrate_misplaced_folio`: automatic NUMA balancing; the probe in the 52 section measures
+  it), and on write-protect faults (`do_wp_page`) on pages of the build's own heap in emit
+  and in the persistence step: the forks of the page-data workers write-protect the parent's
+  pages while Turbopack's persistence still writes.
+- After `run-turbopack`, the main thread copies and tears down page tables for the worker
+  forks (`copy_page_range`, `zap_pte_range` from `exec_mmap`; measured with Node's
+  `posix_spawn` above) and compiles the client reference manifests with `require()` for the
+  route bundle stats (candidate 60's step).
 
-**A cold build of drift-monolith-2x on 24 CPUs** (the larger app above; `run-turbopack`
-82.5s): 26s of `turbopack-write-entrypoints` run on one core. `compute_chunk_group_info`
-(roaring bitmap `is_subset` and unions) takes about 10s of it, and the merged-modules
-reconciliation in `compute_merged_modules` about 9.5s. On the monolith the two take about
-4.75s together (`next-limit.md`). They are what 41 and 42 change; 41 + 42 are not in the
-stack measured above.
+**A cold build of drift-monolith-2x on 24 CPUs** (the larger app above): much of
+`turbopack-write-entrypoints` runs on one core, in `compute_chunk_group_info` (roaring bitmap
+`is_subset` and unions) and in the merged-modules reconciliation in `compute_merged_modules`,
+the two algorithms `next-limit.md` found single-core on the monolith. They are what 41 and 42
+change; 41 + 42 are not in the stack measured above.
 
 ## 41 + 42 on the larger app
 
