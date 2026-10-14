@@ -592,6 +592,22 @@ reconciliation in `compute_merged_modules` about 9.5s. On the monolith the two t
 4.75s together (`next-limit.md`). They are what 41 and 42 change; 41 + 42 are not in the
 stack measured above.
 
+## 41 + 42 on the larger app
+
+41 (chunk groups interned) and 42 (merged-module exposure without "before") change the two
+single-core algorithms the profile above names (`next-limit.md` describes them; on the monolith
+they shortened `run-turbopack` by 11 to 12% on top of 15 + 22). Stacked on 15 + 22 + 55 + 56 + 57 + 59 + 61, on
+drift-monolith-2x at 24 CPUs (`bench/turbopack-graph-drift-4142-2x.json`, `import` edits, 2 reps),
+`run-turbopack`, stack → stack + 41 + 42:
+
+| new imports | cold | warm |
+|---|---|---|
+| 0 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.0.cold.turbopack-->84.1s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.0.cold.turbopack-->66.0s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.0.warm.turbopack-->11.6s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.0.warm.turbopack-->11.8s<!--/v--> |
+| 1 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.cold.turbopack-->85.9s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.cold.turbopack-->65.0s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.warm.turbopack-->88.9s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.warm.turbopack-->68.3s<!--/v--> |
+| 1,000 | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1000.cold.turbopack-->87.0s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1000.cold.turbopack-->66.5s<!--/v--> | <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1000.warm.turbopack-->99.5s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1000.warm.turbopack-->81.5s<!--/v--> |
+
+Whole cold builds <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.cold.wall-->134.3s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.cold.wall-->114.3s<!--/v--> at one new import. Same output in every build.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
