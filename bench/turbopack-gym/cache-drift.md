@@ -266,6 +266,20 @@ fingerprint differs between settings; the drift-56 record states `pageWorkers: "
 `drift.mjs record` refuses sweeps with different settings. With it, 15 + 22 + 55's
 unchanged-tree warm build takes <!--v:dr.c56.import.15+22+55.0.warm.wall-->16.3s<!--/v--> wall, <!--v:dr.c56.import.15+22+55.0.warm.turbopack-->5.1s<!--/v--> of it in `run-turbopack`.
 
+**Upstream form.** As measured, 56 fails `rustfmt --check` in four places and had no
+targeted test. `upstream/56-batch-unemit-collectibles.patch` is the measured code formatted
+with the project's nightly rustfmt, with the `Backend::unemit_collectibles` doc comment
+corrected (the task records the removal; it need not have emitted the collectibles) and a
+new test, `turbo-tasks-backend/tests/take_many_collectibles.rs`. In it a task takes the
+collectibles of a child that emits n of them, one twice, for n = 5, 8, 3, 0, 6, 6, 1, 9; the
+taker must see exactly the current n and a task above it none. The test fails when the
+batch's update to the uppers carries only its first change (4 of 5 collectibles visible
+above the taker). Apart from whitespace, one trailing comma and that comment, the code is
+the measured code; the bindings and records stay tied to
+`candidates/56-batch-unemit-collectibles.patch`. Clippy (`-p turbo-tasks -p
+turbo-tasks-backend --tests -D warnings`) is clean and `cargo test -p turbo-tasks-backend`
+passes 276 of 276.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
@@ -276,11 +290,6 @@ unchanged-tree warm build takes <!--v:dr.c56.import.15+22+55.0.warm.wall-->16.3s
   core. 56 was not profiled; candidates for the rest, from reading the code: the updates
   `cleanup_old_edges` queues, and updates from different tasks that reach the same uppers,
   are still applied one by one (the queue has a "TODO merge AggregatedDataUpdate").
-- 56 as measured is not ready to send upstream: its `update_collectible.rs` fails `rustfmt
-  --check` in four places, its `Backend::unemit_collectibles` doc comment says the task
-  emitted the collectibles (it records their removal), and it has no targeted test for
-  several collectibles crossing zero in one batch. Fixing those changes the patch hash, so
-  the binding and the record go together.
 - With one new import, a warm build's recomputation outside emit takes most of a cold
   build's `run-turbopack` (above): the whole-app analyses rerun.
 - 55 and 52 are not in the canonical run. 52's slower graph phase on the monolith is not
