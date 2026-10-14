@@ -88,6 +88,11 @@ separate cost:
   Turbopack's module graph phase takes <!--v:sc.base.16.graph-->9.62s<!--/v--> at 16 cores and <!--v:sc.base.96.graph-->15.62s<!--/v--> at 96.
   Two Turbopack patches cut it to <!--v:ab.15+22.ratio-->0.360<!--/v-->× on a 24-core lane and the Turbopack compile to
   <!--v:ab.15+22.guard-->0.713<!--/v-->× ([TURBOPACK-GRAPH.md](TURBOPACK-GRAPH.md), 192-core c8g.48xlarge).
+  With new imports, most of a warm `next build`'s emit runs on one core carrying collectible
+  changes up the task graph; recording a task's taken collectibles as one operation instead of
+  one per collectible (candidate 56) takes emit at 1,000 new imports from
+  <!--v:dr.c56.import.base.1000.warm.emit-->39.0s<!--/v--> to <!--v:dr.c56.import.56-batch-unemit-collectibles.1000.warm.emit-->26.9s<!--/v-->
+  ([cache-drift.md](bench/turbopack-gym/cache-drift.md)).
 
 Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
 1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at
