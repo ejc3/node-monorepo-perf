@@ -499,6 +499,22 @@ rmSync(scratch, { recursive: true, force: true });
     ) === 0 && published().boots === 3,
     "drift record counts the boot of an attempt that finished no point",
   );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        // a third attempt logged itself, then its machine was lost during its first build
+        lines.push({
+          sweep: "drift-t",
+          attempt: "a3",
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: { ...machine, boot: "b3" },
+        });
+      }),
+    ) === 0 && published().boots === 3,
+    "drift record counts the boot of an attempt lost during its first build",
+  );
   {
     const { resumable, countedRuns } = await import(
       new URL("./drift.mjs", import.meta.url).pathname
@@ -1164,11 +1180,13 @@ function reportWith(keys, extra = {}, args = []) {
   // that waited for another must see what that one finished
   const src = readFileSync(new URL("./drift.mjs", import.meta.url), "utf8");
   const lockAt = src.indexOf("await withLock(`drift-${appName}`");
+  const logsAt = src.indexOf('withLock("drift-logs"');
   check(
     lockAt > 0 &&
-      src.indexOf("resumable(readJsonl(PLANS)") > lockAt &&
-      src.indexOf("repairJsonl(f)") > lockAt,
-    "drift chooses the sweep to resume while holding the app lock",
+      logsAt > lockAt &&
+      src.indexOf("resumable(readJsonl(PLANS)") > logsAt &&
+      src.indexOf("repairJsonl(f)") > logsAt,
+    "drift chooses the sweep to resume under the app lock, and repairs the shared logs under their own lock",
   );
 }
 

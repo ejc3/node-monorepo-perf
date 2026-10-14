@@ -119,7 +119,7 @@ export function resumable(plans, sweeps, plan, instanceType) {
 // that finished it and the seeds of the first attempt that logged one for every binding (an
 // attempt lost while seeding has only some); without, every line (an older sweep).
 export function countedRuns(lines, sweep) {
-  const mine = lines.filter((l) => l.sweep === sweep);
+  const mine = lines.filter((l) => l.sweep === sweep && l.mode !== "attempt");
   const points = mine.filter((l) => l.mode === "point");
   if (!points.length) return mine.filter((l) => l.mode !== "point");
   const by = new Map(points.map((l) => [`${l.rep}\t${l.n}`, l.attempt]));
@@ -334,24 +334,29 @@ async function sweep(o) {
 
   await withLock(`drift-${appName}`, () =>
     withCpus(o.cpus, async () => {
-      // under the app's lock: a --resume that waited here sees what the one before it finished
-      for (const f of [LOG, PLANS, SWEEPS]) {
-        const tail = repairJsonl(f);
-        if (tail !== null) console.error(`[drift] ${f}: dropped a partial last line`);
-      }
-      const prior = o.resume
-        ? resumable(readJsonl(PLANS), readJsonl(SWEEPS), plan, plan.instanceType)
-        : null;
-      const id =
-        prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
-      plan.sweep = id;
-      // points an earlier attempt finished, with the mismatches it found in them
-      const donePoints = new Map(
-        readJsonl(LOG)
-          .filter((l) => l.sweep === id && l.mode === "point")
-          .map((l) => [`${l.rep}\t${l.n}`, l]),
-      );
-      if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
+      // under the app's lock, so a --resume that waited here sees what the one before it
+      // finished; the logs are shared by every app's sweeps, so they are repaired and read
+      // under one more lock of their own
+      const { prior, id, donePoints } = await withLock("drift-logs", () => {
+        for (const f of [LOG, PLANS, SWEEPS]) {
+          const tail = repairJsonl(f);
+          if (tail !== null) console.error(`[drift] ${f}: dropped a partial last line`);
+        }
+        const prior = o.resume
+          ? resumable(readJsonl(PLANS), readJsonl(SWEEPS), plan, plan.instanceType)
+          : null;
+        const id =
+          prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
+        plan.sweep = id;
+        if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
+        // points an earlier attempt finished, with the mismatches it found in them
+        const donePoints = new Map(
+          readJsonl(LOG)
+            .filter((l) => l.sweep === id && l.mode === "point")
+            .map((l) => [`${l.rep}\t${l.n}`, l]),
+        );
+        return { prior, id, donePoints };
+      });
       console.error(
         `[drift] ${JSON.stringify(plan)}${prior ? ` resuming: ${donePoints.size} points done` : ""}`,
       );
@@ -361,6 +366,9 @@ async function sweep(o) {
       checkPristine(app);
       const pristine = appTreeHash(app);
       const log = (rec) => appendJsonl(LOG, { sweep: id, attempt, ...rec });
+      // this attempt and its machine, before any build: a machine lost during the first build
+      // still counts as one of the sweep's boots
+      log({ rep: -2, n: 0, mode: "attempt", machine: machine() });
       const run = async ({ env = {}, ...args }) => {
         const rec = await bench({
           cpus: o.cpus,
@@ -730,9 +738,12 @@ function record(o) {
   const counted = new Set(
     plans.flatMap((p) => countedRuns(readJsonl(LOG), p.sweep).map((l) => l.id)),
   );
-  for (const l of readJsonl(LOG))
-    if (l.id && !counted.has(l.id) && plans.some((p) => p.sweep === l.sweep))
+  for (const l of readJsonl(LOG)) {
+    if (!plans.some((p) => p.sweep === l.sweep)) continue;
+    if (l.mode === "attempt") check({ id: `attempt ${l.attempt}`, machine: l.machine });
+    else if (l.id && !counted.has(l.id))
       check(JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8")));
+  }
   const published = publicMachine(first_machine);
   const { out: _, ...shape } = JSON.parse(readFileSync(join(app, "monolith.json"), "utf8"));
   const map = BINDING_MAP();
