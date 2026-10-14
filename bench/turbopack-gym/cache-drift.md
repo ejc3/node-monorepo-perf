@@ -513,6 +513,23 @@ so a build limited to some of the machine's CPUs still starts one worker per mac
   - 24 CPUs and 23 workers (`next-ab-node-24.json`): cold <!--v:na.node24.cold.base.wall-->35.6s<!--/v--> → <!--v:na.node24.cold.candidate.wall-->29.6s<!--/v--> (×<!--v:na.node24.cold.ratio-->0.834<!--/v-->),
     after `run-turbopack` <!--v:na.node24.cold.base.after-->12.9s<!--/v--> → <!--v:na.node24.cold.candidate.after-->6.8s<!--/v-->; warm <!--v:na.node24.warm.base.wall-->11.4s<!--/v--> → <!--v:na.node24.warm.candidate.wall-->10.8s<!--/v-->.
 
+## Everything together
+
+Base against every binding change that kept the output and won: 15 + 22 + 41 + 42 + 52 + 55 +
+56 + 57 + 59 + 61 (`bench/turbopack-graph-drift-full-24.json`, drift-monolith, 24 CPUs, `import`
+edits, 2 reps, page-data pool matched to the CPUs, a dedicated c8gd.48xlarge). 60 and 62 change
+Next.js's JavaScript and are measured on their own (above), so they are not in these builds.
+
+| new imports | cold wall | warm wall | cold `run-turbopack` | warm `run-turbopack` |
+|---|---|---|---|---|
+| 0 | <!--v:dr.full24.import.base.0.cold.wall-->63.1s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->35.8s<!--/v--> | <!--v:dr.full24.import.base.0.warm.wall-->48.8s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.warm.wall-->17.0s<!--/v--> | <!--v:dr.full24.import.base.0.cold.turbopack-->44.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.turbopack-->19.1s<!--/v--> | <!--v:dr.full24.import.base.0.warm.turbopack-->37.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.warm.turbopack-->5.1s<!--/v--> |
+| 1 | <!--v:dr.full24.import.base.1.cold.wall-->65.7s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.cold.wall-->36.3s<!--/v--> | <!--v:dr.full24.import.base.1.warm.wall-->74.5s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->28.6s<!--/v--> | <!--v:dr.full24.import.base.1.cold.turbopack-->47.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.cold.turbopack-->18.9s<!--/v--> | <!--v:dr.full24.import.base.1.warm.turbopack-->61.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.turbopack-->16.6s<!--/v--> |
+| 10 | <!--v:dr.full24.import.base.10.cold.wall-->62.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.cold.wall-->35.8s<!--/v--> | <!--v:dr.full24.import.base.10.warm.wall-->89.0s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.warm.wall-->33.3s<!--/v--> | <!--v:dr.full24.import.base.10.cold.turbopack-->44.8s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.cold.turbopack-->19.0s<!--/v--> | <!--v:dr.full24.import.base.10.warm.turbopack-->74.2s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.10.warm.turbopack-->19.0s<!--/v--> |
+| 1,000 | <!--v:dr.full24.import.base.1000.cold.wall-->64.0s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.wall-->37.2s<!--/v--> | <!--v:dr.full24.import.base.1000.warm.wall-->115.9s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.warm.wall-->37.9s<!--/v--> | <!--v:dr.full24.import.base.1000.cold.turbopack-->45.6s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.cold.turbopack-->19.8s<!--/v--> | <!--v:dr.full24.import.base.1000.warm.turbopack-->100.4s<!--/v--> → <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1000.warm.turbopack-->21.2s<!--/v--> |
+
+Same output in every build. A warm build is faster than a cold one at 0, 1 and 10 new imports;
+at 1,000 its wall time is within a second of the cold build's.
+
 ## More cores
 
 The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
