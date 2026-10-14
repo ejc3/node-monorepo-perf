@@ -462,6 +462,65 @@ rmSync(scratch, { recursive: true, force: true });
   const line = (lines, id) => lines.find((l) => l.id === id);
   const published = () => JSON.parse(readFileSync(join(root, "out.json"), "utf8"));
   check(attempt() === 0, "drift record publishes a consistent sweep");
+  // a resumed sweep: attempt a1 built the seed and point (0, 0), then a cold build of
+  // (0, 1) before its machine went away; attempt a2 rebuilt the seed on another boot and
+  // finished (0, 1). The record counts each point's finishing attempt and a1's seed only.
+  const resumed = (lines, runs, extra = () => {}) => {
+    for (const l of lines) l.attempt = l.n === 1 ? "a2" : "a1";
+    lines.push({ ...line(lines, "cold1"), id: "cold1-a1", attempt: "a1" });
+    runs["cold1-a1"] = { ...runs.cold1, id: "cold1-a1" };
+    lines.push({ ...line(lines, "seed"), id: "seed-a2", attempt: "a2" });
+    runs["seed-a2"] = { ...runs.seed, id: "seed-a2" };
+    lines.push({ sweep: "drift-t", attempt: "a1", rep: 0, n: 0, mode: "point", mismatches: [] });
+    lines.push({ sweep: "drift-t", attempt: "a2", rep: 0, n: 1, mode: "point", mismatches: [] });
+    for (const id of ["warm1", "cold1", "off1", "seed-a2"])
+      runs[id] = { ...runs[id], machine: { ...machine, boot: "b2" } };
+    extra(lines, runs);
+  };
+  check(
+    attempt((lines, runs) => resumed(lines, runs)) === 0 && published().boots === 2,
+    "drift record publishes a resumed sweep from its finishing attempts, across two boots",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        runs.warm1 = { ...runs.warm1, machine: { ...machine, boot: "b2", cores: 4 } };
+      }),
+    ) !== 0,
+    "drift record refuses a resumed sweep whose attempts ran on different machine types",
+  );
+  {
+    const { resumable, countedRuns } = await import(
+      new URL("./drift.mjs", import.meta.url).pathname
+    );
+    const p = (sweep, extra = {}) => ({
+      sweep,
+      tag: "t",
+      edit: "import",
+      app: "a",
+      bindings: ["x"],
+      modes: ["warm"],
+      points: [0, 1],
+      reps: 2,
+      cpus: "0-23",
+      pageWorkers: "match",
+      instanceType: "c8gd.48xlarge",
+      ...extra,
+    });
+    const want = p(null);
+    check(
+      resumable([p("s1"), p("s2")], [], want, "c8gd.48xlarge")?.sweep === "s2" &&
+        resumable([p("s1")], [{ sweep: "s1" }], want, "c8gd.48xlarge") === null &&
+        resumable([p("s1", { reps: 3 })], [], want, "c8gd.48xlarge") === null &&
+        resumable([p("s1")], [], want, "c9gd.48xlarge") === null,
+      "drift --resume picks the newest unfinished sweep with the same plan on the same instance type",
+    );
+    const legacy = [{ sweep: "s", id: "r1", mode: "warm", rep: 0, n: 0 }];
+    check(
+      countedRuns(legacy, "s").length === 1,
+      "drift counts every run of a sweep from before point lines",
+    );
+  }
   check(
     published().pageWorkers === "default",
     "drift record calls a sweep without a page-workers setting default",
@@ -1040,6 +1099,21 @@ function reportWith(keys, extra = {}, args = []) {
       users.length === 0,
     `drift.mjs and next-ab.mjs check each build's binding against bindings.json (missing: ${users.join(", ") || "none"})`,
   );
+}
+
+// --- GYM_RUNS ---------------------------------------------------------------------------
+{
+  // the run directories can live apart from GYM_ROOT (a volume that outlives the machine)
+  const r = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const l = await import(${JSON.stringify(LIB)}); console.log(l.RUNS)`,
+    ],
+    { encoding: "utf8", env: { ...process.env, GYM_RUNS: "/gym-selftest/runs" } },
+  );
+  check(r.stdout.trim() === "/gym-selftest/runs", "GYM_RUNS moves the run directories");
 }
 
 // --- output fingerprint ------------------------------------------------------------

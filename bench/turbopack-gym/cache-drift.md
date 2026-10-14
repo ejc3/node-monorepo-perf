@@ -53,6 +53,10 @@ edits source, so it refuses the shared apps):
 5. The snapshot and every restore are reflink copies (`cp --reflink=always`), so the restored
    cache files are new inodes with nothing in the page cache, as after a fresh checkout or a
    CI cache restore.
+6. A sweep interrupted by a lost machine (a reclaimed spot instance) continues with
+   `--resume` on the same instance type: finished points are kept, the snapshots are rebuilt
+   and must give the first attempt's outputs, and each point's runs all come from one
+   attempt. A record states how many boots its sweep took.
 
 Every build sets `TURBO_ENGINE_IGNORE_DIRTY=1`. A binding built from a modified next.js tree
 (every patched one) counts as dirty, and Turbopack keeps a dirty build's cache in a

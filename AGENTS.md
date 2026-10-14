@@ -609,6 +609,12 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
     skips the module graph, no build logs the cache as disabled. Raw runs in
     `drift.jsonl`, completed sweeps in `drift-sweeps.jsonl`; `drift.mjs record` writes
     `bench/turbopack-graph-drift.json` (the latest sweep per edit, or `--sweep a,b`).
+    `--resume` continues the newest unfinished sweep with the same plan on the same
+    instance type (plans in `drift-plans.jsonl`): points already done are skipped, the
+    seeds are rebuilt and must match the first attempt's outputs, and each point's runs
+    are taken from the attempt that finished it. For a spot machine that can be reclaimed
+    mid-sweep, put `GYM_RESULTS` and `GYM_RUNS` (run directories) on a volume that outlives
+    it; the record states how many boots the sweep took.
     `--page-workers match` (also on `bench.mjs`) sizes Next.js's page-data worker pool to
     the build's CPUs (`CIRCLE_NODE_TOTAL`) instead of every CPU of the machine; the setting
     changes the output fingerprint, so a record states it and refuses mixed sweeps.

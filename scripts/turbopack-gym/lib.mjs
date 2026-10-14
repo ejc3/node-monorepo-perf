@@ -32,7 +32,9 @@ export const WORKTREES = join(ROOT, "worktrees");
 export const TARGETS = join(ROOT, "target");
 export const BINDINGS = join(ROOT, "bindings");
 export const APPS = join(ROOT, "apps");
-export const RUNS = join(ROOT, "runs");
+// each build's run directory (run.json, build.log); GYM_RUNS puts it elsewhere, e.g. on a
+// volume that outlives the machine so drift.mjs --resume can still read the runs it made
+export const RUNS = process.env.GYM_RUNS ? resolve(process.env.GYM_RUNS) : join(ROOT, "runs");
 // Raw run/A-B logs (gitignored); records of record are written to bench/ by record.mjs.
 export const RESULTS = process.env.GYM_RESULTS || join(REPO, "bench", "raw", "turbopack-gym");
 export const CANDIDATES = join(REPO, "bench", "turbopack-gym", "candidates");
