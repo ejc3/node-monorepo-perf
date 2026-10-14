@@ -783,9 +783,22 @@ function reportWith(keys, extra = {}, args = []) {
       mixed,
       "--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\n--- a/packages/next/src/y.ts\n+++ b/packages/next/src/y.ts\n",
     );
+    const deleted = join(dir, "deleted.patch");
+    writeFileSync(
+      deleted,
+      "diff --git a/crates/x/src/lib.rs b/crates/x/src/lib.rs\n--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\ndiff --git a/packages/next/src/y.ts b/packages/next/src/y.ts\ndeleted file mode 100644\n--- a/packages/next/src/y.ts\n+++ /dev/null\n",
+    );
+    const renamed = join(dir, "renamed.patch");
+    writeFileSync(
+      renamed,
+      "diff --git a/crates/x/src/lib.rs b/crates/x/src/lib.rs\n--- a/crates/x/src/lib.rs\n+++ b/crates/x/src/lib.rs\ndiff --git a/packages/next/src/y.ts b/crates/x/src/y.rs\nsimilarity index 100%\nrename from packages/next/src/y.ts\nrename to crates/x/src/y.rs\n",
+    );
     check(
-      ok && lib.nativeCandidate({ patch: mixed }) === false,
-      "climb.mjs skips a candidate whose patch also changes Next.js's JavaScript",
+      ok &&
+        lib.nativeCandidate({ patch: mixed }) === false &&
+        lib.nativeCandidate({ patch: deleted }) === false &&
+        lib.nativeCandidate({ patch: renamed }) === false,
+      "climb.mjs skips a candidate whose patch also changes, deletes or renames Next.js's JavaScript",
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

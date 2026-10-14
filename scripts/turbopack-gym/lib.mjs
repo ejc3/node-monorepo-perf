@@ -86,14 +86,18 @@ export function parseArgs(argv, spec) {
 
 // "0-31,64-95" -> 64
 // Whether climb.mjs can measure a candidate by building a binding: env-only and worktree
-// candidates can; a patch must change some native source (crates/ or turbopack/) and nothing
-// under packages/: the climb's builds run the app's installed Next.js JavaScript, so a change
-// there would go unmeasured.
+// candidates can; a patch must change some native source (crates/ or turbopack/) and touch
+// nothing under packages/: the climb's builds run the app's installed Next.js JavaScript, so a
+// change there would go unmeasured. Every path the diff names counts: `diff --git` a/ and b/,
+// `---`/`+++` headers (a deletion's only path is on `---`), and `rename`/`copy` from/to.
 export function nativeCandidate(cand) {
   if (!cand.patch) return true;
+  const text = readFileSync(resolve(REPO, cand.patch), "utf8");
   const files = [
-    ...readFileSync(resolve(REPO, cand.patch), "utf8").matchAll(/^\+\+\+ b\/(\S+)/gm),
-  ].map((m) => m[1]);
+    ...[...text.matchAll(/^diff --git a\/(\S+) b\/(\S+)/gm)].flatMap((m) => [m[1], m[2]]),
+    ...[...text.matchAll(/^(?:---|\+\+\+) [ab]\/(\S+)/gm)].map((m) => m[1]),
+    ...[...text.matchAll(/^(?:rename|copy) (?:from|to) (\S+)/gm)].map((m) => m[1]),
+  ];
   return (
     files.some((f) => f.startsWith("crates/") || f.startsWith("turbopack/")) &&
     !files.some((f) => f.startsWith("packages/"))
