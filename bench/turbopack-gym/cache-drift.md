@@ -608,6 +608,11 @@ drift-monolith-2x at 24 CPUs (`bench/turbopack-graph-drift-4142-2x.json`, `impor
 
 Whole cold builds <!--v:dr.c4142big.import.15+22+55+56+57+59+61.1.cold.wall-->134.3s<!--/v--> → <!--v:dr.c4142big.import.15+22+41+42+55+56+57+59+61.1.cold.wall-->114.3s<!--/v--> at one new import. Same output in every build.
 
+On the monolith (`bench/turbopack-graph-drift-4142.json`, 24 CPUs, 3 reps; a c9gd.48xlarge, so
+not comparable with the c8gd records), where the two algorithms take less of the build:
+cold `run-turbopack` <!--v:dr.c4142.import.15+22+55+56+57+59+61.0.cold.turbopack-->23.2s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.0.cold.turbopack-->20.6s<!--/v--> with nothing changed and <!--v:dr.c4142.import.15+22+55+56+57+59+61.1000.cold.turbopack-->23.3s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1000.cold.turbopack-->19.0s<!--/v--> at 1,000 new
+imports; warm <!--v:dr.c4142.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.7s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1.warm.turbopack-->15.9s<!--/v--> at 1, <!--v:dr.c4142.import.15+22+55+56+57+59+61.10.warm.turbopack-->19.9s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.10.warm.turbopack-->19.2s<!--/v--> at 10 and <!--v:dr.c4142.import.15+22+55+56+57+59+61.1000.warm.turbopack-->24.1s<!--/v--> → <!--v:dr.c4142.import.15+22+41+42+55+56+57+59+61.1000.warm.turbopack-->20.0s<!--/v--> at 1,000. Same output.
+
 ## Open
 
 - After `run-turbopack`, a warm build's wall time has a second part that varies from run to
