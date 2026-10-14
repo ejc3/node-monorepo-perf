@@ -1,0 +1,37 @@
+name: review-gate-events
+
+# Relay for review-gate.yml. Review events (a review submitted, edited or dismissed; an
+# inline comment or reply created, edited or deleted) run in the context of the PR's merge
+# ref: the workflow file is the PR's copy, and on a fork PR the token is read-only. Neither
+# can post the review-gate status safely. So this workflow does nothing but exist and
+# finish; its completion fires review-gate.yml through `workflow_run`, which runs from the
+# default branch with a token that can write a commit status, and which reads nothing from
+# this run but the PR it belongs to.
+#
+# It has no permissions and no steps that read the event payload. Editing it in a PR
+# changes nothing about how the status is computed or posted, which happens only in
+# review-gate.yml on the default branch. A PR that deletes or renames it only stops its own review events
+# from re-running the gate early; review-gate.yml's scheduled sweep still re-evaluates every
+# open PR.
+#
+# Resolving or unresolving a review thread is not an Actions trigger (GitHub sends the
+# pull_request_review_thread webhook, but no workflow can listen for it). A disposition is a
+# reply, which does arrive here; a bare resolve or unresolve is picked up by the sweep in
+# review-gate.yml, or at once by `gh workflow run review-gate -f pr=<n>`.
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+
+permissions: {}
+
+jobs:
+  relay:
+    name: relay review event
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Hand off to review-gate
+        run: echo "review event recorded; review-gate.yml re-evaluates this PR from the default branch"

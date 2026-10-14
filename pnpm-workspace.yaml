@@ -7,6 +7,12 @@
 ignoreScripts: true
 minimumReleaseAge: 0
 
+# The linker for every pnpm install in this tree: isolated, pnpm's default, stated because
+# the benches compare against it. A bench's --config.node-linker flag overrides it.
+# linkWorkspacePackages stays at its false default: internal deps use workspace:*, which
+# links local regardless.
+nodeLinker: isolated
+
 packages:
   - "apps/*"
   - "packages/*"

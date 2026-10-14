@@ -11,30 +11,7 @@
 //   node scripts/comparison-chart.mjs
 
 import { readFileSync } from "node:fs";
-import {
-  INK,
-  MUTED,
-  ACCENT,
-  txt,
-  svgDoc,
-  sectionFrame,
-  rampRGB,
-  rgbCss,
-  inkFor,
-  fmtMult,
-  nearTiePct,
-  isFastest,
-  isNearTie,
-  rampLegendItems,
-  legendRow,
-  heatCell,
-  naCell,
-  colHeader,
-  wrapText,
-  esc,
-  emitChart,
-  bareVer,
-} from "./_chartstyle.mjs";
+import { heatChart, emitChart, bareVer, mdDetails, writeDocBlock } from "./_chartstyle.mjs";
 import { assertWaveRolloutSpeedText } from "./_install-speed-context.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -164,7 +141,7 @@ const INSTALL_COLS = [
   {
     k: "ypnp",
     label: "yarn 4\nPnP",
-    sub: "no nm tree — zip cache + table",
+    sub: "zip cache + .pnp.cjs",
     tool: "yarnPnp",
     chip: "yarn",
   },
@@ -179,7 +156,7 @@ const INSTALL_SCALES = [
 // column (situations within one tool). Either way a cell's number is its multiple of that best.
 const SECTIONS = [
   {
-    title: "Install the workspace — bun vs pnpm 12 vs yarn 4",
+    title: "Install the workspace: bun, pnpm 12, yarn 4",
     compareAxis: "row",
     cols: INSTALL_COLS,
     rows: [
@@ -188,7 +165,7 @@ const SECTIONS = [
         ["warmMs", "Warm"],
       ].flatMap(([state, rLabel]) =>
         INSTALL_SCALES.map(([scale, sLabel]) => [
-          `${rLabel} · ${sLabel} · ${byScale[scale].depEdgesVerified.toLocaleString("en-US")} dep edges`,
+          `${rLabel} · ${sLabel}`,
           Object.fromEntries(
             INSTALL_COLS.map((c) => [
               c.k,
@@ -196,11 +173,12 @@ const SECTIONS = [
                 ms: inst(scale, c.tool, state),
                 detail:
                   c.tool === "yarnPnp"
-                    ? `${byScale[scale][c.tool].nmEntries} entries + ${(byScale[scale][c.tool].pnpCjsBytes / 1e6).toFixed(1)}MB table`
+                    ? `${byScale[scale][c.tool].nmEntries} entries + ${(byScale[scale][c.tool].pnpCjsBytes / 1e6).toFixed(1)} MB`
                     : `${(byScale[scale][c.tool].nmEntries / 1000).toFixed(1)}k nm entries`,
               },
             ]),
           ),
+          `${byScale[scale].depEdgesVerified.toLocaleString("en-US")} dep edges`,
         ]),
       ),
       [
@@ -208,7 +186,7 @@ const SECTIONS = [
         // scale must change this label, not silently keep "200 apps" over new numbers.
         // "Cold store + no lockfile", not "fresh container": the pass deletes the
         // lockfile, and a real fresh container/CI checkout keeps the committed one.
-        `Cold store + no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
+        `Cold store, no lockfile · ${IB.trulyCold.apps.toLocaleString("en-US")} apps`,
         {
           bun: IB.trulyCold.bunMs,
           iso: { ms: null, why: "not measured" },
@@ -216,19 +194,20 @@ const SECTIONS = [
           ynm: IB.trulyCold.yarnNmMs,
           ypnp: IB.trulyCold.yarnPnpMs,
         },
+        "fresh store and metadata, network",
       ],
     ],
     source: "bench/install-bench.json",
-    note: `Row label = resolved dependency edges (what the install pulls in, verified post-install); each cell's third line = what that tool MATERIALIZES for the same install — the layout skew: node_modules trees differ per linker, and yarn PnP writes a 64-entry dir plus a resolution table instead of a tree. Cold = no committed lockfile (full resolve); warm = lockfile present, relink only; both warm-store. yarn PnP writes no node_modules (a .pnp.cjs table over cache zips). Cold store + no lockfile = each tool's store and metadata redirected to a fresh dir, real network — not directly comparable to the warm-store rows. Every cell in this section is a single sample. “—” = not measured (only pnpm-hoisted was measured in this truly-cold pass; pnpm-isolated was not). Versions per the JSON: pnpm ${IB.pnpmVersion} (the Rust CLI) · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}; the pnpm 12-vs-10 rewrite head-to-head is its own section below.`,
+    note: `Under each row label: the dependency edges resolved and verified after the install. Under each time: what the linker writes (node_modules entries; yarn PnP writes a 64-entry directory and the .pnp.cjs table). Cold: no lockfile, full resolve. Warm: lockfile present, relink only. Both on a warm store. Cold store, no lockfile: fresh store and metadata, real network; not comparable to the warm-store rows, and pnpm-isolated was not run in it. One sample per cell. pnpm ${IB.pnpmVersion} · bun ${IB.bunVersion} · yarn ${IB.yarnVersion}.`,
   },
   {
-    title: `CI-runner install — frozen from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps, fresh podman container per sample)`,
+    title: `CI-runner install: frozen, from the committed lockfile (${CI.scale.apps.toLocaleString("en-US")} apps)`,
     compareAxis: "row",
     cols: [
       { k: "bun", label: "bun", chip: "bun" },
       { k: "pnpm", label: "pnpm 12", chip: "pnpm" },
       { k: "ynm", label: "yarn 4\nnode-modules", chip: "yarn" },
-      { k: "ypnp", label: "yarn 4\nPnP", sub: "no nm tree — zip cache + table", chip: "yarn" },
+      { k: "ypnp", label: "yarn 4\nPnP", sub: "zip cache + .pnp.cjs", chip: "yarn" },
       { k: "npm", label: `npm ${ciNpmMajor}`, chip: "npm" },
     ],
     rows: [
@@ -254,10 +233,10 @@ const SECTIONS = [
       ],
     ],
     source: "bench/container-install-bench.json",
-    note: `Same workspace shape as the 1,000-apps install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges verified per install). Committed lockfile + frozen install (pnpm/bun --frozen-lockfile, yarn --immutable, npm ci) — what a real CI runner actually pays; medians of ${CI.samplesPerCell} rotated samples, each in a fresh hermetic container. All five fail closed on lockfile drift (measured). pnpm here is its default isolated linker. Versions per the JSON: pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn} · npm ${ciNpm}, in a container image on node ${ciImageNode}.`,
+    note: `Frozen install (--frozen-lockfile, --immutable, npm ci), median of ${CI.samplesPerCell} rotated samples, each in a fresh podman container. Same workspace shape as the 1,000-app install rows above (${CI.depEdgesVerified.toLocaleString("en-US")} dep edges). All five fail closed on lockfile drift. pnpm uses its default isolated linker. pnpm ${CI.versions.pnpm} · bun ${CI.versions.bun} · yarn ${CI.versions.yarn} · npm ${ciNpm}, node ${ciImageNode} image.`,
   },
   {
-    title: `pnpm 12 (the Rust CLI) vs pnpm 10 (JS) — ${pnNum("scale.apps").toLocaleString("en-US")} apps / ${pnNum("scale.libs")} libs`,
+    title: `pnpm 12 (Rust) vs pnpm 10 (JS): ${pnNum("scale.apps").toLocaleString("en-US")} apps / ${pnNum("scale.libs")} libs`,
     compareAxis: "row",
     cols: [
       {
@@ -284,11 +263,11 @@ const SECTIONS = [
         },
       ],
       [
-        "warm rebuild (lockfile + store, no node_modules)",
+        "warm (lockfile + store, node_modules wiped)",
         { p10: pnRow("pnpm10", "warm"), p12: pnRow("pnpm12", "warm"), tip: pnRow("tip", "warm") },
       ],
       [
-        "frozen (--frozen-lockfile — the CI row)",
+        "frozen (--frozen-lockfile, the CI row)",
         {
           p10: pnRow("pnpm10", "frozen"),
           p12: pnRow("pnpm12", "frozen"),
@@ -296,7 +275,7 @@ const SECTIONS = [
         },
       ],
       [
-        "truly cold (fresh store + cache, network; frozen)",
+        "truly cold (fresh store + network; frozen)",
         {
           p10: pnNum("rows.pnpm10.trulyCold.ms"),
           p12: pnNum("rows.pnpm12.trulyCold.ms"),
@@ -305,10 +284,10 @@ const SECTIONS = [
       ],
     ],
     source: "bench/pnpm12-bench.json",
-    note: `Its own bench dataset — one workspace per leg, every leg asserted to lock the identical package set (${pnNum("rows.pnpm12.lockPackages")} packages, ${pnNum("rows.pnpm12.importers").toLocaleString("en-US")} importers), leg order rotated per round. Medians of ${pnSamples}; truly cold is a single sample. Not directly comparable to the install-bench rows above (its own flag set and install-state definitions). pnpm 12 and tip measure within a few % of each other — near-ties keep their time as the headline.`,
+    note: `Separate dataset: one workspace per leg, every leg locks the identical package set (${pnNum("rows.pnpm12.lockPackages")} packages, ${pnNum("rows.pnpm12.importers").toLocaleString("en-US")} importers), leg order rotated per round. Median of ${pnSamples}; truly cold is one sample with the lockfile retained (store and network cost, no re-resolve). Not comparable to the install rows above.`,
   },
   {
-    title: "Typecheck — tsgo vs tsc",
+    title: "Typecheck: tsgo vs tsc",
     compareAxis: "row",
     cols: [
       { k: "tsgo", label: "tsgo", chip: "tsgo" },
@@ -325,10 +304,10 @@ const SECTIONS = [
       ],
     ],
     source: "bench/typecheck-bench.json, bench/typecheck-parity-bench.json",
-    note: `Versions per the JSONs: tsgo ${bareVer(TB.versions.tsgo)} · tsc ${bareVer(TB.versions.tsc)} (the parity row records the same pins).`,
+    note: `tsgo ${bareVer(TB.versions.tsgo)} · tsc ${bareVer(TB.versions.tsc)} (both rows).`,
   },
   {
-    title: "Production build — Vite vs Next",
+    title: "Production build: Vite vs Next",
     compareAxis: "row",
     cols: [
       { k: "vite", label: "Vite", chip: "vite" },
@@ -336,10 +315,10 @@ const SECTIONS = [
     ],
     rows: [[`${BB.apps} apps / ${BB.libs} libs`, { next: BB.next.ms, vite: BB.vite.ms }]],
     source: "bench/build-bench.json",
-    note: "Different feature sets: Next App Router vs Vite SPA.",
+    note: "Different feature sets: Next App Router vs a Vite SPA.",
   },
   {
-    title: `pnpm 12 install situations — pnpm ${IM.pnpm}, ${IM.apps.toLocaleString("en-US")} apps, ${IM.lockfileLines.toLocaleString("en-US")}-line lockfile`,
+    title: `pnpm 12 install situations: pnpm ${IM.pnpm}, ${IM.apps.toLocaleString("en-US")} apps, ${IM.lockfileLines.toLocaleString("en-US")}-line lockfile`,
     compareAxis: "col",
     cols: [{ k: "pnpm", label: "pnpm 12", chip: "pnpm" }],
     rows: [
@@ -350,10 +329,10 @@ const SECTIONS = [
       ["cold resolve (no lockfile)", { pnpm: IM.coldResolveMs }],
     ],
     source: "bench/install-modes-bench.json",
-    note: "One tool, many situations: cheapest in green, others relative to it.",
+    note: "Compared down the column: each situation against the cheapest one.",
   },
   {
-    title: `Lint — oxlint vs ESLint (${LB.corpus.files.toLocaleString("en-US")} files)`,
+    title: `Lint: oxlint vs ESLint (${LB.corpus.files.toLocaleString("en-US")} files)`,
     compareAxis: "row",
     cols: [
       { k: "oxlint", label: "oxlint", chip: "oxlint" },
@@ -361,7 +340,7 @@ const SECTIONS = [
     ],
     rows: [
       [
-        `syntactic (${LB.syntactic.eslintMatchedRuleCount} vs ${LB.syntactic.oxlintActiveRuleCount} rules)`,
+        `syntactic (oxlint ${LB.syntactic.oxlintActiveRuleCount} · ESLint ${LB.syntactic.eslintMatchedRuleCount} rules)`,
         { eslint: LB.syntactic.eslint.noCacheMs, oxlint: LB.syntactic.oxlint.runMs },
       ],
       [
@@ -371,7 +350,7 @@ const SECTIONS = [
       ["type-aware", { eslint: LB.typeAware.eslint.ms, oxlint: LB.typeAware.oxlint.ms }],
     ],
     source: "bench/lint-bench.json",
-    note: `ESLint runs a strict subset of oxlint's covered rules (no more work) — conservative. Wall-clock on a ${need(LB, "cores", "bench/lint-bench.json")}-core box: oxlint is multithreaded, so the ratio scales with cores. The type-aware row is mostly tsgo-vs-tsc (oxlint via tsgolint, alpha). Versions per the JSON: oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
+    note: `ESLint runs a strict subset of oxlint's rules. oxlint runs multithreaded and ESLint runs single-process here (no --concurrency), so the ratio grows with cores (${need(LB, "cores", "bench/lint-bench.json")} here). The type-aware row is mostly tsgo vs tsc (oxlint through tsgolint, alpha). oxlint ${LB.versions.oxlint} · ESLint ${LB.versions.eslint}.`,
   },
 ];
 
@@ -397,133 +376,52 @@ const fmtS = (ms) => {
   return Math.round(ms / 1000).toLocaleString("en-US") + "s";
 };
 
-// --- layout --------------------------------------------------------------------------------------
-const PAD = 24; // outer margin
-const FR = 16; // section-frame inner padding
-const LABEL_W = 280;
-const COL_W = 150;
-const ROW_H = 54;
-const HEAD_H = 52;
-const MAXCOLS = Math.max(...SECTIONS.map((s) => s.cols.length));
-const W = PAD * 2 + FR * 2 + LABEL_W + COL_W * MAXCOLS;
-const FRAME_W = W - PAD * 2;
-const INNER_W = FRAME_W - FR * 2;
-const NOTE_CHARS = Math.floor(INNER_W / (10.5 * 0.53));
-const T = [];
-
-// ---- title block + legend band ----
-T.push(txt(PAD, 40, "Tooling head-to-head — wall time", { size: 20, weight: "700" }));
-T.push(
-  txt(
-    PAD,
-    62,
-    "Like-for-like sections, columns in one order everywhere (typically-fastest leftmost). Fastest cell green; others show ×N slower.",
-    { size: 12.5, fill: MUTED },
-  ),
-);
-T.push(
-  txt(
-    PAD,
-    80,
-    `Machine: ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core). Every number traces to the cited bench JSON.`,
-    {
-      size: 12.5,
-      fill: MUTED,
-    },
-  ),
-);
-{
-  const { parts, endX } = legendRow(PAD, 102, rampLegendItems());
-  T.push(...parts);
-  T.push(
-    txt(endX + 8, 103, "cell: ×N slower (big) · its time (small) · what it writes (installs)", {
-      size: 11,
-      fill: MUTED,
-    }),
-  );
-}
-
-let y = 126; // first section frame top
-for (const sec of SECTIONS) {
-  const x0 = PAD + FR;
-  const gridX = x0 + LABEL_W;
-  const noteLines = sec.note ? wrapText(sec.note, NOTE_CHARS) : [];
-  const frameH =
-    FR + 22 + 8 + HEAD_H + sec.rows.length * ROW_H + 20 + noteLines.length * 14 + FR - 2;
-  T.push(sectionFrame(PAD, y, FRAME_W, frameH));
-
-  // section title
-  let sy = y + FR + 8;
-  T.push(txt(x0, sy, sec.title, { size: 15, weight: "700" }));
-  sy += 14;
-  // header row
-  T.push(txt(x0, sy + HEAD_H / 2 + 4, "scenario", { size: 11.5, fill: MUTED, weight: "600" }));
-  sec.cols.forEach((col, ci) => {
-    T.push(...colHeader(gridX + ci * COL_W, sy, COL_W, HEAD_H, col.label, col));
-  });
-  sy += HEAD_H;
-  // data rows
-  sec.rows.forEach((row, ri) => {
-    T.push(txt(x0, sy + ROW_H / 2 + 4, row[0], { size: 12.5 }));
-    sec.cols.forEach((col, ci) => {
-      const x = gridX + ci * COL_W;
-      const raw = row[1][col.k];
-      const v = raw && typeof raw === "object" ? raw.ms : raw;
-      const detail = raw && typeof raw === "object" ? raw.detail : null;
-      if (v == null) {
-        // an unmeasured cell must say why (the "—" convention): {ms: null, why}
-        const why = raw && typeof raw === "object" ? raw.why : null;
-        if (!why) throw new Error(`section "${sec.title}": a "—" cell (${col.k}) has no reason`);
-        T.push(...naCell(x, sy, COL_W, ROW_H, why));
-        return;
-      }
-      const mult = cellMult(sec, ri, ci);
-      const rgb = rampRGB(mult);
-      const ink = inkFor(rgb);
-      // the × multiplier IS the headline for every non-fastest cell; the absolute
-      // time is the sub-line. Near-ties are not "×1.0 slower" — within 5% of the
-      // fastest the time stays the headline with the honest +N% as the sub-line.
-      const fastest = isFastest(mult);
-      const nearTie = isNearTie(mult);
-      const main = fastest || nearTie ? fmtS(v) : fmtMult(mult) + " slower";
-      const sub = fastest ? "fastest" : nearTie ? nearTiePct(mult) : fmtS(v);
-      T.push(...heatCell(x, sy, COL_W, ROW_H, rgbCss(rgb), ink, main, sub, detail));
-    });
-    sy += ROW_H;
-  });
-  // per-section provenance: clickable source links (relative hrefs — resolve from
-  // bench/charts/ wherever the SVG is served; GitHub's README <img> strips
-  // interactivity, the Raw view keeps it), then the note word-wrapped to the frame.
-  sy += 16;
-  {
-    const parts = sec.source.split(", ");
-    let sx = x0;
-    T.push(txt(sx, sy, "Source:", { size: 10.5, fill: MUTED }));
-    sx += 44;
-    parts.forEach((p, i) => {
-      const label = p + (i < parts.length - 1 ? "," : "");
-      T.push(
-        `<a href="${esc("../../" + p)}"><text x="${sx}" y="${sy}" font-size="10.5" fill="${ACCENT}" text-decoration="underline">${esc(label)}</text></a>`,
-      );
-      sx += label.length * 5.5 + 8;
-    });
+// --- render -------------------------------------------------------------------------------------
+const cellOf = (sec, ri, ci) => {
+  const raw = sec.rows[ri][1][sec.cols[ci].k];
+  const v = msOf(raw);
+  if (v == null) {
+    const why = raw && typeof raw === "object" ? raw.why : null;
+    if (!why)
+      throw new Error(`section "${sec.title}": a "—" cell (${sec.cols[ci].k}) has no reason`);
+    return { kind: "na", why };
   }
-  for (const ln of noteLines) {
-    sy += 14;
-    T.push(txt(x0, sy, ln, { size: 10.5, fill: MUTED }));
-  }
-  y += frameH + 16;
-}
-
-const H = y + 8;
-emitChart(
+  const detail = raw && typeof raw === "object" ? raw.detail : undefined;
+  return { kind: "ranked", text: fmtS(v), mult: cellMult(sec, ri, ci), detail };
+};
+// The cell standing's denominator, stated from the sections' own comparison axes: a
+// column-compared section (install situations) measures each cell against the cheapest
+// cell in its column, not its row, and the lede must say so for every such section.
+const colSections = SECTIONS.filter((sec) => sec.compareAxis === "col");
+if (SECTIONS.some((sec) => !["row", "col"].includes(sec.compareAxis)))
+  throw new Error("comparison-chart: every section needs compareAxis row or col");
+const STANDING = colSections.length
+  ? `its multiple of the fastest in its row (in ${colSections.map((sec) => sec.title.split(":")[0]).join(", ")}: the cheapest in its column)`
+  : "its multiple of the row's fastest";
+for (const sec of colSections)
+  if (!STANDING.includes(sec.title.split(":")[0]))
+    throw new Error(`comparison-chart: the lede does not name column-compared "${sec.title}"`);
+const { svg, md } = heatChart({
+  title: "Tooling head-to-head: wall time",
+  lede: `Each cell: the measured time, then ${STANDING}. ${PAR.cores}-core host (lint: ${need(LB, "cores", "bench/lint-bench.json")}-core).`,
+  sections: SECTIONS.map((sec) => ({
+    title: sec.title,
+    cols: sec.cols,
+    rows: sec.rows.map((row, ri) => ({
+      label: row[0],
+      sub: row[2],
+      cells: sec.cols.map((_, ci) => cellOf(sec, ri, ci)),
+    })),
+    source: sec.source,
+    note: sec.note,
+  })),
+  aria: `Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); each cell shows its measured time and ${STANDING}.`,
+});
+emitChart("tool-comparison", svg);
+writeDocBlock(
+  "README.md",
   "tool-comparison",
-  svgDoc(
-    W,
-    H,
-    "Tooling head-to-head heat table: install (bun vs pnpm 12 vs yarn 4), CI-runner frozen install, pnpm 12 Rust CLI vs pnpm 10 JS, typecheck (tsgo vs tsc), build (Vite vs Next), pnpm install situations, and lint (oxlint vs ESLint); per row the fastest cell is green and the rest show how many times slower.",
-    T,
-  ),
+  mdDetails("The numbers as tables (fastest in bold; readable on a phone)", md),
 );
 console.log(
   `sections: ${SECTIONS.length}, scenario rows: ${SECTIONS.reduce((n, s) => n + s.rows.length, 0)}`,

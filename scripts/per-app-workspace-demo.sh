@@ -2,7 +2,7 @@
 # Per-app-workspace model, materialized live on AWS CodeArtifact (@ejc3).
 #
 # One repo, no app-spanning workspace. Each app is its OWN pnpm workspace root
-# (own pnpm-workspace.yaml + own lockfile + own pnpm.overrides). This proves the
+# (own pnpm-workspace.yaml + own lockfile + own overrides). This proves the
 # two things a single shared root CANNOT do per-app:
 #
 #  (1) pnpm rewrites a `workspace:^` internal dep to a real range (^<ver>) when it
@@ -12,9 +12,9 @@
 #
 #  (2) Per-app divergence on a TRANSITIVE dep. Both apps pin @ejc3/ui at the SAME
 #      version; @ejc3/util is named by NEITHER (it is ui's transitive dep). web's
-#      OWN ROOT carries `pnpm.overrides {"@ejc3/util":"workspace:*"}`; admin's does
-#      not. So web resolves the transitive util to LOCAL source and admin to the
-#      REGISTRY copy. diamond-demo.sh §4 showed this same override in ONE shared
+#      OWN ROOT carries `overrides {"@ejc3/util":"workspace:*"}` in its
+#      pnpm-workspace.yaml; admin's does not. So web resolves the transitive util to
+#      LOCAL source and admin to the REGISTRY copy. diamond-demo.sh §4 showed this same override in ONE shared
 #      root moves EVERY consumer; here it is in web's root only, so admin is
 #      untouched — possible only because each app is its own root.
 #
@@ -111,10 +111,13 @@ pubone ui
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Part 2 — two sibling app workspaces. BOTH pin @ejc3/ui at the SAME version.
-# @ejc3/util is named by neither. web's OWN ROOT adds pnpm.overrides
+# @ejc3/util is named by neither. web's OWN ROOT adds overrides
 # {"@ejc3/util":"workspace:*"} and hosts the local util (SOURCE="workspace-local")
-# as a member; admin's root has neither. The repo root is a libs-only workspace;
-# each app's own pnpm-workspace.yaml shadows it on install.
+# as a member; admin's root has neither. Each app root sets linkWorkspacePackages:
+# false (pnpm's default, stated). pnpm 12 reads these settings only from
+# pnpm-workspace.yaml: it ignores the package.json "pnpm" field and every .npmrc key
+# except registry, auth and network ones. The repo root is a libs-only workspace; each app's own
+# pnpm-workspace.yaml shadows it on install.
 # ─────────────────────────────────────────────────────────────────────────────
 mkdir -p "$DIR/libs/util" "$DIR/apps/web" "$DIR/apps/admin"
 printf 'packages:\n  - "libs/*"\n' > "$DIR/pnpm-workspace.yaml"
@@ -123,12 +126,12 @@ printf '{ "name": "per-app-libs", "private": true, "packageManager": "pnpm@%s" }
 printf '{ "name": "@ejc3/util", "version": "%s", "main": "index.js" }\n' "$VER" > "$DIR/libs/util/package.json"
 printf 'module.exports = { SOURCE: "workspace-local" };\n' > "$DIR/libs/util/index.js"
 
-printf 'packages:\n  - "."\n  - "../../libs/util"\nminimumReleaseAge: 0\n' > "$DIR/apps/web/pnpm-workspace.yaml"
-printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/apps/web/.npmrc"
-printf '{ "name": "web", "private": true, "packageManager": "pnpm@%s", "dependencies": { "@ejc3/ui": "%s" }, "pnpm": { "overrides": { "@ejc3/util": "workspace:*" } } }\n' "$PNPM_VER" "$VER" > "$DIR/apps/web/package.json"
+printf 'packages:\n  - "."\n  - "../../libs/util"\nminimumReleaseAge: 0\nlinkWorkspacePackages: false\noverrides:\n  "@ejc3/util": "workspace:*"\n' > "$DIR/apps/web/pnpm-workspace.yaml"
+printf '%s\n' "$AUTH" > "$DIR/apps/web/.npmrc"
+printf '{ "name": "web", "private": true, "packageManager": "pnpm@%s", "dependencies": { "@ejc3/ui": "%s" } }\n' "$PNPM_VER" "$VER" > "$DIR/apps/web/package.json"
 
-printf 'packages:\n  - "."\nminimumReleaseAge: 0\n' > "$DIR/apps/admin/pnpm-workspace.yaml"
-printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/apps/admin/.npmrc"
+printf 'packages:\n  - "."\nminimumReleaseAge: 0\nlinkWorkspacePackages: false\n' > "$DIR/apps/admin/pnpm-workspace.yaml"
+printf '%s\n' "$AUTH" > "$DIR/apps/admin/.npmrc"
 printf '{ "name": "admin", "private": true, "packageManager": "pnpm@%s", "dependencies": { "@ejc3/ui": "%s" } }\n' "$PNPM_VER" "$VER" > "$DIR/apps/admin/package.json"
 
 echo "════════ 2. two sibling app workspaces (identical \"@ejc3/ui\": \"$VER\") → two installs ════════"

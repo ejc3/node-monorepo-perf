@@ -1,0 +1,217 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "author": {
+          "login": "ejc3"
+        },
+        "headRefOid": "ce01a7cff0f3a761d77b7b919410a06e4871da1d",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "committedDate": "2026-10-10T23:52:44Z",
+                "checkSuites": {
+                  "nodes": [
+                    {
+                      "createdAt": "2026-10-10T23:53:00Z"
+                    },
+                    {
+                      "createdAt": "2026-10-10T23:53:01Z"
+                    },
+                    {
+                      "createdAt": "2026-10-10T23:53:01Z"
+                    },
+                    {
+                      "createdAt": "2026-10-10T23:53:01Z"
+                    },
+                    {
+                      "createdAt": "2026-10-10T23:53:01Z"
+                    },
+                    {
+                      "createdAt": "2026-10-10T23:53:04Z"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "prcommits": {
+          "totalCount": 27,
+          "nodes": [
+            {
+              "commit": {
+                "oid": "8109aae6054b571217a7887e0ad4df09a3d3d619"
+              }
+            },
+            {
+              "commit": {
+                "oid": "7a889ca658debf5b96dfb62bde90f9357c4282b2"
+              }
+            },
+            {
+              "commit": {
+                "oid": "a992380fac6bcdaac5f68fba319beb1584fe4f42"
+              }
+            },
+            {
+              "commit": {
+                "oid": "d063fce520490aa3599a18b7cef324685ec129ab"
+              }
+            },
+            {
+              "commit": {
+                "oid": "800ce1b9953557d4213ccb52611a9b6b98d80bc0"
+              }
+            },
+            {
+              "commit": {
+                "oid": "3f2b28110ee9d8c61cec98a651e7e0b055021047"
+              }
+            },
+            {
+              "commit": {
+                "oid": "13d24bb56733ac9e1899af7ca3a12addd476aaba"
+              }
+            },
+            {
+              "commit": {
+                "oid": "35d5a1fbf58a070261e276385aae2618c358f009"
+              }
+            },
+            {
+              "commit": {
+                "oid": "ea84847af05ec5dd367d04c1015c172494fac098"
+              }
+            },
+            {
+              "commit": {
+                "oid": "076d4b4a1dc7badcb77a50ac81a75ab2dfcbb9de"
+              }
+            },
+            {
+              "commit": {
+                "oid": "41a32a3399739d865908eed2c519b53408d48782"
+              }
+            },
+            {
+              "commit": {
+                "oid": "66548f7a772b05cac6b5a566e786babdd671c8f8"
+              }
+            },
+            {
+              "commit": {
+                "oid": "db5b0de3d09480ed9674df0b9981c2f7cb04c2e1"
+              }
+            },
+            {
+              "commit": {
+                "oid": "be0419e4c1557fb4094af3af4f249fe30022413f"
+              }
+            },
+            {
+              "commit": {
+                "oid": "8041ef76adefefb0e4253c2749879bd9b7a0c511"
+              }
+            },
+            {
+              "commit": {
+                "oid": "b770b9135ce552ff149a4f24a0abfb94956fd609"
+              }
+            },
+            {
+              "commit": {
+                "oid": "d313db1e256c0599150caea9d984f969eba56bc1"
+              }
+            },
+            {
+              "commit": {
+                "oid": "de4b082a30bda8e9b71a932c16b712a5c1ad1a96"
+              }
+            },
+            {
+              "commit": {
+                "oid": "707e3b064a2048fbc1d7862871a2747650ea9535"
+              }
+            },
+            {
+              "commit": {
+                "oid": "5e659fa9e4de0f86451aff9c190e2daaf09b4032"
+              }
+            },
+            {
+              "commit": {
+                "oid": "bec1a3fa49200c17c63134380d92c389fa104c76"
+              }
+            },
+            {
+              "commit": {
+                "oid": "b9eb8f4e21ad7a7891c7fb0748f55bdf819cbee4"
+              }
+            },
+            {
+              "commit": {
+                "oid": "36e8d016924a6bc5855316fc5bdfe982d933c781"
+              }
+            },
+            {
+              "commit": {
+                "oid": "6c83292a87ad36e01b7a6f9a56c2fa57eefc8d73"
+              }
+            },
+            {
+              "commit": {
+                "oid": "1af4ce9f13a6e029038c0a7a94ef95450d8f10be"
+              }
+            },
+            {
+              "commit": {
+                "oid": "2290e8512c014ef4c2a7a5fe4188f475abd6518c"
+              }
+            },
+            {
+              "commit": {
+                "oid": "ce01a7cff0f3a761d77b7b919410a06e4871da1d"
+              }
+            }
+          ]
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "reviews": {
+          "nodes": []
+        },
+        "comments": {
+          "nodes": [
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: skip review by coderabbit.ai -->\n\n> [!IMPORTANT]\n> - [ ] <!-- {\"checkboxId\":\"e9bb8d72-00e8-4f67-9cb2-caf3b22574fe\"} --> 🔍 Trigger review\n> \n> This repository does not receive automatic reviews because it has fewer than 10 stars.\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `996b44d0-a144-4700-81f3-5eb106aebf03`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: skip review by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=63)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+              "createdAt": "2026-10-09T12:39:15Z",
+              "updatedAt": "2026-10-10T23:53:10Z"
+            }
+          ]
+        },
+        "recheck": {
+          "comments": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: skip review by coderabbit.ai -->\n\n> [!IMPORTANT]\n> - [ ] <!-- {\"checkboxId\":\"e9bb8d72-00e8-4f67-9cb2-caf3b22574fe\"} --> 🔍 Trigger review\n> \n> This repository does not receive automatic reviews because it has fewer than 10 stars.\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `996b44d0-a144-4700-81f3-5eb106aebf03`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: skip review by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=63)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+                "createdAt": "2026-10-09T12:39:15Z",
+                "updatedAt": "2026-10-10T23:53:10Z"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

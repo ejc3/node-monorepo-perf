@@ -90,8 +90,8 @@ by base and builds cold with the same output, so candidate changes stay uncommit
   rerunning on restored task state.
 - A cache-off build's `run-turbopack` is shorter than a cold one's at every N (the cold build
   writes the cache; the operation counter below). One cache-off build in the `label` sweep at
-  N = 1,000 ran 107.5s, 71s of it after `run-turbopack` and 33s longer than its other rep,
-  almost all of that after `run-turbopack`; not explained. The median is the mean of the two.
+  N = 1,000 ran 107.5s, 71s of it after `run-turbopack`, against its other rep's 70.4s and 33s;
+  the 37s difference is all after `run-turbopack` and not explained. The median is the mean of the two.
 
 
 ## A warm start reads its cache one page at a time

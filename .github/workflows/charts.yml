@@ -1,8 +1,9 @@
 name: charts
 
 # Keeps every committed chart in sync with the bench data — the four heat charts
-# (comparison-chart/scale-chart/net-cache-chart/fleet-chart) plus chart.mjs's scaling charts and
-# bench/summary.md — and keeps the high-resolution PNGs (linked from the docs) freshly
+# (comparison-chart/scale-chart/net-cache-chart/fleet-chart) plus chart.mjs's scaling charts,
+# bench/summary.md, and the chart-data text alternatives the generators write into the docs —
+# and keeps the high-resolution PNGs (linked from the docs) freshly
 # rendered rather than hand-maintained.
 #
 # Each SVG (and summary.md) is a deterministic function of the cited bench/*.json, so it is
@@ -22,8 +23,15 @@ on:
       - "bench/charts/*.png"
       - "bench/summary.md"
       - "README.md"
+      - "TYPECHECKERS.md"
+      - "LIMITS.md"
+      - "FLEET.md"
+      - "TOOLING.md"
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
+      - "scripts/chartstyle-selftest.mjs"
+      - "scripts/_svg-audit.mjs"
+      - "scripts/_text-width.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -39,8 +47,15 @@ on:
       - "bench/charts/*.png"
       - "bench/summary.md"
       - "README.md"
+      - "TYPECHECKERS.md"
+      - "LIMITS.md"
+      - "FLEET.md"
+      - "TOOLING.md"
       - "scripts/chart.mjs"
       - "scripts/_chartstyle.mjs"
+      - "scripts/chartstyle-selftest.mjs"
+      - "scripts/_svg-audit.mjs"
+      - "scripts/_text-width.mjs"
       - "scripts/comparison-chart.mjs"
       - "scripts/scale-chart.mjs"
       - "scripts/net-cache-chart.mjs"
@@ -52,6 +67,7 @@ on:
 
 permissions:
   contents: write # the commit-refreshed-PNG step pushes to main (no-op on pull_request)
+  statuses: write # and marks that PNG-only commit review-gate=success, which main requires
 
 jobs:
   comparison-chart:
@@ -66,9 +82,12 @@ jobs:
       - name: Install ImageMagick + librsvg (SVG raster delegate)
         run: sudo apt-get update && sudo apt-get install -y imagemagick librsvg2-bin
 
+      - name: Chart kit self-test
+        run: node scripts/chartstyle-selftest.mjs
+
       - name: Re-render the charts (delete the PNGs first so a convert failure can't pass a stale one)
         run: |
-          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png
+          rm -f bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png
           node scripts/comparison-chart.mjs
           node scripts/scale-chart.mjs
           node scripts/net-cache-chart.mjs
@@ -87,15 +106,17 @@ jobs:
           # diffing against HEAD (not the index) is what makes that deletion fail the gate.
           # Covers every committed SVG: the four heat charts plus chart.mjs's charts
           # (typecheck-cold-vs-warm, focus-vs-full, lockfile-vs-scale) and its summary.md.
+          # The generators also write each chart's markdown text alternative (the
+          # chart-data blocks) into the docs that embed it; those docs are gated too.
           git add -N --ignore-removal -- bench/charts/ bench/summary.md
-          if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md; then
-            echo "::error::a committed chart SVG or bench/summary.md is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart' and commit the result."
+          if ! git diff --exit-code HEAD -- 'bench/charts/*.svg' bench/summary.md README.md TYPECHECKERS.md LIMITS.md FLEET.md TOOLING.md; then
+            echo "::error::a committed chart SVG, bench/summary.md, or a doc's chart-data block is out of date, missing, or orphaned. Run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit the result (the heat charts rewrite their chart-data blocks)."
             exit 1
           fi
 
       - name: Require freshly-rendered PNGs (absent => convert failed)
         run: |
-          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png; do
+          for png in bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png; do
             test -s "$png" || { echo "::error::convert did not produce $png"; exit 1; }
             dims=$(identify -format '%wx%h %m' "$png")
             echo "PNG: $png $dims"
@@ -107,15 +128,33 @@ jobs:
 
       - name: Commit the refreshed PNG on main (keeps the committed raster in lockstep with the SVG)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png)" ]; then
+          if [ -n "$(git status --porcelain -- bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png
+            git add bench/charts/tool-comparison.png bench/charts/checker-scale.png bench/charts/cache-network.png bench/charts/fleet-gate.png bench/charts/fig-sliced-gate.png bench/charts/fig-blast-radius.png bench/charts/fig-orepo-oclosure.png bench/charts/fig-save-loop.png bench/charts/fig-freshness-gate.png bench/charts/fig-linker-layouts.png bench/charts/fig-next-pnp-node.png bench/charts/fig-remote-cache.png bench/charts/typecheck-cold-vs-warm.png bench/charts/focus-vs-full.png bench/charts/lockfile-vs-scale.png
             git commit -m "CI: re-render chart PNGs from the SVGs [skip ci]"
-            # Best-effort: if main is branch-protected the push is rejected; warn rather than failing
-            # the build (the PNGs were still validated above; refresh locally with the chart make targets).
-            git push || echo "::warning::could not push the refreshed PNG (branch protection?); run 'make comparison-chart scale-chart net-cache-chart fleet-chart' and commit them"
+            # main requires the review-gate status on every commit it takes. This commit holds
+            # only rasters re-rendered from SVGs that passed the gate in their own PR, so CI
+            # vouches for it in writing: stage it on a side branch, mark it, then fast-forward main.
+            sha=$(git rev-parse HEAD)
+            side="ci/charts-png-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            # On exit, delete every side branch this step may have pushed.
+            drop_side() { for b in "$side" "$side-r2"; do git push origin --delete "$b" >/dev/null 2>&1 || true; done; }
+            trap drop_side EXIT
+            # GitHub has refused this push once with a transient "cannot lock ref ...: reference
+            # already exists"; retry it once under a fresh name before failing.
+            if ! git push --force origin "HEAD:refs/heads/$side"; then
+              echo "::warning::pushing $side failed; retrying once as $side-r2"
+              git push --force origin "HEAD:refs/heads/$side-r2"
+            fi
+            gh api -X POST "repos/$GITHUB_REPOSITORY/statuses/$sha" -f state=success -f context=review-gate \
+              -f description="CI: chart PNGs re-rendered from the SVGs already gated on main; no reviewed content changed" >/dev/null
+            # Best-effort: warn rather than failing the build (the PNGs were still validated above;
+            # refresh locally with the chart make targets).
+            git push origin "HEAD:main" || echo "::warning::could not push the refreshed PNG; run 'make chart comparison-chart scale-chart net-cache-chart fleet-chart figures' and commit them"
           fi
 
       - name: Upload the freshly-rendered PNGs (PR builds)
@@ -136,4 +175,7 @@ jobs:
             bench/charts/fig-linker-layouts.png
             bench/charts/fig-next-pnp-node.png
             bench/charts/fig-remote-cache.png
+            bench/charts/typecheck-cold-vs-warm.png
+            bench/charts/focus-vs-full.png
+            bench/charts/lockfile-vs-scale.png
           if-no-files-found: error

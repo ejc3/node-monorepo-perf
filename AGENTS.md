@@ -74,7 +74,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
 - `make bench`: one full per-phase record (gen, install, graph-load, cold+warm
   typecheck, focus build, prune) appended to `bench/results.json` (`measure.mjs`).
 - `make sweep`: run `measure.mjs` across the scale matrix; `--from <label>` resumes (`sweep.mjs`).
-- `make chart`: render `bench/charts/*.svg` + `bench/summary.md` from `results.json` (`chart.mjs`).
+- `make chart`: render the three scaling charts (SVG + PNG), their README chart-data tables, and `bench/summary.md` from `results.json` (`chart.mjs`).
 
 ### Decomposition / Axes
 - `node scripts/axis-bench.mjs`: separate the apps axis from the libs axis
@@ -285,7 +285,7 @@ One command each for the O(repo)-vs-O(closure) thesis:
   cold/warm medians + samples + the cold ranking/ratios. Non-canonical knobs → gitignored partial.
   Core-bound, load-guarded, self-contained (btrfs work dir, removed unless `SPEED_KEEP=1`), no
   worktree → `bench/rspack-turbopack-speed-bench.json`, folded into TOOLING.md
-  ("[yarn PnP toolchain compatibility](TOOLING.md#yarn-pnp-toolchain-compatibility)", the Build speed paragraph).
+  ("[Build: Next vs Vite](TOOLING.md#build-next-vs-vite)", the Build speed paragraph).
 - `node scripts/fleet-flow-bench.mjs` (`FLEET_FLOW_APPS`/`FLEET_FLOW_WORK`/`FLEET_FLOW_KEEP=1`/
   `FLEET_FLOW_ALLOW_BUSY=1`, `FLOW_BIN`+`FLOW_SOURCE` as in tsgo-scale-bench): **Flow on the
   fleet shape** — mirrors a generated fleet tree module-for-module in Flow's dialect (876,440
@@ -917,19 +917,58 @@ Shared helpers the bench scripts import rather than run directly:
   `measure.mjs`).
 - `scripts/generate.mjs`, `scripts/rewrite-protocols.mjs`: workspace scaffolding.
 - `scripts/_chartstyle.mjs`: the shared chart/figure visual system (diagram-style-spec.md)
-  — palette + box tints, `TOOL_COLORS` (the stable per-tool hues, see the chart
-  conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
-  aria label, system-ui), `box`/`txt`/`arrow`/`dashes`/`footer`/`sectionFrame` (a dashed
+  — palette + box tints, the `TYPE` scale, `TOOL_COLORS` (the stable per-tool hues, see the
+  chart conventions), the in-SVG dark-mode `<style>` block, `svgDoc` (explicit background,
+  aria label, system-ui, tabular numerals), `box`/`txt`/`arrow`/`dashes`/`footer` (a dashed
   edge is explicit segments, not `stroke-dasharray`, which ImageMagick's internal renderer
   underlines with a hairline), the ×1/×2/×10/×100
-  heat ramp (`rampRGB`/`inkFor`/`fmtMult`) with `heatCell`/`naCell`/`colHeader`/legend
-  painters, the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
+  heat ramp (`rampRGB`/`fmtMult`) with the `heatChart` renderer and its cell, header,
+  section and legend painters, the chart text-alternative writers
+  (`mdTable`/`mdDetails`/`writeDocBlock`), the one near-tie rule (`isFastest`/`isNearTie`, within 5% inclusive), `assertComparable`
   (the guard a two-record figure calls before drawing the records as one contrast: named
   fields deep-equal, named `versions` equal strings, missing fields throw), `bareVer` (the one
   strip of a recorded version banner — "Version 7.0.2", "v22.23.3" — to the bare version for
   display), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
   generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
+- `scripts/chartstyle-selftest.mjs`: the kit's self-test (`node scripts/chartstyle-selftest.mjs`,
+  run by `charts.yml` before rendering): text fits at the 9px floor or throws, row labels
+  wrap inside their column, headers clear the section rule, the key lists only states the
+  chart shows, the markdown twin carries the context line and the SVG's standings,
+  secondary text clears AA on every tint, `writeDocBlock` refuses a doc without markers,
+  log domains contain every point. It also runs `scripts/_svg-audit.mjs` over EVERY
+  committed `bench/charts/*.svg` in both themes (the SVG's own dark rules applied): text at
+  the 9px floor and 11px inside a figure box (any rect, painted before or after the text,
+  filled or `fill="none"`, with a visible border, that holds its glyph box, whatever its
+  size: a 20px chip is a box, an unbordered heat cell is not), 4.5:1 for every text against what is drawn
+  behind it, taken over its glyph box rather than its anchor point (a fill under part of the
+  box, or drawn after the text over any of it, is reported), 3:1 for every series mark as
+  drawn: against the page and the fills painted under it that hold it, and under any fill
+  painted after it that holds it (an opaque one hides it, reported). A fill or stroke in its
+  backdrop's colour is exempt only when the element's other channel is painted and passes as
+  a mark (the page-coloured halo around a filled dot, the centre of a hollow ring). A stroke
+  of width 0 paints nothing: beside a fill it is no stroke, and a mark with nothing else
+  painted is reported as invisible. Every check reads a shape's geometry through one primitive, `shapeOf`: a rect's fill less its
+  rounded corners (rx, and ry following it, each clamped to half the side), a circle's disk,
+  a filled path's subpaths (nonzero), the region inside a stroke's inner edge, and the
+  stroke's ring. The page is the first painted element when its fill covers the whole canvas
+  and is opaque in both themes (a canvas-sized rect with rounded corners is not the page); a
+  canvas-covering fill painted later is ordinary paint. No text box may meet a stroke
+  painted before or after it (read as the stroke's ring or widened segments, so the shape
+  that frames the text and a hollow ring around it are clear), a 3px stripe's fill, or a
+  text drawn after it, or leave the canvas (exempt: GRID hairlines). The audit refuses
+  (throws "unsupported" on) any SVG construct outside the subset it models, including a
+  nested `<svg>`, a viewBox other than the canvas, a rect, circle or path without a fill,
+  an `rgb()`/`rgba()` channel above 255, and a dark rule that sets a property other than the one its selector reads. Every chart is
+  in the matrix; the test's `LEGACY` set is empty and a new chart joins as is. It also
+  asserts the figures' `FIG` scale is `TYPE`'s, and that `charts.yml` lists every module the
+  chart scripts reach through their imports.
+- `scripts/_text-width.mjs`: the one text-width estimate. Per glyph the wider of Arial's
+  advance × 1.1 and DejaVu Sans' (regular or bold; DejaVu Sans is the system-ui face on many
+  Linux desktops and the widest the charts allow for). The kit's `approxW`/`wrapPx`/`fitSize`
+  lay text out with it and `_svg-audit.mjs` builds each text's box from it, so a layout
+  derived from the kit is what the audit verifies. A figure that places text at fixed
+  coordinates derives the space next to it from `approxW`/`wrapPx`, never from a constant.
 - `scripts/_net-cache-finding.mjs`: the derived claim text for
   `bench/ci-cache-network-bench.json`. `netCacheSummary(rec)` computes the restore-vs-cold
   ratio range and, per task, each shaped profile's restore time against the localhost
@@ -944,7 +983,8 @@ Shared helpers the bench scripts import rather than run directly:
   and warm cells per scale, the truly-cold pair, and the container bench's fresh and
   cache-restored bun/pnpm medians, and names the faster side of each from the cells (equal
   cells are reported as tied; a margin is worded by `_chartstyle.mjs`'s near-tie rule, the
-  same words the comparison chart prints for that cell); `installSpeedContext()` renders the
+  same rule the comparison chart applies to that cell, in sentence form: "+3% vs fastest",
+  "×1.6 slower"); `installSpeedContext()` renders the
   record's `speedContext` and `claimSpeedSentence()` the speed sentence of its `claim`, each
   clause labelled with its own record's tool versions. Imported by `wave-rollout-bench.mjs`
   (writes both, into its own checkout) and `comparison-chart.mjs`
@@ -1065,7 +1105,10 @@ bench/turbopack-gym/cache-drift.md against the records.
 records the upstream checks of patches 11 and 22 against v16.4.0 (Rust checks, Turbopack
 integration runs, a `next dev` correctness check) and whether the heap tie-break flip changes
 the output; their timings ran on a shared box and are left out. `chart.mjs`
-(re)generates `bench/charts/*.svg` and `bench/summary.md` from `results.json`
+(re)generates its three scaling charts (`typecheck-cold-vs-warm`, `focus-vs-full`,
+`lockfile-vs-scale`: SVG + 300 DPI PNG each, real axes, log-log with domains derived from
+the plotted points so no record can draw past the frame, the shared grey data footer,
+a mechanism caption per chart in the README), their README chart-data tables, and `bench/summary.md` from `results.json`
 (+ `tsgo-scale-table.json` for the typecheck chart's subtitle when it has the charted
 scale point — committed inputs, so the output stays deterministic; summary.md's header
 names the rows' pnpm version and points at the README for the machine, since the record
@@ -1103,10 +1146,11 @@ is the optimal-stack gate run at that shape (`optimal-gate-bench.mjs fleet` — 
 one-program-vs-cores contrast FLEET.md reads; it ran bun 1.4.2 where the 64-core record
 ran 1.3.14 — bun is on the path of the install and turbo rows — the other recorded versions
 equal). `fleet-chart.mjs` renders
-`bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the
-fleet-scale infographic (blast radius, the worst case two ways, 64-vs-192-core) from those
-two gate records + `fleet-shape.json`, embedded in FLEET.md and riding the same
-`charts.yml` byte-gate.
+`bench/charts/fleet-gate.svg` (+ `.png`, same contract; `make fleet-chart`) — the worst
+case on two machines (one command vs the per-package turbo path, 64 vs 192 cores, one
+linear axis, neutral per-machine colours, bun labeled per record) from those two gate
+records + `fleet-shape.json`, embedded in FLEET.md and riding the same `charts.yml`
+byte-gate.
 `bench/sliced-gate-bench.json` + `bench/sliced-gate-bench.pbox.json` record the sliced-closure K sweeps (64- and 192-core, the latter also
 on a c8gb.48xlarge with `SLICE_KS="2 4 8 16 24 32 48"`) FLEET.md's "The Sliced Gate" section reads.
 `figures.mjs` renders the eight mechanism figures (`make figures`; SVG + `.png`, same
@@ -1141,11 +1185,16 @@ restore per `headline` row, and the `partialInvalidation` leaf-vs-foundation spl
 restore < cold, the recorded speedup, and that a foundation edit restores nothing; the
 core count is read and labeled, not pinned), embedded in LIMITS.md. `install-bench.json`,
 `relay-codegen-bench.json` and `ci-cache-bench.json` carry no canonical flag, so those
-three figures pin the knobs named above and throw on a record run at other values. Each
-doc embed of these five carries a collapsed `<details>` list of the fields its figure
-reads. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
-edges, in-SVG dark-mode recolors + provenance footer), not heat tables — the ×N cell
-grammar does not apply; determinism, need()-asserted fields, and the no-marketing rule do.
+three figures pin the knobs named above and throw on a record run at other values. Under
+each figure's embed the generator writes its chart-data block: the values the figure shows
+and the fields it reads. Mechanism figures in the diagram-style visual language (tinted boxes, arrow
+edges, in-SVG dark-mode recolors + the shared grey data footer; diagram-style-spec.md), not heat
+tables — the ×N cell grammar does not apply; determinism, need()-asserted fields, and the
+no-marketing rule do. They are laid out on a 660 grid placed at the shared 20px margin, on the
+shared type scale, with box text at 11px and secondary box text in `CELL_INK2`. A figure that
+contrasts unlike things (different trees, an open-file verdict next to whole-program ones, two
+machines) carries its caveat as a muted line inside the SVG and in its aria-label, because the
+PNG is linked and shared on its own; the doc caption carries the mechanism.
 `bench/fleet-flow-bench.json` / `bench/fleet-flow-bench.pbox.json` (Flow on the fleet shape,
 batch + server rows, both boxes; the 192-core one on a c8g.48xlarge) and
 `bench/yarn-fleet-bench.json` (yarn 4 installs under both linkers + the native-PnP tsgo gate)
@@ -1158,19 +1207,37 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
 
 - **One column order.** Across sections and charts alike, the typically-fastest /
   recommended tool sits leftmost and the alternatives keep one fixed order (bun, pnpm,
-  yarn, npm · tsgo, tsc, Flow · Vite, Next · oxlint, ESLint); the green column must
+  yarn, npm · tsgo, tsc, Flow · Vite, Next · oxlint, ESLint); the recommended column must
   not flip sides between sections.
-- **One visual grammar.** Heat-table sections; per row the FASTEST cell is green and every
-  other cell's headline is its multiple of that best ("×N slower"); the number IS the cell,
-  not a footnote. Same green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
-  log-multiple space, so ×12 is the same color in every chart.
+- **One visual grammar.** Heat-table sections drawn by the kit's `heatChart` renderer. Each
+  cell's headline is the measured value; its second line is its standing against the row's
+  fastest ("fastest", "+N%", "×N"). The cell is a light `rgba()` tint of the ramp colour
+  (ImageMagick's SVG renderer ignores `fill-opacity`) whose strength grows with the
+  multiple, with a full-strength stripe at its left edge, so the same fill reads on light
+  and dark and the text is plain ink; secondary and status text clear WCAG AA on the
+  strongest tint. One green→amber→orange→red ramp anchored at ×1/×2/×10/×100 in
+  log-multiple space, so ×12 is the same colour in every chart. Sections are a heading and
+  a hairline, not tinted panels. Every chart and figure shares one type scale (`TYPE`;
+  the figures' `FIG` uses its sizes) with a 9px floor (`MIN_TEXT`) and an 11px floor
+  inside a figure box, any bordered rect holding text (`MIN_BOX_TEXT`): heat-chart text
+  that does not fit its space at the floor fails the generator rather than shrinking. The
+  key lists only the states a chart shows.
+  `scripts/chartstyle-selftest.mjs` pins these layout and legibility contracts in CI.
 - **One shared skin: `scripts/_chartstyle.mjs`.** Every generator imports the shared kit
   (see Shared Internals) — palette, box tints, system-ui type, the in-SVG dark-mode
   `<style>` block with an explicit light background it retargets (a transparent SVG with
   dark text is unreadable on GitHub dark), the heat ramp + cell painters, and the
   SVG+PNG emit step. No generator redefines a palette constant or ramp anchor locally.
-- **Stable tool colors.** A tool keeps ONE hue in every chart (header chip, series,
-  legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
+  One outer margin (`MARGIN`) and one grey "data: bench/…" footer (`footer`) for every
+  chart without per-section source links.
+- **Whole repo vs one closure has one colour pair.** `REPO` (charcoal) and `SCOPE` (cyan),
+  each as a `mark` for lines, bars and dots and a `tint` for areas behind text. They sit
+  off the heat ramp's hues, so a whole-repo series never reads as a ×100 cell, and off
+  every tool hue; they separate by lightness as well as hue. A neutral single series is
+  `SLATE`, which also draws the warm bar of `typecheck-cold-vs-warm` beside the `REPO` cold
+  bar (a warm run is still the whole workspace, so it never takes the closure cyan).
+- **Stable tool colors.** A tool keeps ONE hue in every chart (the short rule under its
+  column header, a series, a legend swatch) — `TOOL_COLORS` in `_chartstyle.mjs`: bun `#0e8f7e` · pnpm `#cb711f` ·
   yarn `#6f56c4` · npm `#c0453b` · tsgo `#1a73e8` · tsc (and tsserver, its daemon)
   `#b2538f` · Flow `#b28a2f` · Vite `#5865c0` · Next `#a86b32` · oxlint `#2e9e57` ·
   ESLint `#9a6ade`. Validated per co-occurring group for CVD separation and contrast on
@@ -1180,13 +1247,13 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   asserted where the dataset records them, so a re-run under a different major must
   change the label, not silently keep it.
 - **Timeouts render at the ceiling.** A request that outran its budget renders AT that
-  real ceiling with a ≥ ("timed out ≥2m") and, when the row has a measured best, the ≥×
+  real ceiling with a ≥ ("≥2m", "timed out") and, when the row has a measured best, the ≥×
   computed from the floor.
 - **Crashes render as status only.** A CRASH (wedge, panic) never shows a time or
   multiplier; a wedge is not a measurement and a pseudo-number would read as one.
-- **Near-ties render as a percent.** A cell within 5% of the row's fastest keeps its time
-  as the headline with "+N% vs fastest", never "×1.0 slower". "—" cells carry a short
-  reason ("anchor ≤100k").
+- **Near-ties render as a percent.** A cell within 5% of the row's fastest shows "+N%" as
+  its standing, never "×1.0", and keeps the fastest tint. "—" cells carry a short reason
+  ("anchor ≤100k").
 - **Deterministic from the cited bench JSONs**: no hand numbers, no Date; missing fields
   throw (a stale dataset can't render a plausible cell); recorded outcome shapes are
   asserted (e.g. the chart REQUIRES the dataset's flow column to be the flow-main build
@@ -1200,9 +1267,19 @@ box; FLEET.md and TYPECHECKERS.md state both where they describe the machine.
   300 DPI PNG together; `charts.yml` byte-gates every SVG against the data and
   delete-and-re-renders the PNGs (a convert failure fails the job; on main the fresh PNGs
   are committed back). The doc embeds the SVG with the PNG linked below it.
+- **Charts carry a text alternative.** A chart scaled to a phone screen is unreadable,
+  and GitHub's mobile views ignore width media queries, so the heat charts
+  (`comparison-chart`, `scale-chart`, `net-cache-chart`), `chart.mjs`'s scaling charts,
+  the mechanism figures (`figures.mjs`) and `fleet-chart.mjs` all write the chart's context
+  line and numbers as markdown (`writeDocBlock`, inside a collapsed `<details>`) between
+  `<!-- chart-data:<id> -->` and `<!-- /chart-data:<id> -->` markers under the embed. The
+  block comes from the same data as the SVG; `charts.yml` byte-gates it with the SVGs, and
+  a doc missing its markers fails the generator. Edit the prose around a block, never the
+  block.
 - **New chart generator checklist:** register it here; wire `charts.yml` (paths + render +
   gate + PNG commit-back); add its SVG to `chart.mjs`'s `external` set (else `make chart`
-  deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link.
+  deletes it as an orphan); add a Makefile target; embed in its doc with the PNG link and
+  the chart-data markers; add the doc to `charts.yml`'s paths and byte-gate list.
 - **The commit-back races open PRs.** After any chart run on main, the pushed-back PNG
   binary-conflicts with every open PR that also touches it, and GitHub SILENTLY creates no
   `pull_request` workflow runs for a conflicted PR ("no checks reported" + `mergeable:
@@ -1212,7 +1289,7 @@ The `.github/workflows/charts.yml` CI job re-renders every chart from the commit
 byte-gates the SVGs (deterministic) against drift; for the PNGs (whose bytes are ImageMagick-version
 dependent, so not byte-gated) it deletes the committed PNGs before re-rendering (a `convert` failure then
 leaves one absent and fails the validation step rather than passing a stale raster) and, on a push to
-`main`, commits the freshly-rendered PNGs back, so the committed rasters track the gated SVGs instead of
+`main`, commits the freshly-rendered PNGs back (staged on a side branch and marked `review-gate` success, which main requires of every commit), so the committed rasters track the gated SVGs instead of
 relying on a contributor to re-render them. Docs: [README.md](README.md) (overview +
 scaling table + dev-sim), [TOOLING.md](TOOLING.md)
 (install / build / lint comparisons, incl. the pnpm-12 Rust-rewrite head-to-head from `bench/pnpm12-bench.json`, ESLint-vs-oxlint from `bench/lint-bench.json`
@@ -1351,6 +1428,18 @@ Gotchas found the hard way:
   (`@demo/app-03511`/`@demo/app-13215`). Corollary: benches resolve a target
   app's package name from its on-disk manifest (`scripts/_app-name.mjs`), never
   by index formula — a reconstructed name silently misses the rename.
+- **pnpm 12 takes its settings from `pnpm-workspace.yaml`, not `.npmrc`.** From
+  `.npmrc` it reads registry and auth keys, and network settings (proxy, TLS,
+  `local-address`; pnpm's 11.0 release notes); pnpm's own settings there, such as
+  `node-linker`, `link-workspace-packages`, `auto-install-peers` and
+  `strict-peer-dependencies`, are dropped without a warning. It also ignores the `package.json` `pnpm`
+  field (`overrides`, `onlyBuiltDependencies`; it warns) and
+  `npm_config_strict_peer_dependencies`, while `--config.*` flags and
+  `PNPM_CONFIG_*` env apply. `confirmModulesPurge` is not a pnpm 12 setting: it
+  purges a stale `node_modules` without prompting. Put a pnpm setting in
+  `pnpm-workspace.yaml` (or on the command line) and check it by its effect, not by
+  `pnpm config get`. The root `.npmrc` keeps `node-linker=isolated` for bun, which
+  reads it.
 
 ## Writing Style
 
@@ -1386,6 +1475,143 @@ Every commit goes through this loop before it lands, no exceptions, docs include
    Never skip, suppress, or rationalize a finding.
 6. **`prettier --check` clean,** then commit. The message describes what's
    in the diff (see the global `~/.claude/CLAUDE.md` commit conventions).
+7. **On the PR, the merge gate.** The two local reviewers above do not replace the bot
+   reviews on the PR; the gate below requires the Codex review.
+
+### Merge Gate
+
+No PR merges into `main` until every review finding on it is adjudicated and its head
+commit has been reviewed by Codex. The ruleset on `main` ("main: review gate") requires the
+commit status **`review-gate`** to be `success` on every commit main takes: a PR head, or
+charts.yml's PNG commit-back, which CI marks itself. It has no bypass, admins included;
+disable it in the repository settings only if the gate itself breaks. `make merge-pr` is
+the merge path.
+`.github/workflows/review-gate.yml` posts it from
+`.claude/skills/pr-review-gate/check-review-threads.sh`, a port of ejc3/fcvm's gate (fixes
+go upstream first; this copy adds `EXPECT_HEAD`, `REQUIRE_HEAD_REVIEW_FROM` and the
+`GITHUB_REPOSITORY` default, judges an APPROVED review's body like any other, and adds the
+bot-traffic rules below). The status is `failure`
+while the gate blocks and `error` when it cannot evaluate, or when a run ended without a
+verdict; both block the merge. The classic branch protection on `main` keeps GitHub's own
+"require conversation resolution" on, which blocks an unresolved thread at once, without
+waiting for a re-run of the gate.
+
+The gate blocks on:
+
+- an unresolved review thread (outdated ones included);
+- a resolved thread with no reply that opens with a disposition and was written after the
+  finding's last edit (a finding edited after its disposition needs a new one, unless its
+  edit history shows only the CodeRabbit Bot acknowledging the answer);
+- a PR-level finding (a review body from anyone but the PR author, whatever the review's
+  state, or a top-level PR comment, the author's included) with no disposition posted
+  after it;
+- a head commit nobody but the author reviewed (an empty review object is a reply
+  container, not a review);
+- a head commit not reviewed by each login in `REQUIRE_HEAD_REVIEW_FROM` (here
+  `chatgpt-codex-connector`): a covering review object from that bot on the head, its
+  no-findings result naming the head and dated after the head arrived, or a
+  `HEAD-REVIEW-OVERRIDE` for that login and head (below).
+
+Dispositions open a reply of their own and are newer than the claim they answer. A claim
+(an inline finding, a review body, a top-level comment) is dated by when its current text
+was written: the later of its creation and its last edit. An answer is dated by its
+creation only; editing an old disposition does not make it answer a newer claim.
+
+| Disposition | Use for |
+|---|---|
+| `RED-VERIFIED: <test>` | a defect claim, closed by a test watched failing without the fix |
+| `NOT-A-DEFECT: <reason>` | naming, docs, style, bot summaries; say what was done |
+| `DISAGREE: <reason>` | a defect claim rejected, with the reasoning |
+
+Answer a PR-level finding with a review from the author (`gh pr review <n> --comment -b
+"NOT-A-DEFECT: ..."`); the author's review bodies are answers, never claims. These need no
+answer, each only from the bot's own account and only in the shape the gate knows: a bot
+command (`@codex review`); Codex's no-findings comment ("Didn't find any major issues.",
+a sign-off from the list of ones Codex has posted, then the reviewed commit); the Codex review that only holds its inline comments (heading, one fixed
+sentence, reviewed commit); CodeRabbit's command acknowledgements and its notices that a
+review did not run; and CodeRabbit's summary comment when every region in it is one the
+gate has seen CodeRabbit emit, nothing sits outside those regions, and the regions that
+report a result report a clean one (no actionable comments, no failed or warning
+pre-merge check, merge risk Minimal or Low, no failed review). Any other sign-off or
+summary is a claim. Findings from either bot arrive as review bodies and inline threads,
+and those are claims. Treating a clean CodeRabbit summary as no claim is this
+repository's choice; the upstream gate in ejc3/fcvm treats it as one.
+
+Get a Codex review after every push, and a CodeRabbit review where useful (its findings
+are answered like any other; its review is not required on each head), by PR comment:
+
+```bash
+gh pr comment <n> --body "@codex review"
+gh pr comment <n> --body "@coderabbitai review"
+```
+
+CodeRabbit does not review this repository automatically: its summary comment says the
+repository has fewer than 10 stars and offers a "Trigger review" checkbox. The comment
+command or the checkbox starts a review.
+
+When a required reviewer cannot review the head (Codex out of quota, with its usage-limit
+notice on the PR), record what was done instead with an override rather than merging
+around the gate:
+
+```bash
+gh pr comment <n> --body "HEAD-REVIEW-OVERRIDE: chatgpt-codex-connector <sha>: local \`codex exec -s read-only\` review of <base>..<head>, no findings"
+```
+
+The first line of a top-level comment or a review body is
+`HEAD-REVIEW-OVERRIDE: <reviewer-login> <sha>: <what was done instead>`, from anyone, the
+PR author included. It covers that one login on that one head: `<sha>` names the current
+head (the full sha, or a prefix of 7 or more characters no other commit on the PR shares),
+the comment is written after the head arrived (dated like a claim, by its last edit), and
+the text states concretely what replaced the review, at least 20 letters or digits, not a
+placeholder such as `n/a` or `skip`, and with no `TODO`, `TBD`, `FIXME`, `XXX` or `<words>` placeholder left
+in it. A review whose body is only the override line is not its author's review of the
+head. It answers no thread or review-body finding, counts
+only for a login `REQUIRE_HEAD_REVIEW_FROM` lists, and a push needs a new one. The gate
+prints `HEAD OVERRIDDEN  <login> on <sha>: <text> (by <commenter>, <date>)`, prints an
+override it does not accept as `OVERRIDE REJECTED` with the reason, and ends with
+`verdict: CLEAR (with N head-review override(s))`; the `review-gate` status description
+names the override too. A comment that is the override line alone needs no disposition;
+text below that line is an ordinary comment and does.
+
+Merge through the gate, not around it:
+
+```bash
+make merge-pr PR=<n>        # gate the exact head, then squash-merge that head only
+make review-gate PR=<n>     # the gate alone, with the same required reviewers
+make test-review-gate       # the gate's harness; CI runs it (review-gate-tests.yml)
+```
+
+`make merge-pr` is the merge path and the final authority: it reads the PR head, runs the
+gate for that commit (`EXPECT_HEAD`) with the required reviewers, and only on CLEAR runs
+`gh pr merge <n> --squash --match-head-commit <sha>`, which GitHub refuses if the branch
+moved. The `review-gate` status is defense in depth for a merge from the web UI. What it
+cannot see is activity in the seconds between the gate reading the PR and the merge call;
+run it immediately before merging, never on an earlier verdict.
+
+The status is re-evaluated on PR open, push, reopen, ready-for-review and edit
+(`pull_request_target`); on every PR comment (`issue_comment`); on every review and inline
+comment (relayed by `review-gate-events.yml` through `workflow_run`); and every 10 minutes
+for every open PR. Resolving or unresolving a thread triggers no workflow; the sweep picks
+it up, or `gh workflow run review-gate -f pr=<n>` does at once. Every path runs the gate
+from `main`, never from the PR, and posts through `post-status.sh`. A `success` is posted
+only when, read right before the POST, nothing changed since the evaluation began: the
+statuses read cleanly, no other run posted a blocking status since, no newer review-gate
+run exists, and each PR is still on that commit with no comment, review or thread
+activity newer than the snapshot. A failed read posts `error` and a newer signal posts
+`pending`; nothing is skipped. Statuses are posted only on change (GitHub caps a commit at
+1000 per context, and anyone can fire the events that re-run the gate), `error` replaces
+`success` near that cap, and an event turns a `success` to `pending` before its
+evaluation queues. A run that cannot evaluate the heads it answers for (a sweep included)
+marks them `error`.
+
+Threat model: the gate stops an accidental or careless merge. It is not a boundary against
+someone holding push access or the owner's token, who can add a workflow on a branch that
+posts a `review-gate` success, post one with the API, or edit the ruleset. The ruleset
+names GitHub Actions as the status's expected source, which rules out a status posted
+with a personal token; a forged success from another workflow is replaced by the gate's
+verdict the next time it evaluates that head (an event or the 10-minute sweep). A
+"require workflows to pass" rule, which would close that gap, is an organization ruleset
+feature and is not available to this user-owned repository.
 
 ## Mandatory Doc-Sync Pass
 

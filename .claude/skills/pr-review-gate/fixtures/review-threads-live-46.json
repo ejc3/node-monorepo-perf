@@ -1,0 +1,389 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "author": {
+          "login": "ejc3"
+        },
+        "headRefOid": "99e4925d93ff3f62a3672fb3e4f7566691456a1e",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "committedDate": "2026-07-29T23:13:44Z",
+                "checkSuites": {
+                  "nodes": [
+                    {
+                      "createdAt": "2026-07-29T23:13:46Z"
+                    },
+                    {
+                      "createdAt": "2026-07-29T23:13:46Z"
+                    },
+                    {
+                      "createdAt": "2026-07-29T23:13:46Z"
+                    },
+                    {
+                      "createdAt": "2026-07-29T23:13:46Z"
+                    },
+                    {
+                      "createdAt": "2026-07-29T23:13:47Z"
+                    },
+                    {
+                      "createdAt": "2026-07-29T23:13:49Z"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "prcommits": {
+          "totalCount": 3,
+          "nodes": [
+            {
+              "commit": {
+                "oid": "51a7dce2dc72afde27c4a5840e6050fb9f0934a8"
+              }
+            },
+            {
+              "commit": {
+                "oid": "bfd483150cd68b8a3d480ae0f712e65210c2f08c"
+              }
+            },
+            {
+              "commit": {
+                "oid": "99e4925d93ff3f62a3672fb3e4f7566691456a1e"
+              }
+            }
+          ]
+        },
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_kwDOS6_t2M6UmNWv",
+              "isResolved": true,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQwMTo0Mjo0NlrO2sVCAA=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7axUIA",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "Makefile",
+                    "line": 73,
+                    "originalLine": 67,
+                    "createdAt": "2026-07-29T01:42:46Z",
+                    "lastEditedAt": "2026-07-29T23:14:06Z",
+                    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 99e4925",
+                    "userContentEdits": {
+                      "totalCount": 2,
+                      "pageInfo": {
+                        "hasNextPage": false,
+                        "endCursor": "Y3Vyc29yOnYyOpHOJ65_dw=="
+                      },
+                      "nodes": [
+                        {
+                          "editedAt": "2026-07-29T23:14:06Z",
+                          "deletedAt": null,
+                          "editor": {
+                            "login": "coderabbitai",
+                            "__typename": "Bot"
+                          },
+                          "diff": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 99e4925"
+                        },
+                        {
+                          "editedAt": "2026-07-29T01:42:46Z",
+                          "deletedAt": null,
+                          "editor": {
+                            "login": "coderabbitai",
+                            "__typename": "Bot"
+                          },
+                          "diff": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Declare the new Make targets phony.**\n\nThey are absent from `.PHONY` at Line 12, so a same-named file can silently skip generation, verification, or benchmarking.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n-.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean\n+.PHONY: help gen gen-versioned install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench clean gen-fleet fleet-verify fleet-gate-bench\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@Makefile` around lines 59 - 67, Add gen-fleet, fleet-verify, and\nfleet-gate-bench to the Makefile’s .PHONY declaration so same-named files cannot\nskip their generation, verification, or benchmarking recipes.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8c977612da3094e7834268b0 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6UmNWy",
+              "isResolved": false,
+              "isOutdated": true,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQwMTo0Mjo0NlrO2sVCAw=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7axUID",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "README.md",
+                    "line": null,
+                    "originalLine": 146,
+                    "createdAt": "2026-07-29T01:42:46Z",
+                    "lastEditedAt": null,
+                    "body": "_📐 Maintainability & Code Quality_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Do not describe the generated graph as a real fleet shape.**\n\nThe verifier models the fleet and compares recomputed metrics with measured targets; it does not reproduce or benchmark an actual production fleet. Use “modeled fleet shape” to keep the claim precise.\n\nAs per coding guidelines, documentation must use plain technical prose and avoid unsupported claims.\n\n\n\n\n\n<details>\n<summary>Proposed wording</summary>\n\n```diff\n-- the core operations and the gate bench run at a real fleet's shape\n+- the core operations and the gate bench run at the modeled fleet shape\n```\n</details>\n\n<!-- suggestion_start -->\n\n<details>\n<summary>📝 Committable suggestion</summary>\n\n> ‼️ **IMPORTANT**\n> Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation. Thoroughly test & benchmark the code to ensure it meets the requirements.\n\n```suggestion\n- **The fleet shape.** `--preset fleet` regenerates a measured production fleet — 30,000 ~30-file apps / 460 libs, an apps-only universal tier, a semi-universal popular tier, 40% sink libs, depth-15 chains — with all 15 recomputed graph metrics inside tolerance; the core operations and the gate bench run at the modeled fleet shape (`optimal-gate-bench.mjs fleet`). ([FLEET.md](FLEET.md), `bench/fleet-shape.json`)\n```\n\n</details>\n\n<!-- suggestion_end -->\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@README.md` at line 146, Update the README description for “The fleet shape”\nto call it a “modeled fleet shape” rather than a real production fleet shape.\nPreserve the existing details about generated apps, libraries, graph metrics,\noperations, and benchmarks while removing any wording that implies the verifier\nreproduces or benchmarks an actual production fleet.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:triton:luna -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:1c6c28f9f7d826dc1fc3f5a9 -->\n\n_Source: Coding guidelines_\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6UmNW6",
+              "isResolved": false,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQwMTo0Mjo0NlrO2sVCDg=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7axUIO",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "scripts/optimal-gate-bench.mjs",
+                    "line": 253,
+                    "originalLine": 246,
+                    "createdAt": "2026-07-29T01:42:46Z",
+                    "lastEditedAt": null,
+                    "body": "_🗄️ Data Integrity & Integration_ | _🟠 Major_ | _⚡ Quick win_\n\n**Validate every fleet graph parameter exposed by the generator.**\n\nEnvironment overrides can alter `appModules`, `universal`, `popular`, or `tailPicks`, yet this check still accepts and records the run as `\"fleet\"`. Assert all preset values that determine the generated workload.\n\n<details>\n<summary>Proposed fix</summary>\n\n```diff\n const expected = FLEET\n-  ? { apps: APPS, libs: LIBS, modulesPerLib: MODULES, shape: \"skewed\", preset: \"fleet\" }\n+  ? {\n+      apps: APPS,\n+      libs: LIBS,\n+      modulesPerLib: MODULES,\n+      appModules: 28,\n+      shape: \"skewed\",\n+      universal: 5,\n+      popular: 10,\n+      tailPicks: 2,\n+      preset: \"fleet\",\n+    }\n   : { apps: APPS, libs: LIBS, modulesPerLib: MODULES, shape: \"layered\", universal: 1 };\n```\n</details>\n\n<!-- suggestion_start -->\n\n<details>\n<summary>📝 Committable suggestion</summary>\n\n> ‼️ **IMPORTANT**\n> Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation. Thoroughly test & benchmark the code to ensure it meets the requirements.\n\n```suggestion\nconsole.log(\n  `# optimal-stack gate: ${APPS} apps / ${LIBS} libs${FLEET ? \" (fleet shape)\" : \"\"}, foundation=${foundationPkg}`,\n);\nconst genOut = sh(\n  FLEET\n    ? `node scripts/generate.mjs --preset fleet --apps ${APPS} --tsgo-task --clean`\n    : `node scripts/generate.mjs --apps ${APPS} --libs ${LIBS} --modules ${MODULES} --universal 1 --tsgo-task --clean`,\n  { encoding: \"utf8\" },\n);\n// The generator honors env-var overrides (MODULES=20 etc.), which would silently\n// change the generated shape while this record still claimed the requested one.\n// Its last stdout line is a JSON summary of what it ACTUALLY generated; assert\n// the fields this bench hardcodes or reports.\nlet gen;\ntry {\n  gen = JSON.parse(genOut.trim().split(\"\\n\").pop());\n} catch {\n  throw new Error(`could not parse the generator summary line from:\\n${genOut.slice(-400)}`);\n}\nconst expected = FLEET\n  ? {\n      apps: APPS,\n      libs: LIBS,\n      modulesPerLib: MODULES,\n      appModules: 28,\n      shape: \"skewed\",\n      universal: 5,\n      popular: 10,\n      tailPicks: 2,\n      preset: \"fleet\",\n    }\n  : { apps: APPS, libs: LIBS, modulesPerLib: MODULES, shape: \"layered\", universal: 1 };\nfor (const [k, v] of Object.entries(expected)) {\n  if (gen[k] !== v) {\n    throw new Error(\n      `generated workspace drifted from the requested shape (env override?): ${k}=${gen[k]}, expected ${v} — summary: ${JSON.stringify(gen)}`,\n    );\n  }\n}\n```\n\n</details>\n\n<!-- suggestion_end -->\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scripts/optimal-gate-bench.mjs` around lines 218 - 246, Update the\nexpected-value validation around the gen summary in the optimal-stack benchmark\nto cover every fleet workload parameter exposed by the generator, including\nappModules, universal, popular, and tailPicks, using the preset’s intended\nvalues. Ensure environment-overridden values for any of these fields cause\nvalidation to fail before the run is recorded as the fleet shape, while\npreserving the existing apps, libs, modulesPerLib, shape, and preset checks.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:490ccfa785da57dfcac25c71 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6U7tS1",
+              "isResolved": false,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQyMzoxODoyOVrO20QuEw=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7bRC4T",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "FLEET.md",
+                    "line": 86,
+                    "originalLine": 86,
+                    "createdAt": "2026-07-29T23:18:29Z",
+                    "lastEditedAt": null,
+                    "body": "_📐 Maintainability & Code Quality_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Make the high-resolution PNG reference clickable.**\n\n`[High-resolution PNG]` is currently plain text, so readers cannot open the PNG from the documentation. Use a Markdown link and verify that both chart artifacts are generated and committed.\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@FLEET.md` around lines 85 - 86, Update the High-resolution PNG reference in\nFLEET.md to use a Markdown link targeting the existing chart artifact, and\nverify that both generated chart artifacts are present and committed.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:triton:luna -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:a76bb76fc7b04cccb2165543 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6U7tS2",
+              "isResolved": false,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQyMzoxODoyOVrO20QuFA=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7bRC4U",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "OPTIMAL-STACK.md",
+                    "line": 57,
+                    "originalLine": 57,
+                    "createdAt": "2026-07-29T23:18:29Z",
+                    "lastEditedAt": null,
+                    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Qualify the larger-machine comparison.**\n\n“a bigger box does not speed it up” overstates an uncontrolled comparison between different machines. `FLEET.md` correctly describes these as cross-machine observations, not a controlled core-scaling experiment. State the measured values without implying causation.\n\nAs per coding guidelines, documentation changes require doc-sync review covering fairness and cross-document consistency.\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@OPTIMAL-STACK.md` around lines 53 - 57, Revise the larger-machine comparison\nin the fleet-scale paragraph to present 65.8s on 192 cores as a cross-machine\nobservation, not evidence that additional cores fail to improve performance.\nPreserve the measured timings and references to FLEET.md and the benchmark\nfiles, and ensure the wording remains consistent with FLEET.md’s qualification\nwhile receiving the required doc-sync review for fairness and cross-document\nconsistency.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:triton:luna -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:c6b9263618e3ec041527cfe3 -->\n\n_Source: Coding guidelines_\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6U7tS3",
+              "isResolved": false,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQyMzoxODoyOVrO20QuFQ=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7bRC4V",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "scripts/fleet-chart.mjs",
+                    "line": 70,
+                    "originalLine": 70,
+                    "createdAt": "2026-07-29T23:18:29Z",
+                    "lastEditedAt": null,
+                    "body": "_🗄️ Data Integrity & Integration_ | _🟠 Major_ | _⚡ Quick win_\n\n**Validate benchmark schemas and full workload identity before rendering.**\n\n`need()` accepts any non-null value, and the two records are treated as equivalent after checking only `apps` and `turboGate.total`. Validate finite numeric fields, expected string/boolean fields, and matching workload identity fields such as `libs`, `modulesPerLib`, `shape`, and stack/tool versions before producing comparison claims.\n\nAs per coding guidelines, “Chart generators must be deterministic from cited benchmark JSON: no hand-entered numbers or dates, missing fields must throw, and recorded outcome shapes must be validated.”\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scripts/fleet-chart.mjs` around lines 24 - 70, Strengthen the validation\naround need() and the dataset checks before constructing N or rendering claims:\nrequire cited numeric fields to be finite, validate expected string and boolean\nfields, and compare workload identity fields including libs, modulesPerLib,\nshape, and relevant stack/tool versions between LOCAL and PBOX. Preserve the\nexisting comparison guards, but reject any schema mismatch or invalid recorded\nvalue before producing the chart.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:refactor_suggestion -->\n\n<!-- cr-comment:v1:0d43ff071107a8a5681fcd1a -->\n\n_Source: Coding guidelines_\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6U7tS7",
+              "isResolved": false,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 1,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0wNy0yOVQyMzoxODoyOVrO20QuGg=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M7bRC4a",
+                    "author": {
+                      "login": "coderabbitai",
+                      "__typename": "Bot"
+                    },
+                    "path": "scripts/optimal-gate-bench.mjs",
+                    "line": 336,
+                    "originalLine": 336,
+                    "createdAt": "2026-07-29T23:18:29Z",
+                    "lastEditedAt": null,
+                    "body": "_🗄️ Data Integrity & Integration_ | _🟠 Major_ | _🏗️ Heavy lift_\n\n**Record CPU/load context and reject loaded benchmark hosts.** The fleet benchmark records only core count and architecture, so recorded timings cannot establish whether either machine was busy; the harness also lacks the required loaded-host refusal.\n\n- `scripts/optimal-gate-bench.mjs#L334-L336`: add a preflight that rejects a loaded host unless an explicit allow-busy variable is set, and persist CPU model plus load context in `machine`.\n- `bench/fleet-gate-bench.json#L14-L17`: regenerate after the harness records the required provenance.\n- `bench/fleet-gate-bench.pbox.json#L14-L17`: regenerate after the harness records the required provenance.\n\nAs per coding guidelines, “Core-bound benchmarks must record CPU/load context and refuse to run on a loaded machine unless their explicit allow-busy environment variable is set.”\n\n<details>\n<summary>📍 Affects 3 files</summary>\n\n- `scripts/optimal-gate-bench.mjs#L334-L336` (this comment)\n- `bench/fleet-gate-bench.json#L14-L17`\n- `bench/fleet-gate-bench.pbox.json#L14-L17`\n\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scripts/optimal-gate-bench.mjs` around lines 334 - 336, Update the benchmark\npreflight in scripts/optimal-gate-bench.mjs around the machine provenance object\nto reject execution on a loaded host unless the explicit allow-busy environment\nvariable is set, and record CPU model plus relevant load context alongside cores\nand architecture. Regenerate bench/fleet-gate-bench.json lines 14-17 and\nbench/fleet-gate-bench.pbox.json lines 14-17 using the updated harness; no\nseparate logic change is required in those fixture files.\n```\n\n</details>\n\n<!-- consolidated_sites_start -->\n<!--\n<consolidated_sites>\n<site>\n<role>anchor</role>\n<file>scripts/optimal-gate-bench.mjs</file>\n<line_range>334-336</line_range>\n</site>\n<site>\n<role>sibling</role>\n<file>bench/fleet-gate-bench.json</file>\n<line_range>14-17</line_range>\n</site>\n<site>\n<role>sibling</role>\n<file>bench/fleet-gate-bench.pbox.json</file>\n<line_range>14-17</line_range>\n</site>\n</consolidated_sites>\n-->\n<!-- consolidated_sites_end -->\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:refactor_suggestion -->\n\n<!-- cr-comment:v1:db9c7e97a5e2d6753887a9fd -->\n\n_Source: Coding guidelines_\n\n<!-- This is an auto-generated comment by CodeRabbit -->"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "state": "COMMENTED",
+              "body": "**Actionable comments posted: 3**\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nInline comments:\nIn `@Makefile`:\n- Around line 59-67: Add gen-fleet, fleet-verify, and fleet-gate-bench to the\nMakefile’s .PHONY declaration so same-named files cannot skip their generation,\nverification, or benchmarking recipes.\n\nIn `@README.md`:\n- Line 146: Update the README description for “The fleet shape” to call it a\n“modeled fleet shape” rather than a real production fleet shape. Preserve the\nexisting details about generated apps, libraries, graph metrics, operations, and\nbenchmarks while removing any wording that implies the verifier reproduces or\nbenchmarks an actual production fleet.\n\nIn `@scripts/optimal-gate-bench.mjs`:\n- Around line 218-246: Update the expected-value validation around the gen\nsummary in the optimal-stack benchmark to cover every fleet workload parameter\nexposed by the generator, including appModules, universal, popular, and\ntailPicks, using the preset’s intended values. Ensure environment-overridden\nvalues for any of these fields cause validation to fail before the run is\nrecorded as the fleet shape, while preserving the existing apps, libs,\nmodulesPerLib, shape, and preset checks.\n```\n\n</details>\n\n<details>\n<summary>🪄 Autofix (Beta)</summary>\n\nFix all unresolved CodeRabbit comments on this PR:\n\n- [ ] <!-- {\"checkboxId\": \"4b0d0e0a-96d7-4f10-b296-3a18ea78f0b9\"} --> Push a commit to this branch (recommended)\n- [ ] <!-- {\"checkboxId\": \"ff5b1114-7d8c-49e6-8ac1-43f82af23a33\"} --> Create a new PR with the fixes\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: defaults\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `cfc1b5bd-17ee-4b92-a56b-f205488b0da3`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between 54774c9f8bd6098afdb2ad2350703d5ef3b6361a and 51a7dce2dc72afde27c4a5840e6050fb9f0934a8.\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (8)</summary>\n\n* `AGENTS.md`\n* `FLEET.md`\n* `Makefile`\n* `README.md`\n* `bench/fleet-shape.json`\n* `scripts/fleet-shape-verify.mjs`\n* `scripts/generate.mjs`\n* `scripts/optimal-gate-bench.mjs`\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->",
+              "submittedAt": "2026-07-29T01:42:47Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "51a7dce2dc72afde27c4a5840e6050fb9f0934a8"
+              },
+              "comments": {
+                "totalCount": 3,
+                "nodes": [
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  }
+                ]
+              }
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "state": "COMMENTED",
+              "body": "\n\n<details>\n<summary>🧹 Nitpick comments (1)</summary><blockquote>\n\n<details>\n<summary>scripts/test-axis-bench.mjs (1)</summary><blockquote>\n\n`207-211`: _🚀 Performance & Scalability_ | _🔵 Trivial_ | _⚡ Quick win_\n\n**Memoize manifest-backed app-name lookups.**\n\n`appName` now performs synchronous file I/O and JSON parsing on every call. Cache by `(apps, i)` (as `dev-sim.mjs` and `measure.mjs` already do) so repeated benchmark target resolution does not add avoidable setup overhead.\n\n\n\n\n<details>\n<summary>Proposed cache</summary>\n\n```diff\n-const appName = (i, apps) => appPkgFromDisk(ROOT, `app-${pad(i, String(apps).length)}`);\n+const appNameCache = new Map();\n+const appName = (i, apps) => {\n+  const key = `${apps}:${i}`;\n+  if (!appNameCache.has(key)) {\n+    appNameCache.set(key, appPkgFromDisk(ROOT, `app-${pad(i, String(apps).length)}`));\n+  }\n+  return appNameCache.get(key);\n+};\n```\n</details>\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scripts/test-axis-bench.mjs` around lines 207 - 211, Memoize the\nmanifest-backed lookup in appName, caching results by the apps and i values\nbefore calling appPkgFromDisk. Preserve the existing manifest-derived naming\nbehavior and ensure repeated calls with the same (apps, i) pair avoid\nsynchronous file I/O and JSON parsing.\n```\n\n</details>\n\n<!-- cr-comment:v1:75ceea3182f858159ed77881 -->\n\n</blockquote></details>\n\n</blockquote></details>\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nNitpick comments:\nIn `@scripts/test-axis-bench.mjs`:\n- Around line 207-211: Memoize the manifest-backed lookup in appName, caching\nresults by the apps and i values before calling appPkgFromDisk. Preserve the\nexisting manifest-derived naming behavior and ensure repeated calls with the\nsame (apps, i) pair avoid synchronous file I/O and JSON parsing.\n```\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: defaults\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `5b93572d-6868-404d-8a41-7a6fb30c296a`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between 51a7dce2dc72afde27c4a5840e6050fb9f0934a8 and bfd483150cd68b8a3d480ae0f712e65210c2f08c.\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (15)</summary>\n\n* `AGENTS.md`\n* `FLEET.md`\n* `scripts/_app-name.mjs`\n* `scripts/_wyhash11.mjs`\n* `scripts/axis-bench.mjs`\n* `scripts/dev-loop-bench.mjs`\n* `scripts/dev-sim.mjs`\n* `scripts/focus-install-bench.mjs`\n* `scripts/generate.mjs`\n* `scripts/lib-rev-bench.mjs`\n* `scripts/measure.mjs`\n* `scripts/optimal-gate-bench.mjs`\n* `scripts/test-axis-bench.mjs`\n* `scripts/turbopack-bench.mjs`\n* `scripts/vite-task-bench.mjs`\n\n</details>\n\n<details>\n<summary>🚧 Files skipped from review as they are similar to previous changes (3)</summary>\n\n* scripts/optimal-gate-bench.mjs\n* FLEET.md\n* scripts/generate.mjs\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->",
+              "submittedAt": "2026-07-29T16:27:18Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "bfd483150cd68b8a3d480ae0f712e65210c2f08c"
+              },
+              "comments": {
+                "totalCount": 0,
+                "nodes": []
+              }
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "state": "COMMENTED",
+              "body": "**Actionable comments posted: 4**\n\n<details>\n<summary>🧹 Nitpick comments (1)</summary><blockquote>\n\n<details>\n<summary>FLEET.md (1)</summary><blockquote>\n\n`3-3`: _📐 Maintainability & Code Quality_ | _🔵 Trivial_ | _⚡ Quick win_\n\n**Use direct technical wording instead of promotional or colloquial phrasing.**\n\nPhrases such as “real-world shape at real-world scale,” “Three facts fall out,” and “just a box with the RAM” do not meet the plain technical prose guideline. State the measured behavior and resource requirement directly.\n\nAs per coding guidelines, `**/*.md` documentation must use plain technical prose, state results directly, and avoid marketing language.    \n\n\nAlso applies to: 73-81, 97-103\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@FLEET.md` at line 3, Revise the FLEET.md sections around the preset\ndescription and the referenced result sections to use direct technical wording.\nReplace promotional or colloquial phrases such as “real-world shape at\nreal-world scale,” “Three facts fall out,” and “just a box with the RAM” with\nprecise statements of the measured behavior, benchmark results, and required\nresources; preserve the documented fleet scale, reproducibility, and source-file\nreferences.\n```\n\n</details>\n\n<!-- cr-comment:v1:d7d619b664fb4a96d72dff53 -->\n\n_Source: Coding guidelines_\n\n</blockquote></details>\n\n</blockquote></details>\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nInline comments:\nIn `@FLEET.md`:\n- Around line 85-86: Update the High-resolution PNG reference in FLEET.md to use\na Markdown link targeting the existing chart artifact, and verify that both\ngenerated chart artifacts are present and committed.\n\nIn `@OPTIMAL-STACK.md`:\n- Around line 53-57: Revise the larger-machine comparison in the fleet-scale\nparagraph to present 65.8s on 192 cores as a cross-machine observation, not\nevidence that additional cores fail to improve performance. Preserve the\nmeasured timings and references to FLEET.md and the benchmark files, and ensure\nthe wording remains consistent with FLEET.md’s qualification while receiving the\nrequired doc-sync review for fairness and cross-document consistency.\n\nIn `@scripts/fleet-chart.mjs`:\n- Around line 24-70: Strengthen the validation around need() and the dataset\nchecks before constructing N or rendering claims: require cited numeric fields\nto be finite, validate expected string and boolean fields, and compare workload\nidentity fields including libs, modulesPerLib, shape, and relevant stack/tool\nversions between LOCAL and PBOX. Preserve the existing comparison guards, but\nreject any schema mismatch or invalid recorded value before producing the chart.\n\nIn `@scripts/optimal-gate-bench.mjs`:\n- Around line 334-336: Update the benchmark preflight in\nscripts/optimal-gate-bench.mjs around the machine provenance object to reject\nexecution on a loaded host unless the explicit allow-busy environment variable\nis set, and record CPU model plus relevant load context alongside cores and\narchitecture. Regenerate bench/fleet-gate-bench.json lines 14-17 and\nbench/fleet-gate-bench.pbox.json lines 14-17 using the updated harness; no\nseparate logic change is required in those fixture files.\n\n---\n\nNitpick comments:\nIn `@FLEET.md`:\n- Line 3: Revise the FLEET.md sections around the preset description and the\nreferenced result sections to use direct technical wording. Replace promotional\nor colloquial phrases such as “real-world shape at real-world scale,” “Three\nfacts fall out,” and “just a box with the RAM” with precise statements of the\nmeasured behavior, benchmark results, and required resources; preserve the\ndocumented fleet scale, reproducibility, and source-file references.\n```\n\n</details>\n\n<details>\n<summary>🪄 Autofix (Beta)</summary>\n\nFix all unresolved CodeRabbit comments on this PR:\n\n- [ ] <!-- {\"checkboxId\": \"4b0d0e0a-96d7-4f10-b296-3a18ea78f0b9\"} --> Push a commit to this branch (recommended)\n- [ ] <!-- {\"checkboxId\": \"ff5b1114-7d8c-49e6-8ac1-43f82af23a33\"} --> Create a new PR with the fixes\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: defaults\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `feb03af4-ab46-42af-ac6c-f547cfd180ac`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between bfd483150cd68b8a3d480ae0f712e65210c2f08c and 99e4925d93ff3f62a3672fb3e4f7566691456a1e.\n\n</details>\n\n<details>\n<summary>⛔ Files ignored due to path filters (2)</summary>\n\n* `bench/charts/fleet-gate.png` is excluded by `!**/*.png`\n* `bench/charts/fleet-gate.svg` is excluded by `!**/*.svg`\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (15)</summary>\n\n* `.github/workflows/charts.yml`\n* `AGENTS.md`\n* `FLEET.md`\n* `Makefile`\n* `OPTIMAL-STACK.md`\n* `README.md`\n* `SUMMARY.md`\n* `bench/fleet-gate-bench.json`\n* `bench/fleet-gate-bench.pbox.json`\n* `bench/fleet-shape.json`\n* `scripts/chart.mjs`\n* `scripts/fleet-chart.mjs`\n* `scripts/fleet-shape-verify.mjs`\n* `scripts/optimal-gate-bench.mjs`\n* `scripts/whole-typecheck.mjs`\n\n</details>\n\n<details>\n<summary>🚧 Files skipped from review as they are similar to previous changes (2)</summary>\n\n* README.md\n* AGENTS.md\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->",
+              "submittedAt": "2026-07-29T23:18:30Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "99e4925d93ff3f62a3672fb3e4f7566691456a1e"
+              },
+              "comments": {
+                "totalCount": 4,
+                "nodes": [
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "comments": {
+          "nodes": [
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- review_stack_entry_start -->\n\n[![Review Change Stack](https://storage.googleapis.com/coderabbit_public_assets/review-stack-in-coderabbit-ui.svg)](https://app.coderabbit.ai/change-stack/ejc3/node-monorepo-perf/pull/46?utm_source=github_walkthrough&utm_medium=github&utm_campaign=change_stack)\n\n<!-- review_stack_entry_end -->\n<!-- walkthrough_start -->\n\n<details>\n<summary>📝 Walkthrough</summary>\n\n## Walkthrough\n\nAdds a deterministic `fleet` preset with skewed dependency generation and optional app modules, verifies generated graph metrics against committed targets, and integrates fleet-specific Makefile, benchmark, whole-typecheck, chart, and documentation workflows.\n\n### Changes\n\n**Fleet shape workflow**\n\n|Layer / File(s)|Summary|\n|---|---|\n|**Fleet preset and skewed generation** <br> `scripts/generate.mjs`, `scripts/_wyhash11.mjs`|Adds fleet-driven defaults, deterministic skewed dependency generation, collision remapping, optional per-app modules, and shape-specific metadata reporting.|\n|**Fleet shape verification** <br> `scripts/fleet-shape-verify.mjs`, `bench/fleet-shape.json`|Computes graph metrics from emitted package edges, adds `universalLibs`, checks fleet targets with tolerances, detects cycles, and records verification results.|\n|**Fleet benchmark integration** <br> `Makefile`, `scripts/optimal-gate-bench.mjs`, `bench/fleet-gate-bench*.json`|Adds fleet generation, verification, and benchmark targets; validates generated shape metadata; records fleet sizing, machine provenance, gate results, and toolchain data.|\n|**Rename-safe benchmark targeting** <br> `scripts/_app-name.mjs`, `scripts/*-bench.mjs`|Resolves generated app package names from manifests and updates benchmark filters, prune mapping, focus paths, and typecheck parsing for collision-renamed apps.|\n|**Whole-workspace gate and chart pipeline** <br> `scripts/whole-typecheck.mjs`, `scripts/fleet-chart.mjs`, `.github/workflows/charts.yml`|Adds whole-workspace TypeScript verdict reporting, fleet SVG/PNG rendering, chart validation, refreshed raster commits, and pull-request artifacts.|\n|**Workflow documentation** <br> `AGENTS.md`, `README.md`, `FLEET.md`, `OPTIMAL-STACK.md`, `SUMMARY.md`|Documents fleet commands, generated records, chart artifacts, collision handling, and full-scale measurements.|\n\n**Estimated code review effort:** 4 (Complex) | ~60 minutes\n\n### Sequence Diagram(s)\n\n```mermaid\nsequenceDiagram\n  participant Developer\n  participant GenerateMjs\n  participant FleetShapeVerify\n  participant OptimalGateBench\n  participant WholeTypecheck\n  participant FleetChart\n  Developer->>GenerateMjs: run fleet preset\n  GenerateMjs-->>Developer: emit workspace and shape summary\n  Developer->>FleetShapeVerify: verify generated workspace\n  FleetShapeVerify-->>Developer: write fleet-shape.json\n  Developer->>OptimalGateBench: run fleet gate benchmark\n  OptimalGateBench->>GenerateMjs: generate and validate fleet workspace\n  OptimalGateBench-->>Developer: write fleet-gate-bench.json\n  Developer->>WholeTypecheck: run whole-workspace typecheck\n  WholeTypecheck-->>Developer: print GREEN or RED verdict\n  Developer->>FleetChart: render fleet benchmark records\n  FleetChart-->>Developer: write fleet-gate.svg and fleet-gate.png\n```\n\n</details>\n\n<!-- walkthrough_end -->\n<!-- pre_merge_checks_walkthrough_start -->\n\n<details>\n<summary>🚥 Pre-merge checks | ✅ 4 | ❌ 1</summary>\n\n### ❌ Failed checks (1 warning)\n\n|     Check name     | Status     | Explanation                                                                           | Resolution                                                                         |\n| :----------------: | :--------- | :------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------- |\n| Docstring Coverage | ⚠️ Warning | Docstring coverage is 39.13% which is insufficient. The required threshold is 80.00%. | Write docstrings for the functions missing them to satisfy the coverage threshold. |\n\n<details>\n<summary>✅ Passed checks (4 passed)</summary>\n\n|         Check name         | Status   | Explanation                                                                                                          |\n| :------------------------: | :------- | :------------------------------------------------------------------------------------------------------------------- |\n|     Linked Issues check    | ✅ Passed | Check skipped because no linked issues were found for this pull request.                                             |\n| Out of Scope Changes check | ✅ Passed | Check skipped because no linked issues were found for this pull request.                                             |\n|      Description Check     | ✅ Passed | Check skipped - CodeRabbit’s high-level summary is enabled.                                                          |\n|         Title check        | ✅ Passed | The title clearly summarizes the main change: adding the fleet preset and its measured production-scale graph shape. |\n\n</details>\n\n</details>\n\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- finishing_touch_checkbox_start -->\n\n<details>\n<summary>✨ Finishing Touches 💡 1</summary>\n\n<!-- finishing_touch_suggestion:docstrings -->\n<details>\n<summary>📝 Generate docstrings 💡</summary>\n\n- [ ] <!-- {\"checkboxId\": \"7962f53c-55bc-4827-bfbf-6a18da830691\"} --> Create stacked PR\n- [ ] <!-- {\"checkboxId\": \"3e1879ae-f29b-4d0d-8e06-d12b7ba33d98\"} --> Commit on current branch\n\n</details>\n<details>\n<summary>🧪 Generate unit tests (beta)</summary>\n\n- [ ] <!-- {\"checkboxId\": \"f47ac10b-58cc-4372-a567-0e02b2c3d479\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Create PR with unit tests\n- [ ] <!-- {\"checkboxId\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Commit unit tests in branch `fleet-preset`\n\n</details>\n\n</details>\n\n<!-- finishing_touch_checkbox_end -->\n<!-- tips_start -->\n\n---\n\n\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+              "createdAt": "2026-07-29T01:31:47Z",
+              "updatedAt": "2026-07-29T23:18:36Z"
+            }
+          ]
+        },
+        "recheck": {
+          "comments": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- review_stack_entry_start -->\n\n[![Review Change Stack](https://storage.googleapis.com/coderabbit_public_assets/review-stack-in-coderabbit-ui.svg)](https://app.coderabbit.ai/change-stack/ejc3/node-monorepo-perf/pull/46?utm_source=github_walkthrough&utm_medium=github&utm_campaign=change_stack)\n\n<!-- review_stack_entry_end -->\n<!-- walkthrough_start -->\n\n<details>\n<summary>📝 Walkthrough</summary>\n\n## Walkthrough\n\nAdds a deterministic `fleet` preset with skewed dependency generation and optional app modules, verifies generated graph metrics against committed targets, and integrates fleet-specific Makefile, benchmark, whole-typecheck, chart, and documentation workflows.\n\n### Changes\n\n**Fleet shape workflow**\n\n|Layer / File(s)|Summary|\n|---|---|\n|**Fleet preset and skewed generation** <br> `scripts/generate.mjs`, `scripts/_wyhash11.mjs`|Adds fleet-driven defaults, deterministic skewed dependency generation, collision remapping, optional per-app modules, and shape-specific metadata reporting.|\n|**Fleet shape verification** <br> `scripts/fleet-shape-verify.mjs`, `bench/fleet-shape.json`|Computes graph metrics from emitted package edges, adds `universalLibs`, checks fleet targets with tolerances, detects cycles, and records verification results.|\n|**Fleet benchmark integration** <br> `Makefile`, `scripts/optimal-gate-bench.mjs`, `bench/fleet-gate-bench*.json`|Adds fleet generation, verification, and benchmark targets; validates generated shape metadata; records fleet sizing, machine provenance, gate results, and toolchain data.|\n|**Rename-safe benchmark targeting** <br> `scripts/_app-name.mjs`, `scripts/*-bench.mjs`|Resolves generated app package names from manifests and updates benchmark filters, prune mapping, focus paths, and typecheck parsing for collision-renamed apps.|\n|**Whole-workspace gate and chart pipeline** <br> `scripts/whole-typecheck.mjs`, `scripts/fleet-chart.mjs`, `.github/workflows/charts.yml`|Adds whole-workspace TypeScript verdict reporting, fleet SVG/PNG rendering, chart validation, refreshed raster commits, and pull-request artifacts.|\n|**Workflow documentation** <br> `AGENTS.md`, `README.md`, `FLEET.md`, `OPTIMAL-STACK.md`, `SUMMARY.md`|Documents fleet commands, generated records, chart artifacts, collision handling, and full-scale measurements.|\n\n**Estimated code review effort:** 4 (Complex) | ~60 minutes\n\n### Sequence Diagram(s)\n\n```mermaid\nsequenceDiagram\n  participant Developer\n  participant GenerateMjs\n  participant FleetShapeVerify\n  participant OptimalGateBench\n  participant WholeTypecheck\n  participant FleetChart\n  Developer->>GenerateMjs: run fleet preset\n  GenerateMjs-->>Developer: emit workspace and shape summary\n  Developer->>FleetShapeVerify: verify generated workspace\n  FleetShapeVerify-->>Developer: write fleet-shape.json\n  Developer->>OptimalGateBench: run fleet gate benchmark\n  OptimalGateBench->>GenerateMjs: generate and validate fleet workspace\n  OptimalGateBench-->>Developer: write fleet-gate-bench.json\n  Developer->>WholeTypecheck: run whole-workspace typecheck\n  WholeTypecheck-->>Developer: print GREEN or RED verdict\n  Developer->>FleetChart: render fleet benchmark records\n  FleetChart-->>Developer: write fleet-gate.svg and fleet-gate.png\n```\n\n</details>\n\n<!-- walkthrough_end -->\n<!-- pre_merge_checks_walkthrough_start -->\n\n<details>\n<summary>🚥 Pre-merge checks | ✅ 4 | ❌ 1</summary>\n\n### ❌ Failed checks (1 warning)\n\n|     Check name     | Status     | Explanation                                                                           | Resolution                                                                         |\n| :----------------: | :--------- | :------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------- |\n| Docstring Coverage | ⚠️ Warning | Docstring coverage is 39.13% which is insufficient. The required threshold is 80.00%. | Write docstrings for the functions missing them to satisfy the coverage threshold. |\n\n<details>\n<summary>✅ Passed checks (4 passed)</summary>\n\n|         Check name         | Status   | Explanation                                                                                                          |\n| :------------------------: | :------- | :------------------------------------------------------------------------------------------------------------------- |\n|     Linked Issues check    | ✅ Passed | Check skipped because no linked issues were found for this pull request.                                             |\n| Out of Scope Changes check | ✅ Passed | Check skipped because no linked issues were found for this pull request.                                             |\n|      Description Check     | ✅ Passed | Check skipped - CodeRabbit’s high-level summary is enabled.                                                          |\n|         Title check        | ✅ Passed | The title clearly summarizes the main change: adding the fleet preset and its measured production-scale graph shape. |\n\n</details>\n\n</details>\n\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- finishing_touch_checkbox_start -->\n\n<details>\n<summary>✨ Finishing Touches 💡 1</summary>\n\n<!-- finishing_touch_suggestion:docstrings -->\n<details>\n<summary>📝 Generate docstrings 💡</summary>\n\n- [ ] <!-- {\"checkboxId\": \"7962f53c-55bc-4827-bfbf-6a18da830691\"} --> Create stacked PR\n- [ ] <!-- {\"checkboxId\": \"3e1879ae-f29b-4d0d-8e06-d12b7ba33d98\"} --> Commit on current branch\n\n</details>\n<details>\n<summary>🧪 Generate unit tests (beta)</summary>\n\n- [ ] <!-- {\"checkboxId\": \"f47ac10b-58cc-4372-a567-0e02b2c3d479\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Create PR with unit tests\n- [ ] <!-- {\"checkboxId\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Commit unit tests in branch `fleet-preset`\n\n</details>\n\n</details>\n\n<!-- finishing_touch_checkbox_end -->\n<!-- tips_start -->\n\n---\n\n\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+                "createdAt": "2026-07-29T01:31:47Z",
+                "updatedAt": "2026-07-29T23:18:36Z"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

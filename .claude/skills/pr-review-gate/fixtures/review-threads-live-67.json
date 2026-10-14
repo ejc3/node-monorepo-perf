@@ -1,0 +1,417 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "author": {
+          "login": "ejc3"
+        },
+        "headRefOid": "d383b125e06c1c373e1127996cdbac72668dc8e0",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "committedDate": "2026-10-11T14:09:45Z",
+                "checkSuites": {
+                  "nodes": [
+                    {
+                      "createdAt": "2026-10-11T14:09:48Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T14:09:48Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T14:09:48Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T14:09:48Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T14:09:48Z"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "prcommits": {
+          "totalCount": 12,
+          "nodes": [
+            {
+              "commit": {
+                "oid": "7e4020e331e74aefacb79fb17ccaa7ca8b78590f"
+              }
+            },
+            {
+              "commit": {
+                "oid": "8b31d7028b6863053d5abae6769075fedc253160"
+              }
+            },
+            {
+              "commit": {
+                "oid": "ce8b2742f9c0b77bd7430b64c163f897ed45a5ba"
+              }
+            },
+            {
+              "commit": {
+                "oid": "5c90b1e3c29a181af8aca256f2ff809f742bf7b1"
+              }
+            },
+            {
+              "commit": {
+                "oid": "a76e750848ab28c501cfb9b26fb219c0667f564b"
+              }
+            },
+            {
+              "commit": {
+                "oid": "5cb1642f644f31dcf331612be656bdb1495e24eb"
+              }
+            },
+            {
+              "commit": {
+                "oid": "29fa437951f63baf94f67e9e8ac7d6d9aff1c77d"
+              }
+            },
+            {
+              "commit": {
+                "oid": "3eb329cc89c631945779695c41f2349381df78fb"
+              }
+            },
+            {
+              "commit": {
+                "oid": "d05883546397f71fa802220959d022724661ddff"
+              }
+            },
+            {
+              "commit": {
+                "oid": "7a7dad5f4d804b6a4a77108dc2ec43d1fb0ce3c5"
+              }
+            },
+            {
+              "commit": {
+                "oid": "aea05233624088fca3a6ec451c2deb12c283747b"
+              }
+            },
+            {
+              "commit": {
+                "oid": "d383b125e06c1c373e1127996cdbac72668dc8e0"
+              }
+            }
+          ]
+        },
+        "reviewThreads": {
+          "nodes": [
+            {
+              "id": "PRRT_kwDOS6_t2M6rOKGX",
+              "isResolved": true,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 2,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0xMC0xMVQxNDoxMDowNlrO_NXZ8A=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M781UQX",
+                    "author": {
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
+                    },
+                    "path": "LIMITS.md",
+                    "line": 29,
+                    "originalLine": 29,
+                    "createdAt": "2026-10-11T13:57:37Z",
+                    "lastEditedAt": null,
+                    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Restore the documented 60-project Pro limit**\n\nThe linked [Vercel limits table](https://vercel.com/docs/limits) currently caps **Vercel Projects Connected per Git Repository** at 60 for Pro, not 150. Leaving 150 here overstates how far a monorepo can scale before it must split across repositories or teams; restore 60 or avoid hard-coding the value.\n\nUseful? React with 👍 / 👎."
+                  },
+                  {
+                    "id": "PRRC_kwDOS6_t2M781dnw",
+                    "author": {
+                      "login": "ejc3",
+                      "__typename": "User"
+                    },
+                    "path": "LIMITS.md",
+                    "line": 29,
+                    "originalLine": 29,
+                    "createdAt": "2026-10-11T14:10:06Z",
+                    "lastEditedAt": null,
+                    "body": "DISAGREE: https://vercel.com/docs/limits (last_updated 2026-09-16) lists \"Vercel Projects Connected per Git Repository | 25 | 150 | Custom\" for Hobby / Pro / Enterprise, and the page links the changelog entry \"Increased limit for projects per Git repo\". 150 is the current Pro value; 60 is the previous one."
+                  }
+                ]
+              }
+            },
+            {
+              "id": "PRRT_kwDOS6_t2M6rOKGZ",
+              "isResolved": true,
+              "isOutdated": false,
+              "comments": {
+                "totalCount": 2,
+                "pageInfo": {
+                  "hasNextPage": false,
+                  "endCursor": "Y3Vyc29yOnYyOpK0MjAyNi0xMC0xMVQxNDoxMDowNVrO_NXZwQ=="
+                },
+                "nodes": [
+                  {
+                    "id": "PRRC_kwDOS6_t2M781UQb",
+                    "author": {
+                      "login": "chatgpt-codex-connector",
+                      "__typename": "Bot"
+                    },
+                    "path": "TURBOPACK-GRAPH.md",
+                    "line": 200,
+                    "originalLine": 200,
+                    "createdAt": "2026-10-11T13:57:37Z",
+                    "lastEditedAt": null,
+                    "body": "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub>  Sync the corrected outlier delta across the docs**\n\nThis correction to 37s matches the raw wall times (107.528s − 70.392s), but `bench/turbopack-gym/cache-drift.md:89` still describes the same run as only 33s longer. Update the companion methodology note too so the two records do not publish contradictory deltas for the same samples.\n\nAGENTS.md reference: [AGENTS.md:L1404-L1406](https://github.com/ejc3/node-monorepo-perf/blob/aea05233624088fca3a6ec451c2deb12c283747b/AGENTS.md#L1404-L1406)\n\nUseful? React with 👍 / 👎."
+                  },
+                  {
+                    "id": "PRRC_kwDOS6_t2M781dnB",
+                    "author": {
+                      "login": "ejc3",
+                      "__typename": "User"
+                    },
+                    "path": "TURBOPACK-GRAPH.md",
+                    "line": 200,
+                    "originalLine": 200,
+                    "createdAt": "2026-10-11T14:10:05Z",
+                    "lastEditedAt": null,
+                    "body": "NOT-A-DEFECT: documentation correction, fixed in d383b12. bench/turbopack-gym/cache-drift.md now states both reps (107.5s with 71s after run-turbopack, vs 70.4s with 33s after) and the 37s difference, matching TURBOPACK-GRAPH.md and bench/turbopack-graph-drift.json (wall 107.528 vs 70.392). `node scripts/turbopack-gym/report.mjs --check` passes."
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "reviews": {
+          "nodes": [
+            {
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "state": "COMMENTED",
+              "body": "\n### 💡 Codex Review\n\nHere are some automated review suggestions for this pull request.\n\n**Reviewed commit:** `aea0523362`\n    \n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+              "submittedAt": "2026-10-11T13:57:36Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "aea05233624088fca3a6ec451c2deb12c283747b"
+              },
+              "comments": {
+                "totalCount": 2,
+                "nodes": [
+                  {
+                    "replyTo": null
+                  },
+                  {
+                    "replyTo": null
+                  }
+                ]
+              }
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "state": "COMMENTED",
+              "body": "",
+              "submittedAt": "2026-10-11T14:10:05Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "d383b125e06c1c373e1127996cdbac72668dc8e0"
+              },
+              "comments": {
+                "totalCount": 1,
+                "nodes": [
+                  {
+                    "replyTo": {
+                      "id": "PRRC_kwDOS6_t2M781UQb"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "state": "COMMENTED",
+              "body": "",
+              "submittedAt": "2026-10-11T14:10:06Z",
+              "lastEditedAt": null,
+              "commit": {
+                "oid": "d383b125e06c1c373e1127996cdbac72668dc8e0"
+              },
+              "comments": {
+                "totalCount": 1,
+                "nodes": [
+                  {
+                    "replyTo": {
+                      "id": "PRRC_kwDOS6_t2M781UQX"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "comments": {
+          "nodes": [
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@codex review",
+              "createdAt": "2026-10-11T13:54:02Z",
+              "updatedAt": "2026-10-11T13:54:02Z"
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@coderabbitai review",
+              "createdAt": "2026-10-11T13:54:03Z",
+              "updatedAt": "2026-10-11T13:54:03Z"
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n\n> [!WARNING]\n> ## Review limit reached\n> \n> You've used all free OSS reviews for now. Wait for the free limit to reset to keep reviewing this public repository.\n> \n> **Next included review available in 36 minutes.**\n> \n> [Check out review usage here](https://app.coderabbit.ai/dashboard/review-capacity?orgId=96113fc7-8ca8-4c14-8def-17aa502f9deb).\n> \n> <details>\n> <summary><strong>View limit details</strong></summary>\n> <dl>\n> <dd>\n> \n> **Limit details:** You’ve used the included review currently available.\n> \n> [Learn how review limits work](https://docs.coderabbit.ai/management/plans#rate-limits).\n> \n> **Review configuration:**\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `db417b92-b269-42c8-b64c-f929fc0d892c`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📥 Commits</strong></summary>\n> <dl>\n> <dd>\n> \n> Reviewing files that changed from the base of the PR and between 2580a306d16757d374e74c71d94acf0cc9186349 and d383b125e06c1c373e1127996cdbac72668dc8e0.\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📒 Files selected for processing (6)</strong></summary>\n> <dl>\n> <dd>\n> \n> * `FLEET.md`\n> * `LIMITS.md`\n> * `OPTIMAL-STACK.md`\n> * `TURBOPACK-GRAPH.md`\n> * `TYPECHECKERS.md`\n> * `bench/turbopack-gym/cache-drift.md`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: rate limited by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=67)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+              "createdAt": "2026-10-11T13:54:09Z",
+              "updatedAt": "2026-10-11T14:10:26Z"
+            },
+            {
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | 🔄 **Running** since <relative-time datetime=\"2026-10-11T14:10:27.479691Z\">2026-10-11T14:10:27.479691Z</relative-time> | `d383b12` | Manual request |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+              "createdAt": "2026-10-11T13:54:20Z",
+              "updatedAt": "2026-10-11T14:10:30Z"
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:c782b5e677b9ac1116fa1b285ef07afc6d5318b4512b4a6a44388772f70b8573 -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+              "createdAt": "2026-10-11T13:54:25Z",
+              "updatedAt": "2026-10-11T13:54:34Z"
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@codex review",
+              "createdAt": "2026-10-11T14:10:12Z",
+              "updatedAt": "2026-10-11T14:10:12Z"
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@coderabbitai review",
+              "createdAt": "2026-10-11T14:10:13Z",
+              "updatedAt": "2026-10-11T14:10:13Z"
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:deb7da4e04814c2b243e9ad64d2db51a9be3ec13716b44c2ff08a20a6d7d4455 -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+              "createdAt": "2026-10-11T14:10:20Z",
+              "updatedAt": "2026-10-11T14:10:29Z"
+            }
+          ]
+        },
+        "recheck": {
+          "comments": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@codex review",
+                "createdAt": "2026-10-11T13:54:02Z",
+                "updatedAt": "2026-10-11T13:54:02Z"
+              },
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@coderabbitai review",
+                "createdAt": "2026-10-11T13:54:03Z",
+                "updatedAt": "2026-10-11T13:54:03Z"
+              },
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n\n> [!WARNING]\n> ## Review limit reached\n> \n> You've used all free OSS reviews for now. Wait for the free limit to reset to keep reviewing this public repository.\n> \n> **Next included review available in 36 minutes.**\n> \n> [Check out review usage here](https://app.coderabbit.ai/dashboard/review-capacity?orgId=96113fc7-8ca8-4c14-8def-17aa502f9deb).\n> \n> <details>\n> <summary><strong>View limit details</strong></summary>\n> <dl>\n> <dd>\n> \n> **Limit details:** You’ve used the included review currently available.\n> \n> [Learn how review limits work](https://docs.coderabbit.ai/management/plans#rate-limits).\n> \n> **Review configuration:**\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `db417b92-b269-42c8-b64c-f929fc0d892c`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📥 Commits</strong></summary>\n> <dl>\n> <dd>\n> \n> Reviewing files that changed from the base of the PR and between 2580a306d16757d374e74c71d94acf0cc9186349 and d383b125e06c1c373e1127996cdbac72668dc8e0.\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📒 Files selected for processing (6)</strong></summary>\n> <dl>\n> <dd>\n> \n> * `FLEET.md`\n> * `LIMITS.md`\n> * `OPTIMAL-STACK.md`\n> * `TURBOPACK-GRAPH.md`\n> * `TYPECHECKERS.md`\n> * `bench/turbopack-gym/cache-drift.md`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: rate limited by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=67)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+                "createdAt": "2026-10-11T13:54:09Z",
+                "updatedAt": "2026-10-11T14:10:26Z"
+              },
+              {
+                "author": {
+                  "login": "chatgpt-codex-connector",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | 🔄 **Running** since <relative-time datetime=\"2026-10-11T14:10:27.479691Z\">2026-10-11T14:10:27.479691Z</relative-time> | `d383b12` | Manual request |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+                "createdAt": "2026-10-11T13:54:20Z",
+                "updatedAt": "2026-10-11T14:10:30Z"
+              },
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:c782b5e677b9ac1116fa1b285ef07afc6d5318b4512b4a6a44388772f70b8573 -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+                "createdAt": "2026-10-11T13:54:25Z",
+                "updatedAt": "2026-10-11T13:54:34Z"
+              },
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@codex review",
+                "createdAt": "2026-10-11T14:10:12Z",
+                "updatedAt": "2026-10-11T14:10:12Z"
+              },
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@coderabbitai review",
+                "createdAt": "2026-10-11T14:10:13Z",
+                "updatedAt": "2026-10-11T14:10:13Z"
+              },
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:deb7da4e04814c2b243e9ad64d2db51a9be3ec13716b44c2ff08a20a6d7d4455 -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+                "createdAt": "2026-10-11T14:10:20Z",
+                "updatedAt": "2026-10-11T14:10:29Z"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,33 +1,36 @@
 #!/usr/bin/env node
-// The fleet-scale infographic: what a change costs in a 30,000-app workspace,
-// told for engineers who don't live in monorepo tooling. Three questions, one
-// panel each: how far does a change reach (task counts), the worst case run
-// two ways (one-command check vs per-package pipeline), and whether a bigger
-// machine helps (core counts read from each record's machine field). Drawn in
-// the shared box/arrow language (scripts/_chartstyle.mjs): green = the fast
-// path, rust = the slow path / blast radius, blue = neutral fact, amber =
-// caveat. Deterministic from bench/fleet-gate-bench.json +
-// bench/fleet-gate-bench.pbox.json + bench/fleet-shape.json (no hand numbers;
-// missing fields throw) -> bench/charts/fleet-gate.svg + a 300 DPI PNG in the
-// same run.
+// The fleet worst case on two machines: a foundation rev on the 30,000-app fleet,
+// checked by one checker process and by the per-package pipeline, each run on the
+// 64-core and the 192-core box. Four bars on one linear time axis in two neutral
+// machine fills (scripts/_chartstyle.mjs MACHINE_SERIES), so neither machine reads as a
+// winner; the change per mechanism is labeled. The blast radius and the O(repo)
+// selection are drawn by figures.mjs (fig-blast-radius, fig-orepo-oclosure).
+// Deterministic from bench/fleet-gate-bench.json + bench/fleet-gate-bench.pbox.json
+// + bench/fleet-shape.json (no hand numbers; missing fields throw) ->
+// bench/charts/fleet-gate.svg + a 300 DPI PNG, plus the figure's text alternative
+// in FLEET.md (the chart-data:fleet-gate block).
 //
 //   node scripts/fleet-chart.mjs        (make fleet-chart)
 
 import { readFileSync } from "node:fs";
 import {
   MUTED,
-  ACCENT,
+  GRID,
+  MARGIN,
+  MACHINE_SERIES,
+  FIG,
   txt,
-  box,
-  arrow,
+  figTitle,
+  footer,
+  approxW,
   svgDoc,
   fmtMult,
-  wrapText,
-  esc,
   emitChart,
   assertComparable,
   bareVer,
-  GRID,
+  mdTable,
+  mdDetails,
+  writeDocBlock,
 } from "./_chartstyle.mjs";
 
 const read = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -73,7 +76,7 @@ const N = {
   // libs imported by 100% of apps, measured from the manifests by fleet-shape-verify
   universalLibs: need(SHAPE, "generated.universalLibs"),
 };
-// panel 3 draws the two records as a machine contrast: same tree, same task
+// the figure draws the two records as a machine contrast: same tree, same task
 // sets, and the same recorded checker, orchestrator, and node — or throw. (The
 // lib ^builds run each package's own tsc, whose version the gate bench does not
 // record, so it cannot be compared here.)
@@ -105,20 +108,21 @@ for (const rec of [LOCAL, PBOX])
 if (!need(LOCAL, "breakingChange.caught"))
   throw new Error("dataset says the breaking change was not caught");
 if (N.coresPbox <= N.coresLocal)
-  throw new Error("the pbox record is not the bigger box — panel 3's framing is invalid");
+  throw new Error("the pbox record is not the bigger box — the figure's framing is invalid");
 if (need(PBOX, "optimalGate.ms") < need(LOCAL, "optimalGate.ms"))
   throw new Error(
-    "one-command check got FASTER on the big box — panel 3's verdict prose must be rewritten",
+    "one-command check got FASTER on the big box — the figure's change label must be rewritten",
   );
 if (need(PBOX, "turboGate.ms") >= need(LOCAL, "turboGate.ms"))
   throw new Error(
-    "pipeline did not speed up on the big box — panel 3's verdict prose must be rewritten",
+    "pipeline did not speed up on the big box — the figure's change label must be rewritten",
   );
 
 // bun is deliberately outside the guard above: it is on the path of the install
 // and of every pipeline task (turbo starts each task through the root
 // packageManager binary), not of the one-program check. When the two records
-// ran different bun versions the footer and panel 3 say so instead of throwing.
+// ran different bun versions the toolchain line and the data block say so instead
+// of throwing.
 const bunDiffers = N.bun !== N.bunPbox;
 const bunLabel = bunDiffers
   ? `bun ${N.bun} (${N.coresLocal}-core) / ${N.bunPbox} (${N.coresPbox}-core)`
@@ -128,189 +132,174 @@ const mins = (ms) => `${(ms / 60000).toFixed(1)} min`;
 const int = (n) => n.toLocaleString("en-US");
 
 // --- layout ------------------------------------------------------------------
-const W = 900;
-const PAD = 28;
+// The worst case (a foundation rev on the full fleet) asked two ways, each run on
+// two machines: four bars on one linear time axis, grouped by mechanism, in two
+// neutral machine fills. The cross-machine change is labeled per mechanism; no
+// tint marks a winner, because the machines are not a controlled variable.
+const W = 668;
+const PAD = MARGIN;
 const T = [];
-let y = 0;
-
-const title = (t, size, dy) => {
-  y += dy;
-  T.push(txt(PAD, y, t, { size, weight: "600" }));
-};
-const note = (t, dy, maxChars = 150) => {
-  const rows = wrapText(t, maxChars);
-  rows.forEach((row, i) => {
-    y += i === 0 ? dy : 16;
-    T.push(txt(PAD, y, row, { size: 12, fill: MUTED }));
-  });
-};
-// a tinted fact box at the CURRENT y: headline + up to two sub lines
-function factBox(x, w, h, tint, big, subs) {
-  const lines = Array.isArray(subs) ? subs : [subs];
-  T.push(box(x, y, w, h, tint));
-  T.push(txt(x + 14, y + 26, big, { size: 17, weight: "700" }));
-  lines.forEach((sub, i) => {
-    T.push(txt(x + 14, y + 44 + i * 15, sub, { size: 11.5, fill: MUTED }));
-  });
-}
-
-// ---- title block ----
-title(`A ${int(N.apps)}-app workspace: what a change actually costs`, 20, 44);
-note(
-  `${int(N.apps)} Next.js apps + ${N.libs} shared libs in one workspace — about ${(N.files / 1e6).toFixed(2)} million generated files. Every number below was measured on this tree.`,
-  22,
-);
-
-// ---- panel 1: blast radius (edit box -> arrow -> outcome box) ----
-title("1. How far does a change reach?", 15, 40);
-note(
-  `${N.universalLibs} of the libs are imported by every app. Change one and the pipeline re-runs a typecheck for every package that depends on it (plus the lib builds); change an ordinary lib and almost nothing runs.`,
-  20,
-);
-y += 14;
-const EDIT_W = 268;
-const ARROW_W = 46;
-const OUT_X = PAD + EDIT_W + ARROW_W;
-const OUT_W = W - PAD - OUT_X;
-const editRow = (tint, editName, editSub, big, sub) => {
-  factBox(PAD, EDIT_W, 56, "blue", editName, editSub);
-  T.push(arrow(PAD + EDIT_W + 6, y + 28, OUT_X - 6, y + 28));
-  factBox(OUT_X, OUT_W, 56, tint, big, sub);
-  y += 56 + 10;
-};
-editRow(
-  "rust",
-  "edit a lib EVERY app imports",
-  "the universal foundation — the worst case",
-  `${int(N.universalTasks)} tasks re-run`,
-  "a typecheck per dependent package, plus the lib builds",
-);
-editRow(
-  "green",
-  "edit an ordinary leaf lib",
-  "imported by almost nothing",
-  `${N.leafTasks} tasks re-run`,
-  `${int(Math.round(N.universalTasks / N.leafTasks))}× smaller blast radius`,
-);
-y -= 10;
-
-// ---- panel 2: the worst case, two ways ----
-title(`2. The worst case, run two ways (${N.coresLocal}-core box)`, 15, 40);
-note(
-  "Same question — “did my change break any app?” — two mechanisms. Not like-for-like: the pipeline also builds each lib's dist output; the one command only type-checks.",
-  20,
-);
-y += 14;
-const colW = (W - PAD * 2 - 16) / 2;
-const m2 = N.turboMsLocal / N.wholeMsLocal;
-factBox(PAD, colW, 74, "green", `${secs(N.wholeMsLocal)} — one command`, [
-  `a single checker reads the whole workspace's source once`,
-  `(peak RSS: ${int(N.wholeRssMB)}MB recorded)`,
-]);
-factBox(PAD + colW + 16, colW, 74, "rust", `${mins(N.turboMsLocal)} — ${fmtMult(m2)} slower`, [
-  `standard pipeline: ${int(N.universalTasks)} tasks — a checker process`,
-  `per affected package plus ${N.libs} lib builds`,
-]);
-y += 74 + 12;
-factBox(PAD, W - PAD * 2, 56, "green", `A breaking change is caught in ${secs(N.breakMs)}`, [
-  `all ${int(N.breakApps)} affected apps flagged with exact file and line — the fix-list a codemod can consume`,
-]);
-y += 56;
-
-// ---- panel 3: bigger machine? ----
-title("3. Does a bigger machine help?", 15, 40);
-note(
-  `The same two mechanisms on two different machines (${N.coresLocal} vs ${N.coresPbox} cores, recorded per run). One comparison each — a cross-machine observation, not a controlled core-scaling experiment.${bunDiffers ? ` The pipeline rows also differ in bun version (${N.bun} vs ${N.bunPbox}): turbo starts each task through the package manager.` : ""}`,
-  20,
-);
-y += 14;
-const mWhole = N.wholeMsPbox / N.wholeMsLocal;
-const mTurbo = N.turboMsLocal / N.turboMsPbox;
-// row 1: the one-command check — the fast box (the SMALL machine) green
-factBox(PAD, colW, 74, "green", `one command, ${N.coresLocal} cores: ${secs(N.wholeMsLocal)}`, [
-  `one process; the smaller box was faster`,
-]);
-factBox(
-  PAD + colW + 16,
-  colW,
-  74,
-  "rust",
-  `one command, ${N.coresPbox} cores: ${secs(N.wholeMsPbox)}`,
-  [`${fmtMult(mWhole)} slower — this check did not gain from the bigger box`],
-);
-y += 74 + 12;
-// row 2: the pipeline — the fast box (the BIG machine) green
-factBox(PAD, colW, 74, "rust", `pipeline, ${N.coresLocal} cores: ${mins(N.turboMsLocal)}`, [
-  `${fmtMult(mTurbo)} slower than the big box`,
-]);
-factBox(
-  PAD + colW + 16,
-  colW,
-  74,
-  "green",
-  `pipeline, ${N.coresPbox} cores: ${mins(N.turboMsPbox)}`,
-  [
-    `ran ${mTurbo.toFixed(1)}× faster on this box (${(N.coresPbox / N.coresLocal).toFixed(1)}× the cores)`,
-  ],
-);
-y += 74;
-
-// ---- footer facts + sources ----
-y += 34;
-T.push(`<line x1="${PAD}" y1="${y - 16}" x2="${W - PAD}" y2="${y - 16}" stroke="${GRID}"/>`);
 T.push(
-  txt(
+  ...figTitle(
     PAD,
-    y,
-    `also measured (${N.coresLocal}-core box): installing the ${int(N.apps + N.libs)}-package workspace (plus its external deps) takes ${secs(N.installMs)} (bun, warm store) · linting the whole tree takes ${secs(N.oxlintMs)} (oxlint)`,
-    { size: 11.5, fill: MUTED },
-  ),
+    24,
+    "The worst case on two machines",
+    `a foundation rev on the ${int(N.apps)}-app fleet: one checker process vs the per-package pipeline`,
+  ).parts,
 );
-y += 18;
-T.push(
-  txt(
-    PAD,
-    y,
-    `toolchain: ${bunLabel} · turbo ${N.turbo} · tsgo ${bareVer(N.tsgo)} · oxlint ${bareVer(N.oxlint)} · node ${bareVer(N.node)}`,
-    {
-      size: 11.5,
-      fill: MUTED,
-    },
-  ),
+// key
+const ky = 64;
+const key = (x, fill, label) => {
+  T.push(`<rect x="${x}" y="${ky - 9}" width="12" height="10" rx="2" fill="${fill}"/>`);
+  T.push(txt(x + 17, ky, label, { size: FIG.note, fill: MUTED }));
+  return x + 17 + approxW(label, FIG.note) + 16;
+};
+key(
+  key(PAD, MACHINE_SERIES[0], `${N.coresLocal} cores`),
+  MACHINE_SERIES[1],
+  `${N.coresPbox} cores`,
 );
-y += 20;
-// each source link is its own positioned <text> (tspan flow inside <a> is not
-// reliable across renderers — links overlapped when flowed in one text run)
-{
-  let lx = PAD;
-  const putText = (t) => {
-    T.push(txt(lx, y, t, { size: 11, fill: MUTED }));
-    lx += Math.round(t.length * 6.1);
-  };
-  putText("data: ");
-  const links = [
-    ["fleet-gate-bench.json", "../fleet-gate-bench.json"],
-    ["fleet-gate-bench.pbox.json", "../fleet-gate-bench.pbox.json"],
-    ["fleet-shape.json", "../fleet-shape.json"],
-  ];
-  links.forEach(([t, href], i) => {
+
+const LX = PAD; // group labels
+const BW = 300; // bar length of the slowest run
+const maxMs = Math.max(N.wholeMsLocal, N.wholeMsPbox, N.turboMsLocal, N.turboMsPbox);
+const groups = [
+  {
+    name: "one checker process",
+    how: "the whole workspace's source, once",
+    runs: [
+      [N.coresLocal, N.wholeMsLocal],
+      [N.coresPbox, N.wholeMsPbox],
+    ],
+    change: `${fmtMult(N.wholeMsPbox / N.wholeMsLocal)} slower on ${N.coresPbox} cores`,
+  },
+  {
+    name: "per-package pipeline",
+    how: `${int(N.universalTasks)} tasks, incl. ${N.libs} lib builds`,
+    runs: [
+      [N.coresLocal, N.turboMsLocal],
+      [N.coresPbox, N.turboMsPbox],
+    ],
+    change: `${fmtMult(N.turboMsLocal / N.turboMsPbox)} faster on ${N.coresPbox} cores`,
+  },
+];
+// bar origin (0s): past the widest group label or note, measured, plus a gap
+const BX = Math.ceil(
+  LX +
+    Math.max(
+      ...groups.flatMap((g) => [approxW(g.name, FIG.label, true), approxW(g.how, FIG.note)]),
+    ) +
+    14,
+);
+const fmtT = (ms) => (ms >= 120000 ? mins(ms) : secs(ms));
+let y = 92;
+for (const g of groups) {
+  T.push(txt(LX, y + 11, g.name, { size: FIG.label, weight: "600" }));
+  T.push(txt(LX, y + 26, g.how, { size: FIG.note, fill: MUTED }));
+  g.runs.forEach(([, ms], i) => {
+    const by = y + i * 18;
+    const w = +((ms / maxMs) * BW).toFixed(1);
     T.push(
-      `<a href="${href}"><text x="${lx}" y="${y}" font-size="11" fill="${ACCENT}">${esc(t)}</text></a>`,
+      `<rect x="${BX}" y="${by}" width="${w}" height="13" rx="2" fill="${MACHINE_SERIES[i]}"/>`,
     );
-    lx += Math.round(t.length * 6.1);
-    if (i < links.length - 1) putText("  ·  ");
+    // one weight for both machines: neither run is the headline
+    T.push(txt(BX + w + 7, by + 10.5, fmtT(ms), { size: FIG.body, weight: "600" }));
   });
+  T.push(txt(W - PAD, y + 26, g.change, { size: FIG.note, fill: MUTED, anchor: "end" }));
+  y += 58;
 }
-y += 26;
+// the time axis: gridlines at round minutes, labelled under the bars
+const TICK_MS = 5 * 60000;
+for (let t = 0; t <= maxMs; t += TICK_MS) {
+  const tx = +(BX + (t / maxMs) * BW).toFixed(1);
+  T.push(`<line x1="${tx}" y1="86" x2="${tx}" y2="${y - 18}" stroke="${GRID}"/>`);
+  T.push(
+    txt(tx, y - 4, t === 0 ? "0" : `${t / 60000} min`, {
+      size: FIG.note,
+      fill: MUTED,
+      anchor: "middle",
+    }),
+  );
+}
 
-const H = y;
+// the figure is linked as a standalone PNG, so it carries its own caveats
+const CAVEATS = [
+  "Not like-for-like: the pipeline also builds each lib's dist; the one checker process only type-checks.",
+  "One run per machine: a cross-machine observation, not a controlled core-scaling experiment.",
+  // bun starts every pipeline task, so a bun change is on the pipeline rows' timed path
+  ...(bunDiffers
+    ? [
+        `The pipeline rows also ran different bun versions (${N.bun} / ${N.bunPbox}), which start every task.`,
+      ]
+    : []),
+];
+y += 18;
+for (const c of CAVEATS) {
+  T.push(txt(PAD, y, c, { size: FIG.note, fill: MUTED }));
+  y += 15;
+}
+
+// the facts the old infographic carried, as two muted lines
+y += 7;
+T.push(
+  txt(
+    PAD,
+    y,
+    `Also on the ${N.coresLocal}-core box: install ${secs(N.installMs)} (bun, warm store) · lint ${secs(N.oxlintMs)} (oxlint) · breaking rev caught in ${secs(N.breakMs)}`,
+    { size: FIG.note, fill: MUTED },
+  ),
+);
+y += 15;
+T.push(
+  txt(
+    PAD,
+    y,
+    `${bunLabel} · turbo ${N.turbo} · tsgo ${bareVer(N.tsgo)} · oxlint ${bareVer(N.oxlint)} · node ${bareVer(N.node)}`,
+    { size: FIG.note, fill: MUTED },
+  ),
+);
+y += 34;
+T.push(
+  ...footer(
+    W,
+    y,
+    "bench/fleet-gate-bench.json · bench/fleet-gate-bench.pbox.json · bench/fleet-shape.json",
+  ),
+);
+y += 12;
+
 emitChart(
   "fleet-gate",
   svgDoc(
     W,
-    H,
-    `What a change costs in a ${int(N.apps)}-app workspace: a universal-lib edit re-runs ${int(N.universalTasks)} tasks against ${N.leafTasks} for a leaf edit; the worst case runs as one ${secs(N.wholeMsLocal)} whole-program check or a ${mins(N.turboMsLocal)} pipeline; and in a cross-machine observation only the pipeline ran faster on the ${N.coresPbox}-core box.`,
+    y,
+    `The worst case on two machines: a foundation rev on the ${int(N.apps)}-app fleet checked by one checker process in ${secs(N.wholeMsLocal)} on ${N.coresLocal} cores and ${secs(N.wholeMsPbox)} on ${N.coresPbox}, and by the per-package pipeline in ${mins(N.turboMsLocal)} and ${mins(N.turboMsPbox)}. ${CAVEATS.join(" ")}`,
     T,
   ),
   { strict: true },
+);
+
+// the text alternative (FLEET.md, under the figure)
+writeDocBlock(
+  "FLEET.md",
+  "fleet-gate",
+  mdDetails(
+    "The figure's numbers as a table",
+    [
+      mdTable(
+        ["", `${N.coresLocal} cores`, `${N.coresPbox} cores`],
+        [
+          ["one checker process", secs(N.wholeMsLocal), secs(N.wholeMsPbox)],
+          [
+            `per-package pipeline (${int(N.universalTasks)} tasks)`,
+            mins(N.turboMsLocal),
+            mins(N.turboMsPbox),
+          ],
+          ["bun", N.bun, N.bunPbox],
+        ],
+      ),
+      `On the ${N.coresLocal}-core box: one checker process peaks at ${int(N.wholeRssMB)}MB RSS; a breaking rev is caught in ${secs(N.breakMs)} with all ${int(N.breakApps)} apps flagged; a leaf-lib edit re-runs ${N.leafTasks} tasks; the ${int(N.apps + N.libs)}-package install takes ${secs(N.installMs)} (bun, warm store) and linting the tree ${secs(N.oxlintMs)} (oxlint). The tree is ${int(N.apps)} apps + ${N.libs} libs, about ${(N.files / 1e6).toFixed(2)} million generated files; ${N.universalLibs} libs are imported by every app. turbo ${N.turbo} · tsgo ${bareVer(N.tsgo)} · oxlint ${bareVer(N.oxlint)} · node ${bareVer(N.node)}.`,
+      "Fields: `bench/fleet-gate-bench.json` and `bench/fleet-gate-bench.pbox.json`: `optimalGate.{ms,maxRssMB,kind}`, `turboGate.{ms,total,ran,kind}`, `leafGate.{total,ran}`, `breakingChange.{ms,appsWithErrors,caught}`, `install.ms`, `summary.oxlintMs`, `machine.{cores,arch}`, `versions.{bun,turbo,tsgo,oxlint,node}`, `apps`, `libs`, `modulesPerLib`, `shape`, `foundationLib`, `leafLib`. `bench/fleet-shape.json`: `fleetContext.presetParams.approxFilesFullScale`, `generated.universalLibs`.",
+    ].join("\n\n"),
+  ),
 );

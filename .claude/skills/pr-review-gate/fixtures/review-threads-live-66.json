@@ -1,0 +1,224 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "author": {
+          "login": "ejc3"
+        },
+        "headRefOid": "9c3fd7f1e6384712b33d32df3bcbb51ba4e85b15",
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "committedDate": "2026-10-11T13:52:25Z",
+                "checkSuites": {
+                  "nodes": [
+                    {
+                      "createdAt": "2026-10-11T13:53:55Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T13:53:55Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T13:53:55Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T13:53:55Z"
+                    },
+                    {
+                      "createdAt": "2026-10-11T13:53:55Z"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "prcommits": {
+          "totalCount": 11,
+          "nodes": [
+            {
+              "commit": {
+                "oid": "fc10878ce9166ddfe1c95bed8aa77ba250e70599"
+              }
+            },
+            {
+              "commit": {
+                "oid": "2cc30c30cf78c2c4e585ca6e6973a52f1194d939"
+              }
+            },
+            {
+              "commit": {
+                "oid": "c8c3b8d55cc7eb34b8296667f0281aa7909e390f"
+              }
+            },
+            {
+              "commit": {
+                "oid": "af437aa0a6f54260ea13c3183ded229efff41251"
+              }
+            },
+            {
+              "commit": {
+                "oid": "2ee43eebdd5629ccdb667c070cdb9194355d639a"
+              }
+            },
+            {
+              "commit": {
+                "oid": "67639431e143b6cb8cabd62a4bebfccdfcc5cff0"
+              }
+            },
+            {
+              "commit": {
+                "oid": "30618d1a74a72e2cccd68558dc635426b42bafac"
+              }
+            },
+            {
+              "commit": {
+                "oid": "b6f847b67ad0a6b4426f9dfe6e77589264dcc26b"
+              }
+            },
+            {
+              "commit": {
+                "oid": "a0fe6cbd269e13853fd7a0f9203d71e1fc311137"
+              }
+            },
+            {
+              "commit": {
+                "oid": "476ba27e9683231449f5bf1104de12988d3218e3"
+              }
+            },
+            {
+              "commit": {
+                "oid": "9c3fd7f1e6384712b33d32df3bcbb51ba4e85b15"
+              }
+            }
+          ]
+        },
+        "reviewThreads": {
+          "nodes": []
+        },
+        "reviews": {
+          "nodes": []
+        },
+        "comments": {
+          "nodes": [
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@codex review",
+              "createdAt": "2026-10-11T13:53:57Z",
+              "updatedAt": "2026-10-11T13:53:57Z"
+            },
+            {
+              "author": {
+                "login": "ejc3",
+                "__typename": "User"
+              },
+              "body": "@coderabbitai review",
+              "createdAt": "2026-10-11T13:53:58Z",
+              "updatedAt": "2026-10-11T13:53:58Z"
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n\n> [!WARNING]\n> ## Review limit reached\n> \n> You've used all free OSS reviews for now. Wait for the free limit to reset to keep reviewing this public repository.\n> \n> **Next included review available in 52 minutes.**\n> \n> [Check out review usage here](https://app.coderabbit.ai/dashboard/review-capacity?orgId=96113fc7-8ca8-4c14-8def-17aa502f9deb).\n> \n> <details>\n> <summary><strong>View limit details</strong></summary>\n> <dl>\n> <dd>\n> \n> **Limit details:** You’ve used the included review currently available.\n> \n> [Learn how review limits work](https://docs.coderabbit.ai/management/plans#rate-limits).\n> \n> **Review configuration:**\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `960fb8ba-edaf-4091-8783-228fc654fc58`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📥 Commits</strong></summary>\n> <dl>\n> <dd>\n> \n> Reviewing files that changed from the base of the PR and between 2580a306d16757d374e74c71d94acf0cc9186349 and 9c3fd7f1e6384712b33d32df3bcbb51ba4e85b15.\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📒 Files selected for processing (6)</strong></summary>\n> <dl>\n> <dd>\n> \n> * `AGENTS.md`\n> * `GROUNDING.md`\n> * `OPTIMIZATIONS.md`\n> * `ROLLOUT.md`\n> * `TOOLING.md`\n> * `WORKSPACE-VS-SEMVER.md`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: rate limited by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=66)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+              "createdAt": "2026-10-11T13:54:03Z",
+              "updatedAt": "2026-10-11T13:54:29Z"
+            },
+            {
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-10-11T13:57:36.269964Z\">2026-10-11T13:57:36.269964Z</relative-time> | `9c3fd7f` | Manual request |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+              "createdAt": "2026-10-11T13:54:15Z",
+              "updatedAt": "2026-10-11T13:57:38Z"
+            },
+            {
+              "author": {
+                "login": "coderabbitai",
+                "__typename": "Bot"
+              },
+              "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:c828723e7ade38413d1ac46ab0e678b384a7f951b0bdda4cc805adea17596c1c -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+              "createdAt": "2026-10-11T13:54:23Z",
+              "updatedAt": "2026-10-11T13:54:32Z"
+            },
+            {
+              "author": {
+                "login": "chatgpt-codex-connector",
+                "__typename": "Bot"
+              },
+              "body": "Codex Review: Didn't find any major issues. What shall we delve into next?\n\n**Reviewed commit:** `9c3fd7f1e6`\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+              "createdAt": "2026-10-11T13:57:35Z",
+              "updatedAt": "2026-10-11T13:57:35Z"
+            }
+          ]
+        },
+        "recheck": {
+          "comments": {
+            "nodes": [
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@codex review",
+                "createdAt": "2026-10-11T13:53:57Z",
+                "updatedAt": "2026-10-11T13:53:57Z"
+              },
+              {
+                "author": {
+                  "login": "ejc3",
+                  "__typename": "User"
+                },
+                "body": "@coderabbitai review",
+                "createdAt": "2026-10-11T13:53:58Z",
+                "updatedAt": "2026-10-11T13:53:58Z"
+              },
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n\n> [!WARNING]\n> ## Review limit reached\n> \n> You've used all free OSS reviews for now. Wait for the free limit to reset to keep reviewing this public repository.\n> \n> **Next included review available in 52 minutes.**\n> \n> [Check out review usage here](https://app.coderabbit.ai/dashboard/review-capacity?orgId=96113fc7-8ca8-4c14-8def-17aa502f9deb).\n> \n> <details>\n> <summary><strong>View limit details</strong></summary>\n> <dl>\n> <dd>\n> \n> **Limit details:** You’ve used the included review currently available.\n> \n> [Learn how review limits work](https://docs.coderabbit.ai/management/plans#rate-limits).\n> \n> **Review configuration:**\n> \n> <details>\n> <summary><strong>⚙️ Run configuration</strong></summary>\n> <dl>\n> <dd>\n> \n> - **Configuration used**: defaults\n> - **Review profile**: CHILL\n> - **Plan**: Advanced\n> - **Run ID**: `960fb8ba-edaf-4091-8783-228fc654fc58`\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📥 Commits</strong></summary>\n> <dl>\n> <dd>\n> \n> Reviewing files that changed from the base of the PR and between 2580a306d16757d374e74c71d94acf0cc9186349 and 9c3fd7f1e6384712b33d32df3bcbb51ba4e85b15.\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n> \n> <details>\n> <summary><strong>📒 Files selected for processing (6)</strong></summary>\n> <dl>\n> <dd>\n> \n> * `AGENTS.md`\n> * `GROUNDING.md`\n> * `OPTIMIZATIONS.md`\n> * `ROLLOUT.md`\n> * `TOOLING.md`\n> * `WORKSPACE-VS-SEMVER.md`\n> \n> </dd>\n> </dl>\n> </details>\n> \n> \n> <hr>\n> \n> </dd>\n> </dl>\n> </details>\n\n<!-- end of auto-generated comment: rate limited by coderabbit.ai -->\n\n<!-- autopilot:start -->\n- [ ] <!-- {\"checkboxId\":\"2708ad07-9f24-4260-9c11-7dc76a49f2e3\"} --> <strong title=\"Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\">Autofix</strong> · Keep fixing CodeRabbit findings and required CI, and resolving merge conflicts\n<!-- autopilot:end -->\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=ejc3/node-monorepo-perf&utm_content=66)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary><strong>❤️ Share</strong></summary>\n<dl>\n<dd>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n<hr>\n\n</dd>\n</dl>\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+                "createdAt": "2026-10-11T13:54:03Z",
+                "updatedAt": "2026-10-11T13:54:29Z"
+              },
+              {
+                "author": {
+                  "login": "chatgpt-codex-connector",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- codex-pull-request-review-summary -->\n\n## Codex Review Summary\n\nThis comment shows the latest Codex review activity on this pull request.\n\n| Review | Status | Commit | Review trigger |\n| --- | --- | --- | --- |\n| 📝 **Code Review** | ✅ **Completed** <relative-time datetime=\"2026-10-11T13:57:36.269964Z\">2026-10-11T13:57:36.269964Z</relative-time> | `9c3fd7f` | Manual request |\n\n\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\" or \"@codex security review\".\n\nCodex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.\n\n</details>",
+                "createdAt": "2026-10-11T13:54:15Z",
+                "updatedAt": "2026-10-11T13:57:38Z"
+              },
+              {
+                "author": {
+                  "login": "coderabbitai",
+                  "__typename": "Bot"
+                },
+                "body": "<!-- This is an auto-generated reply by CodeRabbit -->\n<!-- CodeRabbit review command invocation: v2:c828723e7ade38413d1ac46ab0e678b384a7f951b0bdda4cc805adea17596c1c -->\n<details>\n<summary>⚠️ Action not completed</summary>\n\nReview rate limited.\n\n> Note: CodeRabbit is an incremental review system and does not re-review already reviewed commits. This command is applicable only when automatic reviews are paused.\n\n</details>",
+                "createdAt": "2026-10-11T13:54:23Z",
+                "updatedAt": "2026-10-11T13:54:32Z"
+              },
+              {
+                "author": {
+                  "login": "chatgpt-codex-connector",
+                  "__typename": "Bot"
+                },
+                "body": "Codex Review: Didn't find any major issues. What shall we delve into next?\n\n**Reviewed commit:** `9c3fd7f1e6`\n\n<details> <summary>ℹ️ About Codex in GitHub</summary>\n<br/>\n\n[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you\n- Open a pull request for review\n- Mark a draft as ready\n- Comment \"@codex review\".\n\nIf Codex has suggestions, it will comment; otherwise it will react with 👍.\n\n\n\n\nCodex can also answer questions or update the PR. Try commenting \"@codex address that feedback\".\n            \n</details>",
+                "createdAt": "2026-10-11T13:57:35Z",
+                "updatedAt": "2026-10-11T13:57:35Z"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

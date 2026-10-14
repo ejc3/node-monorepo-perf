@@ -6,6 +6,8 @@
 # on mismatch), not just printed:
 #   a) pinned semver "1.0.0"                  -> resolves the PUBLISHED (registry) copy
 #   b) pinned semver + root override ws:*      -> resolves the LOCAL workspace copy
+#      (the override is `overrides` in the root pnpm-workspace.yaml: pnpm 12 does not
+#      read the package.json "pnpm" field)
 #   c) "workspace:*"                           -> resolves the LOCAL workspace copy
 # Self-cleaning: each run pre-deletes any leftover, publishes @ejc3/reslib fresh
 # (so the proof uses THIS run's bytes), and deletes it again on exit. Local scratch
@@ -63,36 +65,39 @@ del_all_versions reslib   # clear every leftover so we publish THIS run's bytes 
 echo "   published."
 
 echo "== workspace with a LOCAL @ejc3/reslib (same name+version, SOURCE=workspace-local) + app 'web' =="
-# minimumReleaseAge 0: the demo installs @ejc3/reslib seconds after publishing it —
-# pnpm 12's default minimum-release-age supply-chain gate would reject the fresh publish.
-printf 'packages:\n  - "apps/*"\n  - "packages/*"\nminimumReleaseAge: 0\n' > "$DIR/ws/pnpm-workspace.yaml"
 printf '{ "name": "@ejc3/reslib", "version": "%s", "main": "index.js" }\n' "$VER" > "$DIR/ws/packages/reslib/package.json"
 printf 'module.exports = { SOURCE: "workspace-local" };\n' > "$DIR/ws/packages/reslib/index.js"
-# scoped @ejc3 → CodeArtifact, and link-workspace-packages=false so a plain semver
-# resolves from the registry (the §1 "gate"), not the local workspace copy.
-printf 'link-workspace-packages=false\n%s\n' "$AUTH" > "$DIR/ws/.npmrc"
+# scoped @ejc3 → CodeArtifact (pnpm 12 reads only registry, auth and network keys from .npmrc)
+printf '%s\n' "$AUTH" > "$DIR/ws/.npmrc"
 
-# write the app manifest with a given @ejc3/reslib spec; root with optional override
+# write the app manifest with a given @ejc3/reslib spec, and the root manifest
 app() { printf '{ "name": "web", "private": true, "dependencies": { "@ejc3/reslib": "%s" } }\n' "$1" > "$DIR/ws/apps/web/package.json"; }
 root() { printf '%s\n' "$1" > "$DIR/ws/package.json"; }
 ROOT_PLAIN=$(printf '{ "name": "reslib-demo", "private": true, "packageManager": "pnpm@%s" }' "$PNPM_VER")
-ROOT_OVERRIDE=$(printf '{ "name": "reslib-demo", "private": true, "packageManager": "pnpm@%s", "pnpm": { "overrides": { "@ejc3/reslib": "workspace:*" } } }' "$PNPM_VER")
+# The workspace root's pnpm settings, with an optional extra block (case b's override).
+# minimumReleaseAge 0: the demo installs @ejc3/reslib seconds after publishing it —
+# pnpm 12's default minimum-release-age supply-chain gate would reject the fresh publish.
+# linkWorkspacePackages false (pnpm's default, stated): a plain semver resolves from the
+# registry (the §1 "gate"), not the local workspace copy.
+wsyaml() { printf 'packages:\n  - "apps/*"\n  - "packages/*"\nminimumReleaseAge: 0\nlinkWorkspacePackages: false\n%s' "$1" > "$DIR/ws/pnpm-workspace.yaml"; }
+YAML_PLAIN=""
+YAML_OVERRIDE=$'overrides:\n  "@ejc3/reslib": "workspace:*"\n'
 reinstall() { find "$DIR/ws" -name node_modules -type d -prune -exec rm -rf {} + 2>/dev/null || true; rm -f "$DIR/ws/pnpm-lock.yaml"; ( cd "$DIR/ws" && pnpm install --config.confirm-modules-purge=false >/tmp/reslib-install.log 2>&1 ); }
 resolved() { cd "$DIR/ws/apps/web" && node -p "require('@ejc3/reslib').SOURCE" 2>/dev/null || echo "UNRESOLVED"; }
 showlink() { ( cd "$DIR/ws/apps/web/node_modules/@ejc3" 2>/dev/null && readlink reslib 2>/dev/null | sed "s#.*/node_modules/##" || echo "real-dir" ); }
 
 echo; echo "== case a: app pins \"@ejc3/reslib\": \"$VER\" (plain semver) =="
-app "$VER"; root "$ROOT_PLAIN"; reinstall
+app "$VER"; root "$ROOT_PLAIN"; wsyaml "$YAML_PLAIN"; reinstall
 A=$(resolved); printf '   SOURCE = %-22s | node_modules/@ejc3/reslib -> %s\n' "$A" "$(showlink)"
 assert_eq "case a: plain semver resolves the registry copy" "$A" "registry@$VER"
 
-echo; echo "== case b: same pin + root pnpm.overrides \"@ejc3/reslib\": \"workspace:*\" =="
-app "$VER"; root "$ROOT_OVERRIDE"; reinstall
+echo; echo "== case b: same pin + root overrides \"@ejc3/reslib\": \"workspace:*\" (pnpm-workspace.yaml) =="
+app "$VER"; root "$ROOT_PLAIN"; wsyaml "$YAML_OVERRIDE"; reinstall
 B=$(resolved); printf '   SOURCE = %-22s | node_modules/@ejc3/reslib -> %s\n' "$B" "$(showlink)"
 assert_eq "case b: pin + override resolves the local workspace copy" "$B" "workspace-local"
 
 echo; echo "== case c: app declares \"@ejc3/reslib\": \"workspace:*\" =="
-app "workspace:*"; root "$ROOT_PLAIN"; reinstall
+app "workspace:*"; root "$ROOT_PLAIN"; wsyaml "$YAML_PLAIN"; reinstall
 C=$(resolved); printf '   SOURCE = %-22s | node_modules/@ejc3/reslib -> %s\n' "$C" "$(showlink)"
 assert_eq "case c: workspace:* resolves the local workspace copy" "$C" "workspace-local"
 
