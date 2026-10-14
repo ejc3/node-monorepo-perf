@@ -32,6 +32,11 @@
 //
 // Holds the CPU locks of --cpus for the whole sweep (one build at a time) and a named
 // lock on the app (one sweep edits a tree at a time).
+//
+// --resume continues the newest unfinished sweep with the same plan on the same instance
+// type (see "resuming" below): with GYM_RUNS and GYM_RESULTS on a volume that outlives the
+// machine, a sweep interrupted by the loss of the machine goes on from its last finished
+// point on the next one.
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -56,12 +61,14 @@ import {
   checkAborted,
   checkBindingSource,
   ensureDir,
+  machine,
   median,
   pageWorkersEnv,
   parseArgs,
   publicMachine,
   publishedBinding,
   readJsonl,
+  repairJsonl,
   withCpus,
   withLock,
 } from "./lib.mjs";
@@ -71,6 +78,64 @@ const MODES = ["warm", "cold", "off"];
 const MARK = "-drift"; // appended to one label per edited module
 const LOG = join(RESULTS, "drift.jsonl");
 const SWEEPS = join(RESULTS, "drift-sweeps.jsonl");
+// every sweep's plan as it starts (drift-sweeps.jsonl holds the completed ones)
+const PLANS = join(RESULTS, "drift-plans.jsonl");
+// a point's builds outside the run directories: they are compared, then deleted
+const OUTPUTS = join(ROOT, "drift", "outputs");
+
+// ---- resuming -------------------------------------------------------------------------
+// A sweep is a plan of points (rep, N). Each attempt at it (one process) logs its builds with
+// its `attempt` id and, when a point's builds are all in and checked, a "point" line naming
+// that attempt. --resume continues the newest unfinished sweep with the same plan on the
+// same instance type: it rebuilds the seeds and skips the points already done. A point an
+// interrupted attempt left half done is built again, and only the attempt that finished a
+// point counts for it. Sweeps from before this have no point lines; all their runs count.
+const PLAN_KEYS = [
+  "tag",
+  "edit",
+  "app",
+  "bindings",
+  "modes",
+  "points",
+  "reps",
+  "cpus",
+  "pageWorkers",
+];
+const samePlan = (a, b) =>
+  PLAN_KEYS.every((k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null));
+
+// The sweep to resume: the newest started plan equal to `plan`, on `instanceType`, that no
+// completed sweep names. Null when there is none.
+export function resumable(plans, sweeps, plan, instanceType) {
+  const done = new Set(sweeps.map((x) => x.sweep));
+  return (
+    plans
+      .filter((x) => samePlan(x, plan) && x.instanceType === instanceType && !done.has(x.sweep))
+      .at(-1) ?? null
+  );
+}
+
+// A sweep's log lines that count: with point lines, each point's builds from the attempt
+// that finished it and the seeds of the first attempt that logged one for every binding (an
+// attempt lost while seeding has only some); without, every line (an older sweep).
+export function countedRuns(lines, sweep) {
+  const mine = lines.filter((l) => l.sweep === sweep && l.mode !== "attempt");
+  const points = mine.filter((l) => l.mode === "point");
+  if (!points.length) return mine.filter((l) => l.mode !== "point");
+  const by = new Map(points.map((l) => [`${l.rep}\t${l.n}`, l.attempt]));
+  const seedLines = mine.filter((l) => l.mode === "seed");
+  const bindings = new Set(seedLines.map((l) => l.binding));
+  const seeded = new Map();
+  for (const l of seedLines)
+    seeded.set(l.attempt, (seeded.get(l.attempt) ?? new Set()).add(l.binding));
+  const seedAttempt =
+    [...seeded].find(([, got]) => got.size === bindings.size)?.[0] ?? seedLines[0]?.attempt;
+  return mine.filter((l) =>
+    l.mode === "seed"
+      ? l.attempt === seedAttempt
+      : l.mode !== "point" && by.get(`${l.rep}\t${l.n}`) === l.attempt,
+  );
+}
 const PHASES = ["graph", "entrypoints", "emit", "turbopack", "persistence", "compaction"];
 // A binding built from a modified next.js tree (every patched one) is "dirty": without
 // this, Turbopack writes its cache to a temporary directory it deletes on the next build,
@@ -250,10 +315,10 @@ async function sweep(o) {
   if (points.some((n, i) => i && n <= points[i - 1])) throw new Error("--points: ascending");
   const reps = Number(o.reps);
   if (!Number.isInteger(reps) || reps < 1) throw new Error("--reps: a positive integer");
-  const id = `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
   if (!EDITS.includes(o.edit)) throw new Error(`--edit: one of ${EDITS.join(", ")}`);
+  const attempt = randomBytes(4).toString("hex");
   const plan = {
-    sweep: id,
+    sweep: null,
     tag: o.tag || null,
     edit: o.edit,
     app: appName,
@@ -263,18 +328,54 @@ async function sweep(o) {
     reps,
     cpus: o.cpus,
     pageWorkers: o.pageWorkers || "default",
+    instanceType: machine().instanceType,
   };
   const workersEnv = pageWorkersEnv(plan.pageWorkers, o.cpus);
-  console.error(`[drift] ${JSON.stringify(plan)}`);
 
   await withLock(`drift-${appName}`, () =>
     withCpus(o.cpus, async () => {
+      // under the app's lock, so a --resume that waited here sees what the one before it
+      // finished; the logs are shared by every app's sweeps, so they are repaired and read
+      // under one more lock of their own
+      const { prior, id, donePoints } = await withLock("drift-logs", () => {
+        for (const f of [LOG, PLANS, SWEEPS]) {
+          const tail = repairJsonl(f);
+          if (tail !== null) console.error(`[drift] ${f}: dropped a partial last line`);
+        }
+        const prior = o.resume
+          ? resumable(readJsonl(PLANS), readJsonl(SWEEPS), plan, plan.instanceType)
+          : null;
+        const id =
+          prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
+        plan.sweep = id;
+        if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
+        // this attempt and its machine, before anything else: a machine lost at any point after
+        // this still counts as one of the sweep's boots
+        appendJsonl(LOG, {
+          sweep: id,
+          attempt,
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: machine(),
+        });
+        // points an earlier attempt finished, with the mismatches it found in them
+        const donePoints = new Map(
+          readJsonl(LOG)
+            .filter((l) => l.sweep === id && l.mode === "point")
+            .map((l) => [`${l.rep}\t${l.n}`, l]),
+        );
+        return { prior, id, donePoints };
+      });
+      console.error(
+        `[drift] ${JSON.stringify(plan)}${prior ? ` resuming: ${donePoints.size} points done` : ""}`,
+      );
       const restored = restoreJournal(appName);
       if (restored) console.error(`[drift] restored ${restored} files from an interrupted sweep`);
       rmSync(join(app, DIST), { recursive: true, force: true });
       checkPristine(app);
       const pristine = appTreeHash(app);
-      const log = (rec) => appendJsonl(LOG, { sweep: id, ...rec });
+      const log = (rec) => appendJsonl(LOG, { sweep: id, attempt, ...rec });
       const run = async ({ env = {}, ...args }) => {
         const rec = await bench({
           cpus: o.cpus,
@@ -312,12 +413,23 @@ async function sweep(o) {
       }
       if (new Set(Object.values(seeds)).size !== 1)
         throw new Error(`seed outputs differ across bindings: ${JSON.stringify(seeds)}`);
+      // a resumed attempt rebuilds the seeds: they must build what every earlier attempt built
+      for (const l of readJsonl(LOG)) {
+        if (l.sweep !== id || l.mode !== "seed" || l.attempt === attempt) continue;
+        const was = JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8"));
+        if (was.output.sha !== seeds[l.binding] || l.appHash !== pristine)
+          throw new Error(`sweep ${id}: the rebuilt seeds are not attempt ${l.attempt}'s`);
+      }
 
-      const mismatches = [];
+      const mismatches = [...donePoints.values()].flatMap((l) => l.mismatches ?? []);
       let unit = 0;
       for (let rep = 0; rep < reps; rep++) {
         for (const n of points) {
           checkAborted();
+          if (donePoints.has(`${rep}\t${n}`)) {
+            unit++; // keep the build order of the points after it
+            continue;
+          }
           const targets = editTargets(app, n);
           let edited = pristine;
           const outs = {};
@@ -357,7 +469,7 @@ async function sweep(o) {
                   `run ${rec.id}: warm build of the unchanged tree rebuilt the graph`,
                 );
               const cacheAfter = bytesOf(join(dist, "cache"));
-              rec.distDir = join(RUNS, rec.id, "output");
+              rec.distDir = join(ensureDir(OUTPUTS), rec.id);
               renameSync(dist, rec.distDir);
               if (rec.appHash !== edited)
                 throw new Error(`run ${rec.id} built tree ${rec.appHash}, not ${edited}`);
@@ -413,7 +525,9 @@ async function sweep(o) {
               console.error(`[drift] N=${n}: outputs differ, kept in ${rec.distDir}`);
             else rmSync(rec.distDir, { recursive: true, force: true });
           }
-          for (const [x, y] of bad) mismatches.push({ rep, n, runs: [x.id, y.id] });
+          const found = bad.map(([x, y]) => ({ rep, n, runs: [x.id, y.id] }));
+          mismatches.push(...found);
+          log({ rep, n, mode: "point", mismatches: found });
         }
       }
       appendJsonl(SWEEPS, {
@@ -470,34 +584,32 @@ function series(plan, check) {
   const map = BINDING_MAP();
   // sweeps from before --page-workers ran with Next's default
   const workersEnv = pageWorkersEnv(plan.pageWorkers || "default", plan.cpus);
-  const runs = readJsonl(LOG)
-    .filter((l) => l.sweep === plan.sweep)
-    .map((l) => {
-      const r = JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8"));
-      checkBindingSource(map, r);
-      if (r.cpus !== plan.cpus) throw new Error(`run ${r.id} ran on ${r.cpus}, not ${plan.cpus}`);
-      if (l.binding !== r.binding || l.appHash !== r.appHash)
-        throw new Error(`run ${r.id}: drift.jsonl's binding or tree is not its run's`);
-      if ((l.n === 0) !== (r.appHash === plan.pristine))
-        throw new Error(`run ${r.id}: tree hash does not match N=${l.n}`);
-      if (r.env.TURBO_ENGINE_IGNORE_DIRTY !== "1")
-        throw new Error(`run ${r.id} ran without TURBO_ENGINE_IGNORE_DIRTY`);
-      if (r.env.CIRCLE_NODE_TOTAL !== workersEnv.CIRCLE_NODE_TOTAL)
-        throw new Error(
-          `run ${r.id}: page-data workers are not the plan's ${plan.pageWorkers || "default"}`,
-        );
-      // the mode the log claims is the build that ran: only off turns the cache off,
-      // only warm starts from a cache
-      if (r.env.MONOLITH_TP_FS_CACHE !== (l.mode === "off" ? "0" : undefined))
-        throw new Error(`run ${r.id}: MONOLITH_TP_FS_CACHE does not fit mode ${l.mode}`);
-      if ((l.mode === "warm") !== l.cacheBefore > 0)
-        throw new Error(`run ${r.id}: cache before the build does not fit mode ${l.mode}`);
-      check(r);
-      // a warm build has no span for its graph recomputation (at most empty
-      // write-entrypoints spans): its graph and entrypoints are unmeasured, not ~0
-      if (l.mode === "warm") Object.assign(r, { graph: null, entrypoints: null });
-      return { ...l, r };
-    });
+  const runs = countedRuns(readJsonl(LOG), plan.sweep).map((l) => {
+    const r = JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8"));
+    checkBindingSource(map, r);
+    if (r.cpus !== plan.cpus) throw new Error(`run ${r.id} ran on ${r.cpus}, not ${plan.cpus}`);
+    if (l.binding !== r.binding || l.appHash !== r.appHash)
+      throw new Error(`run ${r.id}: drift.jsonl's binding or tree is not its run's`);
+    if ((l.n === 0) !== (r.appHash === plan.pristine))
+      throw new Error(`run ${r.id}: tree hash does not match N=${l.n}`);
+    if (r.env.TURBO_ENGINE_IGNORE_DIRTY !== "1")
+      throw new Error(`run ${r.id} ran without TURBO_ENGINE_IGNORE_DIRTY`);
+    if (r.env.CIRCLE_NODE_TOTAL !== workersEnv.CIRCLE_NODE_TOTAL)
+      throw new Error(
+        `run ${r.id}: page-data workers are not the plan's ${plan.pageWorkers || "default"}`,
+      );
+    // the mode the log claims is the build that ran: only off turns the cache off,
+    // only warm starts from a cache
+    if (r.env.MONOLITH_TP_FS_CACHE !== (l.mode === "off" ? "0" : undefined))
+      throw new Error(`run ${r.id}: MONOLITH_TP_FS_CACHE does not fit mode ${l.mode}`);
+    if ((l.mode === "warm") !== l.cacheBefore > 0)
+      throw new Error(`run ${r.id}: cache before the build does not fit mode ${l.mode}`);
+    check(r);
+    // a warm build has no span for its graph recomputation (at most empty
+    // write-entrypoints spans): its graph and entrypoints are unmeasured, not ~0
+    if (l.mode === "warm") Object.assign(r, { graph: null, entrypoints: null });
+    return { ...l, r };
+  });
   // the full plan, exactly once each: a seed per binding, then binding x mode x point x rep
   const key = (b, m, n, rep) => `${b}\t${m}\t${n}\t${rep}`;
   const want = new Set(plan.bindings.map((b) => key(b, "seed", 0, -1)));
@@ -617,15 +729,36 @@ function record(o) {
   const app = join(APPS, first.app);
   if (appTreeHash(app) !== first.pristine)
     throw new Error(`${first.app} is not the tree the sweeps ran on`);
-  let machine;
+  // one machine type throughout; a resumed sweep's attempts run on different boots of it
+  let first_machine;
+  const boots = new Set();
   const check = (r) => {
     if (!r.machine?.boot) throw new Error(`run ${r.id} has no machine fields`);
-    machine ??= r.machine;
-    if (JSON.stringify(r.machine) !== JSON.stringify(machine))
-      throw new Error(`run ${r.id} ran on a different machine or boot than the record's first run`);
+    boots.add(r.machine.boot);
+    const fields = JSON.stringify(publicMachine(r.machine));
+    first_machine ??= r.machine;
+    if (fields !== JSON.stringify(publicMachine(first_machine)))
+      throw new Error(`run ${r.id} ran on a different machine type than the record's first run`);
   };
   const out = plans.map((p) => series(p, check));
-  const published = publicMachine(machine);
+  // an attempt lost before it finished a point counts no runs, but its boot was used too
+  const counted = new Set(
+    plans.flatMap((p) => countedRuns(readJsonl(LOG), p.sweep).map((l) => l.id)),
+  );
+  for (const l of readJsonl(LOG)) {
+    if (!plans.some((p) => p.sweep === l.sweep)) continue;
+    if (l.mode === "attempt") {
+      // an attempt line has the machine but no build, so no build Node
+      const { buildNode: _, ...m } = publicMachine(l.machine);
+      const { buildNode: __, ...want } = publicMachine(first_machine);
+      if (JSON.stringify(m) !== JSON.stringify(want))
+        throw new Error(`attempt ${l.attempt} ran on a different machine type`);
+      if (!l.machine.boot) throw new Error(`attempt ${l.attempt} has no boot`);
+      boots.add(l.machine.boot);
+    } else if (l.id && !counted.has(l.id))
+      check(JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8")));
+  }
+  const published = publicMachine(first_machine);
   const { out: _, ...shape } = JSON.parse(readFileSync(join(app, "monolith.json"), "utf8"));
   const map = BINDING_MAP();
   const rec = {
@@ -657,6 +790,8 @@ function record(o) {
     },
     app: { name: first.app, appHash: first.pristine, ...shape },
     machine: published,
+    // more than one when a sweep was resumed on a new instance of the same type
+    boots: boots.size,
     cpus: first.cpus,
     reps: first.reps,
     bindings: Object.fromEntries(first.bindings.map((b) => [b, publishedBinding(map, b)])),
@@ -680,6 +815,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     sweep: 1,
     out: 1,
     "page-workers": 1,
+    resume: "bool",
   });
   if (o._[0] === "record") record(o);
   else if (o._.length) throw new Error(`unknown command ${o._[0]}`);
@@ -694,5 +830,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       edit: o.edit || "label",
       tag: o.tag,
       pageWorkers: o["page-workers"],
+      resume: o.resume,
     });
 }

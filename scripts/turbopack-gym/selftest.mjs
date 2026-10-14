@@ -375,7 +375,15 @@ rmSync(scratch, { recursive: true, force: true });
   const map = JSON.parse(
     readFileSync(new URL("../../bench/turbopack-gym/bindings.json", import.meta.url), "utf8"),
   );
-  const machine = { arch: "arm64", cpuModel: "test", cores: 2, sharedBox: false, boot: "b" };
+  // as bench.mjs saves it for a run: with the Node the build ran on
+  const machine = {
+    arch: "arm64",
+    cpuModel: "test",
+    cores: 2,
+    sharedBox: false,
+    buildNode: "v0",
+    boot: "b",
+  };
   const phase = (s, at) => ({ s, at, cores: 1 });
   const attempt = (tamper = () => {}) => {
     rmSync(join(root, "runs"), { recursive: true, force: true });
@@ -462,6 +470,134 @@ rmSync(scratch, { recursive: true, force: true });
   const line = (lines, id) => lines.find((l) => l.id === id);
   const published = () => JSON.parse(readFileSync(join(root, "out.json"), "utf8"));
   check(attempt() === 0, "drift record publishes a consistent sweep");
+  // a resumed sweep: attempt a1 built the seed and point (0, 0), then a cold build of
+  // (0, 1) before its machine went away; attempt a2 rebuilt the seed on another boot and
+  // finished (0, 1). The record counts each point's finishing attempt and a1's seed only.
+  // an attempt line holds machine() as drift logs it: no build Node (that is per build)
+  const attemptMachine = (boot) => {
+    const { buildNode: _, ...m } = machine;
+    return { ...m, boot };
+  };
+  const resumed = (lines, runs, extra = () => {}) => {
+    for (const l of lines) l.attempt = l.n === 1 ? "a2" : "a1";
+    lines.push({ ...line(lines, "cold1"), id: "cold1-a1", attempt: "a1" });
+    runs["cold1-a1"] = { ...runs.cold1, id: "cold1-a1" };
+    lines.push({ ...line(lines, "seed"), id: "seed-a2", attempt: "a2" });
+    runs["seed-a2"] = { ...runs.seed, id: "seed-a2" };
+    lines.push({ sweep: "drift-t", attempt: "a1", rep: 0, n: 0, mode: "point", mismatches: [] });
+    lines.push({ sweep: "drift-t", attempt: "a2", rep: 0, n: 1, mode: "point", mismatches: [] });
+    for (const id of ["warm1", "cold1", "off1", "seed-a2"])
+      runs[id] = { ...runs[id], machine: { ...machine, boot: "b2" } };
+    extra(lines, runs);
+  };
+  check(
+    attempt((lines, runs) => resumed(lines, runs)) === 0 && published().boots === 2,
+    "drift record publishes a resumed sweep from its finishing attempts, across two boots",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        runs.warm1 = { ...runs.warm1, machine: { ...machine, boot: "b2", cores: 4 } };
+      }),
+    ) !== 0,
+    "drift record refuses a resumed sweep whose attempts ran on different machine types",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        // a third attempt, on a third boot, built one run and was lost before finishing a point
+        lines.push({ ...line(lines, "warm1"), id: "warm1-a3", attempt: "a3" });
+        runs["warm1-a3"] = { ...runs.warm1, id: "warm1-a3", machine: { ...machine, boot: "b3" } };
+      }),
+    ) === 0 && published().boots === 3,
+    "drift record counts the boot of an attempt that finished no point",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        // a third attempt logged itself, then its machine was lost during its first build
+        lines.push({
+          sweep: "drift-t",
+          attempt: "a3",
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: attemptMachine("b3"),
+        });
+      }),
+    ) === 0 && published().boots === 3,
+    "drift record counts the boot of an attempt lost during its first build",
+  );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        lines.push({
+          sweep: "drift-t",
+          attempt: "a3",
+          rep: -2,
+          n: 0,
+          mode: "attempt",
+          machine: { ...attemptMachine("b3"), cores: 4 },
+        });
+      }),
+    ) !== 0,
+    "drift record refuses an attempt on a different machine type",
+  );
+  {
+    const { resumable, countedRuns } = await import(
+      new URL("./drift.mjs", import.meta.url).pathname
+    );
+    const p = (sweep, extra = {}) => ({
+      sweep,
+      tag: "t",
+      edit: "import",
+      app: "a",
+      bindings: ["x"],
+      modes: ["warm"],
+      points: [0, 1],
+      reps: 2,
+      cpus: "0-23",
+      pageWorkers: "match",
+      instanceType: "c8gd.48xlarge",
+      ...extra,
+    });
+    const want = p(null);
+    check(
+      resumable([p("s1"), p("s2")], [], want, "c8gd.48xlarge")?.sweep === "s2" &&
+        resumable([p("s1")], [{ sweep: "s1" }], want, "c8gd.48xlarge") === null &&
+        resumable([p("s1", { reps: 3 })], [], want, "c8gd.48xlarge") === null &&
+        resumable([p("s1")], [], want, "c9gd.48xlarge") === null,
+      "drift --resume picks the newest unfinished sweep with the same plan on the same instance type",
+    );
+    // a1 was lost after seeding x only; a2 seeded x and y and finished the point
+    const seed = (id, attempt, binding) => ({
+      sweep: "s",
+      id,
+      attempt,
+      binding,
+      mode: "seed",
+      rep: -1,
+      n: 0,
+    });
+    const twoBindings = [
+      seed("x1", "a1", "x"),
+      seed("x2", "a2", "x"),
+      seed("y2", "a2", "y"),
+      { sweep: "s", id: "w", attempt: "a2", binding: "x", mode: "warm", rep: 0, n: 0 },
+      { sweep: "s", attempt: "a2", mode: "point", rep: 0, n: 0, mismatches: [] },
+    ];
+    check(
+      countedRuns(twoBindings, "s")
+        .map((l) => l.id)
+        .join() === "x2,y2,w",
+      "drift counts the seeds of the first attempt that seeded every binding",
+    );
+    const legacy = [{ sweep: "s", id: "r1", mode: "warm", rep: 0, n: 0 }];
+    check(
+      countedRuns(legacy, "s").length === 1,
+      "drift counts every run of a sweep from before point lines",
+    );
+  }
   check(
     published().pageWorkers === "default",
     "drift record calls a sweep without a page-workers setting default",
@@ -1040,6 +1176,65 @@ function reportWith(keys, extra = {}, args = []) {
       users.length === 0,
     `drift.mjs and next-ab.mjs check each build's binding against bindings.json (missing: ${users.join(", ") || "none"})`,
   );
+}
+
+// --- JSONL after a lost machine ------------------------------------------------------------
+{
+  const { repairJsonl, readJsonl } = await import(LIB);
+  const dir = mkdtempSync(join(tmpdir(), "gym-jsonl-"));
+  const f = join(dir, "a.jsonl");
+  writeFileSync(f, '{"a":1}\n{"b":');
+  const tail = repairJsonl(f);
+  check(
+    tail === '{"b":' && readFileSync(f, "utf8") === '{"a":1}\n',
+    "repairJsonl cuts off a partial last line",
+  );
+  writeFileSync(f, '{"a":1}\n{"b":2}');
+  check(
+    repairJsonl(f) === null && readJsonl(f).length === 2 && readFileSync(f, "utf8").endsWith("\n"),
+    "repairJsonl ends a complete last record that lacks its newline",
+  );
+  writeFileSync(f, '{"a":1}\n{"b":\n{"c":3}\n');
+  let threw = false;
+  try {
+    repairJsonl(f);
+    readJsonl(f);
+  } catch {
+    threw = true;
+  }
+  check(threw, "a malformed complete JSONL line is still rejected");
+  rmSync(dir, { recursive: true, force: true });
+  // drift picks the sweep to resume, and repairs its logs, under the app's lock: a --resume
+  // that waited for another must see what that one finished
+  const src = readFileSync(new URL("./drift.mjs", import.meta.url), "utf8");
+  const lockAt = src.indexOf("await withLock(`drift-${appName}`");
+  const logsAt = src.indexOf('withLock("drift-logs"');
+  check(
+    lockAt > 0 &&
+      logsAt > lockAt &&
+      src.indexOf("resumable(readJsonl(PLANS)") > logsAt &&
+      src.indexOf("repairJsonl(f)") > logsAt &&
+      // the attempt is logged in that same step, before the tree is restored or hashed
+      src.search(/mode: "attempt",\s+machine: machine\(\)/) > logsAt &&
+      src.search(/mode: "attempt",\s+machine: machine\(\)/) <
+        src.indexOf("const restored = restoreJournal"),
+    "drift chooses the sweep to resume under the app lock, and repairs the shared logs under their own lock",
+  );
+}
+
+// --- GYM_RUNS ---------------------------------------------------------------------------
+{
+  // the run directories can live apart from GYM_ROOT (a volume that outlives the machine)
+  const r = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `const l = await import(${JSON.stringify(LIB)}); console.log(l.RUNS)`,
+    ],
+    { encoding: "utf8", env: { ...process.env, GYM_RUNS: "/gym-selftest/runs" } },
+  );
+  check(r.stdout.trim() === "/gym-selftest/runs", "GYM_RUNS moves the run directories");
 }
 
 // --- output fingerprint ------------------------------------------------------------
