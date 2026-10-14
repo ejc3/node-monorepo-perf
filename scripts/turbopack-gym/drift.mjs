@@ -68,6 +68,7 @@ import {
   publicMachine,
   publishedBinding,
   readJsonl,
+  repairJsonl,
   withCpus,
   withLock,
 } from "./lib.mjs";
@@ -115,16 +116,23 @@ export function resumable(plans, sweeps, plan, instanceType) {
 }
 
 // A sweep's log lines that count: with point lines, each point's builds from the attempt
-// that finished it and the first attempt's seeds; without, every line (an older sweep).
+// that finished it and the seeds of the first attempt that logged one for every binding (an
+// attempt lost while seeding has only some); without, every line (an older sweep).
 export function countedRuns(lines, sweep) {
   const mine = lines.filter((l) => l.sweep === sweep);
   const points = mine.filter((l) => l.mode === "point");
   if (!points.length) return mine.filter((l) => l.mode !== "point");
   const by = new Map(points.map((l) => [`${l.rep}\t${l.n}`, l.attempt]));
-  const firstSeeds = mine.find((l) => l.mode === "seed")?.attempt;
+  const seedLines = mine.filter((l) => l.mode === "seed");
+  const bindings = new Set(seedLines.map((l) => l.binding));
+  const seeded = new Map();
+  for (const l of seedLines)
+    seeded.set(l.attempt, (seeded.get(l.attempt) ?? new Set()).add(l.binding));
+  const seedAttempt =
+    [...seeded].find(([, got]) => got.size === bindings.size)?.[0] ?? seedLines[0]?.attempt;
   return mine.filter((l) =>
     l.mode === "seed"
-      ? l.attempt === firstSeeds
+      ? l.attempt === seedAttempt
       : l.mode !== "point" && by.get(`${l.rep}\t${l.n}`) === l.attempt,
   );
 }
@@ -322,25 +330,31 @@ async function sweep(o) {
     pageWorkers: o.pageWorkers || "default",
     instanceType: machine().instanceType,
   };
-  const prior = o.resume
-    ? resumable(readJsonl(PLANS), readJsonl(SWEEPS), plan, plan.instanceType)
-    : null;
-  const id = prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
-  plan.sweep = id;
-  // points an earlier attempt finished, with the mismatches it found in them
-  const donePoints = new Map(
-    readJsonl(LOG)
-      .filter((l) => l.sweep === id && l.mode === "point")
-      .map((l) => [`${l.rep}\t${l.n}`, l]),
-  );
-  if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
   const workersEnv = pageWorkersEnv(plan.pageWorkers, o.cpus);
-  console.error(
-    `[drift] ${JSON.stringify(plan)}${prior ? ` resuming: ${donePoints.size} points done` : ""}`,
-  );
 
   await withLock(`drift-${appName}`, () =>
     withCpus(o.cpus, async () => {
+      // under the app's lock: a --resume that waited here sees what the one before it finished
+      for (const f of [LOG, PLANS, SWEEPS]) {
+        const tail = repairJsonl(f);
+        if (tail !== null) console.error(`[drift] ${f}: dropped a partial last line`);
+      }
+      const prior = o.resume
+        ? resumable(readJsonl(PLANS), readJsonl(SWEEPS), plan, plan.instanceType)
+        : null;
+      const id =
+        prior?.sweep ?? `drift-${Date.now().toString(36)}-${randomBytes(2).toString("hex")}`;
+      plan.sweep = id;
+      // points an earlier attempt finished, with the mismatches it found in them
+      const donePoints = new Map(
+        readJsonl(LOG)
+          .filter((l) => l.sweep === id && l.mode === "point")
+          .map((l) => [`${l.rep}\t${l.n}`, l]),
+      );
+      if (!prior) appendJsonl(PLANS, { ...plan, started: new Date().toISOString() });
+      console.error(
+        `[drift] ${JSON.stringify(plan)}${prior ? ` resuming: ${donePoints.size} points done` : ""}`,
+      );
       const restored = restoreJournal(appName);
       if (restored) console.error(`[drift] restored ${restored} files from an interrupted sweep`);
       rmSync(join(app, DIST), { recursive: true, force: true });
@@ -384,12 +398,12 @@ async function sweep(o) {
       }
       if (new Set(Object.values(seeds)).size !== 1)
         throw new Error(`seed outputs differ across bindings: ${JSON.stringify(seeds)}`);
-      if (prior) {
-        // a resumed attempt rebuilds the seeds: they must build what the first attempt built
-        const first = countedRuns(readJsonl(LOG), id).find((l) => l.mode === "seed");
-        const was = first && JSON.parse(readFileSync(join(RUNS, first.id, "run.json"), "utf8"));
-        if (!was || was.output.sha !== Object.values(seeds)[0] || first.appHash !== pristine)
-          throw new Error(`sweep ${id}: the rebuilt seeds are not the first attempt's`);
+      // a resumed attempt rebuilds the seeds: they must build what every earlier attempt built
+      for (const l of readJsonl(LOG)) {
+        if (l.sweep !== id || l.mode !== "seed" || l.attempt === attempt) continue;
+        const was = JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8"));
+        if (was.output.sha !== seeds[l.binding] || l.appHash !== pristine)
+          throw new Error(`sweep ${id}: the rebuilt seeds are not attempt ${l.attempt}'s`);
       }
 
       const mismatches = [...donePoints.values()].flatMap((l) => l.mismatches ?? []);
@@ -712,6 +726,13 @@ function record(o) {
       throw new Error(`run ${r.id} ran on a different machine type than the record's first run`);
   };
   const out = plans.map((p) => series(p, check));
+  // an attempt lost before it finished a point counts no runs, but its boot was used too
+  const counted = new Set(
+    plans.flatMap((p) => countedRuns(readJsonl(LOG), p.sweep).map((l) => l.id)),
+  );
+  for (const l of readJsonl(LOG))
+    if (l.id && !counted.has(l.id) && plans.some((p) => p.sweep === l.sweep))
+      check(JSON.parse(readFileSync(join(RUNS, l.id, "run.json"), "utf8")));
   const published = publicMachine(first_machine);
   const { out: _, ...shape } = JSON.parse(readFileSync(join(app, "monolith.json"), "utf8"));
   const map = BINDING_MAP();

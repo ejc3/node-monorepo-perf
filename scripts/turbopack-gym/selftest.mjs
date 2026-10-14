@@ -489,6 +489,16 @@ rmSync(scratch, { recursive: true, force: true });
     ) !== 0,
     "drift record refuses a resumed sweep whose attempts ran on different machine types",
   );
+  check(
+    attempt((lines, runs) =>
+      resumed(lines, runs, () => {
+        // a third attempt, on a third boot, built one run and was lost before finishing a point
+        lines.push({ ...line(lines, "warm1"), id: "warm1-a3", attempt: "a3" });
+        runs["warm1-a3"] = { ...runs.warm1, id: "warm1-a3", machine: { ...machine, boot: "b3" } };
+      }),
+    ) === 0 && published().boots === 3,
+    "drift record counts the boot of an attempt that finished no point",
+  );
   {
     const { resumable, countedRuns } = await import(
       new URL("./drift.mjs", import.meta.url).pathname
@@ -514,6 +524,29 @@ rmSync(scratch, { recursive: true, force: true });
         resumable([p("s1", { reps: 3 })], [], want, "c8gd.48xlarge") === null &&
         resumable([p("s1")], [], want, "c9gd.48xlarge") === null,
       "drift --resume picks the newest unfinished sweep with the same plan on the same instance type",
+    );
+    // a1 was lost after seeding x only; a2 seeded x and y and finished the point
+    const seed = (id, attempt, binding) => ({
+      sweep: "s",
+      id,
+      attempt,
+      binding,
+      mode: "seed",
+      rep: -1,
+      n: 0,
+    });
+    const twoBindings = [
+      seed("x1", "a1", "x"),
+      seed("x2", "a2", "x"),
+      seed("y2", "a2", "y"),
+      { sweep: "s", id: "w", attempt: "a2", binding: "x", mode: "warm", rep: 0, n: 0 },
+      { sweep: "s", attempt: "a2", mode: "point", rep: 0, n: 0, mismatches: [] },
+    ];
+    check(
+      countedRuns(twoBindings, "s")
+        .map((l) => l.id)
+        .join() === "x2,y2,w",
+      "drift counts the seeds of the first attempt that seeded every binding",
     );
     const legacy = [{ sweep: "s", id: "r1", mode: "warm", rep: 0, n: 0 }];
     check(
@@ -1098,6 +1131,44 @@ function reportWith(keys, extra = {}, args = []) {
       throws(() => fn(map, unknown)) &&
       users.length === 0,
     `drift.mjs and next-ab.mjs check each build's binding against bindings.json (missing: ${users.join(", ") || "none"})`,
+  );
+}
+
+// --- JSONL after a lost machine ------------------------------------------------------------
+{
+  const { repairJsonl, readJsonl } = await import(LIB);
+  const dir = mkdtempSync(join(tmpdir(), "gym-jsonl-"));
+  const f = join(dir, "a.jsonl");
+  writeFileSync(f, '{"a":1}\n{"b":');
+  const tail = repairJsonl(f);
+  check(
+    tail === '{"b":' && readFileSync(f, "utf8") === '{"a":1}\n',
+    "repairJsonl cuts off a partial last line",
+  );
+  writeFileSync(f, '{"a":1}\n{"b":2}');
+  check(
+    repairJsonl(f) === null && readJsonl(f).length === 2 && readFileSync(f, "utf8").endsWith("\n"),
+    "repairJsonl ends a complete last record that lacks its newline",
+  );
+  writeFileSync(f, '{"a":1}\n{"b":\n{"c":3}\n');
+  let threw = false;
+  try {
+    repairJsonl(f);
+    readJsonl(f);
+  } catch {
+    threw = true;
+  }
+  check(threw, "a malformed complete JSONL line is still rejected");
+  rmSync(dir, { recursive: true, force: true });
+  // drift picks the sweep to resume, and repairs its logs, under the app's lock: a --resume
+  // that waited for another must see what that one finished
+  const src = readFileSync(new URL("./drift.mjs", import.meta.url), "utf8");
+  const lockAt = src.indexOf("await withLock(`drift-${appName}`");
+  check(
+    lockAt > 0 &&
+      src.indexOf("resumable(readJsonl(PLANS)") > lockAt &&
+      src.indexOf("repairJsonl(f)") > lockAt,
+    "drift chooses the sweep to resume while holding the app lock",
   );
 }
 

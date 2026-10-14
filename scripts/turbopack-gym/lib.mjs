@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  truncateSync,
   writeFileSync,
 } from "node:fs";
 import * as nodeOs from "node:os";
@@ -158,6 +159,26 @@ export function readJsonl(p) {
     .split("\n")
     .filter(Boolean)
     .map((l) => JSON.parse(l));
+}
+
+// A machine lost while appending leaves a JSONL file with a partial last line (no newline);
+// the next append would glue a record onto it. Cut such a tail off (and return it), or end a
+// complete last record that lacks only its newline. A malformed complete line is left for
+// readJsonl to reject.
+export function repairJsonl(p) {
+  if (!existsSync(p)) return null;
+  const text = readFileSync(p, "utf8");
+  if (!text || text.endsWith("\n")) return null;
+  const cut = text.lastIndexOf("\n") + 1;
+  const tail = text.slice(cut);
+  try {
+    JSON.parse(tail);
+    appendFileSync(p, "\n");
+    return null;
+  } catch {
+    truncateSync(p, Buffer.byteLength(text.slice(0, cut)));
+    return tail;
+  }
 }
 
 export function appendJsonl(p, rec) {
