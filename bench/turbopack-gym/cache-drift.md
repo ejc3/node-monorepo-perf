@@ -369,16 +369,14 @@ they are not quoted here) show where it goes:
 
 ## The endpoint roots over emit
 
-The 3,789 `pick_endpoint` roots above the collectibles' taker (above) come from the emit
+The per-endpoint `pick_endpoint` roots above the collectibles' taker (above) come from the emit
 step of `next build`. `emit_all_output_assets_once_with_issues_operation`
 (`crates/next-napi-bindings/src/next_api/project.rs`) wraps the emit operation in
 `EntrypointsOperation::new`, which creates one root `pick_endpoint` operation per endpoint,
 each reading the whole (collectible-free) emit operation strongly consistently, and so each
 an aggregation root over all of it. The step keeps only the issues and effects
-(`let (_, issues, effects) = ...`): the `EntrypointsOperation` value is discarded. In the
-diagnostic build above, each of the 908 `emit_rebase` tasks that completed with new children
-queued 3,794 update jobs (one per root), 3.4 M in all, and their completions took 29s of
-worker time.
+(`let (_, issues, effects) = ...`): the `EntrypointsOperation` value is discarded. Every
+task below them that completes with new children queues one update job per root.
 
 - **59 `emit-without-endpoint-ops`**: the emit step collects issues and effects from the emit
   operation itself, without the wrapper. The issues and effects are the same: the wrapper's
@@ -402,7 +400,7 @@ worker time.
   within 5s of a cold one (<!--v:dr.c59.import.15+22+55+56+57+59.1000.cold.turbopack-->29.9s<!--/v-->); what is left of it is the recomputation before emit
   (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v-->). With one new import, no difference outside the spread.
 - Cold builds: `run-turbopack` 2.3 to 4.6s shorter at every N (emit 2.3 to 4.4s), the
-  three builds of each not overlapping at any N. A cold build creates the 3,789 roots and
+  three builds of each not overlapping at any N. A cold build creates one root per endpoint and
   connects each to the finished emit graph; with 59 it does neither.
 
 ## After `run-turbopack`: the route bundle stats step
@@ -480,10 +478,10 @@ monolith's 1,709 page manifests share most of their client references.
   warm build's `run-turbopack` is the recomputation before emit (<!--v:dr.c59.import.15+22+55+56+57+59.1000.warm.preEmit-->30.0s<!--/v--> at 1,000, <!--v:dr.c59.import.15+22+55+56+57+59.1.warm.preEmit-->27.5s<!--/v--> with
   one new import). The write phase builds a second set of `pick_endpoint` roots, over the
   compile; its value goes to JavaScript, and nothing measured so far puts time on it.
-- That recomputation was mostly `client_reference_manifest::build_manifest`: about 72% of
-  the CPU time of its parallel part with one new import (profile, not a record). One new
-  import renames 382 content-hashed chunks, and 991 of the 2,073 client reference manifests
-  change, each by those chunk names (a probe comparing two cold builds, not a record). 61
+- That recomputation was mostly `client_reference_manifest::build_manifest` in a profile of
+  a warm build with one new import. One new import renames hundreds of content-hashed chunks,
+  and about half of the client reference manifests change, each only by those chunk names (a
+  probe comparing two cold builds; the profile's and the probe's counts are not kept). 61
   (above) shares the per-reference parts; each changed page's manifest is still rebuilt
   whole.
 - The rest of the single-core JavaScript after `run-turbopack` is mostly forking the

@@ -259,7 +259,7 @@ another dedicated c8gd.48xlarge, same output at every point). Warm builds on top
 Cold builds: a paired A/B gives `run-turbopack` ×0.989, same output
 (`bench/turbopack-gym/ab57-cold.json`).
 
-Those 3,789 roots come from the build's emit step, which wraps the emit operation in
+Those per-endpoint roots come from the build's emit step, which wraps the emit operation in
 `EntrypointsOperation::new` only to keep its issues and effects; the per-endpoint operations
 it creates are discarded. Candidate 59 collects the issues and effects from the emit
 operation directly (`bench/turbopack-graph-drift-59.json`, another dedicated c8gd.48xlarge,

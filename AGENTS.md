@@ -1123,7 +1123,11 @@ NVMe disks (`drift.mjs` needs reflink copies), as did `bench/turbopack-graph-dri
 (candidate 56 alone and stacked, `import` edits) and `bench/turbopack-gym/ab56-cold.json`
 (candidate 56's paired cold A/Bs, `ab.mjs`), `bench/turbopack-graph-drift-52w.json` and
 `bench/turbopack-graph-drift-57.json` (candidates 52 and 57 on 15 + 22 + 55 + 56, `import`
-edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B). `bench/turbopack-gym/cache-read-probes.json`
+edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B);
+`bench/turbopack-graph-drift-58.json`, `-59.json` and `-61.json` (candidates 58, 59 and 61,
+each stacked, `import` edits) likewise. `bench/turbopack-gym/route-stats-60.json` times
+Next.js's route bundle stats step alone (`route-stats.mjs`, candidate 60) on one build's
+output, on such an instance. `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
