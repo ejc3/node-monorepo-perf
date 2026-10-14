@@ -244,7 +244,7 @@ against a cold build's <!--v:dr.c56.import.15+22+55+56.1.cold.turbopack-->33.2s<
 (`bench/turbopack-gym/ab56-cold.json`).
 
 The task that takes those collectibles sits under one aggregation root per endpoint of the
-app (3,789 `pick_endpoint` operations), so every collectible change is applied on each of
+app (one `pick_endpoint` operation per endpoint), so every collectible change is applied on each of
 them, and when a task completes with many new children, each child's diff went up the graph
 as a job of its own. Candidate 57 merges the diffs that one job's new followers make on an
 upper into one update for that upper's uppers (`bench/turbopack-graph-drift-57.json`,
