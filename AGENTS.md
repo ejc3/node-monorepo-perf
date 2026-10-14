@@ -1113,7 +1113,9 @@ persistent cache against changed files, base and candidate 55, `drift.mjs record
 the host) ran on a dedicated 192-core c8gd.48xlarge whose gym root is btrfs on its local
 NVMe disks (`drift.mjs` needs reflink copies), as did `bench/turbopack-graph-drift-56.json`
 (candidate 56 alone and stacked, `import` edits) and `bench/turbopack-gym/ab56-cold.json`
-(candidate 56's paired cold A/Bs, `ab.mjs`). `bench/turbopack-gym/cache-read-probes.json`
+(candidate 56's paired cold A/Bs, `ab.mjs`), `bench/turbopack-graph-drift-52w.json` and
+`bench/turbopack-graph-drift-57.json` (candidates 52 and 57 on 15 + 22 + 55 + 56, `import`
+edits) and `bench/turbopack-gym/ab57-cold.json` (candidate 57's paired cold A/B). `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
