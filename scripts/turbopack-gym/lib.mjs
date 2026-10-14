@@ -85,11 +85,9 @@ export function parseArgs(argv, spec) {
 }
 
 // "0-31,64-95" -> 64
+// The number of distinct CPUs in a list: the cpuset and the CPU locks take each CPU once.
 export function cpuCount(list) {
-  return list.split(",").reduce((n, r) => {
-    const [a, b] = r.split("-").map(Number);
-    return n + (b === undefined ? 1 : b - a + 1);
-  }, 0);
+  return expandCpus(list).length;
 }
 
 // Next.js sizes its page-data worker pool from os.cpus() (every CPU of the machine, not the

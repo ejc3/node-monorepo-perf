@@ -682,6 +682,19 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- cpuCount counts distinct CPUs ------------------------------------------------------
+{
+  // the cpuset and the CPU locks take the distinct CPUs of a list; the page-data pool sized
+  // to match (pageWorkersEnv) must count the same CPUs, not the length of each range
+  check(
+    lib.cpuCount("0-3,2-5") === 6 &&
+      lib.cpuCount("0-23") === 24 &&
+      lib.cpuCount("4,4") === 1 &&
+      lib.pageWorkersEnv("match", "0-3,2-5").CIRCLE_NODE_TOTAL === "6",
+    `cpuCount counts each CPU once (0-3,2-5 -> ${lib.cpuCount("0-3,2-5")})`,
+  );
+}
+
 // --- output fingerprint ------------------------------------------------------------
 if (a.builds) {
   // under the CPU locks of the 64 CPUs it builds on, like any other gym run
