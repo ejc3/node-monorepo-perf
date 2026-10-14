@@ -501,6 +501,18 @@ so a build limited to some of the machine's CPUs still starts one worker per mac
   `run-turbopack` <!--v:na.c62.warm.base.after-->12.1s<!--/v--> → <!--v:na.c62.warm.candidate.after-->11.1s<!--/v-->. A warm build's peak memory (its cgroup, workers included) was
   3.5 to 4.9 GiB against 11.6 to 12.9 GiB for a cold one, so each worker start copies less.
 
+- **Node with libuv's `posix_spawn`.** libuv 1.53.0 starts children on Linux with
+  `posix_spawn` (libuv commits 40d45efebf and 49b1c06471); no Node release ships it yet (Node
+  22 and 25 have libuv 1.51, 24 and 26 have 1.52.1). Node 22.23.3 built from source twice with
+  the same `./configure`, stock and with those two commits applied to its `deps/uv` (the
+  binaries' hashes are in the records), measured with `next-ab.mjs --candidate-node` on
+  15 + 22 + 55 + 56 + 57 + 59 + 61, drift-monolith, 3 reps (a c9gd.48xlarge), same output:
+  - all 192 CPUs, Next.js's default pool (191 workers; `bench/turbopack-gym/next-ab-node-192.json`):
+    cold builds <!--v:na.node192.cold.base.wall-->49.8s<!--/v--> → <!--v:na.node192.cold.candidate.wall-->35.1s<!--/v--> (×<!--v:na.node192.cold.ratio-->0.706<!--/v-->), the time after `run-turbopack`
+    <!--v:na.node192.cold.base.after-->23.2s<!--/v--> → <!--v:na.node192.cold.candidate.after-->7.2s<!--/v-->; warm builds with nothing changed <!--v:na.node192.warm.base.wall-->13.6s<!--/v--> → <!--v:na.node192.warm.candidate.wall-->11.2s<!--/v-->;
+  - 24 CPUs and 23 workers (`next-ab-node-24.json`): cold <!--v:na.node24.cold.base.wall-->35.6s<!--/v--> → <!--v:na.node24.cold.candidate.wall-->29.6s<!--/v--> (×<!--v:na.node24.cold.ratio-->0.834<!--/v-->),
+    after `run-turbopack` <!--v:na.node24.cold.base.after-->12.9s<!--/v--> → <!--v:na.node24.cold.candidate.after-->6.8s<!--/v-->; warm <!--v:na.node24.warm.base.wall-->11.4s<!--/v--> → <!--v:na.node24.warm.candidate.wall-->10.8s<!--/v-->.
+
 ## More cores
 
 The same comparison at four CPU counts on one machine: stock v16.4.0 (`base`) against
@@ -555,6 +567,11 @@ At 24 CPUs, before 57, 59 and 61, 52 did not change warm builds (above). On all 
 
 Same output in every build. Shorter with 52 everywhere except the warm build with nothing
 changed, which does almost no work.
+
+A probe on the same machine (`cache-drift-probes.json`, `numaBalancing192`, 3 reps, not a
+record) turned the kernel's automatic NUMA balancing off and on around the same builds. Off,
+the stack's `run-turbopack` was 2.9s shorter cold and 2.8s shorter warm after one new import
+(medians); with 52 in, 0.9s and 0.6s. Same output in every build.
 
 Again at 24 CPUs, now on top of 57, 59 and 61 (`bench/turbopack-graph-drift-52s-24.json`, 3 reps;
 this run landed on a c9gd.48xlarge, so its times are not comparable with the c8gd records):

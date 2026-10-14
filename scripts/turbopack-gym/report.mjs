@@ -58,7 +58,11 @@ const cacheRead = existsSync(CACHE_READ) ? JSON.parse(readFileSync(CACHE_READ, "
 // optional: route-stats.mjs records (rs.* keys), by name
 const ROUTE_STATS = { c60: "route-stats-60.json" };
 // optional: next-ab.mjs records (na.* keys), by name
-const NEXT_AB = { c62: "next-ab-62.json" };
+const NEXT_AB = {
+  c62: "next-ab-62.json",
+  node192: "next-ab-node-192.json",
+  node24: "next-ab-node-24.json",
+};
 const nextAb = Object.fromEntries(
   Object.entries(NEXT_AB)
     .map(([k, f]) => [k, join(REPO, "bench", "turbopack-gym", f)])
