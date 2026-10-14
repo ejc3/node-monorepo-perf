@@ -1,0 +1,5 @@
+{
+  "description": "next-core client reference manifests: a chunk group's client chunk list (each JavaScript chunk's URL and, for a merged chunk, its component chunks' paths and sizes) and a layout segment's SSR chunk paths are turbo-tasks functions, so each is computed once and shared by every client reference of the segment and every page under the same layouts, instead of being rebuilt per client reference per page; a page adds each chunk group's assets to its references once. Same manifests, same order. Stacked on 15+22+41+42+52+55+56+57+59+61",
+  "patch": "bench/turbopack-gym/candidates/63-client-chunk-lists.patch",
+  "base": "vercel/next.js v16.4.0 + 15+22+41+42+52+55+56+57+59+61"
+}

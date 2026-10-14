@@ -250,5 +250,22 @@
     ],
     "diffSha256": "f969acdeb6c61271",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "63-client-chunk-lists": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "63-client-chunk-lists.patch"
+    ],
+    "diffSha256": "1335c179b89266fe",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }
