@@ -559,7 +559,8 @@ edits, 3 reps, 192 CPUs, same output at every point). `run-turbopack` / `turbopa
   (with 64 alone it was near 5s); cold builds 1.7 to 2.3s shorter. With nothing changed, the same.
 - 24 CPUs: warm builds with new imports 0.8 to 1.3s shorter, cold builds 0.4 to 1.8s shorter. A
   warm build with nothing changed is 0.07s slower, the builds of each not overlapping.
-- At every point where 65 is shorter, the builds of each binding do not overlap.
+- At every point with new imports, and at every cold point, the builds of each binding do not
+  overlap. With nothing changed on 192 CPUs they do (65's median is lower, its range wider).
 
 ## After `run-turbopack`: starting the page-data workers
 
