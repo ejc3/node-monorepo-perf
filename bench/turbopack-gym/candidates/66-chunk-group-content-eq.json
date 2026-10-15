@@ -1,0 +1,5 @@
+{
+  "description": "turbopack-core: ChunkGroupContentInner is compared on update instead of declared cell = \"new\", so a chunk group whose traversal is rerun (every chunk group, after any module graph change) and finds the same content does not invalidate the tasks reading it: the chunking context's chunk_group and the available-modules set of each unchanged group stop rerunning",
+  "patch": "bench/turbopack-gym/candidates/66-chunk-group-content-eq.patch",
+  "base": "vercel/next.js v16.4.0 + 15+22+41+42+52+55+56+57+59+61+64"
+}

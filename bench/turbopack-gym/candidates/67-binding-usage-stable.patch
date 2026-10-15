@@ -1,0 +1,163 @@
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs b/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
+index ffb5cc1c8c..7761b56f46 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/binding_usage_info.rs
+@@ -5,7 +5,7 @@ use auto_hash_map::AutoSet;
+ use rustc_hash::{FxHashMap, FxHashSet};
+ use tracing::Instrument;
+ use turbo_rcstr::RcStr;
+-use turbo_tasks::{OperationVc, ResolvedVc, Vc};
++use turbo_tasks::{OperationVc, ReadRef, ResolvedVc, Vc};
+ 
+ use crate::{
+     chunk::chunking_context::UnusedReferences,
+@@ -35,11 +35,19 @@ pub struct ExportCircuitBreakers(FxHashSet<ResolvedVc<Box<dyn Module>>>);
+ #[turbo_tasks::value(transparent, cell = "keyed")]
+ pub struct PartialNamespaceModules(FxHashSet<ResolvedVc<Box<dyn Module>>>);
+ 
++/// The module graph edges of the references in [`UnusedReferences`]. Edge indices are assigned
++/// anew whenever the module graph is rebuilt, so they live in a cell of their own: a task that
++/// reads the rest of [`BindingUsageInfo`] (one module's export usage, say) is not invalidated
++/// because the edges were renumbered.
++#[turbo_tasks::value(transparent)]
++#[derive(Default, Debug)]
++pub struct UnusedReferenceEdges(FxHashSet<GraphEdgeIndex>);
++
+ #[turbo_tasks::value]
+ #[derive(Clone, Default, Debug)]
+ pub struct BindingUsageInfo {
+     unused_references: ResolvedVc<UnusedReferences>,
+-    unused_references_edges: FxHashSet<GraphEdgeIndex>,
++    unused_references_edges: ResolvedVc<UnusedReferenceEdges>,
+ 
+     used_exports: ResolvedVc<UsedExportsMap>,
+     export_circuit_breakers: ResolvedVc<ExportCircuitBreakers>,
+@@ -73,8 +81,9 @@ impl ModuleExportUsage {
+ }
+ 
+ impl BindingUsageInfo {
+-    pub fn is_reference_unused_edge(&self, edge: &GraphEdgeIndex) -> bool {
+-        self.unused_references_edges.contains(edge)
++    /// The graph edges of the unused references, which graph traversals skip.
++    pub async fn unused_references_edges(&self) -> Result<ReadRef<UnusedReferenceEdges>> {
++        self.unused_references_edges.await
+     }
+ 
+     pub async fn used_exports(
+@@ -134,7 +143,7 @@ pub async fn compute_binding_usage_info(
+ 
+         let graph = graph.connect();
+         let graph_ref = graph.await?;
+-        if graph_ref.binding_usage.is_some() {
++        if graph_ref.unused_edges.is_some() {
+             // If the graph already has binding usage info, return it directly. This is
+             // unfortunately easy to do with
+             // ```
+@@ -391,7 +400,7 @@ pub async fn compute_binding_usage_info(
+ 
+         Ok(BindingUsageInfo {
+             unused_references: ResolvedVc::cell(unused_references),
+-            unused_references_edges,
++            unused_references_edges: ResolvedVc::cell(unused_references_edges),
+             used_exports: ResolvedVc::cell(used_exports),
+             export_circuit_breakers: ResolvedVc::cell(export_circuit_breakers),
+             partial_namespace_modules: ResolvedVc::cell(partial_namespace_modules),
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/mod.rs b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+index 79beb58b48..14f6cc1ac0 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/mod.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+@@ -31,7 +31,7 @@ use crate::{
+     module::Module,
+     module_graph::{
+         async_module_info::{AsyncModulesInfo, compute_async_module_info},
+-        binding_usage_info::BindingUsageInfo,
++        binding_usage_info::{BindingUsageInfo, UnusedReferenceEdges},
+         chunk_group_info::{ChunkGroupEntry, ChunkGroupInfo, compute_chunk_group_info},
+         collect::{CollectedModules, collect_graph},
+         merged_modules::{MergedModuleInfo, compute_merged_modules},
+@@ -550,7 +550,7 @@ impl SingleModuleGraph {
+         edge_filter: impl Fn(&'l RefData) -> bool,
+         mut visit_cycle: impl FnMut(&[&'l ResolvedVc<Box<dyn Module>>]) -> Result<()>,
+         graph_idx: u32,
+-        binding_usage: &'l Option<ReadRef<BindingUsageInfo>>,
++        unused_edges: &'l Option<ReadRef<UnusedReferenceEdges>>,
+     ) -> Result<()> {
+         // See https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm, but
+         // implemented iteratively instead of recursively.
+@@ -595,9 +595,8 @@ impl SingleModuleGraph {
+                         visit_stack.push(VisitStep::AfterVisit(node));
+                         let mut neighbors = self.graph.neighbors(node).detach();
+                         while let Some((edge, succ)) = neighbors.next(&self.graph) {
+-                            if binding_usage.as_ref().is_some_and(|binding_usage| {
+-                                binding_usage
+-                                    .is_reference_unused_edge(&GraphEdgeIndex::new(graph_idx, edge))
++                            if unused_edges.as_ref().is_some_and(|unused_edges| {
++                                unused_edges.contains(&GraphEdgeIndex::new(graph_idx, edge))
+                             }) {
+                                 continue;
+                             }
+@@ -836,8 +835,14 @@ impl ModuleGraph {
+                 graphs: graphs.iter().map(|g| g.connect()).try_join().await?,
+                 skip_visited_module_children: false,
+                 graph_idx_override: None,
+-                binding_usage: if let Some(binding_usage) = binding_usage {
+-                    Some(binding_usage.connect().await?)
++                unused_edges: if let Some(binding_usage) = binding_usage {
++                    Some(
++                        binding_usage
++                            .connect()
++                            .await?
++                            .unused_references_edges()
++                            .await?,
++                    )
+                 } else {
+                     None
+                 },
+@@ -976,8 +981,14 @@ impl ModuleGraphLayer {
+                 graphs: vec![graph.connect().await?],
+                 skip_visited_module_children: true,
+                 graph_idx_override: Some(graph_idx),
+-                binding_usage: if let Some(binding_usage) = binding_usage {
+-                    Some(binding_usage.connect().await?)
++                unused_edges: if let Some(binding_usage) = binding_usage {
++                    Some(
++                        binding_usage
++                            .connect()
++                            .await?
++                            .unused_references_edges()
++                            .await?,
++                    )
+                 } else {
+                     None
+                 },
+@@ -1018,7 +1029,8 @@ pub struct ModuleGraphSnapshot {
+ 
+     graph_idx_override: Option<u32>,
+ 
+-    binding_usage: Option<ReadRef<BindingUsageInfo>>,
++    /// The edges of unused references, which traversals skip (from the graph's binding usage).
++    unused_edges: Option<ReadRef<UnusedReferenceEdges>>,
+ }
+ 
+ impl ModuleGraphSnapshot {
+@@ -1131,9 +1143,9 @@ impl ModuleGraphSnapshot {
+             while let Some((edge_idx, succ_idx)) = walker.next(graph) {
+                 let edge_idx = GraphEdgeIndex::new(node.graph_idx, edge_idx);
+                 if self
+-                    .binding_usage
++                    .unused_edges
+                     .as_ref()
+-                    .is_some_and(|binding_usage| binding_usage.is_reference_unused_edge(&edge_idx))
++                    .is_some_and(|unused_edges| unused_edges.contains(&edge_idx))
+                 {
+                     // Don't just return None here, that would end the iterator
+                     continue;
+@@ -1507,7 +1519,7 @@ impl ModuleGraphSnapshot {
+                 &edge_filter,
+                 &mut visit_cycle,
+                 graph_idx as u32,
+-                &self.binding_usage,
++                &self.unused_edges,
+             )?;
+         }
+         Ok(())
