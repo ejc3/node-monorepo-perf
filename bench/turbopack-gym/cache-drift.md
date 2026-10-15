@@ -527,8 +527,7 @@ With 64, the largest part of a page manifest's work is its chunk lists: for ever
 reference, the URL of each JavaScript chunk of the reference's chunk group, with the component
 chunks of a merged chunk. All the client references of a layout segment use the segment's chunk
 group, and pages under the same layouts share those groups, so the same list is built once per
-reference per page. In a profile of a warm build with one new import on 192 CPUs (not kept as a
-record) that closure was the largest item of the workers' CPU attributed to one task function.
+reference per page.
 
 - **65 `chunk-lists-on-64`** (63, rebased onto 64): a chunk group's client chunk list and a layout
   segment's SSR chunk paths are turbo-tasks functions, computed once per group and shared by
