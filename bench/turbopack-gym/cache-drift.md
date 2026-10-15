@@ -475,12 +475,13 @@ monolith's 1,709 page manifests share most of their client references.
 ## Client reference manifests: async flags read once per reference
 
 Profiles of a warm build with one new import on the full stack (15 + 22 + 41 + 42 + 52 + 55 +
-56 + 57 + 59 + 61, built with frame pointers, 24 and 192 CPUs; not kept as records) still put
-the largest share of the workers' CPU in `build_manifest`, most of it in one closure: for
-every client reference of every page, whether its client, SSR and RSC modules are async, three
-keyed reads of the app's one `AsyncModulesInfo` cell. Each keyed read records a dependency on
-that one task, so all 1,709 page manifests contend on it (the leaves are lock and atomic
-operations). The flags do not depend on the page.
+56 + 57 + 59 + 61, built with frame pointers, 24 and 192 CPUs;
+`bench/turbopack-gym/profiles-warm1.json`, its first two profiles) put the largest share of the
+workers' CPU attributed to a task function in `build_manifest`, and half or more of that in one
+closure (`{closure#2}`): for every client reference of every page, whether its client, SSR and
+RSC modules are async, three keyed reads of the app's one `AsyncModulesInfo` cell. Each keyed
+read records a dependency on that one task, so all 1,709 page manifests contend on it; the top
+leaves of both profiles are lock and atomic operations. The flags do not depend on the page.
 
 - **64 `shared-async-flags`** (on 61): `client_reference_ids`, the per-reference task of 61,
   also reads the three flags, so they are read once per client reference and every page's
@@ -560,6 +561,66 @@ edits, 3 reps, 192 CPUs, same output at every point). `run-turbopack` / `turbopa
   warm build with nothing changed is 0.07s slower, the builds of each not overlapping.
 - At every point with new imports, and at every cold point, the builds of each binding do not
   overlap. With nothing changed on 192 CPUs they do (65's median is lower, its range wider).
+
+## What a warm build reruns: whole-app values that always change
+
+Turbopack's task statistics (`NEXT_TURBOPACK_TASK_STATISTICS=<file>`, which counted cache hits
+and misses per function), with two more counters per function (executions, and cell updates
+that invalidated other tasks, with how many; `bench/turbopack-gym/tools/task-exec-stats.patch`,
+a measurement patch, not a candidate). `bench/turbopack-gym/task-stats-warm1.json`: with the
+full stack + 64, a warm build of `drift-monolith` after one new import ran 164,765 to 216,484
+task executions in three builds, against 3,006,586 in a cold build and 14,575 in a warm build
+with nothing changed; the counts vary between builds (a task read while its input is stale runs
+again). Most of the reruns fan out from a few
+whole-app values that change on every module graph rebuild:
+
+- `ChunkGroupContentInner`, the content of each chunk group, is declared `cell = "new"`: every
+  rerun counts as a change, even with the same content. Every chunk group's traversal reruns
+  after any graph change (8,156 to 10,139 times), and they invalidated 16,312 to 16,908 readers.
+- `BindingUsageInfo` holds the graph edges of the unused references as a field. Edge indices
+  are assigned anew on every graph rebuild, so the value changes, and the chunking contexts'
+  per-module `module_export_usage` tasks (22,758), which read it and then their module's keyed
+  entry, all ran again.
+
+Two candidates, in order:
+
+- **66 `chunk-group-content-eq`**: `ChunkGroupContentInner` is compared on update. The readers
+  invalidated by chunk group content went to 14.
+- **67 `binding-usage-stable`** (on 66): the unused reference edges move to a cell of their own
+  (`UnusedReferenceEdges`); graph traversals read that cell. `BindingUsageInfo` is then the same
+  across rebuilds, and `module_export_usage` reruns went from 22,758 to none.
+
+With both, a warm build after one new import ran 126,184 and 138,470 tasks (two builds). Same
+output in every build. What still reruns is mostly output asset lists (`OutputAssets::concatenate`,
+`all_assets`), which do change: one new import renames hundreds of content-hashed chunks.
+
+`bench/turbopack-graph-drift-6667-24.json` and `-6667-192.json` (the full stack + 64, + 66 and
++ 66 + 67, `import` edits, 3 reps, same output at every point; the 24-CPU sweep resumed across
+three boots). `run-turbopack`, 24 CPUs:
+
+| new imports | warm | + 66 | + 66 + 67 | cold | + 66 | + 66 + 67 |
+|---|---|---|---|---|---|---|
+| 0 | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.0.warm.turbopack-->5.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->17.2s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.0.cold.turbopack-->17.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.0.cold.turbopack-->17.1s<!--/v--> |
+| 1 | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->13.5s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.1.warm.turbopack-->13.0s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1.warm.turbopack-->12.4s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->17.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.1.cold.turbopack-->17.1s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1.cold.turbopack-->17.0s<!--/v--> |
+| 10 | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->15.8s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.10.warm.turbopack-->15.9s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.10.warm.turbopack-->15.6s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->17.3s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.10.cold.turbopack-->17.2s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.10.cold.turbopack-->17.3s<!--/v--> |
+| 1,000 | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->17.4s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.1000.warm.turbopack-->17.4s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1000.warm.turbopack-->16.5s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->17.3s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66.1000.cold.turbopack-->17.3s<!--/v--> | <!--v:dr.c6667s24.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1000.cold.turbopack-->17.4s<!--/v--> |
+
+192 CPUs:
+
+| new imports | warm | + 66 | + 66 + 67 | cold | + 66 | + 66 + 67 |
+|---|---|---|---|---|---|---|
+| 0 | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.0s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.0.warm.turbopack-->5.0s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.0.warm.turbopack-->5.4s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->20.4s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.0.cold.turbopack-->20.8s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.0.cold.turbopack-->21.1s<!--/v--> |
+| 1 | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->16.9s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.1.warm.turbopack-->16.6s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1.warm.turbopack-->15.4s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->20.7s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.1.cold.turbopack-->20.9s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1.cold.turbopack-->20.6s<!--/v--> |
+| 10 | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->19.5s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.10.warm.turbopack-->19.0s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.10.warm.turbopack-->18.1s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->20.8s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.10.cold.turbopack-->20.7s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.10.cold.turbopack-->20.6s<!--/v--> |
+| 1,000 | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->21.3s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.1000.warm.turbopack-->21.4s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1000.warm.turbopack-->20.2s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->20.6s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66.1000.cold.turbopack-->20.9s<!--/v--> | <!--v:dr.c6667s192.import.15+22+41+42+52+55+56+57+59+61+64+66+67.1000.cold.turbopack-->20.8s<!--/v--> |
+
+- 66 alone: on 192 CPUs, warm after one new import, 0.3s shorter with the builds not
+  overlapping; at every other point, no difference beyond the spread of the builds.
+- 66 + 67, warm builds with new imports: 24 CPUs 0.2 to 1.1s shorter (the builds do not overlap
+  at 10 and 1,000; at 1 they overlap by 0.01s); 192 CPUs 1.1 to 1.5s shorter (not overlapping at 1, overlapping
+  at 10 and 1,000). Cold builds: no difference.
+- 66 + 67 on 192 CPUs, warm with nothing changed: 0.4s slower, the builds not overlapping; on
+  24 CPUs, the same as without. Not explained.
 
 ## After `run-turbopack`: starting the page-data workers
 
