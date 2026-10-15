@@ -1,0 +1,84 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+index e5bceb4363..95a57d72aa 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/mod.rs
+@@ -2084,6 +2084,11 @@ impl TurboTasksBackend {
+                 },
+             )));
+             debug_assert!(old.is_none(), "InProgress already exists");
++            if let Some(task_type) = task.get_persistent_task_type() {
++                let native_fn = task_type.native_fn;
++                self.task_statistics
++                    .map(|stats| stats.increment_execution(native_fn));
++            }
+ 
+             // Make all current collectibles outdated (remove left-over outdated collectibles)
+             enum Collectible {
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs
+index d3e83b66a7..ce1a1cb9ae 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/mod.rs
+@@ -114,6 +114,10 @@ pub struct ExecuteContext<'e> {
+ }
+ 
+ impl<'e> ExecuteContext<'e> {
++    pub fn task_statistics(&self) -> &turbo_tasks::task_statistics::TaskStatisticsApi {
++        &self.backend.task_statistics
++    }
++
+     pub(super) fn new(
+         backend: &'e TurboTasksBackend,
+         turbo_tasks: &'e TurboTasks<TurboTasksBackend>,
+diff --git a/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_cell.rs b/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_cell.rs
+index 490cffb78b..319898e4ba 100644
+--- a/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_cell.rs
++++ b/turbopack/crates/turbo-tasks-backend/src/backend/operation/update_cell.rs
+@@ -147,6 +147,12 @@ pub fn update_cell(
+         }
+ 
+         if !dependent_tasks.is_empty() {
++            if let Some(task_type) = task.get_persistent_task_type() {
++                let native_fn = task_type.native_fn;
++                let dependents = dependent_tasks.len() as u32;
++                ctx.task_statistics()
++                    .map(|stats| stats.increment_cell_invalidation(native_fn, dependents));
++            }
+             // Slow path: We need to invalidate tasks depending on this cell.
+             // To avoid a race condition, we need to remove the old content first,
+             // then invalidate dependent tasks and only then update the cell content.
+diff --git a/turbopack/crates/turbo-tasks/src/task_statistics.rs b/turbopack/crates/turbo-tasks/src/task_statistics.rs
+index c0eaab14eb..48dfd50a1f 100644
+--- a/turbopack/crates/turbo-tasks/src/task_statistics.rs
++++ b/turbopack/crates/turbo-tasks/src/task_statistics.rs
+@@ -46,6 +46,18 @@ impl TaskStatistics {
+         self.with_task_type_statistics(native_fn, |stats| stats.cache_miss += 1)
+     }
+ 
++    pub fn increment_execution(&self, native_fn: &'static NativeFunction) {
++        self.with_task_type_statistics(native_fn, |stats| stats.executions += 1)
++    }
++
++    /// A cell of a task of this function changed and invalidated `dependents` tasks reading it.
++    pub fn increment_cell_invalidation(&self, native_fn: &'static NativeFunction, dependents: u32) {
++        self.with_task_type_statistics(native_fn, |stats| {
++            stats.invalidating_cell_updates += 1;
++            stats.invalidated_dependents += dependents;
++        })
++    }
++
+     fn with_task_type_statistics(
+         &self,
+         native_fn: &'static NativeFunction,
+@@ -64,6 +76,12 @@ impl TaskStatistics {
+ pub struct TaskFunctionStatistics {
+     pub cache_hit: u32,
+     pub cache_miss: u32,
++    /// Times a task of this function started executing (first runs and reruns).
++    pub executions: u32,
++    /// Cell updates of this function's tasks that changed a value read by other tasks.
++    pub invalidating_cell_updates: u32,
++    /// Tasks those cell updates invalidated.
++    pub invalidated_dependents: u32,
+ }
+ 
+ impl Serialize for TaskStatistics {

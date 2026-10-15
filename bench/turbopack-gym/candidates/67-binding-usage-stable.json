@@ -1,0 +1,5 @@
+{
+  "description": "turbopack-core: BindingUsageInfo keeps the graph edges of unused references in a cell of their own (UnusedReferenceEdges) instead of a field, so its value is the same across a rebuild of the module graph (edge indices are renumbered on every rebuild); the per-module module_export_usage tasks of the chunking contexts, which read it and then their module's keyed entry, rerun only when that entry changes. Graph traversals read the edge set directly",
+  "patch": "bench/turbopack-gym/candidates/67-binding-usage-stable.patch",
+  "base": "vercel/next.js v16.4.0 + 15+22+41+42+52+55+56+57+59+61+64 + 66-chunk-group-content-eq"
+}

@@ -285,5 +285,42 @@
     ],
     "diffSha256": "358ddf157775f9af",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+41+42+52+55+56+57+59+61+64+66": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "66-chunk-group-content-eq.patch"
+    ],
+    "diffSha256": "e6dea7704698804c",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "15+22+41+42+52+55+56+57+59+61+64+66+67": {
+    "patches": [
+      "15-graph-algos-combined.patch",
+      "22-sharded-runner-2choice.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch"
+    ],
+    "diffSha256": "b6cf0cdadac0488e",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

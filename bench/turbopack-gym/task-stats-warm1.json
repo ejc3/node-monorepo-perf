@@ -1,0 +1,4065 @@
+{
+ "generator": "Turbopack's task statistics (NEXT_TURBOPACK_TASK_STATISTICS=<file>) with bench/turbopack-gym/tools/task-exec-stats.patch applied on top of each binding's patches: per function it adds executions (a task of the function started executing) and invalidating cell updates (a cell of the function's task changed and invalidated tasks reading it, with their count). A measurement patch, not a candidate",
+ "app": "drift-monolith; warm: the unedited app's cold build output restored, then one feature module edited to add a new import; page-data workers matched to the CPUs; TURBO_ENGINE_IGNORE_DIRTY=1",
+ "machine": {
+  "instanceType": "c8gd.48xlarge",
+  "arch": "arm64",
+  "cores": 192
+ },
+ "note": "counts, not timings, each on a dedicated instance: the first three runs (cold, warm with nothing changed, warm after one new import, full stack + 64) on one, the six after (two builds each of + 64, + 64 + 66, + 64 + 66 + 67) on another. A task read while an input is stale runs again, so counts can vary between builds. The six builds produced output bece43ddad188803",
+ "runs": [
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64",
+   "build": "cold",
+   "cpus": "0-23",
+   "executions": 3006586,
+   "invalidatingCellUpdates": 0,
+   "invalidatedDependents": 0,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2601,
+     "cache_miss": 5022
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 9046,
+     "cache_miss": 17736
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 8156
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 52014,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 52014
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 45026,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 747127,
+     "cache_miss": 45026
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "<turbopack_ecmascript::references::esm::base::EsmAssetReference as dyn turbopack_core::reference::ModuleReference>::resolve_reference",
+     "executions": 169744,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 485595,
+     "cache_miss": 169744
+    },
+    {
+     "function": "<turbopack::ModuleAssetContext as dyn turbopack_core::context::AssetContext>::resolve_asset",
+     "executions": 143435,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 29631,
+     "cache_miss": 143435
+    },
+    {
+     "function": "turbopack_core::resolve::resolve",
+     "executions": 96788,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 46649,
+     "cache_miss": 96788
+    },
+    {
+     "function": "turbopack_core::ident::AssetIdent::new_inner",
+     "executions": 76420,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 26890,
+     "cache_miss": 76420
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 52014,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 52014
+    },
+    {
+     "function": "turbopack_core::resolve::resolve_internal",
+     "executions": 48960,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 75216,
+     "cache_miss": 48960
+    },
+    {
+     "function": "turbopack_core::asset::AssetContent::file",
+     "executions": 48687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 48687
+    },
+    {
+     "function": "<turbopack::ModuleAssetContext as dyn turbopack_core::context::AssetContext>::process",
+     "executions": 46235,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 6124,
+     "cache_miss": 46235
+    },
+    {
+     "function": "turbopack_ecmascript::module_canonicalization::canonicalize_ecmascript_module",
+     "executions": 45303,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 33,
+     "cache_miss": 45303
+    },
+    {
+     "function": "<turbopack::ModuleAssetContext as dyn turbopack_core::context::AssetContext>::process_resolve_result",
+     "executions": 45298,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 98137,
+     "cache_miss": 45298
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 45026,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 747127,
+     "cache_miss": 45026
+    },
+    {
+     "function": "<turbopack_core::ident::AssetIdent as dyn turbo_tasks::display::ValueToString>::to_string",
+     "executions": 43253,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 128637,
+     "cache_miss": 43253
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 41824,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 41824
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 41824,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 41824
+    },
+    {
+     "function": "turbopack_core::asset::AssetContent::write",
+     "executions": 41824,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 41824
+    },
+    {
+     "function": "next_core::emit::emit",
+     "executions": 39565,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 39565
+    },
+    {
+     "function": "turbopack_ecmascript::references::esm::export::EsmExports::expand_exports",
+     "executions": 35273,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 35647,
+     "cache_miss": 35273
+    },
+    {
+     "function": "turbopack_core::asset::AssetContent::hash",
+     "executions": 30487,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 123076,
+     "cache_miss": 30487
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 30459,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 30459
+    },
+    {
+     "function": "turbopack_core::reference::primary_chunkable_referenced_modules",
+     "executions": 28238,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 28238
+    },
+    {
+     "function": "turbopack_ecmascript::parse::parse",
+     "executions": 27243,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 23915,
+     "cache_miss": 27243
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::concatenate",
+     "executions": 26007,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 26007
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsReferences::concatenate",
+     "executions": 26007,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 26007
+    },
+    {
+     "function": "turbo_tasks_fs::path::realpath_with_links",
+     "executions": 25775,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 50943,
+     "cache_miss": 25775
+    },
+    {
+     "function": "<turbopack_ecmascript::EcmascriptModuleAsset as dyn turbopack_ecmascript::EcmascriptParsable>::failsafe_parse",
+     "executions": 24963,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 63780,
+     "cache_miss": 24963
+    },
+    {
+     "function": "turbopack_ecmascript::references::analyze_ecmascript_module",
+     "executions": 24958,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 51699,
+     "cache_miss": 24958
+    },
+    {
+     "function": "turbopack_ecmascript::references::exports::compute_ecmascript_module_exports",
+     "executions": 24958,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 24143,
+     "cache_miss": 24958
+    },
+    {
+     "function": "turbopack_ecmascript::EcmascriptModuleAsset::options",
+     "executions": 24148,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 45004,
+     "cache_miss": 24148
+    },
+    {
+     "function": "<turbopack_ecmascript::EcmascriptModuleAsset as dyn turbopack_ecmascript::chunk::placeable::EcmascriptChunkPlaceable>::get_exports",
+     "executions": 24143,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 144124,
+     "cache_miss": 24143
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::placeable::EcmascriptExports::split_locals_and_reexports",
+     "executions": 24143,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 20345,
+     "cache_miss": 24143
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "<() as dyn turbo_tasks::vc::default::ValueDefault>::value_default",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 125473,
+     "cache_miss": 1
+    },
+    {
+     "function": "<dyn next_api::route::Endpoint>::additional_entries",
+     "executions": 2,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2
+    },
+    {
+     "function": "<dyn turbo_tasks_fs::FileSystem>::root",
+     "executions": 11,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 9809,
+     "cache_miss": 11
+    },
+    {
+     "function": "<dyn turbopack::transition::Transition>::process",
+     "executions": 2113,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2113
+    },
+    {
+     "function": "<dyn turbopack::transition::Transition>::process_context",
+     "executions": 4,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 4016,
+     "cache_miss": 4
+    },
+    {
+     "function": "<dyn turbopack::transition::Transition>::process_module",
+     "executions": 2013,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 2013
+    },
+    {
+     "function": "<dyn turbopack_core::chunk::ChunkItem>::content_ident",
+     "executions": 1006,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 113,
+     "cache_miss": 1006
+    },
+    {
+     "function": "<dyn turbopack_core::chunk::MergeableModule>::is_mergeable",
+     "executions": 4287,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 4287
+    },
+    {
+     "function": "<dyn turbopack_core::chunk::chunking_context::ChunkingContext>::batching_config",
+     "executions": 4,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 8153,
+     "cache_miss": 4
+    },
+    {
+     "function": "<dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_loading",
+     "executions": 2,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 6249,
+     "cache_miss": 2
+    },
+    {
+     "function": "<dyn turbopack_core::module::Module>::is_self_async",
+     "executions": 2951,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2951
+    },
+    {
+     "function": "<dyn turbopack_core::module::Module>::references",
+     "executions": 599,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 599
+    },
+    {
+     "function": "<dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 19753,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 119122,
+     "cache_miss": 19753
+    },
+    {
+     "function": "<dyn turbopack_ecmascript::chunk::placeable::EcmascriptChunkPlaceable>::chunk_item_content_ident",
+     "executions": 14814,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 9,
+     "cache_miss": 14814
+    },
+    {
+     "function": "<dyn turbopack_ecmascript::chunk::placeable::EcmascriptChunkPlaceable>::chunk_item_output_assets",
+     "executions": 14799,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 14799
+    },
+    {
+     "function": "<next_api::app::AppEndpoint as dyn next_api::route::Endpoint>::additional_entries",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2073,
+     "cache_miss": 2073
+    },
+    {
+     "function": "<next_api::app::AppEndpoint as dyn next_api::route::Endpoint>::entries",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2073
+    },
+    {
+     "function": "<next_api::app::AppEndpoint as dyn next_api::route::Endpoint>::output",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2073
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 1711
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::output::OutputAsset>::path",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1711,
+     "cache_miss": 1711
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64",
+   "build": "warm, nothing changed",
+   "cpus": "0-23",
+   "executions": 14575,
+   "invalidatingCellUpdates": 3,
+   "invalidatedDependents": 4,
+   "selected": [],
+   "topByExecutions": [
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read_link",
+     "executions": 30,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_env::case_insensitive_read",
+     "executions": 2,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_env::EnvMap as dyn turbo_tasks_env::ProcessEnv>::read_all",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 1,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::metadata",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::ProjectContainer::project",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 1,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::project_root_path_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::emit_all_output_assets_once_with_issues_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::get_all_written_entrypoints_with_issues_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_env::to_uppercase_map",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 2,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::operation::EntrypointsOperation::new",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::Project::issue_filter",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::ProjectContainer::new_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::disk_file_system_map_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::disk_file_system_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::dist_dir",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::dist_dir_root",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::from_string",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::all_entrypoints_write_to_disk_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::emit_all_output_assets_once_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::project_write_all_entrypoints_to_disk::{{closure}}::{{closure}}::has_deferred_entrypoints_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::fs_map::DiskFileSystemMap::empty::operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbo_tasks_env::to_uppercase_map",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 2,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_env::EnvMap as dyn turbo_tasks_env::ProcessEnv>::read_all",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 1,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::ProjectContainer::project",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 1,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::metadata",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read_link",
+     "executions": 30,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::operation::EntrypointsOperation::new",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::Project::issue_filter",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::ProjectContainer::new_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::disk_file_system_map_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::disk_file_system_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 2,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::project::project_root_path_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::dist_dir",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::dist_dir_root",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_config::NextConfig::from_string",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::all_entrypoints_write_to_disk_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::emit_all_output_assets_once_operation",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::emit_all_output_assets_once_with_issues_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_napi_bindings::next_api::project::get_all_written_entrypoints_with_issues_operation",
+     "executions": 1,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 176294,
+   "invalidatingCellUpdates": 88104,
+   "invalidatedDependents": 210173,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8245,
+     "invalidating_cell_updates": 8161,
+     "invalidated_dependents": 16322,
+     "cache_hit": 8999,
+     "cache_miss": 84
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25977,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 336
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 891684,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25977,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 336
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 891684,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::available_modules_operation",
+     "executions": 8245,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 8999,
+     "cache_miss": 84
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8245,
+     "invalidating_cell_updates": 8161,
+     "invalidated_dependents": 16322,
+     "cache_hit": 8999,
+     "cache_miss": 84
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 633208,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 5357,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 5015,
+     "invalidating_cell_updates": 3638,
+     "invalidated_dependents": 10914,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4220,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 3423,
+     "cache_hit": 18851,
+     "cache_miss": 42
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3775,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 3543,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3393,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 3758,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3233,
+     "invalidating_cell_updates": 1986,
+     "invalidated_dependents": 1986,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 2912,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2848,
+     "invalidating_cell_updates": 2848,
+     "invalidated_dependents": 2848,
+     "cache_hit": 3233,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2697,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10164,
+     "cache_miss": 38
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1949,
+     "invalidating_cell_updates": 3,
+     "invalidated_dependents": 1712,
+     "cache_hit": 6880,
+     "cache_miss": 42
+    },
+    {
+     "function": "next_core::next_app::app_client_references_chunks::get_app_client_references_chunks",
+     "executions": 1733,
+     "invalidating_cell_updates": 44,
+     "invalidated_dependents": 88,
+     "cache_hit": 1712,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1723,
+     "invalidating_cell_updates": 1723,
+     "invalidated_dependents": 1723,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6637,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1712,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::app_entry_chunks",
+     "executions": 1712,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1712,
+     "cache_miss": 0
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25977,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 336
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 891684,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8245,
+     "invalidating_cell_updates": 8161,
+     "invalidated_dependents": 16322,
+     "cache_hit": 8999,
+     "cache_miss": 84
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 6,
+     "invalidating_cell_updates": 6,
+     "invalidated_dependents": 12451,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 5015,
+     "invalidating_cell_updates": 3638,
+     "invalidated_dependents": 10914,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8164,
+     "cache_hit": 8246,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 633208,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1711,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6637,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1712,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "next_api::client_references::map_client_references",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 4146,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::dynamic_imports::map_next_dynamic",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 4146,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 2912,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4220,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 3423,
+     "cache_hit": 18851,
+     "cache_miss": 42
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3775,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3393,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 3758,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2848,
+     "invalidating_cell_updates": 2848,
+     "invalidated_dependents": 2848,
+     "cache_hit": 3233,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 164472,
+   "invalidatingCellUpdates": 84269,
+   "invalidatedDependents": 184496,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9337,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::available_modules_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 9337,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9337,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4176,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3774,
+     "invalidating_cell_updates": 3375,
+     "invalidated_dependents": 3375,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3694,
+     "invalidating_cell_updates": 1985,
+     "invalidated_dependents": 1985,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3392,
+     "invalidating_cell_updates": 3375,
+     "invalidated_dependents": 3375,
+     "cache_hit": 3757,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 3255,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2707,
+     "invalidating_cell_updates": 2707,
+     "invalidated_dependents": 2707,
+     "cache_hit": 3694,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1904,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1726,
+     "invalidating_cell_updates": 1726,
+     "invalidated_dependents": 1726,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6496,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9337,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6496,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 3255,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4176,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3774,
+     "invalidating_cell_updates": 3375,
+     "invalidated_dependents": 3375,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3392,
+     "invalidating_cell_updates": 3375,
+     "invalidated_dependents": 3375,
+     "cache_hit": 3757,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2707,
+     "invalidating_cell_updates": 2707,
+     "invalidated_dependents": 2707,
+     "cache_hit": 3694,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3694,
+     "invalidating_cell_updates": 1985,
+     "invalidated_dependents": 1985,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1726,
+     "invalidating_cell_updates": 1726,
+     "invalidated_dependents": 1726,
+     "cache_hit": 0,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64+66",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 148168,
+   "invalidatingCellUpdates": 76257,
+   "invalidatedDependents": 168335,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 914073,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 914073,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3394,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 3158,
+     "invalidating_cell_updates": 2842,
+     "invalidated_dependents": 2842,
+     "cache_hit": 2708,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2708,
+     "invalidating_cell_updates": 1987,
+     "invalidated_dependents": 1987,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6947,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 914073,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6947,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 2,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3394,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 3158,
+     "invalidating_cell_updates": 2842,
+     "invalidated_dependents": 2842,
+     "cache_hit": 2708,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2708,
+     "invalidating_cell_updates": 1987,
+     "invalidated_dependents": 1987,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64+66+67",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 124098,
+   "invalidatingCellUpdates": 75224,
+   "invalidatedDependents": 144543,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 5,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 794775,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 794775,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3396,
+     "invalidating_cell_updates": 3379,
+     "invalidated_dependents": 3379,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2733,
+     "invalidating_cell_updates": 1989,
+     "invalidated_dependents": 1989,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 1819,
+     "invalidating_cell_updates": 1807,
+     "invalidated_dependents": 1807,
+     "cache_hit": 2733,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1720,
+     "invalidating_cell_updates": 1720,
+     "invalidated_dependents": 1720,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 5608,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1712,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::asset::AssetContent::write",
+     "executions": 399,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 794775,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1712,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 5608,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 2,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3396,
+     "invalidating_cell_updates": 3379,
+     "invalidated_dependents": 3379,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2733,
+     "invalidating_cell_updates": 1989,
+     "invalidated_dependents": 1989,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 1819,
+     "invalidating_cell_updates": 1807,
+     "invalidated_dependents": 1807,
+     "cache_hit": 2733,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1720,
+     "invalidating_cell_updates": 1720,
+     "invalidated_dependents": 1720,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 164552,
+   "invalidatingCellUpdates": 84471,
+   "invalidatedDependents": 184698,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9666,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895273,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895273,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::available_modules_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 9666,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9666,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4176,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3775,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 3584,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3393,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 3758,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3245,
+     "invalidating_cell_updates": 1986,
+     "invalidated_dependents": 1986,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2905,
+     "invalidating_cell_updates": 2904,
+     "invalidated_dependents": 2904,
+     "cache_hit": 3245,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1904,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1727,
+     "invalidating_cell_updates": 1727,
+     "invalidated_dependents": 1727,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6694,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1710,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895273,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 8156,
+     "invalidated_dependents": 16312,
+     "cache_hit": 9666,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6694,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 3584,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 4176,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3775,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3393,
+     "invalidating_cell_updates": 3376,
+     "invalidated_dependents": 3376,
+     "cache_hit": 3758,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2905,
+     "invalidating_cell_updates": 2904,
+     "invalidated_dependents": 2904,
+     "cache_hit": 3245,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3245,
+     "invalidating_cell_updates": 1986,
+     "invalidated_dependents": 1986,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1727,
+     "invalidating_cell_updates": 1727,
+     "invalidated_dependents": 1727,
+     "cache_hit": 0,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64+66",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 148391,
+   "invalidatingCellUpdates": 76107,
+   "invalidatedDependents": 168185,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 17736,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 5022,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3771,
+     "invalidating_cell_updates": 3372,
+     "invalidated_dependents": 3372,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3393,
+     "invalidating_cell_updates": 1982,
+     "invalidated_dependents": 1982,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3389,
+     "invalidating_cell_updates": 3372,
+     "invalidated_dependents": 3372,
+     "cache_hit": 3754,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2707,
+     "invalidating_cell_updates": 2707,
+     "invalidated_dependents": 2707,
+     "cache_hit": 3393,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6496,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1710,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 22764,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 881347,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6496,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 2,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3771,
+     "invalidating_cell_updates": 3372,
+     "invalidated_dependents": 3372,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3389,
+     "invalidating_cell_updates": 3372,
+     "invalidated_dependents": 3372,
+     "cache_hit": 3754,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2707,
+     "invalidating_cell_updates": 2707,
+     "invalidated_dependents": 2707,
+     "cache_hit": 3393,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 3393,
+     "invalidating_cell_updates": 1982,
+     "invalidated_dependents": 1982,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    }
+   ]
+  },
+  {
+   "binding": "15+22+41+42+52+55+56+57+59+61+64+66+67",
+   "build": "warm, one new import",
+   "cpus": "0-23",
+   "executions": 125249,
+   "invalidatingCellUpdates": 76383,
+   "invalidatedDependents": 145702,
+   "selected": [
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 18,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::module_export_usage",
+     "executions": 0,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 21,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::binding_usage_info::compute_binding_usage_info",
+     "executions": 2,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 5,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895645,
+     "cache_miss": 16
+    }
+   ],
+   "topByExecutions": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895645,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::read",
+     "executions": 10849,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 4,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunk_group::chunk_group_content_operation",
+     "executions": 8156,
+     "invalidating_cell_updates": 7,
+     "invalidated_dependents": 14,
+     "cache_hit": 1718,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::raw_read_dir",
+     "executions": 3687,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::code_builder::PersistedCode::to_code",
+     "executions": 3631,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 4,
+     "cache_hit": 3631,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3394,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "turbopack_ecmascript::chunk::code_module_ids_and_paths::item_code_module_ids_and_paths",
+     "executions": 3281,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 388,
+     "cache_hit": 11610,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2990,
+     "invalidating_cell_updates": 2968,
+     "invalidated_dependents": 2968,
+     "cache_hit": 2716,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2716,
+     "invalidating_cell_updates": 1987,
+     "invalidated_dependents": 1987,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::available_modules::AvailableModules::snapshot",
+     "executions": 2659,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 10079,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking::chunk_items_with_info_with_type",
+     "executions": 2555,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 2555
+    },
+    {
+     "function": "next_api::nft::traced_modules_for_entries",
+     "executions": 2074,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ClientReferencesGraph::get_client_references_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::NextDynamicGraph::get_next_dynamic_imports_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::module_graph::ServerActionsGraph::get_server_actions_for_endpoint",
+     "executions": 2073,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6779,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::expand_all_assets",
+     "executions": 1715,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 1710,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk::code",
+     "executions": 1715,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 15,
+     "cache_hit": 5,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::font::FontManifest as dyn turbopack_core::asset::Asset>::content",
+     "executions": 1711,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::asset::AssetContent::write",
+     "executions": 399,
+     "invalidating_cell_updates": 0,
+     "invalidated_dependents": 0,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    }
+   ],
+   "topByInvalidatedDependents": [
+    {
+     "function": "turbopack_core::output::OutputAssets::concatenate",
+     "executions": 25641,
+     "invalidating_cell_updates": 25641,
+     "invalidated_dependents": 55572,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::output::OutputAssetsWithReferenced::all_assets",
+     "executions": 16837,
+     "invalidating_cell_updates": 16821,
+     "invalidated_dependents": 16821,
+     "cache_hit": 895645,
+     "cache_miss": 16
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::module_batches",
+     "executions": 1,
+     "invalidating_cell_updates": 1,
+     "invalidated_dependents": 8157,
+     "cache_hit": 8157,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::chunk::chunking_context::ChunkGroupResult::all_assets",
+     "executions": 6559,
+     "invalidating_cell_updates": 6559,
+     "invalidated_dependents": 6559,
+     "cache_hit": 632839,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraphLayer::new",
+     "executions": 5,
+     "invalidating_cell_updates": 5,
+     "invalidated_dependents": 6228,
+     "cache_hit": 6,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_core::next_manifests::client_reference_manifest::build_manifest",
+     "executions": 1710,
+     "invalidating_cell_updates": 2701,
+     "invalidated_dependents": 5402,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::ecmascript::node::entry::chunk::EcmascriptBuildNodeEntryChunk as dyn turbopack_core::output::OutputAssetsReference>::references",
+     "executions": 1715,
+     "invalidating_cell_updates": 1715,
+     "invalidated_dependents": 5145,
+     "cache_hit": 6779,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpoint::output",
+     "executions": 1710,
+     "invalidating_cell_updates": 3420,
+     "invalidated_dependents": 5130,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::hash",
+     "executions": 1024,
+     "invalidating_cell_updates": 1008,
+     "invalidated_dependents": 4968,
+     "cache_hit": 0,
+     "cache_miss": 16
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_path",
+     "executions": 383,
+     "invalidating_cell_updates": 382,
+     "invalidated_dependents": 3737,
+     "cache_hit": 0,
+     "cache_miss": 1
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::entry_chunk_group",
+     "executions": 1715,
+     "invalidating_cell_updates": 1719,
+     "invalidated_dependents": 3434,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_nodejs::chunking_context::NodeJsChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 2,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 3422,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbo_tasks_fs::disk::DiskFileSystem as dyn turbo_tasks_fs::FileSystem>::write",
+     "executions": 3776,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 0,
+     "cache_miss": 399
+    },
+    {
+     "function": "turbo_tasks_fs::content::FileContent::persist",
+     "executions": 3394,
+     "invalidating_cell_updates": 3377,
+     "invalidated_dependents": 3377,
+     "cache_hit": 3759,
+     "cache_miss": 17
+    },
+    {
+     "function": "next_api::nft_json::all_assets_from_entries_filtered",
+     "executions": 2990,
+     "invalidating_cell_updates": 2968,
+     "invalidated_dependents": 2968,
+     "cache_hit": 2716,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::module_graph::ModuleGraph::from_graphs",
+     "executions": 4,
+     "invalidating_cell_updates": 4,
+     "invalidated_dependents": 2086,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<next_api::nft_json::NftJsonAsset as dyn turbopack_core::asset::Asset>::content",
+     "executions": 2716,
+     "invalidating_cell_updates": 1987,
+     "invalidated_dependents": 1987,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "next_api::app::AppEndpointOutput::output_assets",
+     "executions": 1722,
+     "invalidating_cell_updates": 1722,
+     "invalidated_dependents": 1722,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "<turbopack_browser::chunking_context::BrowserChunkingContext as dyn turbopack_core::chunk::chunking_context::ChunkingContext>::chunk_group",
+     "executions": 1,
+     "invalidating_cell_updates": 2,
+     "invalidated_dependents": 1711,
+     "cache_hit": 0,
+     "cache_miss": 0
+    },
+    {
+     "function": "turbopack_core::reference::all_assets_from_entries",
+     "executions": 1711,
+     "invalidating_cell_updates": 1711,
+     "invalidated_dependents": 1711,
+     "cache_hit": 1711,
+     "cache_miss": 0
+    }
+   ]
+  }
+ ]
+}
