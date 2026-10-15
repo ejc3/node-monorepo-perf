@@ -1,0 +1,233 @@
+diff --git a/crates/next-core/src/next_manifests/client_reference_manifest.rs b/crates/next-core/src/next_manifests/client_reference_manifest.rs
+index 461e3ec59a..3346e70c69 100644
+--- a/crates/next-core/src/next_manifests/client_reference_manifest.rs
++++ b/crates/next-core/src/next_manifests/client_reference_manifest.rs
+@@ -13,8 +13,8 @@ use turbo_tasks_fs::{File, FileContent, FileSystemPath};
+ use turbopack_core::{
+     asset::{Asset, AssetContent},
+     chunk::{
+-        ChunkingContext, CrossOrigin, ModuleChunkItemIdExt, ModuleId as TurbopackModuleId,
+-        OutputChunk,
++        ChunkGroupResult, ChunkingContext, CrossOrigin, ModuleChunkItemIdExt,
++        ModuleId as TurbopackModuleId, OutputChunk,
+     },
+     module_graph::async_module_info::AsyncModulesInfo,
+     output::{OutputAsset, OutputAssets, OutputAssetsReference, OutputAssetsWithReferenced},
+@@ -253,10 +253,13 @@ async fn build_manifest(
+             ResolvedVc<Box<dyn OutputAsset>>,
+             FileSystemPath,
+         > = FxHashMap::default();
+-        let mut ssr_chunk_path_cache: FxHashMap<ResolvedVc<Box<dyn OutputAsset>>, FileSystemPath> =
+-            FxHashMap::default();
+ 
+         let mut client_reference_chunk_paths: FxHashSet<RcStr> = FxHashSet::default();
++        // Every client reference of a layout segment uses that segment's chunk group: its assets
++        // are added to `references` the first time a group is seen.
++        let mut client_groups_seen: FxHashSet<ResolvedVc<ChunkGroupResult>> = FxHashSet::default();
++        let mut ssr_groups_seen: FxHashSet<ResolvedVc<OutputAssetsWithReferenced>> =
++            FxHashSet::default();
+ 
+         for client_reference_module in client_references_ecmascript {
+             let app_client_reference_ty =
+@@ -275,54 +278,33 @@ async fn build_manifest(
+             let (client_chunks_paths, client_is_async) = if let Some(client_assets) =
+                 client_component_client_chunks.get(&app_client_reference_ty)
+             {
+-                let client_chunks = client_assets.primary_assets().await?;
+-                let client_referenced_assets = client_assets.referenced_assets().await?;
+-                references.extend(client_chunks.iter());
+-                references.extend(client_referenced_assets.iter());
+-
+-                let client_chunks_paths =
+-                    cached_chunk_paths(&mut client_chunk_path_cache, client_chunks.iter().copied())
+-                        .await?;
+-
+-                let js_chunks = client_chunks_paths
+-                    .filter_map(|(chunk, chunk_path)| {
+-                        client_relative_path
+-                            .get_path_to(&chunk_path)
+-                            .map(|path| (chunk, path.to_string()))
+-                    })
+-                    // It's possible that a chunk also emits CSS files, that will
+-                    // be handled separately.
+-                    .filter(|(_, path)| path.ends_with(".js"))
+-                    .collect::<Vec<_>>();
+-
+-                for (_, path) in &js_chunks {
+-                    client_reference_chunk_paths.insert(RcStr::from(path.as_str()));
++                let list = client_chunk_list(
++                    **client_assets,
++                    client_relative_path.clone(),
++                    prefix_path.clone(),
++                    suffix_path.clone(),
++                )
++                .await?;
++                if client_groups_seen.insert(*client_assets) {
++                    references.extend(client_assets.primary_assets().await?.iter());
++                    references.extend(client_assets.referenced_assets().await?.iter());
++                    client_reference_chunk_paths.extend(list.js_paths.iter().cloned());
+                 }
+ 
+-                let chunk_paths = js_chunks
+-                    .into_iter()
+-                    .map(async |(chunk, path)| {
+-                        let url = RcStr::from(format!(
+-                            "{}{}{}",
+-                            prefix_path,
+-                            path.split('/').map(encode_uri_component).format("/"),
+-                            suffix_path
+-                        ));
+-                        // If this is a merged chunk, emit its component chunk paths alongside the
+-                        // URL so the browser runtime can split it during navigation.
+-                        let components =
+-                            client_chunk_components(*chunk, client_relative_path.clone())
+-                                .owned()
+-                                .await?;
+-                        Ok(if components.is_empty() {
+-                            ClientChunk::Path(url)
++                let chunk_paths = list
++                    .chunks
++                    .iter()
++                    .map(|(url, components)| {
++                        // A merged chunk lists its component chunk paths alongside the URL so the
++                        // browser runtime can split it during navigation.
++                        if components.is_empty() {
++                            ClientChunk::Path(url.clone())
+                         } else {
+-                            let (paths, sizes) = components.into_iter().unzip();
+-                            ClientChunk::Merged(url, paths, sizes)
+-                        })
++                            let (paths, sizes) = components.iter().cloned().unzip();
++                            ClientChunk::Merged(url.clone(), paths, sizes)
++                        }
+                     })
+-                    .try_join()
+-                    .await?;
++                    .collect::<Vec<_>>();
+ 
+                 (chunk_paths, ids.client_is_async)
+             } else {
+@@ -339,22 +321,13 @@ async fn build_manifest(
+                 } else if let Some(ssr_assets) =
+                     client_component_ssr_chunks.get(&app_client_reference_ty)
+                 {
+-                    let ssr_chunks = ssr_assets.primary_assets().await?;
+-                    let ssr_referenced_assets = ssr_assets.referenced_assets().await?;
+-                    references.extend(ssr_chunks.iter());
+-                    references.extend(ssr_referenced_assets.iter());
+-
+-                    let ssr_chunks_paths =
+-                        cached_chunk_paths(&mut ssr_chunk_path_cache, ssr_chunks.iter().copied())
+-                            .await?;
+-                    let chunk_paths = ssr_chunks_paths
+-                        .filter_map(|(_, chunk_path)| {
+-                            node_root_ref
+-                                .get_path_to(&chunk_path)
+-                                .map(ToString::to_string)
+-                        })
+-                        .map(RcStr::from)
+-                        .collect::<Vec<_>>();
++                    if ssr_groups_seen.insert(*ssr_assets) {
++                        references.extend(ssr_assets.primary_assets().await?.iter());
++                        references.extend(ssr_assets.referenced_assets().await?.iter());
++                    }
++                    let chunk_paths = ssr_chunk_paths(**ssr_assets, node_root_ref.clone())
++                        .owned()
++                        .await?;
+ 
+                     (chunk_paths, ids.ssr_is_async)
+                 } else {
+@@ -587,6 +560,93 @@ async fn client_chunk_components(
+     Ok(Vc::cell(components))
+ }
+ 
++/// A chunk group's client chunks as a client reference manifest entry lists them: for each
++/// JavaScript chunk, its URL (the path from the client root, URI-encoded, between the asset
++/// prefix and suffix) and, for a merged chunk, its component chunks' paths and sizes; and the
++/// JavaScript chunks' unencoded paths. The client references of a layout segment all use the
++/// segment's chunk group, and pages under the same layouts share those groups, so this is a
++/// task: each list is computed once instead of once per client reference and page.
++#[turbo_tasks::value(shared)]
++struct ClientChunkList {
++    /// (URL, the component chunks' paths and sizes; empty when the chunk is not merged)
++    chunks: Vec<(RcStr, Vec<(RcStr, u64)>)>,
++    js_paths: Vec<RcStr>,
++}
++
++#[turbo_tasks::function]
++async fn client_chunk_list(
++    chunk_group: ResolvedVc<ChunkGroupResult>,
++    client_relative_path: FileSystemPath,
++    prefix_path: RcStr,
++    suffix_path: RcStr,
++) -> Result<Vc<ClientChunkList>> {
++    let chunks = chunk_group.primary_assets().await?;
++    let paths = chunks
++        .iter()
++        .map(async |chunk| Ok((*chunk, chunk.path().owned().await?)))
++        .try_join()
++        .await?;
++    let js_chunks = paths
++        .into_iter()
++        .filter_map(|(chunk, chunk_path)| {
++            client_relative_path
++                .get_path_to(&chunk_path)
++                .map(|path| (chunk, path.to_string()))
++        })
++        // It's possible that a chunk also emits CSS files, that will be handled separately.
++        .filter(|(_, path)| path.ends_with(".js"))
++        .collect::<Vec<_>>();
++    let entries = js_chunks
++        .iter()
++        .map(async |(chunk, path)| {
++            let url = RcStr::from(format!(
++                "{}{}{}",
++                prefix_path,
++                path.split('/').map(encode_uri_component).format("/"),
++                suffix_path
++            ));
++            let components = client_chunk_components(**chunk, client_relative_path.clone())
++                .owned()
++                .await?;
++            Ok((url, components))
++        })
++        .try_join()
++        .await?;
++    Ok(ClientChunkList {
++        chunks: entries,
++        js_paths: js_chunks
++            .into_iter()
++            .map(|(_, path)| RcStr::from(path))
++            .collect(),
++    }
++    .cell())
++}
++
++/// The SSR chunk paths (from the node root) of a layout segment's SSR chunks, as a client
++/// reference's SSR manifest entry lists them. A task for the same reason as
++/// [`client_chunk_list`].
++#[turbo_tasks::value(transparent)]
++struct SsrChunkPaths(Vec<RcStr>);
++
++#[turbo_tasks::function]
++async fn ssr_chunk_paths(
++    assets: ResolvedVc<OutputAssetsWithReferenced>,
++    node_root: FileSystemPath,
++) -> Result<Vc<SsrChunkPaths>> {
++    let chunks = assets.primary_assets().await?;
++    let paths = chunks
++        .iter()
++        .map(async |chunk| chunk.path().owned().await)
++        .try_join()
++        .await?;
++    Ok(Vc::cell(
++        paths
++            .iter()
++            .filter_map(|chunk_path| node_root.get_path_to(chunk_path).map(RcStr::from))
++            .collect(),
++    ))
++}
++
+ /// The parts of a client reference's manifest entries that do not depend on the page: its
+ /// server path, and its module ids for the client, SSR and RSC sides and whether each module is
+ /// async. A task, so that they are computed once per client reference instead of once per page

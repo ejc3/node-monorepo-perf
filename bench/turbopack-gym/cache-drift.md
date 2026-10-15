@@ -521,6 +521,46 @@ type). Warm `run-turbopack`, then cold `run-turbopack` / `turbopack-emit`:
 - Cold builds: `run-turbopack` 4.0 to 4.7s shorter and emit 4.2 to 4.8s shorter at every N, the
   builds of each not overlapping.
 
+## Client reference manifests: chunk lists per chunk group
+
+With 64, the largest part of a page manifest's work is its chunk lists: for every client
+reference, the URL of each JavaScript chunk of the reference's chunk group, with the component
+chunks of a merged chunk. All the client references of a layout segment use the segment's chunk
+group, and pages under the same layouts share those groups, so the same list is built once per
+reference per page.
+
+- **65 `chunk-lists-on-64`** (63, rebased onto 64): a chunk group's client chunk list and a layout
+  segment's SSR chunk paths are turbo-tasks functions, computed once per group and shared by
+  every client reference and page using it; a page adds each group's assets to its references
+  once. Same manifests, same order. 63 alone, before 64, changed little in early runs (not a
+  record): the per-page async checks of 64 were the larger cost then.
+
+`bench/turbopack-graph-drift-65-192.json` (the full stack + 64 against the same with 65, `import`
+edits, 3 reps, 192 CPUs, same output at every point). `run-turbopack` / `turbopack-emit`:
+
+| new imports | warm | warm, + 65 | cold | cold, + 65 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.2s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.emit-->1.5s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.0.warm.turbopack-->4.9s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.0.warm.emit-->1.4s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->20.7s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.emit-->6.1s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.0.cold.turbopack-->19.0s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.0.cold.emit-->4.6s<!--/v--> |
+| 1 | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->16.5s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.emit-->4.7s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1.warm.turbopack-->14.2s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1.warm.emit-->1.9s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->20.7s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.emit-->6.6s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1.cold.turbopack-->18.9s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1.cold.emit-->4.5s<!--/v--> |
+| 10 | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->19.7s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.emit-->4.2s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.10.warm.turbopack-->17.3s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.10.warm.emit-->2.0s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->21.3s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.emit-->6.6s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.10.cold.turbopack-->19.0s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.10.cold.emit-->4.6s<!--/v--> |
+| 1,000 | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->20.8s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.emit-->5.4s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.warm.turbopack-->17.5s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.warm.emit-->2.3s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->20.6s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.emit-->6.4s<!--/v--> | <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.cold.turbopack-->18.6s<!--/v--> / <!--v:dr.c65s192.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.cold.emit-->4.4s<!--/v--> |
+
+`bench/turbopack-graph-drift-65-24.json`, the same on 24 CPUs (a resumed sweep, two boots):
+
+| new imports | warm | warm, + 65 | cold | cold, + 65 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.turbopack-->5.0s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.0.warm.emit-->1.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.0.warm.turbopack-->5.1s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.0.warm.emit-->1.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.turbopack-->17.1s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.0.cold.emit-->5.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.0.cold.turbopack-->16.0s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.0.cold.emit-->4.4s<!--/v--> |
+| 1 | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.turbopack-->13.0s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1.warm.emit-->1.3s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1.warm.turbopack-->12.1s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1.warm.emit-->1.3s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.turbopack-->17.8s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1.cold.emit-->5.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1.cold.turbopack-->16.0s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1.cold.emit-->4.3s<!--/v--> |
+| 10 | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.turbopack-->16.1s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.10.warm.emit-->1.3s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.10.warm.turbopack-->14.8s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.10.warm.emit-->1.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.turbopack-->17.1s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.10.cold.emit-->5.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.10.cold.turbopack-->16.2s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.10.cold.emit-->4.4s<!--/v--> |
+| 1,000 | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.turbopack-->17.0s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.warm.emit-->1.2s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.warm.turbopack-->16.2s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.warm.emit-->1.4s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.turbopack-->17.3s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64.1000.cold.emit-->5.5s<!--/v--> | <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.cold.turbopack-->16.9s<!--/v--> / <!--v:dr.c65s24.import.15+22+41+42+52+55+56+57+59+61+64+65.1000.cold.emit-->4.5s<!--/v--> |
+
+- 192 CPUs: warm builds with new imports 2.3 to 3.3s shorter, and their emit span is back near 2s
+  (with 64 alone it was near 5s); cold builds 1.7 to 2.3s shorter. With nothing changed, the same.
+- 24 CPUs: warm builds with new imports 0.8 to 1.3s shorter, cold builds 0.4 to 1.8s shorter. A
+  warm build with nothing changed is 0.07s slower, the builds of each not overlapping.
+- At every point with new imports, and at every cold point, the builds of each binding do not
+  overlap. With nothing changed on 192 CPUs they do (65's median is lower, its range wider).
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one
