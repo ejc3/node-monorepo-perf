@@ -568,7 +568,7 @@ Turbopack's task statistics (`NEXT_TURBOPACK_TASK_STATISTICS=<file>`, which coun
 and misses per function), with two more counters per function (executions, and cell updates
 that invalidated other tasks, with how many; `bench/turbopack-gym/tools/task-exec-stats.patch`,
 a measurement patch, not a candidate). `bench/turbopack-gym/task-stats-warm1.json`: with the
-full stack + 64, a warm build of `drift-monolith` after one new import ran 164,765 to 216,484
+full stack + 64, a warm build of `drift-monolith` after one new import ran 164,472 to 176,294
 task executions in three builds, against 3,006,586 in a cold build and 14,575 in a warm build
 with nothing changed; the counts vary between builds (a task read while its input is stale runs
 again). Most of the reruns fan out from a few
@@ -576,7 +576,7 @@ whole-app values that change on every module graph rebuild:
 
 - `ChunkGroupContentInner`, the content of each chunk group, is declared `cell = "new"`: every
   rerun counts as a change, even with the same content. Every chunk group's traversal reruns
-  after any graph change (8,156 to 10,139 times), and they invalidated 16,312 to 16,908 readers.
+  after any graph change (8,156 to 8,245 times), and they invalidated 16,312 to 16,322 readers.
 - `BindingUsageInfo` holds the graph edges of the unused references as a field. Edge indices
   are assigned anew on every graph rebuild, so the value changes, and the chunking contexts'
   per-module `module_export_usage` tasks (22,758), which read it and then their module's keyed
@@ -590,7 +590,8 @@ Two candidates, in order:
   (`UnusedReferenceEdges`); graph traversals read that cell. `BindingUsageInfo` is then the same
   across rebuilds, and `module_export_usage` reruns went from 22,758 to none.
 
-With both, a warm build after one new import ran 126,184 and 138,470 tasks (two builds). Same
+With 66 a warm build after one new import ran 148,168 and 148,391 tasks (two builds), with both
+124,098 and 125,249. Same
 output in every build. What still reruns is mostly output asset lists (`OutputAssets::concatenate`,
 `all_assets`), which do change: one new import renames hundreds of content-hashed chunks.
 
