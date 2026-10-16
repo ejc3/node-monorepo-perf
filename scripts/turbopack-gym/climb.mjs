@@ -22,6 +22,7 @@ import { build, worktreeFor } from "./build.mjs";
 import {
   BINDINGS,
   CANDIDATES,
+  climbOrder,
   nativeCandidate,
   INCUMBENT,
   NEXTJS,
@@ -92,16 +93,29 @@ async function climb() {
   let inc = loadIncumbent();
   if (!existsSync(join(BINDINGS, "incumbent"))) await build("incumbent", { from: "gym/incumbent" });
 
-  const names = readdirSync(CANDIDATES)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => f.slice(0, -5))
-    .filter((n) => !o.only || o.only.split(",").includes(n))
-    .sort();
+  // a candidate written on top of others (`requires`) is evaluated after them
+  const names = climbOrder(
+    readdirSync(CANDIDATES)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => f.slice(0, -5))
+      .filter((n) => !o.only || o.only.split(",").includes(n))
+      .map((name) => ({
+        name,
+        requires: JSON.parse(readFileSync(join(CANDIDATES, `${name}.json`), "utf8")).requires,
+      })),
+  );
 
   for (const name of names) {
     const path = join(CANDIDATES, `${name}.json`);
     const cand = JSON.parse(readFileSync(path, "utf8"));
     if (cand.result && !o.only) continue;
+    // a patch written on top of other candidates applies only once they are in the incumbent;
+    // until then it stays pending (no result), instead of failing to apply
+    const missing = (cand.requires || []).filter((r) => !inc.accepted.some((a) => a.name === r));
+    if (missing.length) {
+      console.error(`[climb] ${name}: waits for ${missing.join(", ")} in the incumbent`);
+      continue;
+    }
     if (!nativeCandidate(cand)) {
       console.error(
         `[climb] ${name}: its patch changes no native source; measure it with route-stats.mjs or next-ab.mjs`,

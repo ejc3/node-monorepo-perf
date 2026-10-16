@@ -588,7 +588,9 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   - `build.mjs` (candidate binding from a next.js worktree; patches applied once, at
     creation; cargo as a killable process group), `climb.mjs` (`make gym-climb`: the
     candidate queue in `bench/turbopack-gym/candidates/`, winners folded into branch
-    `gym/incumbent`, one climb per machine), `scaling.mjs` (`make gym-scaling`: lane sizes
+    `gym/incumbent`, one climb per machine; a candidate whose JSON lists `requires`, the
+    candidates its patch is written on, is evaluated after them and stays pending until they
+    are in the incumbent), `scaling.mjs` (`make gym-scaling`: lane sizes
     one build at a time holding the box, bindings interleaved, a completion manifest in
     `sweeps.jsonl`), `profile.mjs` (`perf` on-CPU and `sched_switch` on the profiled CPUs,
     phase `--time` windows), `show.mjs` (a run's CPU timeline), `depth.mjs` (longest import

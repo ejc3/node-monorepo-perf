@@ -1222,6 +1222,53 @@ function reportWith(keys, extra = {}, args = []) {
   );
 }
 
+// --- climb order ------------------------------------------------------------------------
+{
+  const { climbOrder } = await import(LIB);
+  // 68 is written on u1 and 69 on 68: name order alone would try 68 and 69 first
+  const order = climbOrder([
+    { name: "67-x" },
+    { name: "68-y", requires: ["u1-z"] },
+    { name: "69-w", requires: ["68-y"] },
+    { name: "u1-z" },
+    { name: "70-v", requires: ["not-a-candidate"] },
+  ]);
+  check(
+    order.join() === "67-x,u1-z,68-y,69-w,70-v",
+    `climb evaluates a candidate after the ones it requires (${order.join()})`,
+  );
+  let threw = false;
+  try {
+    climbOrder([
+      { name: "a", requires: ["b"] },
+      { name: "b", requires: ["a"] },
+    ]);
+  } catch {
+    threw = true;
+  }
+  check(threw, "climb refuses candidates that require each other");
+  // the real candidates: every requirement names a candidate, and comes before it
+  const dir = new URL("../../bench/turbopack-gym/candidates/", import.meta.url).pathname;
+  const cands = readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => ({ name: f.slice(0, -5), ...JSON.parse(readFileSync(dir + f, "utf8")) }));
+  const real = climbOrder(cands);
+  check(
+    cands.every((c) =>
+      (c.requires || []).every((r) => real.includes(r) && real.indexOf(r) < real.indexOf(c.name)),
+    ),
+    "every candidate's requirement is a candidate evaluated before it",
+  );
+  // climb.mjs orders by it, and leaves a candidate pending (no result) until its requirements
+  // are in the incumbent
+  const climbSrc = readFileSync(new URL("./climb.mjs", import.meta.url), "utf8");
+  check(
+    /const names = climbOrder\(/.test(climbSrc) &&
+      /cand\.requires \|\| \[\]\)\.filter\(\(r\) => !inc\.accepted\.some/.test(climbSrc),
+    "climb.mjs evaluates in requires order and waits for a candidate's requirements",
+  );
+}
+
 // --- GYM_RUNS ---------------------------------------------------------------------------
 {
   // the run directories can live apart from GYM_ROOT (a volume that outlives the machine)

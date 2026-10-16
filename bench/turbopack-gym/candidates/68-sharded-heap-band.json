@@ -1,5 +1,8 @@
 {
   "description": "turbo-tasks PriorityRunner on top of #99773: the heap band (every priority above the lowest, which #99773 keeps behind one Mutex<BinaryHeap>) is split into workers/4 cache-padded heap shards by key hash, with a bit mask of non-empty shards in place of heap_non_empty; a pop takes the top of the better of two non-empty shards (the second via try_lock), falling back to the other set shards and then the lock-free lowest band. Below 8 workers a single shard keeps the exact order. 22's sharding, applied to the band #99773 leaves locked",
   "patch": "bench/turbopack-gym/candidates/68-sharded-heap-band.patch",
-  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability"
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability",
+  "requires": [
+    "u1-upstream-scalability"
+  ]
 }
