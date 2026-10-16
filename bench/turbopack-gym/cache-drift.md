@@ -761,11 +761,9 @@ thousands of tasks. In profiles of warm builds of `drift-monolith` after one new
 
 - **71 `parallel-batch-restore`** (on 69): a batch of at least 128 keys is split into chunks of
   at least 64, read and decoded in parallel with `turbo_tasks::parallel`, and put back in key
-  order. Its first sweep panicked at the first cold build of `drift-monolith` ("cannot enter a
-  task-local scope while the task-local storage is borrowed"): `parallel` runs some jobs on
-  the calling thread and entered the turbo-tasks context again for each, and the restore runs
-  inside `with_turbo_tasks`, which holds that context borrowed. 71 also changes
-  `turbo-tasks`' `scope_bounded` to run such a job directly when the thread is already in the
+  order. The restore runs inside `with_turbo_tasks`, which holds the thread's turbo-tasks
+  context borrowed, and `parallel` runs some of its jobs on the calling thread; 71 makes
+  `turbo-tasks`' `scope_bounded` run such a job directly when the thread is already in the
   same context. Tests: `parallel::map_collect` inside `with_turbo_tasks` (fails without the
   `scope_bounded` change); a split lookup keeps each result at its key's position (fails with
   the chunks merged in reverse); and a split lookup against a real database finds each stored

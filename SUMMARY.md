@@ -101,6 +101,11 @@ separate cost:
   With every binding change that kept the output, on 24 CPUs a cold `next build` goes from
   <!--v:dr.full24.import.base.0.cold.wall-->63.1s<!--/v--> to <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.0.cold.wall-->35.8s<!--/v--> and a warm one after one new import from <!--v:dr.full24.import.base.1.warm.wall-->74.5s<!--/v--> to
   <!--v:dr.full24.import.15+22+41+42+52+55+56+57+59+61.1.warm.wall-->28.6s<!--/v--> ([cache-drift.md](bench/turbopack-gym/cache-drift.md#everything-together)).
+  Reading and decoding the task data a warm build restores from the persistent cache in
+  parallel, instead of on the one thread starting the task (candidate 71, on upstream's
+  scalability PRs and the stack), takes a warm build's `run-turbopack` after one new import from
+  <!--v:dr.up71s24.import.u1+full67-22+69.1.warm.turbopack-->12.2s<!--/v--> to <!--v:dr.up71s24.import.u1+full67-22+71.1.warm.turbopack-->9.3s<!--/v--> on 24 CPUs and from <!--v:dr.up71s192.import.u1+full67-22+69.1.warm.turbopack-->14.4s<!--/v--> to <!--v:dr.up71s192.import.u1+full67-22+71.1.warm.turbopack-->10.9s<!--/v--> on 192, with the same output
+  ([cache-drift.md](bench/turbopack-gym/cache-drift.md#restoring-a-warm-builds-task-data-in-parallel)).
 
 Whole-repo build and typecheck amortize across a CI fleet through a remote cache (typecheck 9.9s →
 1.5s at 300:100, 24.8s → 3.9s at 1,000:200), but only for tasks an edit leaves unchanged: at
