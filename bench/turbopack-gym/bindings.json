@@ -435,5 +435,28 @@
     ],
     "diffSha256": "1851373360ce45b7",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "u1+full67-22+71": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch",
+      "71-parallel-batch-restore.patch"
+    ],
+    "diffSha256": "e33818093ac722aa",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

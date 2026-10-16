@@ -1,0 +1,9 @@
+{
+  "description": "turbo-tasks-backend: a batch restore of task data from the persistent cache (the prefetch of every task a task read, done before that task runs again) is split into chunks of at least 64 keys, which are read from the database and decoded in parallel with turbo_tasks::parallel, instead of on the one thread that starts the task. For a task over the whole module graph the batch is tens of thousands of tasks, and the cores wait on it. turbo-tasks: a parallel job that the calling thread drains no longer re-enters the turbo-tasks context it already runs in, which panicked (\"cannot enter a task-local scope while the task-local storage is borrowed\") when parallel ran inside with_turbo_tasks, as the restore does. Tests: parallel::map_collect inside with_turbo_tasks (red before the turbo-tasks fix); a split lookup keeps every result at its key's position (red with the chunks merged in reverse), and against a real database finds each stored id and only those",
+  "patch": "bench/turbopack-gym/candidates/71-parallel-batch-restore.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band + 69-heap-pick-free-shard + 15+41+42+52+55+56+57+59+61+64+65+66+67",
+  "requires": [
+    "69-heap-pick-free-shard"
+  ],
+  "climb": false
+}
