@@ -699,15 +699,14 @@ point; the 24-CPU sweep resumed across three boots). 192 CPUs:
 
 - 192 CPUs: 68 takes 1.8 to 2.9s off warm builds at 10 and 1,000 new imports against u1 + full67
   − 22 (not overlapping), about where full67 is; at one new import it is 0.9s behind full67.
-- 24 CPUs, where it makes 8 shards: 1.1s longer at 10 new imports (not overlapping), the same
-  elsewhere.
+- 24 CPUs, where it makes 8 shards: 1.1s longer at 10 new imports (not overlapping), the same elsewhere.
+- Found in review of 68: when the first of the two shards a pop compares has its lock taken, the pop still takes that shard and waits on it, even if the second is free. 69 `heap-pick-free-shard` takes the free one (with a test that fails against 68); not measured yet.
 
 `experimental.workerThreads` (page-data workers as `worker_threads` instead of child
 processes), u1 + full67 − 22, 3 builds each: `bench/turbopack-gym/worker-threads-probe.json`
 (a probe; the build output differs only in `required-server-files.json` recording the setting).
 Wall time, cold: 33.1–33.2s against 25.1–25.5s on 24 CPUs, 44.0–51.6s against 28.6–29.9s on 192.
-Warm after one new import: the same on 24 CPUs, 34.5–39.6s against 27.1–28.3s on 192.
-`run-turbopack` is unchanged: the difference is starting the page-data workers.
+Warm after one new import: the same on 24 CPUs, 34.5–39.6s against 27.1–28.3s on 192. `run-turbopack` is about the same with threads except in the warm 24-CPU builds, where it is 11.6–11.8s forked against 13.2–14.2s with threads (not overlapping) while wall time is the same; elsewhere the difference is starting the page-data workers.
 
 ## After `run-turbopack`: starting the page-data workers
 

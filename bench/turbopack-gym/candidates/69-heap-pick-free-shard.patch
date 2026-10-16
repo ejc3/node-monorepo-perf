@@ -1,0 +1,74 @@
+diff --git a/turbopack/crates/turbo-tasks/src/priority_runner.rs b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+index f64efb4dff..b14cfca81a 100644
+--- a/turbopack/crates/turbo-tasks/src/priority_runner.rs
++++ b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+@@ -297,20 +297,21 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+     }
+ 
+     /// Of two non-empty heap shards (the only one if there is one), the one whose top entry has the
+-    /// higher priority. The second shard is only looked at if its lock is free, so this never
+-    /// waits on more than nothing.
++    /// higher priority. Both are only looked at through `try_lock`, and a shard whose lock is
++    /// taken is passed over for the other, so a pop does not queue behind a busy shard while
++    /// another one is free.
+     fn pick_heap_shard(&self, mask: u64, cursor: u32) -> usize {
+         let a = nth_set_bit_from(mask, cursor, 0);
+         if mask.count_ones() == 1 {
+             return a;
+         }
+         let b = nth_set_bit_from(mask, cursor, 1 + cursor % (mask.count_ones() - 1));
+-        let (Some(heap_a), Some(heap_b)) = (self.heaps[a].try_lock(), self.heaps[b].try_lock())
+-        else {
+-            return a;
+-        };
+-        match (heap_a.peek(), heap_b.peek()) {
+-            (Some(top_a), Some(top_b)) if top_b.priority > top_a.priority => b,
++        match (self.heaps[a].try_lock(), self.heaps[b].try_lock()) {
++            (Some(heap_a), Some(heap_b)) => match (heap_a.peek(), heap_b.peek()) {
++                (Some(top_a), Some(top_b)) if top_b.priority > top_a.priority => b,
++                (None, Some(_)) => b,
++                _ => a,
++            },
+             (None, Some(_)) => b,
+             _ => a,
+         }
+@@ -1414,6 +1415,39 @@ mod tests {
+         }
+     }
+ 
++    /// A pop does not wait on a heap shard whose lock is taken while another shard has items.
++    #[test]
++    fn test_pop_passes_over_a_busy_heap_shard() {
++        let q: Queue<u32, u32> = Queue::with_heap_shards(0, 2);
++        // One item in each shard.
++        let mut keys = [None, None];
++        for key in 0..64u32 {
++            let shard = q.heap_shard_of(&key);
++            if keys[shard].is_none() {
++                keys[shard] = Some(key);
++                let _ = q.push(5, key);
++            }
++        }
++        let held = q.heaps[0].lock();
++        // Whichever shard a pop starts from, it picks the free one.
++        let mask = q.heaps_non_empty.load(Ordering::Relaxed);
++        assert_eq!(mask, 0b11);
++        for cursor in 0..64 {
++            assert_eq!(q.pick_heap_shard(mask, cursor), 1, "cursor {cursor}");
++        }
++        let (sender, receiver) = std::sync::mpsc::channel();
++        std::thread::scope(|scope| {
++            scope.spawn(|| sender.send(q.pop()).unwrap());
++            let popped = receiver.recv_timeout(Duration::from_secs(10));
++            // Let a pop that is waiting on the busy shard finish before asserting.
++            drop(held);
++            assert_eq!(
++                popped.expect("pop waited on the busy shard"),
++                Some((5, keys[1].unwrap()))
++            );
++        });
++    }
++
+     #[test]
+     fn test_nth_set_bit_from() {
+         let mask = 0b1011_0010u64; // bits 1, 4, 5, 7
