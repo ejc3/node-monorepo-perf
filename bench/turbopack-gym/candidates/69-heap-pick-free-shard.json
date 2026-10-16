@@ -1,0 +1,9 @@
+{
+  "description": "68 with its shard choice fixed: when the first of the two shards a pop compares has its lock taken and the second is free, the pop takes the second instead of returning the first and then waiting on its lock (found in review of 68). Test: with one shard held, every starting cursor picks the free one, and a pop finishes without waiting",
+  "patch": "bench/turbopack-gym/candidates/69-heap-pick-free-shard.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band",
+  "requires": [
+    "68-sharded-heap-band"
+  ],
+  "climb": false
+}

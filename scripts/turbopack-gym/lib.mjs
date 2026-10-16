@@ -389,3 +389,25 @@ export async function withCpus(choices, fn) {
     (l) => `CPUs of ${l.join(" | ")}`,
   );
 }
+
+// The order climb.mjs evaluates candidates in: a candidate whose JSON lists `requires` (names of
+// other candidates its patch is written on top of) comes after them; otherwise name order. A
+// requirement that is not a candidate is ignored here (climb.mjs then leaves it pending).
+export function climbOrder(cands) {
+  const byName = new Map(cands.map((c) => [c.name, c]));
+  const done = new Set();
+  const out = [];
+  const visit = (c, path) => {
+    if (done.has(c.name)) return;
+    if (path.has(c.name))
+      throw new Error(`candidates require each other: ${[...path, c.name].join(" -> ")}`);
+    path.add(c.name);
+    for (const r of [...(c.requires || [])].sort()) if (byName.has(r)) visit(byName.get(r), path);
+    path.delete(c.name);
+    done.add(c.name);
+    out.push(c.name);
+  };
+  for (const c of [...cands].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)))
+    visit(c, new Set());
+  return out;
+}
