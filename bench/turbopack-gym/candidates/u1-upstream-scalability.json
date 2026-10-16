@@ -1,5 +1,6 @@
 {
   "description": "Upstream: five vercel/next.js canary PRs named in vercel/next.js#100250, cherry-picked onto v16.4.0 (each applies cleanly): #99773 lock-free priority queue for lowest-priority tasks; #100146 simplify aggregation update queue control flow; #100147 don't optimize the aggregation graph during connect_child; #100165 optimize aggregated updates outside of the lock; #100187 isolate dropped entrypoint collectibles in an inner operation",
   "patch": "bench/turbopack-gym/candidates/u1-upstream-scalability.patch",
-  "base": "vercel/next.js v16.4.0"
+  "base": "vercel/next.js v16.4.0",
+  "climb": false
 }

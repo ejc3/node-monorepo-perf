@@ -4,5 +4,6 @@
   "base": "vercel/next.js v16.4.0 + u1-upstream-scalability",
   "requires": [
     "u1-upstream-scalability"
-  ]
+  ],
+  "climb": false
 }

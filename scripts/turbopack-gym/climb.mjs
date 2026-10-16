@@ -109,6 +109,12 @@ async function climb() {
     const path = join(CANDIDATES, `${name}.json`);
     const cand = JSON.parse(readFileSync(path, "utf8"));
     if (cand.result && !o.only) continue;
+    // measured outside the climb (an alternative line, e.g. upstream's PRs that replace one of
+    // the incumbent's patches): drift.mjs sweeps compare it with the stack instead
+    if (cand.climb === false) {
+      console.error(`[climb] ${name}: not a climb candidate (compared with drift.mjs)`);
+      continue;
+    }
     // a patch written on top of other candidates applies only once they are in the incumbent;
     // until then it stays pending (no result), instead of failing to apply
     const missing = (cand.requires || []).filter((r) => !inc.accepted.some((a) => a.name === r));

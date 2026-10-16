@@ -1267,6 +1267,15 @@ function reportWith(keys, extra = {}, args = []) {
       /cand\.requires \|\| \[\]\)\.filter\(\(r\) => !inc\.accepted\.some/.test(climbSrc),
     "climb.mjs evaluates in requires order and waits for a candidate's requirements",
   );
+  // u1 replaces 22's runner, so it and the candidates on it are compared with drift.mjs, not
+  // climbed onto an incumbent that has 22
+  check(
+    /if \(cand\.climb === false\)/.test(climbSrc) &&
+      ["u1-upstream-scalability", "68-sharded-heap-band", "69-heap-pick-free-shard"].every(
+        (n) => cands.find((c) => c.name === n)?.climb === false,
+      ),
+    "climb.mjs skips candidates marked climb: false, and u1, 68 and 69 are",
+  );
 }
 
 // --- GYM_RUNS ---------------------------------------------------------------------------
