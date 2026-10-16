@@ -1,0 +1,44 @@
+diff --git a/turbopack/crates/turbo-tasks/src/priority_runner.rs b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+index b14cfca..90f39db 100644
+--- a/turbopack/crates/turbo-tasks/src/priority_runner.rs
++++ b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+@@ -104,15 +104,21 @@ type HeapShard<P, K> = CachePadded<Mutex<BinaryHeap<HeapItem<P, K>>>>;
+ /// into one [`AtomicU64`].
+ const MAX_HEAP_SHARDS: usize = 64;
+ 
++/// Below this many workers the heap band stays a single heap.
++///
++/// Measured on a large app's warm builds: at 192 workers sharding saved 2-3s, while at 24 workers
++/// 8 shards made one of them 1.1s slower.
++const MIN_WORKERS_FOR_HEAP_SHARDS: usize = 64;
++
+ /// How many shards the heap band is split into for a given number of workers.
+ ///
+ /// Every push and pop of an item above the lowest priority locks the heap. In a build that is
+ /// recomputing after a change, most queued items are above the lowest priority, and with dozens of
+ /// workers one heap lock becomes the point they wait on. Sharding spreads those operations over
+-/// independent locks; with few workers a single heap is contended little and keeps the priority
++/// independent locks; with fewer workers a single heap is contended little and keeps the priority
+ /// order exact.
+ fn heap_shard_count(target_workers: usize) -> usize {
+-    if target_workers < 8 {
++    if target_workers < MIN_WORKERS_FOR_HEAP_SHARDS {
+         1
+     } else {
+         (target_workers / 4)
+@@ -1459,8 +1465,14 @@ mod tests {
+         assert_eq!(nth_set_bit_from(mask, 6, 0), 7);
+         assert_eq!(nth_set_bit_from(mask, 8, 1), 4);
+         assert_eq!(nth_set_bit_from(1 << 63, 3, 2), 63);
++    }
++
++    #[test]
++    fn test_heap_shard_count() {
+         assert_eq!(heap_shard_count(4), 1);
+-        assert_eq!(heap_shard_count(24), 8);
++        assert_eq!(heap_shard_count(24), 1);
++        assert_eq!(heap_shard_count(63), 1);
++        assert_eq!(heap_shard_count(64), 16);
+         assert_eq!(heap_shard_count(192), 64);
+     }
+ 

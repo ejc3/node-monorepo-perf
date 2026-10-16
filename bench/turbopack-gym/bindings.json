@@ -390,5 +390,50 @@
     ],
     "diffSha256": "53449387e246860a",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "u1+full67-22+69": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch"
+    ],
+    "diffSha256": "b2f6272aaeb1eee8",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "u1+full67-22+70": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "70-heap-shards-from-64-workers.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "52-striped-op-count.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch"
+    ],
+    "diffSha256": "1851373360ce45b7",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

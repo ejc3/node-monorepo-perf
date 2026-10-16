@@ -1,0 +1,9 @@
+{
+  "description": "69 with the heap band kept as one heap below 64 workers (16 shards at 64, 64 at 192 and above): 68's 8 shards at 24 workers made a warm build 1.1s slower there, while the gain was at 192. Test: the shard count for 4, 24, 63, 64 and 192 workers. Not taken: the 24-CPU loss did not repeat, and at 24 CPUs 68, 69 and 70 are within 0.9s of the unsharded heap (cache-drift.md)",
+  "patch": "bench/turbopack-gym/candidates/70-heap-shards-from-64-workers.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band + 69-heap-pick-free-shard",
+  "requires": [
+    "69-heap-pick-free-shard"
+  ],
+  "climb": false
+}
