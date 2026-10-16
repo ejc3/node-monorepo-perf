@@ -755,9 +755,9 @@ Warm after one new import: the same on 24 CPUs, 34.5–39.6s against 27.1–28.3
 
 Before a task from the persistent cache runs again, the backend prefetches the stored data of
 every task it read, in one batch: a database read per key, then a decode, both on the one
-thread that is starting the task. For a task over the whole module graph that batch is tens of
-thousands of tasks. In profiles of warm builds of `drift-monolith` after one new import (24 and
-192 CPUs, not kept), the other cores waited on these restores.
+thread that is starting the task. A task that walks the whole module graph reads at least one
+task per module it visits, so its batch has at least that many keys, and the task does not start
+until the batch is restored.
 
 - **71 `parallel-batch-restore`** (on 69): a batch of at least 128 keys is split into chunks of
   at least 64, read and decoded in parallel with `turbo_tasks::parallel`, and put back in key
