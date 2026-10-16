@@ -1,0 +1,443 @@
+diff --git a/turbopack/crates/turbo-tasks/src/priority_runner.rs b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+index 849381e30b..f64efb4dff 100644
+--- a/turbopack/crates/turbo-tasks/src/priority_runner.rs
++++ b/turbopack/crates/turbo-tasks/src/priority_runner.rs
+@@ -1,13 +1,15 @@
+ use std::{
++    cell::Cell,
+     collections::BinaryHeap,
+     fmt::Debug,
+     future::Future,
+-    hash::Hash,
++    hash::{BuildHasher, Hash},
++    ops::Deref,
+     pin::Pin,
+     ptr::drop_in_place,
+     sync::{
+         Arc,
+-        atomic::{AtomicBool, AtomicUsize, Ordering, fence},
++        atomic::{AtomicU64, AtomicUsize, Ordering, fence},
+     },
+     task::{Context, Poll},
+     time::{Duration, Instant},
+@@ -17,6 +19,8 @@ use concurrent_queue::ConcurrentQueue;
+ use parking_lot::Mutex;
+ use pin_project_lite::pin_project;
+ 
++use rustc_hash::FxBuildHasher;
++
+ use crate::FxDashMap;
+ 
+ pub trait Executor<C, T, P>: Send + Sync {
+@@ -81,14 +85,80 @@ impl<P: Ord, K> PartialOrd for HeapItem<P, K> {
+     }
+ }
+ 
++/// Aligns a value to its own cache lines so that neighbouring shards don't false-share.
++#[repr(align(128))]
++struct CachePadded<T>(T);
++
++impl<T> Deref for CachePadded<T> {
++    type Target = T;
++
++    fn deref(&self) -> &T {
++        &self.0
++    }
++}
++
++/// One shard of the heap band.
++type HeapShard<P, K> = CachePadded<Mutex<BinaryHeap<HeapItem<P, K>>>>;
++
++/// The heap band is split into at most this many shards, so that the set of non-empty shards fits
++/// into one [`AtomicU64`].
++const MAX_HEAP_SHARDS: usize = 64;
++
++/// How many shards the heap band is split into for a given number of workers.
++///
++/// Every push and pop of an item above the lowest priority locks the heap. In a build that is
++/// recomputing after a change, most queued items are above the lowest priority, and with dozens of
++/// workers one heap lock becomes the point they wait on. Sharding spreads those operations over
++/// independent locks; with few workers a single heap is contended little and keeps the priority
++/// order exact.
++fn heap_shard_count(target_workers: usize) -> usize {
++    if target_workers < 8 {
++        1
++    } else {
++        (target_workers / 4)
++            .next_power_of_two()
++            .min(MAX_HEAP_SHARDS)
++    }
++}
++
++thread_local! {
++    /// Per-thread rotating start, so that popping threads spread over the heap shards instead of
++    /// all looking at the first non-empty one.
++    static SHARD_CURSOR: Cell<u32> = const { Cell::new(u32::MAX) };
++}
++
++fn next_shard_cursor() -> u32 {
++    SHARD_CURSOR.with(|cursor| {
++        let mut value = cursor.get();
++        if value == u32::MAX {
++            // Seed each thread differently.
++            value = (FxBuildHasher.hash_one(std::thread::current().id()) >> 33) as u32;
++        }
++        cursor.set(value.wrapping_add(1));
++        value
++    })
++}
++
++/// The `n`-th set bit of `mask`, counting from bit `start` upwards and wrapping around. `mask`
++/// must not be zero.
++fn nth_set_bit_from(mask: u64, start: u32, n: u32) -> usize {
++    let rotated = mask.rotate_right(start % 64);
++    let mut rest = rotated;
++    for _ in 0..n % rotated.count_ones() {
++        rest &= rest - 1;
++    }
++    ((rest.trailing_zeros() + start) % 64) as usize
++}
++
+ /// The queue of items that are not scheduled yet.
+ ///
+ /// Items are split into two bands by priority:
+ /// - Items with the lowest priority (the bulk of the work, e.g. a from-scratch build) live in a
+ ///   lock-free MPMC `ConcurrentQueue`, so the hot push/pop path never takes a global queue mutex.
+ ///   All items in it have the same priority, so its FIFO order is the priority order.
+-/// - All other items share a `Mutex<BinaryHeap>` ordered by priority. It is always drained before
+-///   the lowest band.
++/// - All other items live in `Mutex<BinaryHeap>`s ordered by priority, one per shard, the shard
++///   chosen by the key's hash. They are always drained before the lowest band. A pop takes the top
++///   of the better of two non-empty shards, so across shards the order is approximate.
+ ///
+ /// Items are stored by value in the `claimable` map, at most one per key, and the bands only hold
+ /// their key. Pushing a key that is still queued replaces the queued item, which is then handed to
+@@ -98,27 +168,29 @@ impl<P: Ord, K> PartialOrd for HeapItem<P, K> {
+ /// item queued again with another priority. With the *same* priority it may take it early, which
+ /// only reorders equal-priority items; every queued item still executes at most once.
+ ///
+-/// Lock ordering: [`Queue::pop`] takes `claimable` shard locks while holding the `heap` mutex (to
+-/// resolve popped heap entries). Nothing takes the `heap` mutex while holding a `claimable` shard
+-/// lock: [`Queue::push`] finishes its `claimable` insert before it locks the heap, and
+-/// [`Queue::claim`] only touches `claimable`. So the order is always `heap`, then `claimable`.
++/// Lock ordering: [`Queue::pop`] takes `claimable` shard locks while holding a heap shard's mutex
++/// (to resolve popped heap entries). Nothing takes a heap mutex while holding a `claimable` shard
++/// lock: [`Queue::push`] finishes its `claimable` insert before it locks a heap, and
++/// [`Queue::claim`] only touches `claimable`. A thread holds at most one heap lock at a time
++/// (comparing two shards uses `try_lock` on the second). So the order is always a heap, then
++/// `claimable`.
+ struct Queue<P, T: Claimable> {
+     /// The lowest priority, see [`Executor::LOWEST_PRIORITY`].
+     lowest_priority: P,
+     /// The band for all items with `lowest_priority`.
+     lowest: ConcurrentQueue<T::Key>,
+-    /// The band for all items with a higher priority.
+-    heap: Mutex<BinaryHeap<HeapItem<P, T::Key>>>,
+-    /// Whether `heap` has any entry (tombstones included), so [`Queue::pop`] can skip the heap
+-    /// mutex entirely while the heap is empty, which is the common case.
++    /// The band for all items with a higher priority, in shards by key hash.
++    heaps: Box<[HeapShard<P, T::Key>]>,
++    /// One bit per heap shard that has any entry (tombstones included), so [`Queue::pop`] can skip
++    /// the heap mutexes entirely while every heap is empty, which is the common case.
+     ///
+-    /// Only written while holding the `heap` lock. A stale `true` only costs an unnecessary lock.
+-    /// A stale `false` can't hide a push that `pop` must observe: the push's `true` store is
+-    /// sequenced before the scheduler's `SeqCst` fence, and a retiring worker's re-checking `pop`
++    /// Bit `i` is only written while holding shard `i`'s lock. A stale set bit only costs an
++    /// unnecessary lock. A stale clear bit can't hide a push that `pop` must observe: the push's
++    /// bit is set before the scheduler's `SeqCst` fence, and a retiring worker's re-checking `pop`
+     /// is sequenced after its own fence (see [`PriorityRunner::schedule`]), so either that `pop`
+-    /// observes the `true` (or a later store), or the scheduler re-checks itself. `false` is only
+-    /// stored again once the heap was drained under the lock.
+-    heap_non_empty: AtomicBool,
++    /// observes the bit (or a later store), or the scheduler re-checks itself. A bit is only
++    /// cleared once its shard was drained under the lock.
++    heaps_non_empty: AtomicU64,
+     /// The queued items with their priority, by claim key. An item is removed when it is popped or
+     /// claimed, and replaced when another item with the same key is pushed.
+     ///
+@@ -131,12 +203,20 @@ struct Queue<P, T: Claimable> {
+ }
+ 
+ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
++    #[cfg(test)]
+     fn new(lowest_priority: P) -> Self {
++        Self::with_heap_shards(lowest_priority, 1)
++    }
++
++    fn with_heap_shards(lowest_priority: P, shards: usize) -> Self {
++        debug_assert!((1..=MAX_HEAP_SHARDS).contains(&shards));
+         Self {
+             lowest_priority,
+             lowest: ConcurrentQueue::unbounded(),
+-            heap: Mutex::new(BinaryHeap::with_capacity(HEAP_MIN_CAPACITY)),
+-            heap_non_empty: AtomicBool::new(false),
++            heaps: (0..shards)
++                .map(|_| CachePadded(Mutex::new(BinaryHeap::with_capacity(HEAP_MIN_CAPACITY))))
++                .collect(),
++            heaps_non_empty: AtomicU64::new(0),
+             claimable: FxDashMap::default(),
+             #[cfg(feature = "inline_execution_stats")]
+             pushes: std::sync::atomic::AtomicU64::new(0),
+@@ -147,7 +227,27 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+     /// tombstones of claimed items; popping is what cleans those up.
+     #[cfg(test)]
+     fn is_empty(&self) -> bool {
+-        self.lowest.is_empty() && self.heap.lock().is_empty()
++        self.lowest.is_empty() && self.heaps.iter().all(|heap| heap.lock().is_empty())
++    }
++
++    /// The first heap shard (the only one with fewer than 8 workers). Tests only.
++    #[cfg(test)]
++    fn heap(&self) -> &Mutex<BinaryHeap<HeapItem<P, T::Key>>> {
++        &self.heaps[0]
++    }
++
++    /// Whether any heap shard has an entry. Tests only.
++    #[cfg(test)]
++    fn heap_non_empty(&self) -> bool {
++        self.heaps_non_empty.load(Ordering::Acquire) != 0
++    }
++
++    fn heap_shard_of(&self, key: &T::Key) -> usize {
++        if self.heaps.len() == 1 {
++            0
++        } else {
++            (FxBuildHasher.hash_one(key) as usize) & (self.heaps.len() - 1)
++        }
+     }
+ 
+     /// Queues `task`. Returns the still-queued item with the same key that it replaced, if any:
+@@ -163,33 +263,29 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+             // unbounded queue: push only fails if closed, which never happens here
+             let _ = self.lowest.push(key);
+         } else {
+-            let mut heap = self.heap.lock();
++            let shard = self.heap_shard_of(&key);
++            let mut heap = self.heaps[shard].lock();
+             heap.push(HeapItem { priority, key });
+-            self.heap_non_empty.store(true, Ordering::Release);
++            self.heaps_non_empty.fetch_or(1 << shard, Ordering::Release);
+         }
+         replaced
+     }
+ 
+-    /// Pops the highest priority item, skipping tombstones. The heap mutex is only taken when the
+-    /// heap is non-empty.
++    /// Pops a highest priority item (exactly the highest with one heap shard), skipping
++    /// tombstones. A heap mutex is only taken when its shard is non-empty.
+     fn pop(&self) -> Option<(P, T)> {
+-        if self.heap_non_empty.load(Ordering::Acquire) {
+-            let mut heap = self.heap.lock();
+-            let mut popped = None;
+-            while let Some(HeapItem { priority, key }) = heap.pop() {
+-                if let Some(task) = self.take(&priority, &key) {
+-                    popped = Some((priority, task));
+-                    break;
++        let mut mask = self.heaps_non_empty.load(Ordering::Acquire);
++        if mask != 0 {
++            let cursor = next_shard_cursor();
++            let mut first = Some(self.pick_heap_shard(mask, cursor));
++            while mask != 0 {
++                let shard = first
++                    .take()
++                    .unwrap_or_else(|| nth_set_bit_from(mask, cursor, 0));
++                if let Some(popped) = self.pop_heap_shard(shard) {
++                    return Some(popped);
+                 }
+-            }
+-            if heap.is_empty() {
+-                self.heap_non_empty.store(false, Ordering::Relaxed);
+-                // The heap is expected to run empty regularly, so that is the only point where
+-                // it gives back memory, down to the initial capacity.
+-                heap.shrink_to(HEAP_MIN_CAPACITY);
+-            }
+-            if popped.is_some() {
+-                return popped;
++                mask &= !(1 << shard);
+             }
+         }
+         while let Ok(key) = self.lowest.pop() {
+@@ -200,6 +296,46 @@ impl<P: Clone + Ord, T: Claimable> Queue<P, T> {
+         None
+     }
+ 
++    /// Of two non-empty heap shards (the only one if there is one), the one whose top entry has the
++    /// higher priority. The second shard is only looked at if its lock is free, so this never
++    /// waits on more than nothing.
++    fn pick_heap_shard(&self, mask: u64, cursor: u32) -> usize {
++        let a = nth_set_bit_from(mask, cursor, 0);
++        if mask.count_ones() == 1 {
++            return a;
++        }
++        let b = nth_set_bit_from(mask, cursor, 1 + cursor % (mask.count_ones() - 1));
++        let (Some(heap_a), Some(heap_b)) = (self.heaps[a].try_lock(), self.heaps[b].try_lock())
++        else {
++            return a;
++        };
++        match (heap_a.peek(), heap_b.peek()) {
++            (Some(top_a), Some(top_b)) if top_b.priority > top_a.priority => b,
++            (None, Some(_)) => b,
++            _ => a,
++        }
++    }
++
++    /// Pops the top non-tombstone entry of one heap shard, clearing its bit once it is drained.
++    fn pop_heap_shard(&self, shard: usize) -> Option<(P, T)> {
++        let mut heap = self.heaps[shard].lock();
++        let mut popped = None;
++        while let Some(HeapItem { priority, key }) = heap.pop() {
++            if let Some(task) = self.take(&priority, &key) {
++                popped = Some((priority, task));
++                break;
++            }
++        }
++        if heap.is_empty() {
++            self.heaps_non_empty
++                .fetch_and(!(1 << shard), Ordering::Relaxed);
++            // The heap is expected to run empty regularly, so that is the only point where it
++            // gives back memory, down to the initial capacity.
++            heap.shrink_to(HEAP_MIN_CAPACITY);
++        }
++        popped
++    }
++
+     /// Resolves a popped band entry to its item, or `None` if it is a tombstone.
+     fn take(&self, priority: &P, key: &T::Key) -> Option<T> {
+         self.claimable
+@@ -249,7 +385,7 @@ impl<
+         Self {
+             executor,
+             target_workers,
+-            queue: Queue::new(E::LOWEST_PRIORITY),
++            queue: Queue::with_heap_shards(E::LOWEST_PRIORITY, heap_shard_count(target_workers)),
+             active_workers: AtomicUsize::new(0),
+             phantom: std::marker::PhantomData,
+         }
+@@ -1212,23 +1348,86 @@ mod tests {
+     #[test]
+     fn heap_only_shrinks_when_empty() {
+         let q: Queue<u32, u32> = Queue::new(0);
+-        assert!(q.heap.lock().capacity() >= 128);
++        assert!(q.heap().lock().capacity() >= 128);
+ 
+         for task in 0..1000 {
+             assert!(q.push(1, task).is_none());
+         }
+-        let grown = q.heap.lock().capacity();
++        let grown = q.heap().lock().capacity();
+         assert!(grown >= 1000);
+ 
+         // Draining most of the heap doesn't shrink it.
+         for _ in 0..990 {
+             assert!(q.pop().is_some());
+         }
+-        assert_eq!(q.heap.lock().capacity(), grown);
++        assert_eq!(q.heap().lock().capacity(), grown);
+ 
+         // Draining it completely shrinks it to 128.
+         while q.pop().is_some() {}
+-        assert_eq!(q.heap.lock().capacity(), 128);
++        assert_eq!(q.heap().lock().capacity(), 128);
++    }
++
++    /// With several heap shards, every queued item is popped exactly once, a replaced key keeps
++    /// only its newest item, and claimed items are not popped.
++    #[test]
++    fn test_sharded_heap_pops_each_item_once() {
++        let q: Queue<u32, u32> = Queue::with_heap_shards(0, 8);
++        let mut expected = std::collections::BTreeMap::new();
++        for key in 0..2000u32 {
++            let priority = 1 + key % 7;
++            assert!(q.push(priority, key).is_none());
++            expected.insert(key, priority);
++        }
++        // Replace some keys with a different priority, and claim others.
++        for key in (0..2000u32).step_by(5) {
++            let replaced = q.push(9, key).expect("still queued");
++            assert_eq!(replaced, (1 + key % 7, key));
++            expected.insert(key, 9);
++        }
++        for key in (1..2000u32).step_by(11) {
++            if key % 5 != 0 {
++                assert_eq!(q.claim(&key), Some((1 + key % 7, key)));
++                expected.remove(&key);
++            }
++        }
++        assert_ne!(q.heaps_non_empty.load(Ordering::Relaxed), 0);
++        let mut popped = std::collections::BTreeMap::new();
++        while let Some((priority, key)) = q.pop() {
++            assert!(popped.insert(key, priority).is_none(), "{key} popped twice");
++        }
++        assert_eq!(popped, expected);
++        assert!(q.is_empty());
++        assert_eq!(q.heaps_non_empty.load(Ordering::Relaxed), 0);
++    }
++
++    /// One heap shard keeps the exact priority order.
++    #[test]
++    fn test_single_heap_shard_is_exact() {
++        let q: Queue<u32, u32> = Queue::with_heap_shards(0, 1);
++        for key in 0..100u32 {
++            let _ = q.push(1 + (key * 37) % 50, key);
++        }
++        let mut last = u32::MAX;
++        while let Some((priority, _)) = q.pop() {
++            assert!(priority <= last);
++            last = priority;
++        }
++    }
++
++    #[test]
++    fn test_nth_set_bit_from() {
++        let mask = 0b1011_0010u64; // bits 1, 4, 5, 7
++        assert_eq!(nth_set_bit_from(mask, 0, 0), 1);
++        assert_eq!(nth_set_bit_from(mask, 0, 1), 4);
++        assert_eq!(nth_set_bit_from(mask, 0, 3), 7);
++        assert_eq!(nth_set_bit_from(mask, 0, 4), 1);
++        assert_eq!(nth_set_bit_from(mask, 5, 0), 5);
++        assert_eq!(nth_set_bit_from(mask, 6, 0), 7);
++        assert_eq!(nth_set_bit_from(mask, 8, 1), 4);
++        assert_eq!(nth_set_bit_from(1 << 63, 3, 2), 63);
++        assert_eq!(heap_shard_count(4), 1);
++        assert_eq!(heap_shard_count(24), 8);
++        assert_eq!(heap_shard_count(192), 64);
+     }
+ 
+     /// With an empty heap, popping does not acquire the heap mutex, but still drains the lowest
+@@ -1237,7 +1436,7 @@ mod tests {
+     fn test_empty_heap_pop_does_not_wait_for_heap_lock() {
+         let (runner, executed) = queueing_runner::<u32>();
+         runner.schedule(&executed, 1, 0);
+-        let heap_guard = runner.queue.heap.lock();
++        let heap_guard = runner.queue.heap().lock();
+         let (sender, receiver) = std::sync::mpsc::channel();
+         let popper = {
+             let runner = runner.clone();
+@@ -1263,7 +1462,7 @@ mod tests {
+     #[test]
+     fn test_heap_flag_drain_refill_with_tombstones() {
+         let (runner, executed) = queueing_runner::<u32>();
+-        let flag = || runner.queue.heap_non_empty.load(Ordering::Acquire);
++        let flag = || runner.queue.heap_non_empty();
+         assert!(!flag());
+ 
+         // Lowest-band items never touch the heap or the flag.
+@@ -1384,7 +1583,7 @@ mod tests {
+         runner.schedule(&executed, 2, 0);
+         runner.schedule(&executed, 1, 0);
+         assert_eq!(drain(&runner, &executed), vec![2, 1]);
+-        assert!(!runner.queue.heap_non_empty.load(Ordering::Acquire));
++        assert!(!runner.queue.heap_non_empty());
+     }
+ 
+     /// Claiming and queueing the same key again at the same priority: the stale entry may take the
+@@ -1513,7 +1712,7 @@ mod tests {
+         assert!(runner.pop_future_from_worker(&counts).is_none());
+         assert!(runner.queue.claimable.is_empty());
+         assert!(runner.queue.is_empty());
+-        assert!(!runner.queue.heap_non_empty.load(Ordering::Acquire));
++        assert!(!runner.queue.heap_non_empty());
+         for (id, count) in counts.iter().enumerate() {
+             let executed = count.load(Ordering::Relaxed);
+             let discarded = runner.executor.discards[id].load(Ordering::Relaxed);
