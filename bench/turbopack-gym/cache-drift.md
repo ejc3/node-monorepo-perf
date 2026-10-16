@@ -751,6 +751,52 @@ processes), u1 + full67 − 22, 3 builds each: `bench/turbopack-gym/worker-threa
 Wall time, cold: 33.1–33.2s against 25.1–25.5s on 24 CPUs, 44.0–51.6s against 28.6–29.9s on 192.
 Warm after one new import: the same on 24 CPUs, 34.5–39.6s against 27.1–28.3s on 192. `run-turbopack` is about the same with threads except in the warm 24-CPU builds, where it is 11.6–11.8s forked against 13.2–14.2s with threads (not overlapping) while wall time is the same; elsewhere the difference is starting the page-data workers.
 
+## Restoring a warm build's task data in parallel
+
+Before a task from the persistent cache runs again, the backend prefetches the stored data of
+every task it read, in one batch: a database read per key, then a decode, both on the one
+thread that is starting the task. A task that walks the whole module graph reads at least one
+task per module it visits, so its batch has at least that many keys, and the task does not start
+until the batch is restored.
+
+- **71 `parallel-batch-restore`** (on 69): a batch of at least 128 keys is split into chunks of
+  at least 64, read and decoded in parallel with `turbo_tasks::parallel`, and put back in key
+  order. The restore runs inside `with_turbo_tasks`, which holds the thread's turbo-tasks
+  context borrowed, and `parallel` runs some of its jobs on the calling thread; 71 makes
+  `turbo-tasks`' `scope_bounded` run such a job directly when the thread is already in the
+  same context. Tests: `parallel::map_collect` inside `with_turbo_tasks` (fails without the
+  `scope_bounded` change); a split lookup keeps each result at its key's position (fails with
+  the chunks merged in reverse); and a split lookup against a real database finds each stored
+  id and only those.
+
+`bench/turbopack-graph-drift-up71-192.json` and `-up71-24.json` (3 reps, same output at every
+point; each sweep resumed across two boots). 192 CPUs:
+
+| new imports | warm, + 69 | + 71 | cold, + 69 | + 71 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up71s192.import.u1+full67-22+69.0.warm.turbopack-->5.9s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.0.warm.turbopack-->4.4s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+69.0.cold.turbopack-->18.2s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.0.cold.turbopack-->18.7s<!--/v--> |
+| 1 | <!--v:dr.up71s192.import.u1+full67-22+69.1.warm.turbopack-->14.4s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.1.warm.turbopack-->10.9s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+69.1.cold.turbopack-->18.0s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.1.cold.turbopack-->18.3s<!--/v--> |
+| 10 | <!--v:dr.up71s192.import.u1+full67-22+69.10.warm.turbopack-->16.8s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.10.warm.turbopack-->12.2s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+69.10.cold.turbopack-->18.6s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.10.cold.turbopack-->18.9s<!--/v--> |
+| 1,000 | <!--v:dr.up71s192.import.u1+full67-22+69.1000.warm.turbopack-->17.7s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.1000.warm.turbopack-->16.5s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+69.1000.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.up71s192.import.u1+full67-22+71.1000.cold.turbopack-->18.6s<!--/v--> |
+
+24 CPUs:
+
+| new imports | warm, + 69 | + 71 | cold, + 69 | + 71 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up71s24.import.u1+full67-22+69.0.warm.turbopack-->4.6s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.0.warm.turbopack-->3.7s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+69.0.cold.turbopack-->16.0s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.0.cold.turbopack-->16.0s<!--/v--> |
+| 1 | <!--v:dr.up71s24.import.u1+full67-22+69.1.warm.turbopack-->12.2s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.1.warm.turbopack-->9.3s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+69.1.cold.turbopack-->16.7s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.1.cold.turbopack-->16.2s<!--/v--> |
+| 10 | <!--v:dr.up71s24.import.u1+full67-22+69.10.warm.turbopack-->14.0s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.10.warm.turbopack-->12.1s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+69.10.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.10.cold.turbopack-->16.2s<!--/v--> |
+| 1,000 | <!--v:dr.up71s24.import.u1+full67-22+69.1000.warm.turbopack-->15.9s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.1000.warm.turbopack-->14.0s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+69.1000.cold.turbopack-->16.3s<!--/v--> | <!--v:dr.up71s24.import.u1+full67-22+71.1000.cold.turbopack-->16.9s<!--/v--> |
+
+- Warm builds: 71 is shorter at every point, the builds not overlapping. On 24 CPUs by 0.9s
+  with nothing changed and 1.9 to 2.9s with new imports; on 192 CPUs by 1.5s with nothing
+  changed and 1.2 to 4.6s with new imports. After one new import a warm build's `run-turbopack`
+  goes from 12.2 to 9.3s on 24 CPUs and from 14.4 to 10.9s on 192.
+- Cold builds: within 0.6s, overlapping at every point but two on 24 CPUs: one new import, where
+  71 is 0.5s shorter, and 1,000, where it was 0.6s longer. That point again, 5 reps
+  (`bench/turbopack-graph-drift-up71c-24.json`): <!--v:dr.up71cs24.import.u1+full67-22+69.1000.cold.turbopack-->16.4s<!--/v--> and
+  <!--v:dr.up71cs24.import.u1+full67-22+71.1000.cold.turbopack-->16.5s<!--/v-->, overlapping. 71 is taken.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one

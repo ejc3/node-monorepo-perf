@@ -59,6 +59,9 @@ const DRIFT = {
   up68s192: "turbopack-graph-drift-up68-192.json",
   up70s24: "turbopack-graph-drift-up70-24.json",
   up70s192: "turbopack-graph-drift-up70-192.json",
+  up71s24: "turbopack-graph-drift-up71-24.json",
+  up71s192: "turbopack-graph-drift-up71-192.json",
+  up71cs24: "turbopack-graph-drift-up71c-24.json",
 };
 const drift = Object.fromEntries(
   Object.entries(DRIFT)
