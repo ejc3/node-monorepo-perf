@@ -623,6 +623,92 @@ three boots). `run-turbopack`, 24 CPUs:
 - 66 + 67 on 192 CPUs, warm with nothing changed: 0.4s slower, the builds not overlapping; on
   24 CPUs, the same as without. Not explained.
 
+## Upstream's scalability PRs, a sharded heap band, worker threads
+
+Five vercel/next.js canary PRs (#99773, #100146, #100147, #100165, #100187, named in
+vercel/next.js#100250) apply cleanly to v16.4.0: **u1 `upstream-scalability`**. #99773 replaces
+the priority runner's queue (a lock-free band for `TaskPriority::Initial`, everything else in one
+`Mutex<BinaryHeap>`) and conflicts with 22, so the stack on top of u1 leaves 22 out. **full67**
+is every candidate through 67.
+
+`bench/turbopack-graph-drift-up-24.json` and `-up-192.json` (`import` edits, 2 reps, same output
+at every point). 24 CPUs:
+
+| `run-turbopack` | v16.4.0 | u1 | full67 | u1 + full67 − 22 |
+|---|---|---|---|---|
+| warm, 0 | <!--v:dr.up24.import.base.0.warm.turbopack-->13.5s<!--/v--> | <!--v:dr.up24.import.u1.0.warm.turbopack-->13.3s<!--/v--> | <!--v:dr.up24.import.full67.0.warm.turbopack-->4.7s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.0.warm.turbopack-->4.7s<!--/v--> |
+| cold, 0 | <!--v:dr.up24.import.base.0.cold.turbopack-->45.5s<!--/v--> | <!--v:dr.up24.import.u1.0.cold.turbopack-->38.1s<!--/v--> | <!--v:dr.up24.import.full67.0.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.0.cold.turbopack-->16.0s<!--/v--> |
+| warm, 1 | <!--v:dr.up24.import.base.1.warm.turbopack-->41.6s<!--/v--> | <!--v:dr.up24.import.u1.1.warm.turbopack-->40.2s<!--/v--> | <!--v:dr.up24.import.full67.1.warm.turbopack-->11.1s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.1.warm.turbopack-->11.7s<!--/v--> |
+| cold, 1 | <!--v:dr.up24.import.base.1.cold.turbopack-->44.4s<!--/v--> | <!--v:dr.up24.import.u1.1.cold.turbopack-->37.9s<!--/v--> | <!--v:dr.up24.import.full67.1.cold.turbopack-->16.9s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.1.cold.turbopack-->16.1s<!--/v--> |
+| warm, 10 | <!--v:dr.up24.import.base.10.warm.turbopack-->55.2s<!--/v--> | <!--v:dr.up24.import.u1.10.warm.turbopack-->53.2s<!--/v--> | <!--v:dr.up24.import.full67.10.warm.turbopack-->14.3s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.10.warm.turbopack-->14.3s<!--/v--> |
+| cold, 10 | <!--v:dr.up24.import.base.10.cold.turbopack-->43.2s<!--/v--> | <!--v:dr.up24.import.u1.10.cold.turbopack-->38.6s<!--/v--> | <!--v:dr.up24.import.full67.10.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.10.cold.turbopack-->16.2s<!--/v--> |
+| warm, 1,000 | <!--v:dr.up24.import.base.1000.warm.turbopack-->85.1s<!--/v--> | <!--v:dr.up24.import.u1.1000.warm.turbopack-->74.1s<!--/v--> | <!--v:dr.up24.import.full67.1000.warm.turbopack-->16.6s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.1000.warm.turbopack-->16.2s<!--/v--> |
+| cold, 1,000 | <!--v:dr.up24.import.base.1000.cold.turbopack-->45.7s<!--/v--> | <!--v:dr.up24.import.u1.1000.cold.turbopack-->39.7s<!--/v--> | <!--v:dr.up24.import.full67.1000.cold.turbopack-->16.3s<!--/v--> | <!--v:dr.up24.import.u1+full67-22.1000.cold.turbopack-->16.4s<!--/v--> |
+
+192 CPUs:
+
+| `run-turbopack` | v16.4.0 | u1 | full67 | u1 + full67 − 22 |
+|---|---|---|---|---|
+| warm, 0 | <!--v:dr.up192.import.base.0.warm.turbopack-->40.3s<!--/v--> | <!--v:dr.up192.import.u1.0.warm.turbopack-->40.1s<!--/v--> | <!--v:dr.up192.import.full67.0.warm.turbopack-->5.4s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.0.warm.turbopack-->5.5s<!--/v--> |
+| cold, 0 | <!--v:dr.up192.import.base.0.cold.turbopack-->92.2s<!--/v--> | <!--v:dr.up192.import.u1.0.cold.turbopack-->49.0s<!--/v--> | <!--v:dr.up192.import.full67.0.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.0.cold.turbopack-->18.4s<!--/v--> |
+| warm, 1 | <!--v:dr.up192.import.base.1.warm.turbopack-->74.5s<!--/v--> | <!--v:dr.up192.import.u1.1.warm.turbopack-->73.3s<!--/v--> | <!--v:dr.up192.import.full67.1.warm.turbopack-->13.5s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.1.warm.turbopack-->16.5s<!--/v--> |
+| cold, 1 | <!--v:dr.up192.import.base.1.cold.turbopack-->91.9s<!--/v--> | <!--v:dr.up192.import.u1.1.cold.turbopack-->47.9s<!--/v--> | <!--v:dr.up192.import.full67.1.cold.turbopack-->20.0s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.1.cold.turbopack-->19.0s<!--/v--> |
+| warm, 10 | <!--v:dr.up192.import.base.10.warm.turbopack-->91.3s<!--/v--> | <!--v:dr.up192.import.u1.10.warm.turbopack-->87.8s<!--/v--> | <!--v:dr.up192.import.full67.10.warm.turbopack-->17.5s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.10.warm.turbopack-->18.2s<!--/v--> |
+| cold, 10 | <!--v:dr.up192.import.base.10.cold.turbopack-->91.8s<!--/v--> | <!--v:dr.up192.import.u1.10.cold.turbopack-->48.0s<!--/v--> | <!--v:dr.up192.import.full67.10.cold.turbopack-->19.3s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.10.cold.turbopack-->19.2s<!--/v--> |
+| warm, 1,000 | <!--v:dr.up192.import.base.1000.warm.turbopack-->129.6s<!--/v--> | <!--v:dr.up192.import.u1.1000.warm.turbopack-->116.2s<!--/v--> | <!--v:dr.up192.import.full67.1000.warm.turbopack-->18.1s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.1000.warm.turbopack-->20.8s<!--/v--> |
+| cold, 1,000 | <!--v:dr.up192.import.base.1000.cold.turbopack-->91.6s<!--/v--> | <!--v:dr.up192.import.u1.1000.cold.turbopack-->47.7s<!--/v--> | <!--v:dr.up192.import.full67.1000.cold.turbopack-->19.3s<!--/v--> | <!--v:dr.up192.import.u1+full67-22.1000.cold.turbopack-->19.1s<!--/v--> |
+
+- u1 alone: cold builds 4.6 to 7.4s shorter on 24 CPUs and 43 to 44s shorter on 192 (91.7–92.8s
+  against 48.4–49.6s at 0 new imports); warm builds little changed except after 1,000 new
+  imports.
+- u1 + full67 − 22 against full67: cold builds the same or slightly shorter; warm builds on 192 CPUs 0.7 to 3.0s longer, the builds not overlapping at 1, 10 and 1,000 new imports.
+
+- **68 `sharded-heap-band`** (on u1): 22's sharding applied to the band #99773 keeps locked. The
+  heap band is split into `workers/4` cache-padded heap shards by key hash (one below 8 workers),
+  with a bit mask of non-empty shards in place of `heap_non_empty`; a pop takes the top of the
+  better of two non-empty shards, the second via `try_lock`, then the other set shards, then the
+  lowest band. Tests: every item popped once across 8 shards with replacements and claims, exact
+  order with one shard; all `turbo-tasks` and `turbo-tasks-backend` tests pass.
+
+`bench/turbopack-graph-drift-up68-24.json` and `-up68-192.json` (3 reps, same output at every
+point; the 24-CPU sweep resumed across three boots). 192 CPUs:
+
+| `run-turbopack` | full67 | u1 + full67 − 22 | + 68 |
+|---|---|---|---|
+| warm, 0 | <!--v:dr.up68s192.import.full67.0.warm.turbopack-->5.9s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.0.warm.turbopack-->5.5s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.0.warm.turbopack-->5.5s<!--/v--> |
+| cold, 0 | <!--v:dr.up68s192.import.full67.0.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.0.cold.turbopack-->18.5s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.0.cold.turbopack-->18.5s<!--/v--> |
+| warm, 1 | <!--v:dr.up68s192.import.full67.1.warm.turbopack-->13.7s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.1.warm.turbopack-->16.3s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.1.warm.turbopack-->14.6s<!--/v--> |
+| cold, 1 | <!--v:dr.up68s192.import.full67.1.cold.turbopack-->18.9s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.1.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.1.cold.turbopack-->18.3s<!--/v--> |
+| warm, 10 | <!--v:dr.up68s192.import.full67.10.warm.turbopack-->16.9s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.10.warm.turbopack-->18.4s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.10.warm.turbopack-->16.6s<!--/v--> |
+| cold, 10 | <!--v:dr.up68s192.import.full67.10.cold.turbopack-->19.0s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.10.cold.turbopack-->18.1s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.10.cold.turbopack-->18.7s<!--/v--> |
+| warm, 1,000 | <!--v:dr.up68s192.import.full67.1000.warm.turbopack-->18.2s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.1000.warm.turbopack-->20.3s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.1000.warm.turbopack-->17.4s<!--/v--> |
+| cold, 1,000 | <!--v:dr.up68s192.import.full67.1000.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22.1000.cold.turbopack-->18.4s<!--/v--> | <!--v:dr.up68s192.import.u1+full67-22+68.1000.cold.turbopack-->18.6s<!--/v--> |
+
+24 CPUs:
+
+| `run-turbopack` | full67 | u1 + full67 − 22 | + 68 |
+|---|---|---|---|
+| warm, 0 | <!--v:dr.up68s24.import.full67.0.warm.turbopack-->4.7s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.0.warm.turbopack-->4.6s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.0.warm.turbopack-->4.6s<!--/v--> |
+| cold, 0 | <!--v:dr.up68s24.import.full67.0.cold.turbopack-->16.0s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.0.cold.turbopack-->16.0s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.0.cold.turbopack-->16.0s<!--/v--> |
+| warm, 1 | <!--v:dr.up68s24.import.full67.1.warm.turbopack-->11.8s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.1.warm.turbopack-->11.5s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.1.warm.turbopack-->11.1s<!--/v--> |
+| cold, 1 | <!--v:dr.up68s24.import.full67.1.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.1.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.1.cold.turbopack-->16.2s<!--/v--> |
+| warm, 10 | <!--v:dr.up68s24.import.full67.10.warm.turbopack-->13.8s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.10.warm.turbopack-->13.9s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.10.warm.turbopack-->15.0s<!--/v--> |
+| cold, 10 | <!--v:dr.up68s24.import.full67.10.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.10.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.10.cold.turbopack-->16.3s<!--/v--> |
+| warm, 1,000 | <!--v:dr.up68s24.import.full67.1000.warm.turbopack-->15.6s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.1000.warm.turbopack-->16.0s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.1000.warm.turbopack-->16.0s<!--/v--> |
+| cold, 1,000 | <!--v:dr.up68s24.import.full67.1000.cold.turbopack-->16.4s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22.1000.cold.turbopack-->16.6s<!--/v--> | <!--v:dr.up68s24.import.u1+full67-22+68.1000.cold.turbopack-->16.4s<!--/v--> |
+
+- 192 CPUs: 68 takes 1.8 to 2.9s off warm builds at 10 and 1,000 new imports against u1 + full67
+  − 22 (not overlapping), about where full67 is; at one new import it is 0.9s behind full67.
+- 24 CPUs, where it makes 8 shards: 1.1s longer at 10 new imports (not overlapping), the same
+  elsewhere.
+
+`experimental.workerThreads` (page-data workers as `worker_threads` instead of child
+processes), u1 + full67 − 22, 3 builds each: `bench/turbopack-gym/worker-threads-probe.json`
+(a probe; the build output differs only in `required-server-files.json` recording the setting).
+Wall time, cold: 33.1–33.2s against 25.1–25.5s on 24 CPUs, 44.0–51.6s against 28.6–29.9s on 192.
+Warm after one new import: the same on 24 CPUs, 34.5–39.6s against 27.1–28.3s on 192.
+`run-turbopack` is unchanged: the difference is starting the page-data workers.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one

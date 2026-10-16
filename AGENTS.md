@@ -1150,7 +1150,7 @@ counts), `-2x-24.json` (a monolith with twice the routes), `-52s-192.json` and `
 (52 on the stack), `-4142-2x.json` and `-4142.json` (41 + 42 on the stack) and
 `-full-24.json` / `-full-192.json` (base against everything), `-64-{24,192}.json`,
 `-65-{24,192}.json` and `-6667-{24,192}.json` (candidates 64, 65, and 66 / 66 + 67, each on
-the stack before it), each on a dedicated c8gd or c9gd.48xlarge named in the record. `bench/turbopack-gym/next-ab-62.json` (candidate 62) and
+the stack before it), `-up-{24,192}.json` and `-up68-{24,192}.json` (upstream's u1 and 68), each on a dedicated c8gd or c9gd.48xlarge named in the record. `bench/turbopack-gym/next-ab-62.json` (candidate 62) and
 `next-ab-node-{192,24}.json` (Node with libuv's `posix_spawn`) are whole-build A/Bs from
 `next-ab.mjs`; `cache-drift-probes.json` adds the process-start and NUMA-balancing probes. `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
@@ -1159,7 +1159,8 @@ record; the same build's time differed between them, so its sets compare only wi
 themselves); `cache-drift-probes.json` holds the operation-counter probes.
 `bench/turbopack-gym/profiles-warm1.json` (CPU profiles of one warm build each, by task function)
 and `task-stats-warm1.json` (task executions and invalidations per function, with the counters
-of `tools/task-exec-stats.patch`) come from dedicated c8gd.48xlarge instances.
+of `tools/task-exec-stats.patch`) and `worker-threads-probe.json` (`experimental.workerThreads`
+against forked page-data workers) come from dedicated c8gd.48xlarge instances.
 bench/turbopack-gym/cache-drift.md explains them.
 Nothing measured on a shared box is published: other users' processes there move the
 numbers. `make gym-canonical` re-measures the canonical two; `report.mjs --check` verifies

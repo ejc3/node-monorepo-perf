@@ -1,0 +1,210 @@
+{
+ "generator": "warm builds: one seed build of the app copy, then per rep each setting in turn (rotated) from that seed's output after one new import; cold builds: bench.mjs, the two settings alternating, 3 each",
+ "app": "drift-wt: a copy of the monolith whose next.config sets experimental.workerThreads from MONOLITH_WORKER_THREADS=1 (otherwise the monolith); page-data workers matched to the CPUs; TURBO_ENGINE_IGNORE_DIRTY=1",
+ "binding": "u1+full67-22 (bindings.json)",
+ "settings": {
+  "forked": "experimental.workerThreads false (Next.js's default: child processes)",
+  "threads": "experimental.workerThreads true (worker_threads)"
+ },
+ "output": "the two settings' outputs differ only in required-server-files.json(.js) recording the setting (checked on the quick app with one output directory; preview keys are random in every build), so each setting's output is the same across its builds",
+ "machine": {
+  "instanceType": "c8gd.48xlarge",
+  "arch": "arm64",
+  "cores": 192,
+  "node": "v22.23.3"
+ },
+ "probes": [
+  {
+   "cpus": "0-23",
+   "build": "warm, one new import",
+   "runs": [
+    {
+     "setting": "forked",
+     "rep": 0,
+     "wall": 23.444,
+     "turbopack": 11.785,
+     "output": "98cc04dc35c86c82"
+    },
+    {
+     "setting": "threads",
+     "rep": 0,
+     "wall": 23.143,
+     "turbopack": 13.731,
+     "output": "d8fcef5064e7c8af"
+    },
+    {
+     "setting": "threads",
+     "rep": 1,
+     "wall": 22.655,
+     "turbopack": 13.201,
+     "output": "d8fcef5064e7c8af"
+    },
+    {
+     "setting": "forked",
+     "rep": 1,
+     "wall": 22.741,
+     "turbopack": 11.571,
+     "output": "98cc04dc35c86c82"
+    },
+    {
+     "setting": "forked",
+     "rep": 2,
+     "wall": 22.942,
+     "turbopack": 11.55,
+     "output": "98cc04dc35c86c82"
+    },
+    {
+     "setting": "threads",
+     "rep": 2,
+     "wall": 23.643,
+     "turbopack": 14.153,
+     "output": "d8fcef5064e7c8af"
+    }
+   ]
+  },
+  {
+   "cpus": "0-191",
+   "build": "warm, one new import",
+   "runs": [
+    {
+     "setting": "forked",
+     "rep": 0,
+     "wall": 39.578,
+     "turbopack": 16.044,
+     "output": "5ab29ba631c1fbb7"
+    },
+    {
+     "setting": "threads",
+     "rep": 0,
+     "wall": 27.06,
+     "turbopack": 15.134,
+     "output": "20d148181083cee1"
+    },
+    {
+     "setting": "threads",
+     "rep": 1,
+     "wall": 28.09,
+     "turbopack": 15.98,
+     "output": "20d148181083cee1"
+    },
+    {
+     "setting": "forked",
+     "rep": 1,
+     "wall": 34.471,
+     "turbopack": 15.465,
+     "output": "5ab29ba631c1fbb7"
+    },
+    {
+     "setting": "forked",
+     "rep": 2,
+     "wall": 35.18,
+     "turbopack": 15.874,
+     "output": "5ab29ba631c1fbb7"
+    },
+    {
+     "setting": "threads",
+     "rep": 2,
+     "wall": 28.263,
+     "turbopack": 15.973,
+     "output": "20d148181083cee1"
+    }
+   ]
+  },
+  {
+   "cpus": "0-23",
+   "build": "cold",
+   "runs": [
+    {
+     "setting": "forked",
+     "wall": 33.055,
+     "turbopack": 16.112,
+     "output": "5a3b87cc3c38bf9a",
+     "id": "mvan5n9k-f8936a"
+    },
+    {
+     "setting": "threads",
+     "wall": 25.346,
+     "turbopack": 16.13,
+     "output": "da13fce1b5bf5582",
+     "id": "mvan6rqt-25e7cb"
+    },
+    {
+     "setting": "forked",
+     "wall": 33.155,
+     "turbopack": 16.029,
+     "output": "5a3b87cc3c38bf9a",
+     "id": "mvan7qa4-bb0b9d"
+    },
+    {
+     "setting": "threads",
+     "wall": 25.145,
+     "turbopack": 16.088,
+     "output": "da13fce1b5bf5582",
+     "id": "mvan8uul-435c72"
+    },
+    {
+     "setting": "forked",
+     "wall": 33.155,
+     "turbopack": 16.163,
+     "output": "5a3b87cc3c38bf9a",
+     "id": "mvan9t3f-4a754c"
+    },
+    {
+     "setting": "threads",
+     "wall": 25.546,
+     "turbopack": 16.142,
+     "output": "da13fce1b5bf5582",
+     "id": "mvanaxl2-eaec04"
+    }
+   ]
+  },
+  {
+   "cpus": "0-191",
+   "build": "cold",
+   "runs": [
+    {
+     "setting": "forked",
+     "wall": 51.606,
+     "turbopack": 18.608,
+     "output": "dc1ed24efb579c44",
+     "id": "mvaos8dn-22bbe5"
+    },
+    {
+     "setting": "threads",
+     "wall": 29.912,
+     "turbopack": 18.387,
+     "output": "d67db20ae75de8c8",
+     "id": "mvaotrd2-d0a62b"
+    },
+    {
+     "setting": "forked",
+     "wall": 44.028,
+     "turbopack": 18.746,
+     "output": "dc1ed24efb579c44",
+     "id": "mvaoutmp-91be55"
+    },
+    {
+     "setting": "threads",
+     "wall": 28.612,
+     "turbopack": 17.71,
+     "output": "d67db20ae75de8c8",
+     "id": "mvaow6rq-cf282f"
+    },
+    {
+     "setting": "forked",
+     "wall": 45.829,
+     "turbopack": 18.784,
+     "output": "dc1ed24efb579c44",
+     "id": "mvaox80h-5117b6"
+    },
+    {
+     "setting": "threads",
+     "wall": 29.492,
+     "turbopack": 18.437,
+     "output": "d67db20ae75de8c8",
+     "id": "mvaoymm0-71dcd7"
+    }
+   ]
+  }
+ ]
+}
