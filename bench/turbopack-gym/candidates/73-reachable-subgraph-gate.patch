@@ -1,0 +1,481 @@
+diff --git a/crates/next-api/src/module_graph.rs b/crates/next-api/src/module_graph.rs
+index 5d959045cb..7b60d97aaf 100644
+--- a/crates/next-api/src/module_graph.rs
++++ b/crates/next-api/src/module_graph.rs
+@@ -17,8 +17,8 @@ use rustc_hash::FxHashMap;
+ use tracing::Instrument;
+ use turbo_rcstr::{RcStr, rcstr};
+ use turbo_tasks::{
+-    CollectiblesSource, FxIndexMap, FxIndexSet, OperationVc, ResolvedVc, TryFlatJoinIterExt,
+-    TryJoinIterExt, Vc,
++    CollectiblesSource, FxIndexMap, FxIndexSet, OperationVc, ReadRef, ResolvedVc,
++    TryFlatJoinIterExt, TryJoinIterExt, Vc,
+ };
+ use turbo_tasks_fs::FileSystemPath;
+ use turbopack_core::{
+@@ -122,6 +122,19 @@ impl NextDynamicGraphs {
+     }
+ }
+ 
++/// Reads `graph` for a traversal from `entry` alone. In a whole-app layer the result depends only
++/// on the subgraph reachable from `entry`, so this depends on that subgraph's hash (a keyed read)
++/// and reads the layer untracked: a change elsewhere in the app does not run the caller again.
++/// The hash is read first, so the layer read is at least as new as the layer it was computed
++/// from.
++async fn layer_for_entry(
++    graph: ResolvedVc<ModuleGraphLayer>,
++    entry: ResolvedVc<Box<dyn Module>>,
++) -> Result<ReadRef<ModuleGraphLayer>> {
++    let _ = graph.reachable_subgraph_hashes().get(&entry).await?;
++    Ok(graph.untracked().await?)
++}
++
+ #[turbo_tasks::value(transparent)]
+ pub struct DynamicImportEntriesWithImporter(
+     pub  Vec<(
+@@ -155,7 +168,11 @@ impl NextDynamicGraph {
+         let span = tracing::info_span!("collect next/dynamic imports for endpoint");
+         async move {
+             let data = &*self.data.await?;
+-            let graph = self.graph.await?;
++            let graph = if self.is_single_page {
++                self.graph.await?
++            } else {
++                layer_for_entry(self.graph, entry).await?
++            };
+ 
+             #[derive(Clone, PartialEq, Eq)]
+             enum VisitState {
+@@ -347,7 +364,7 @@ impl ServerActionsGraph {
+                 Cow::Borrowed(data)
+             } else {
+                 // The graph contains the whole app, traverse and collect all reachable imports.
+-                let graph = self.graph.await?;
++                let graph = layer_for_entry(self.graph, entry).await?;
+ 
+                 if !graph.graphs.first().unwrap().has_entry_module(entry) {
+                     // the graph doesn't contain the entry, e.g. for the additional module graph
+@@ -547,7 +564,11 @@ impl ClientReferencesGraph {
+         let span = tracing::info_span!("collect client references for endpoint");
+         async move {
+             let data = &*self.data.await?;
+-            let graph = self.graph.await?;
++            let graph = if self.is_single_page {
++                self.graph.await?
++            } else {
++                layer_for_entry(self.graph, entry).await?
++            };
+ 
+             let entries = if !self.is_single_page {
+                 if !graph.graphs.first().unwrap().has_entry_module(entry) {
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/mod.rs b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+index 14f6cc1ac0..92041f779c 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/mod.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/mod.rs
+@@ -1006,6 +1006,54 @@ impl Deref for ModuleGraphLayer {
+     }
+ }
+ 
++#[turbo_tasks::value_impl]
++impl ModuleGraphLayer {
++    /// For every module of this layer, a hash of the subgraph reachable from it. See
++    /// [`ReachableSubgraphHashes`].
++    #[turbo_tasks::function]
++    pub async fn reachable_subgraph_hashes(self: Vc<Self>) -> Result<Vc<ReachableSubgraphHashes>> {
++        let layer = self.await?;
++        let span = tracing::info_span!("compute reachable subgraph hashes");
++        Ok(Vc::cell(
++            span.in_scope(|| layer.snapshot.reachable_subgraph_hashes())?,
++        ))
++    }
++}
++
++/// For every module of a [`ModuleGraphLayer`], a hash of what a traversal from it can see: the
++/// module, whether it is an entry, and everything reachable from it over any edge, each edge in
++/// order with its [`RefData`] and whether binding usage marks it unused. Two equal hashes mean a
++/// traversal from that module visits the same nodes over the same edges in the same order,
++/// whatever edges it filters out. A task whose result depends only on that can read its entry's
++/// hash (a keyed read, so other entries' changes do not invalidate it) and the layer untracked.
++#[turbo_tasks::value(transparent, cell = "keyed")]
++pub struct ReachableSubgraphHashes(FxHashMap<ResolvedVc<Box<dyn Module>>, u128>);
++
++/// Feeds [`Hash`] values to a 128-bit xxh3 hash. The `Hash` impls of [`ResolvedVc`], [`RefData`]
++/// and the integers do not depend on the process, so the hashes are the same in a later session
++/// for the same graph.
++struct Xxh3Hash128StdHasher(turbo_tasks_hash::Xxh3Hash128Hasher);
++
++impl std::hash::Hasher for Xxh3Hash128StdHasher {
++    fn finish(&self) -> u64 {
++        unreachable!("use finish128")
++    }
++
++    fn write(&mut self, bytes: &[u8]) {
++        turbo_tasks_hash::DeterministicHasher::write_bytes(&mut self.0, bytes);
++    }
++}
++
++impl Xxh3Hash128StdHasher {
++    fn new() -> Self {
++        Self(turbo_tasks_hash::Xxh3Hash128Hasher::new())
++    }
++
++    fn finish128(&self) -> u128 {
++        self.0.finish()
++    }
++}
++
+ #[turbo_tasks::value(transparent)]
+ pub struct ModuleGraphLayers(Vec<OperationVc<ModuleGraphLayer>>);
+ 
+@@ -1034,6 +1082,99 @@ pub struct ModuleGraphSnapshot {
+ }
+ 
+ impl ModuleGraphSnapshot {
++    /// See [`ReachableSubgraphHashes`]. Only for a layer: one graph whose visited-module nodes
++    /// are leaves.
++    fn reachable_subgraph_hashes(&self) -> Result<FxHashMap<ResolvedVc<Box<dyn Module>>, u128>> {
++        use std::hash::Hash;
++
++        let [graph] = &self.graphs[..] else {
++            bail!("reachable subgraph hashes need a single graph layer");
++        };
++        if !self.skip_visited_module_children {
++            bail!("reachable subgraph hashes need visited modules to be leaves");
++        }
++        let graph_idx = self.graph_idx_override.unwrap_or(0);
++        let g = &graph.graph.0;
++
++        // Each node's identity: its module, and whether the graph has it as a visited module.
++        let node_key = |node: NodeIndex| {
++            let mut h = Xxh3Hash128StdHasher::new();
++            match g.node_weight(node).unwrap() {
++                SingleModuleGraphNode::Module(module) => {
++                    0u8.hash(&mut h);
++                    module.hash(&mut h);
++                }
++                SingleModuleGraphNode::VisitedModule { module, .. } => {
++                    1u8.hash(&mut h);
++                    module.hash(&mut h);
++                }
++            }
++            h.finish128()
++        };
++
++        // Strongly connected components over every edge, in reverse topological order: each
++        // component comes after the components its edges lead to.
++        let sccs = petgraph::algo::kosaraju_scc(g);
++        let mut component = vec![usize::MAX; g.node_bound()];
++        for (i, scc) in sccs.iter().enumerate() {
++            for node in scc {
++                component[node.index()] = i;
++            }
++        }
++        let mut component_hash = vec![0u128; sccs.len()];
++        let mut node_hash = FxHashMap::with_capacity_and_hasher(g.node_count(), Default::default());
++        let entry_nodes = graph.entry_nodes();
++        for (i, scc) in sccs.iter().enumerate() {
++            // A component's members in an order that does not depend on node indices.
++            let mut members = scc.iter().map(|&n| (node_key(n), n)).collect::<Vec<_>>();
++            members.sort_unstable_by_key(|&(key, _)| key);
++            let position = members
++                .iter()
++                .enumerate()
++                .map(|(index, &(_, n))| (n, index))
++                .collect::<FxHashMap<_, _>>();
++
++            let mut h = Xxh3Hash128StdHasher::new();
++            members.len().hash(&mut h);
++            for &(key, node) in &members {
++                key.hash(&mut h);
++                // Edges in the order traversals visit them.
++                for edge in g.edges_directed(node, Direction::Outgoing) {
++                    edge.weight().hash(&mut h);
++                    self.unused_edges
++                        .as_ref()
++                        .is_some_and(|unused| {
++                            unused.contains(&GraphEdgeIndex::new(graph_idx, edge.id()))
++                        })
++                        .hash(&mut h);
++                    let target = edge.target();
++                    let target_component = component[target.index()];
++                    if target_component == i {
++                        0u8.hash(&mut h);
++                        position[&target].hash(&mut h);
++                    } else {
++                        if target_component > i {
++                            bail!("strongly connected components out of order");
++                        }
++                        1u8.hash(&mut h);
++                        component_hash[target_component].hash(&mut h);
++                    }
++                }
++            }
++            let hash = h.finish128();
++            component_hash[i] = hash;
++
++            for (index, &(_, node)) in members.iter().enumerate() {
++                let mut h = Xxh3Hash128StdHasher::new();
++                hash.hash(&mut h);
++                index.hash(&mut h);
++                entry_nodes.contains(&node).hash(&mut h);
++                node_hash.insert(g.node_weight(node).unwrap().module(), h.finish128());
++            }
++        }
++        Ok(node_hash)
++    }
++
+     fn get_entry(&self, entry: ResolvedVc<Box<dyn Module>>) -> Result<GraphNodeIndex> {
+         if self.graph_idx_override.is_some() {
+             debug_assert_eq!(self.graphs.len(), 1,);
+@@ -2054,7 +2195,9 @@ pub mod tests {
+     use anyhow::Result;
+     use rustc_hash::FxHashMap;
+     use turbo_rcstr::{RcStr, rcstr};
+-    use turbo_tasks::{ReadRef, ResolvedVc, TryFlatJoinIterExt, TryJoinIterExt, ValueToString, Vc};
++    use turbo_tasks::{
++        ReadRef, ResolvedVc, State, TryFlatJoinIterExt, TryJoinIterExt, ValueToString, Vc,
++    };
+     use turbo_tasks_backend::{BackendOptions, TurboTasksBackend, noop_backing_storage};
+     use turbo_tasks_fs::{FileSystem, FileSystemPath, VirtualFileSystem};
+ 
+@@ -3134,4 +3277,240 @@ pub mod tests {
+         .await
+         .unwrap();
+     }
++
++    /// A test repository whose dependencies can change: module name -> its references, in order,
++    /// each traced or not.
++    type ChangingDeps = Vec<(RcStr, Vec<(RcStr, bool)>)>;
++
++    #[turbo_tasks::value]
++    struct ChangingRepo {
++        deps: State<ChangingDeps>,
++    }
++
++    #[turbo_tasks::value]
++    struct ChangingModule {
++        root: FileSystemPath,
++        name: RcStr,
++        repo: ResolvedVc<ChangingRepo>,
++    }
++
++    #[turbo_tasks::value_impl]
++    impl ChangingModule {
++        #[turbo_tasks::function]
++        fn new(root: FileSystemPath, name: RcStr, repo: ResolvedVc<ChangingRepo>) -> Vc<Self> {
++            Self { root, name, repo }.cell()
++        }
++    }
++
++    #[turbo_tasks::value_impl]
++    impl Asset for ChangingModule {
++        #[turbo_tasks::function]
++        fn content(&self) -> Vc<AssetContent> {
++            panic!("ChangingModule::content shouldn't be called")
++        }
++    }
++
++    #[turbo_tasks::value_impl]
++    impl Module for ChangingModule {
++        #[turbo_tasks::function]
++        fn ident(&self) -> Result<Vc<AssetIdent>> {
++            Ok(AssetIdent::from_path(self.root.join(&self.name)?).into_vc())
++        }
++
++        #[turbo_tasks::function]
++        fn source(&self) -> Vc<crate::source::OptionSource> {
++            Vc::cell(None)
++        }
++
++        #[turbo_tasks::function]
++        async fn references(&self) -> Result<Vc<ModuleReferences>> {
++            let refs = {
++                let repo = self.repo.await?;
++                let deps = repo.deps.get();
++                deps.iter()
++                    .find(|(name, _)| *name == self.name)
++                    .map(|(_, refs)| refs.clone())
++                    .unwrap_or_default()
++            };
++            let references = refs
++                .into_iter()
++                .map(async |(name, traced)| {
++                    let chunking_type = if traced {
++                        ChunkingType::Traced {
++                            mode: TracedMode::Entry,
++                        }
++                    } else {
++                        ChunkingType::Parallel {
++                            inherit_async: true,
++                            hoisted: false,
++                        }
++                    };
++                    Vc::upcast::<Box<dyn ModuleReference>>(MockModuleReference::new(
++                        ResolvedVc::upcast(
++                            ChangingModule::new(self.root.clone(), name, *self.repo)
++                                .to_resolved()
++                                .await?,
++                        ),
++                        rcstr!("normal-dep"),
++                        chunking_type,
++                    ))
++                    .to_resolved()
++                    .await
++                })
++                .try_join()
++                .await?;
++            Ok(Vc::cell(references))
++        }
++
++        #[turbo_tasks::function]
++        fn side_effects(self: Vc<Self>) -> Vc<ModuleSideEffects> {
++            ModuleSideEffects::SideEffectful.cell()
++        }
++    }
++
++    /// The entries whose traversal `reachable_names` ran, in order.
++    static TRAVERSALS: std::sync::Mutex<Vec<RcStr>> = std::sync::Mutex::new(Vec::new());
++
++    /// The modules reachable from `entry` in post order, reading the layer the way a gated
++    /// per-entry query does: the entry's hash tracked, the layer untracked.
++    #[turbo_tasks::function]
++    async fn reachable_names(
++        layer: ResolvedVc<ModuleGraphLayer>,
++        entry: ResolvedVc<Box<dyn Module>>,
++    ) -> Result<Vc<Vec<RcStr>>> {
++        let _ = layer.reachable_subgraph_hashes().get(&entry).await?;
++        let layer = layer.untracked().await?;
++        let name = entry.ident().await?.path.path.clone();
++        TRAVERSALS.lock().unwrap().push(name);
++        let mut modules = Vec::new();
++        layer.traverse_nodes_dfs(
++            std::iter::once(entry),
++            &mut (),
++            |_, _| Ok(GraphTraversalAction::Continue),
++            |node, _| {
++                modules.push(node);
++                Ok(())
++            },
++        )?;
++        let names = modules
++            .iter()
++            .map(async |m| Ok(m.ident().await?.path.path.clone()))
++            .try_join()
++            .await?;
++        Ok(Vc::cell(names))
++    }
++
++    #[turbo_tasks::value]
++    struct Observed {
++        hash_a: Option<u128>,
++        hash_b: Option<u128>,
++        from_a: Vec<RcStr>,
++        from_b: Vec<RcStr>,
++    }
++
++    #[turbo_tasks::function(operation, root)]
++    async fn observe_operation(repo: ResolvedVc<ChangingRepo>) -> Result<Vc<Observed>> {
++        let fs = VirtualFileSystem::new_with_name(rcstr!("test"));
++        let root = fs.root().owned().await?;
++        let module = async |name: RcStr| -> Result<ResolvedVc<Box<dyn Module>>> {
++            Ok(ResolvedVc::upcast(
++                ChangingModule::new(root.clone(), name, *repo)
++                    .to_resolved()
++                    .await?,
++            ))
++        };
++        let a = module(rcstr!("a.js")).await?;
++        let b = module(rcstr!("b.js")).await?;
++        let graph = SingleModuleGraph::new_with_entries(
++            GraphEntries::resolved_cell(GraphEntries::new(
++                vec![ChunkGroupEntry::Entry {
++                    modules: vec![a, b],
++                    heuristics: EntryHeuristics::default(),
++                }],
++                vec![],
++            )),
++            false,
++            false,
++        );
++        let module_graph = ModuleGraph::from_graphs(vec![graph], None).connect();
++        let layers = module_graph.iter_graphs().await?;
++        let layer = layers[0].connect().to_resolved().await?;
++        let hashes = layer.reachable_subgraph_hashes().await?;
++        Ok(Observed {
++            hash_a: hashes.get(&a).copied(),
++            hash_b: hashes.get(&b).copied(),
++            from_a: reachable_names(*layer, *a).owned().await?,
++            from_b: reachable_names(*layer, *b).owned().await?,
++        }
++        .cell())
++    }
++
++    /// A traversal gated on its entry's reachable subgraph hash runs again exactly when that
++    /// subgraph changes: not for a change under another entry, and for a new edge or an edge's
++    /// chunking type under it.
++    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++    async fn test_reachable_subgraph_hashes_gate_traversals() {
++        let tt = turbo_tasks::TurboTasks::new(TurboTasksBackend::new(
++            BackendOptions::default(),
++            noop_backing_storage(),
++        ));
++        tt.run_once(async move {
++            let deps = |b: &[&str], c: &[&str], a_to_c_traced: bool| {
++                let refs = |names: &[&str]| {
++                    names
++                        .iter()
++                        .map(|n| (RcStr::from(*n), false))
++                        .collect::<Vec<_>>()
++                };
++                vec![
++                    (rcstr!("a.js"), vec![(rcstr!("c.js"), a_to_c_traced)]),
++                    (rcstr!("b.js"), refs(b)),
++                    (rcstr!("c.js"), refs(c)),
++                ]
++            };
++            let take = || std::mem::take(&mut *TRAVERSALS.lock().unwrap());
++            let names = |xs: &[&str]| xs.iter().map(|n| RcStr::from(*n)).collect::<Vec<_>>();
++
++            let repo = ChangingRepo {
++                deps: State::new(deps(&["d.js"], &[], false)),
++            }
++            .resolved_cell();
++            let first = observe_operation(repo).read_strongly_consistent().await?;
++            assert_eq!(first.from_a, names(&["c.js", "a.js"]));
++            assert_eq!(first.from_b, names(&["d.js", "b.js"]));
++            let mut ran = take();
++            ran.sort();
++            assert_eq!(ran, names(&["a.js", "b.js"]));
++
++            // A new import under b only: a's hash and traversal stay.
++            repo.await?.deps.set(deps(&["d.js", "e.js"], &[], false));
++            let second = observe_operation(repo).read_strongly_consistent().await?;
++            assert_eq!(second.hash_a, first.hash_a);
++            assert_ne!(second.hash_b, first.hash_b);
++            assert_eq!(second.from_b, names(&["d.js", "e.js", "b.js"]));
++            assert_eq!(take(), names(&["b.js"]));
++
++            // A new import under a, of a module b reaches too: only a runs again.
++            repo.await?
++                .deps
++                .set(deps(&["d.js", "e.js"], &["e.js"], false));
++            let third = observe_operation(repo).read_strongly_consistent().await?;
++            assert_ne!(third.hash_a, second.hash_a);
++            assert_eq!(third.hash_b, second.hash_b);
++            assert_eq!(third.from_a, names(&["e.js", "c.js", "a.js"]));
++            assert_eq!(take(), names(&["a.js"]));
++
++            // The edge a -> c becomes traced: the traversal no longer follows it.
++            repo.await?
++                .deps
++                .set(deps(&["d.js", "e.js"], &["e.js"], true));
++            let fourth = observe_operation(repo).read_strongly_consistent().await?;
++            assert_ne!(fourth.hash_a, third.hash_a);
++            assert_eq!(fourth.from_a, names(&["a.js"]));
++            assert_eq!(take(), names(&["a.js"]));
++            anyhow::Ok(())
++        })
++        .await
++        .unwrap();
++    }
+ }
