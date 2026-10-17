@@ -253,8 +253,12 @@ function value(key) {
       pt[k[3]]?.[mode]?.median?.[f] ?? fail(`no ${k[3]} ${mode} ${f} at N=${k[4]}`);
     if (k[6] === "over") return (at(k[5], "wall") / at(k[7], "wall")).toFixed(2);
     if (k[6] === "memPeak") {
-      const runs = pt[k[3]]?.[k[5]]?.runs ?? fail(`no ${k[3]} ${k[5]} runs at N=${k[4]}`);
-      return `${med(runs.map((r) => r.memPeakGiB)).toFixed(2)} GiB`;
+      const runs = pt[k[3]]?.[k[5]]?.runs;
+      if (!runs?.length) fail(`no ${k[3]} ${k[5]} runs at N=${k[4]}`);
+      const xs = runs.map((r) => r.memPeakGiB);
+      if (xs.some((x) => typeof x !== "number" || !Number.isFinite(x)))
+        fail(`no memPeakGiB in every ${k[3]} ${k[5]} run at N=${k[4]}`);
+      return `${med(xs).toFixed(2)} GiB`;
     }
     return `${at(k[5], k[6]).toFixed(1)}s`;
   }

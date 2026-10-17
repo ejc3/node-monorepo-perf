@@ -822,6 +822,35 @@ function reportWith(keys, extra = {}, args = []) {
     "report.mjs names a missing next-ab record",
   );
 }
+// dr.*.memPeak keys: the median of a drift point's runs' memory peaks; an error for a point
+// with no runs or a run without a peak, never NaN or a median of part of the runs.
+{
+  const rec = (runs) =>
+    JSON.stringify({
+      series: [{ edit: "import", points: [{ n: 0, b: { warm: { median: {}, runs } } }] }],
+    });
+  const f = "bench/turbopack-graph-drift-up72-24.json";
+  const ok = reportWith(["dr.up72s24.import.b.0.warm.memPeak"], {
+    [f]: rec([{ memPeakGiB: 4 }, { memPeakGiB: 5 }, { memPeakGiB: 4.5 }]),
+  });
+  check(
+    ok.status === 0 &&
+      ok.doc.includes("<!--v:dr.up72s24.import.b.0.warm.memPeak-->4.50 GiB<!--/v-->"),
+    "report.mjs renders dr.*.memPeak as the median of the runs' peaks",
+  );
+  const empty = reportWith(["dr.up72s24.import.b.0.warm.memPeak"], { [f]: rec([]) });
+  check(
+    empty.status !== 0 && empty.stderr.includes("no b warm runs"),
+    "dr.*.memPeak refuses a point with no runs",
+  );
+  const partial = reportWith(["dr.up72s24.import.b.0.warm.memPeak"], {
+    [f]: rec([{ memPeakGiB: 4 }, {}, { memPeakGiB: 5 }]),
+  });
+  check(
+    partial.status !== 0 && partial.stderr.includes("no memPeakGiB in every"),
+    "dr.*.memPeak refuses a run without a memory peak",
+  );
+}
 // cr.* keys: the median over a cache-read set's reps, a ratio of two medians, and an
 // error naming a set the record does not have.
 {
