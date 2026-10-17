@@ -1,0 +1,9 @@
+{
+  "description": "turbopack-core: ModuleGraphLayer::reachable_subgraph_hashes, a keyed map from each module of a layer to a 128-bit hash of what a traversal from it can see (the module, whether it is an entry, and every edge reachable from it in order, with its RefData and whether binding usage marks it unused; one pass over the strongly connected components in reverse topological order). next-api's per-endpoint queries over a whole-app layer (next/dynamic imports, server actions, client references) read their entry's hash keyed and the layer untracked, so after a new import only the endpoints that reach the changed subgraph traverse again. Test: with entries a and b, a new import under b leaves a's hash and traversal alone; a new import under a, and an edge under a becoming traced, run a's traversal again with the new result; the same test fails with the layer read tracked. Not taken: with new imports a warm build's run-turbopack is longer on 24 CPUs (9.4s against 10.0s after one) and no shorter on 8 or 192 (cache-drift.md). Known defect in the patch as measured: an edge into another strongly connected component is hashed by the component's hash, not the member it enters, so moving an import between members of one component does not change the importer's hash (fix: hash the target node's hash)",
+  "patch": "bench/turbopack-gym/candidates/73-reachable-subgraph-gate.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band + 69-heap-pick-free-shard + 15+41+42+52+55+56+57+59+61+64+65+66+67 + 71-parallel-batch-restore",
+  "requires": [
+    "71-parallel-batch-restore"
+  ],
+  "climb": false
+}

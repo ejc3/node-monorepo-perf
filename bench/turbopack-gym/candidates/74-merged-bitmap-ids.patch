@@ -1,0 +1,185 @@
+diff --git a/turbopack/crates/turbopack-core/src/module_graph/merged_modules.rs b/turbopack/crates/turbopack-core/src/module_graph/merged_modules.rs
+index 25f84f076e..96ec1210bf 100644
+--- a/turbopack/crates/turbopack-core/src/module_graph/merged_modules.rs
++++ b/turbopack/crates/turbopack-core/src/module_graph/merged_modules.rs
+@@ -114,9 +114,12 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
+ 
+         // For each module, the indices in the bitmap store which merge group entry modules
+         // transitively import that module. The bitmap can be treated as an opaque value, merging
+-        // all modules with the same bitmap.
+-        let mut module_merged_groups: FxHashMap<ResolvedVc<Box<dyn Module>>, RoaringBitmapWrapper> =
++        // all modules with the same bitmap. Most modules have the bitmap of the module importing
++        // them, so each distinct bitmap is stored once and modules hold its id: equal ids mean
++        // equal bitmaps.
++        let mut module_merged_groups: FxHashMap<ResolvedVc<Box<dyn Module>>, u32> =
+             FxHashMap::with_capacity_and_hasher(module_count, Default::default());
++        let mut bitmaps = BitmapInterner::default();
+         // Entries that started a new merge group for some deopt reason
+         let mut entry_modules =
+             FxHashSet::with_capacity_and_hasher(module_count, Default::default());
+@@ -193,25 +196,29 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
+ 
+                     // A hoisted reference from a mergeable module to a non-async mergeable
+                     // module, inherit bitmaps from parent.
+-                    module_merged_groups.entry(node).or_default();
+-                    let [Some(parent_merged_groups), Some(current_merged_groups)] =
+-                        module_merged_groups.get_disjoint_mut([&parent_module, &node])
++                    let Some(&parent_merged_groups) = module_merged_groups.get(&parent_module)
+                     else {
+                         // All modules are inserted in the previous iteration
+                         bail!("unreachable except for eventual consistency");
+                     };
+-
+-                    if current_merged_groups.is_empty() {
+-                        // Initial visit, clone instead of merging
+-                        *current_merged_groups = parent_merged_groups.clone();
+-                        GraphTraversalAction::Continue
+-                    } else if parent_merged_groups.is_proper_superset(current_merged_groups) {
+-                        // Add bits from parent, and continue traversal because changed
+-                        **current_merged_groups |= &**parent_merged_groups;
+-                        GraphTraversalAction::Continue
+-                    } else {
+-                        // Unchanged, no need to forward to children
+-                        GraphTraversalAction::Skip
++                    match module_merged_groups.entry(node) {
++                        Entry::Vacant(e) => {
++                            // Initial visit, take the parent's bitmap
++                            e.insert(parent_merged_groups);
++                            GraphTraversalAction::Continue
++                        }
++                        Entry::Occupied(mut e) => {
++                            let current_merged_groups = *e.get();
++                            let merged = bitmaps.union(current_merged_groups, parent_merged_groups);
++                            if merged != current_merged_groups {
++                                // Add bits from parent, and continue traversal because changed
++                                e.insert(merged);
++                                GraphTraversalAction::Continue
++                            } else {
++                                // Unchanged, no need to forward to children
++                                GraphTraversalAction::Skip
++                            }
++                        }
+                     }
+                 } else {
+                     // Either a non-hoisted reference or an incompatible parent or child module
+@@ -221,7 +228,9 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
+                         let idx = next_index;
+                         next_index += 1;
+ 
+-                        if module_merged_groups.entry(module).or_default().insert(idx) {
++                        let with_idx =
++                            bitmaps.with_bit(module_merged_groups.get(&module).copied(), idx);
++                        if module_merged_groups.insert(module, with_idx) != Some(with_idx) {
+                             // Mark and continue traversal because modified (or first visit)
+                             GraphTraversalAction::Continue
+                         } else {
+@@ -244,20 +253,9 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
+         span.record("visit_count", visit_count);
+ 
+         // Below, modules are grouped by equal bitmaps, once per chunk group and once more for the
+-        // whole graph. Hashing or comparing a bitmap costs time proportional to its size, so give
+-        // every distinct bitmap a small id once and hash and compare the ids instead.
+-        let module_merged_group_ids: FxHashMap<ResolvedVc<Box<dyn Module>>, u32> = {
+-            let mut ids: FxHashMap<&RoaringBitmapWrapper, u32> =
+-                FxHashMap::with_capacity_and_hasher(module_merged_groups.len(), Default::default());
+-            module_merged_groups
+-                .iter()
+-                .map(|(module, bitmap)| {
+-                    let next_id = ids.len() as u32;
+-                    (*module, *ids.entry(bitmap).or_insert(next_id))
+-                })
+-                .collect()
+-        };
+-        drop(module_merged_groups);
++        // whole graph: by their bitmap ids, which are equal exactly when the bitmaps are.
++        let module_merged_group_ids = module_merged_groups;
++        drop(bitmaps);
+ 
+         /// Where a module occurs: `(chunk group, list) -> entry`, the module being
+         /// `lists[chunk group][list][entry]`. A module occurs at most once in a list.
+@@ -845,3 +843,85 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
+     .instrument(span_outer)
+     .await
+ }
++
++/// Distinct bitmaps, each stored once and named by an id: equal ids mean equal bitmaps.
++#[derive(Default)]
++struct BitmapInterner {
++    bitmaps: Vec<RoaringBitmapWrapper>,
++    ids: FxHashMap<RoaringBitmapWrapper, u32>,
++    unions: FxHashMap<(u32, u32), u32>,
++}
++
++impl BitmapInterner {
++    fn intern(&mut self, bitmap: RoaringBitmapWrapper) -> u32 {
++        if let Some(&id) = self.ids.get(&bitmap) {
++            return id;
++        }
++        let id = self.bitmaps.len() as u32;
++        self.bitmaps.push(bitmap.clone());
++        self.ids.insert(bitmap, id);
++        id
++    }
++
++    /// The id of `a`'s bitmap with `b`'s bits added.
++    fn union(&mut self, a: u32, b: u32) -> u32 {
++        if a == b {
++            return a;
++        }
++        if let Some(&id) = self.unions.get(&(a, b)) {
++            return id;
++        }
++        let (bitmap_a, bitmap_b) = (&self.bitmaps[a as usize], &self.bitmaps[b as usize]);
++        let id = if bitmap_b.is_subset(bitmap_a) {
++            a
++        } else {
++            let mut union = bitmap_a.clone();
++            *union |= &**bitmap_b;
++            self.intern(union)
++        };
++        self.unions.insert((a, b), id);
++        id
++    }
++
++    /// The id of `bitmap`'s bitmap (an empty one for `None`) with `bit` set.
++    fn with_bit(&mut self, bitmap: Option<u32>, bit: u32) -> u32 {
++        let mut with_bit = bitmap
++            .map(|id| self.bitmaps[id as usize].clone())
++            .unwrap_or_default();
++        with_bit.insert(bit);
++        self.intern(with_bit)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn bits(interner: &BitmapInterner, id: u32) -> Vec<u32> {
++        interner.bitmaps[id as usize].iter().collect()
++    }
++
++    /// Ids are equal exactly when the bitmaps are, however each bitmap was built.
++    #[test]
++    fn test_bitmap_interner_ids_match_contents() {
++        let mut interner = BitmapInterner::default();
++        let a = interner.with_bit(None, 1);
++        let b = interner.with_bit(None, 2);
++        assert_ne!(a, b);
++        assert_eq!(interner.with_bit(None, 1), a);
++
++        let ab = interner.union(a, b);
++        assert_eq!(bits(&interner, ab), vec![1, 2]);
++        assert_eq!(interner.union(b, a), ab);
++        assert_eq!(interner.with_bit(Some(a), 2), ab);
++        assert_eq!(interner.with_bit(Some(b), 1), ab);
++
++        // Adding bits that are already there keeps the id.
++        assert_eq!(interner.union(ab, a), ab);
++        assert_eq!(interner.union(ab, ab), ab);
++        assert_eq!(interner.with_bit(Some(ab), 1), ab);
++        // The operands are unchanged.
++        assert_eq!(bits(&interner, a), vec![1]);
++        assert_eq!(bits(&interner, b), vec![2]);
++    }
++}

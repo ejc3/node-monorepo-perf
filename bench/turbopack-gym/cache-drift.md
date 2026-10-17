@@ -884,6 +884,58 @@ chunks that hold it; a new import also changes the module graph, and the whole-a
 over it, every chunk group's content, the output asset lists, and each changed page's client
 reference manifest and trace file run again.
 
+## Per-endpoint graph queries gated on a reachable-subgraph hash
+
+After a new import every whole-app graph layer is a new cell, and every per-endpoint query
+over it traverses again: next/dynamic imports, server actions and client references, once
+per endpoint each, beside `chunk_group_info`.
+
+- **73 `reachable-subgraph-gate`** (on 71): `ModuleGraphLayer::reachable_subgraph_hashes`
+  maps each module of a layer to a 128-bit hash of what a traversal from it can see: the
+  module, whether it is an entry, and every edge reachable from it in order, with its
+  `RefData` and whether binding usage marks it unused. It is one pass over the strongly
+  connected components in reverse topological order. The three queries read their entry's
+  hash (a keyed read) and the layer untracked, so only the endpoints that reach the changed
+  subgraph traverse again. Test: with entries a and b, a new import under b leaves a's hash
+  and traversal alone, while a new import under a, and an edge under a becoming traced, run
+  a's traversal again with the new result; the same test fails with the layer read tracked.
+
+`bench/turbopack-graph-drift-up73-{24,8,192}.json` (6 reps; the 24- and 8-CPU sweeps resumed
+across two boots) and `-up73c-{24,8,192}.json` (cold, 3 reps), the same output for both
+bindings at every point. `run-turbopack`, warm:
+
+| new imports | 24 CPUs, + 71 | + 73 | 8 CPUs, + 71 | + 73 | 192 CPUs, + 71 | + 73 |
+|---|---|---|---|---|---|---|
+| 0 | <!--v:dr.up73s24.import.u1+full67-22+71.0.warm.turbopack-->3.8s<!--/v--> | <!--v:dr.up73s24.import.u1+full67-22+71+73.0.warm.turbopack-->3.8s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71+73.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71.0.warm.turbopack-->4.5s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71+73.0.warm.turbopack-->4.5s<!--/v--> |
+| 1 | <!--v:dr.up73s24.import.u1+full67-22+71.1.warm.turbopack-->9.4s<!--/v--> | <!--v:dr.up73s24.import.u1+full67-22+71+73.1.warm.turbopack-->10.0s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71.1.warm.turbopack-->13.2s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71+73.1.warm.turbopack-->13.8s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71.1.warm.turbopack-->11.2s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71+73.1.warm.turbopack-->11.3s<!--/v--> |
+| 10 | <!--v:dr.up73s24.import.u1+full67-22+71.10.warm.turbopack-->11.8s<!--/v--> | <!--v:dr.up73s24.import.u1+full67-22+71+73.10.warm.turbopack-->12.8s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71.10.warm.turbopack-->20.2s<!--/v--> | <!--v:dr.up73s8.import.u1+full67-22+71+73.10.warm.turbopack-->20.2s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71.10.warm.turbopack-->13.0s<!--/v--> | <!--v:dr.up73s192.import.u1+full67-22+71+73.10.warm.turbopack-->12.9s<!--/v--> |
+
+Cold:
+
+| new imports | 24 CPUs, + 71 | + 73 | 8 CPUs, + 71 | + 73 | 192 CPUs, + 71 | + 73 |
+|---|---|---|---|---|---|---|
+| 0 | <!--v:dr.up73cs24.import.u1+full67-22+71.0.cold.turbopack-->16.3s<!--/v--> | <!--v:dr.up73cs24.import.u1+full67-22+71+73.0.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up73cs8.import.u1+full67-22+71.0.cold.turbopack-->29.8s<!--/v--> | <!--v:dr.up73cs8.import.u1+full67-22+71+73.0.cold.turbopack-->29.9s<!--/v--> | <!--v:dr.up73cs192.import.u1+full67-22+71.0.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up73cs192.import.u1+full67-22+71+73.0.cold.turbopack-->18.5s<!--/v--> |
+| 1 | <!--v:dr.up73cs24.import.u1+full67-22+71.1.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up73cs24.import.u1+full67-22+71+73.1.cold.turbopack-->16.5s<!--/v--> | <!--v:dr.up73cs8.import.u1+full67-22+71.1.cold.turbopack-->29.8s<!--/v--> | <!--v:dr.up73cs8.import.u1+full67-22+71+73.1.cold.turbopack-->29.8s<!--/v--> | <!--v:dr.up73cs192.import.u1+full67-22+71.1.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.up73cs192.import.u1+full67-22+71+73.1.cold.turbopack-->19.0s<!--/v--> |
+
+- With new imports on 24 CPUs 73 is longer: after one, <!--v:dr.up73s24.import.u1+full67-22+71.1.warm.turbopack-->9.4s<!--/v--> against <!--v:dr.up73s24.import.u1+full67-22+71+73.1.warm.turbopack-->10.0s<!--/v-->, the builds not
+  overlapping; after 10, <!--v:dr.up73s24.import.u1+full67-22+71.10.warm.turbopack-->11.8s<!--/v--> against <!--v:dr.up73s24.import.u1+full67-22+71+73.10.warm.turbopack-->12.8s<!--/v-->, overlapping in one build each. Most of it is
+  before emit (<!--v:dr.up73s24.import.u1+full67-22+71.1.warm.preEmit-->6.3s<!--/v--> against <!--v:dr.up73s24.import.u1+full67-22+71+73.1.warm.preEmit-->6.9s<!--/v--> after one new import).
+- On 8 CPUs, where the CPU time the gate saves should matter most, 73 is no shorter (after
+  one new import <!--v:dr.up73s8.import.u1+full67-22+71.1.warm.turbopack-->13.2s<!--/v--> against <!--v:dr.up73s8.import.u1+full67-22+71+73.1.warm.turbopack-->13.8s<!--/v-->, overlapping; after 10 the same). On 192
+  CPUs it is the same within 0.1s with new imports, as expected for traversals that run
+  beside the serial chain there.
+- Cold builds and warm builds with nothing changed: the same within 0.3s.
+- 73 is not taken. Most likely the hash pass, one thread over the whole layer, sits in front
+  of every gated query, and the endpoints that reach a changed feature module are most of
+  them, so the traversals run again anyway. Not profiled: how many endpoints a new import
+  reruns, and how long the hash pass takes.
+- A defect in the patch as measured: an edge into another strongly connected component is
+  hashed by that component's hash, not by the member it enters. An import moved from one
+  member of a component to another, with the same `RefData`, leaves the importer's hash
+  unchanged, while a traversal from the importer can see a different order or, with edges
+  filtered, different modules, so a gated query could keep a stale result. Hashing the
+  target node's own hash instead fixes it; the measured patch is kept as it ran.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one
