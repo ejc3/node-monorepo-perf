@@ -62,6 +62,12 @@ const DRIFT = {
   up71s24: "turbopack-graph-drift-up71-24.json",
   up71s192: "turbopack-graph-drift-up71-192.json",
   up71cs24: "turbopack-graph-drift-up71c-24.json",
+  up72s24: "turbopack-graph-drift-up72-24.json",
+  up72s192: "turbopack-graph-drift-up72-192.json",
+  up72rs24: "turbopack-graph-drift-up72r-24.json",
+  up72rs192: "turbopack-graph-drift-up72r-192.json",
+  up72cs24: "turbopack-graph-drift-up72c-24.json",
+  lab72s24: "turbopack-graph-drift-lab72-24.json",
 };
 const drift = Object.fromEntries(
   Object.entries(DRIFT)
@@ -165,9 +171,11 @@ function scalingTable() {
 //   sc.<binding>.<lo>-<hi>.<graph|cores|sys|tp|entry>        range over points lo..hi
 //   ratio.sc.<b1>.<b2>.<cores>.graph  scaling graph ratio b2/b1 at a size (2 decimals)
 //   machine                           instance, CPUs, NUMA nodes, memory, node
-//   dr.<rec>.<edit>.<binding>.<N>.<mode>.<wall|turbopack|emit|preEmit|lowCoreS>
+//   dr.<rec>.<edit>.<binding>.<N>.<mode>.<wall|turbopack|emit|preEmit|afterCompile|lowCoreS>
 //                                     drift median (seconds, 1 decimal); rec names a drift
 //                                     record (DRIFT), mode warm|cold|off
+//   dr.<rec>.<edit>.<binding>.<N>.<mode>.memPeak  median of the runs' memory peaks (GiB,
+//                                     2 decimals)
 //   dr.<rec>.<edit>.<binding>.<N>.<mode>.over.<mode2>  ratio of the two modes' wall medians
 //   cr.<set>.<binding>.<mode>.<N>.<turbopack|wall>  cache-read probe median over its reps
 //                                     (seconds, 1 decimal); set names a cache-read-probes.json
@@ -244,6 +252,10 @@ function value(key) {
     const at = (mode, f) =>
       pt[k[3]]?.[mode]?.median?.[f] ?? fail(`no ${k[3]} ${mode} ${f} at N=${k[4]}`);
     if (k[6] === "over") return (at(k[5], "wall") / at(k[7], "wall")).toFixed(2);
+    if (k[6] === "memPeak") {
+      const runs = pt[k[3]]?.[k[5]]?.runs ?? fail(`no ${k[3]} ${k[5]} runs at N=${k[4]}`);
+      return `${med(runs.map((r) => r.memPeakGiB)).toFixed(2)} GiB`;
+    }
     return `${at(k[5], k[6]).toFixed(1)}s`;
   }
   if (k[0] === "ab" || k[0] in AB_RECORDS) {
