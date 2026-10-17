@@ -797,6 +797,93 @@ point; each sweep resumed across two boots). 192 CPUs:
   (`bench/turbopack-graph-drift-up71c-24.json`): <!--v:dr.up71cs24.import.u1+full67-22+69.1000.cold.turbopack-->16.4s<!--/v--> and
   <!--v:dr.up71cs24.import.u1+full67-22+71.1000.cold.turbopack-->16.5s<!--/v-->, overlapping. 71 is taken.
 
+## A warm build's writes: the content restored with the write task
+
+A warm build applies every write again: which writes have been applied is kept in memory
+only, so after a restart each one is captured and compared with the file on disk.
+`WriteEffect::capture` reads the file's persisted content untracked. Before 72 that content
+was the cell of a task of its own (`FileContent::persist()`). Nothing tracked it, so no
+prefetch restored it, and `capture` restored each one as it read it: a database read and a
+decode per written file, in turn, on the one task that takes the effects.
+
+- **72 `write-content-own-cell`** (on 71): `DiskFileSystem::write` cells the persisted
+  content in the write task itself. The task that takes the effects reads each write task's
+  effect cell, so its prefetch restores the write tasks with their cells, content included,
+  in 71's parallel batch. Test: two sessions on one persistent database, 20 files; between
+  the sessions 10 of them are deleted from disk; the second session restores the write
+  operation without running it again, applies its effects, and every file has its content.
+
+`bench/turbopack-graph-drift-up72-24.json` and `-up72-192.json` (3 reps, same output at every
+point; the 24-CPU sweep resumed across two boots). `run-turbopack`, 24 CPUs:
+
+| new imports | warm, + 71 | + 72 | cold, + 71 | + 72 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up72s24.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.0.warm.turbopack-->2.4s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71.0.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.0.cold.turbopack-->16.0s<!--/v--> |
+| 1 | <!--v:dr.up72s24.import.u1+full67-22+71.1.warm.turbopack-->9.2s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.1.warm.turbopack-->8.9s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71.1.cold.turbopack-->16.8s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.1.cold.turbopack-->16.0s<!--/v--> |
+| 10 | <!--v:dr.up72s24.import.u1+full67-22+71.10.warm.turbopack-->11.7s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.10.warm.turbopack-->11.0s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71.10.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.10.cold.turbopack-->16.2s<!--/v--> |
+| 1,000 | <!--v:dr.up72s24.import.u1+full67-22+71.1000.warm.turbopack-->14.3s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.1000.warm.turbopack-->13.9s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71.1000.cold.turbopack-->16.4s<!--/v--> | <!--v:dr.up72s24.import.u1+full67-22+71+72.1000.cold.turbopack-->17.0s<!--/v--> |
+
+192 CPUs:
+
+| new imports | warm, + 71 | + 72 | cold, + 71 | + 72 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up72s192.import.u1+full67-22+71.0.warm.turbopack-->4.4s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.0.warm.turbopack-->3.1s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71.0.cold.turbopack-->18.4s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.0.cold.turbopack-->18.3s<!--/v--> |
+| 1 | <!--v:dr.up72s192.import.u1+full67-22+71.1.warm.turbopack-->11.9s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.1.warm.turbopack-->9.7s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71.1.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.1.cold.turbopack-->18.7s<!--/v--> |
+| 10 | <!--v:dr.up72s192.import.u1+full67-22+71.10.warm.turbopack-->12.9s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.10.warm.turbopack-->12.4s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71.10.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.10.cold.turbopack-->18.7s<!--/v--> |
+| 1,000 | <!--v:dr.up72s192.import.u1+full67-22+71.1000.warm.turbopack-->15.6s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.1000.warm.turbopack-->15.5s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71.1000.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.up72s192.import.u1+full67-22+71+72.1000.cold.turbopack-->18.9s<!--/v--> |
+
+The warm points with 0 to 10 new imports again, 6 reps (`-up72r-24.json`, `-up72r-192.json`):
+
+| new imports | 24 CPUs, + 71 | + 72 | 192 CPUs, + 71 | + 72 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up72rs24.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up72rs24.import.u1+full67-22+71+72.0.warm.turbopack-->2.4s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71.0.warm.turbopack-->4.3s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71+72.0.warm.turbopack-->3.1s<!--/v--> |
+| 1 | <!--v:dr.up72rs24.import.u1+full67-22+71.1.warm.turbopack-->9.8s<!--/v--> | <!--v:dr.up72rs24.import.u1+full67-22+71+72.1.warm.turbopack-->8.7s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71.1.warm.turbopack-->11.2s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71+72.1.warm.turbopack-->9.6s<!--/v--> |
+| 10 | <!--v:dr.up72rs24.import.u1+full67-22+71.10.warm.turbopack-->11.4s<!--/v--> | <!--v:dr.up72rs24.import.u1+full67-22+71+72.10.warm.turbopack-->11.5s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71.10.warm.turbopack-->13.3s<!--/v--> | <!--v:dr.up72rs192.import.u1+full67-22+71+72.10.warm.turbopack-->12.0s<!--/v--> |
+
+- Warm with nothing changed: emit goes from <!--v:dr.up72rs24.import.u1+full67-22+71.0.warm.emit-->1.3s<!--/v--> to <!--v:dr.up72rs24.import.u1+full67-22+71+72.0.warm.emit-->0.1s<!--/v--> on 24 CPUs, and
+  `run-turbopack` is 1.3s shorter on 24 and 192 CPUs, the builds not overlapping in either
+  sweep.
+- Warm with new imports: shorter at every point in the 3-rep sweep, by 0.1 to 2.2s, the
+  builds not overlapping on 24 CPUs at 10 new imports and on 192 CPUs at one. In the 6-rep
+  sweep shorter by up to 1.6s, the builds not overlapping only on 192 CPUs at 10 new
+  imports; on 24 CPUs at 10 the two are the same (<!--v:dr.up72rs24.import.u1+full67-22+71.10.warm.turbopack-->11.4s<!--/v--> and <!--v:dr.up72rs24.import.u1+full67-22+71+72.10.warm.turbopack-->11.5s<!--/v-->).
+- Cold builds: the same within 0.3s, except on 24 CPUs: after one new import 72 was 0.8s
+  shorter, and at 1,000 new imports 0.7s longer, the builds overlapping at neither point.
+  The 1,000-import point again, 6 reps (`-up72c-24.json`, resumed across two boots):
+  <!--v:dr.up72cs24.import.u1+full67-22+71.1000.cold.turbopack-->16.5s<!--/v--> and <!--v:dr.up72cs24.import.u1+full67-22+71+72.1000.cold.turbopack-->16.5s<!--/v-->, overlapping.
+- After `run-turbopack`, warm with nothing changed, 72's builds take longer. On 24 CPUs, 6
+  reps: <!--v:dr.up72rs24.import.u1+full67-22+71.0.warm.afterCompile-->8.7s<!--/v--> against <!--v:dr.up72rs24.import.u1+full67-22+71+72.0.warm.afterCompile-->9.7s<!--/v-->, not overlapping. On 192 CPUs five of 72's six
+  builds are in the slow mode (about 21 to 24s), and none of 71's: <!--v:dr.up72rs192.import.u1+full67-22+71.0.warm.afterCompile-->12.7s<!--/v--> against
+  <!--v:dr.up72rs192.import.u1+full67-22+71+72.0.warm.afterCompile-->22.2s<!--/v-->, and the whole build <!--v:dr.up72rs192.import.u1+full67-22+71.0.warm.wall-->18.7s<!--/v--> against <!--v:dr.up72rs192.import.u1+full67-22+71+72.0.warm.wall-->26.9s<!--/v-->. The sweep rotates the
+  order the bindings build in with every build, so each binding builds first in half of a
+  point's reps; the longer times are not tied to the order. The slow mode is not 72's
+  alone: after one new import on 192 CPUs it is 71's time that is longer
+  (<!--v:dr.up72rs192.import.u1+full67-22+71.1.warm.afterCompile-->24.2s<!--/v--> against <!--v:dr.up72rs192.import.u1+full67-22+71+72.1.warm.afterCompile-->19.8s<!--/v-->).
+- The machine's peak memory in a warm build with nothing changed, 24 CPUs, 6 reps:
+  <!--v:dr.up72rs24.import.u1+full67-22+71.0.warm.memPeak-->3.93 GiB<!--/v--> with 71 and <!--v:dr.up72rs24.import.u1+full67-22+71+72.0.warm.memPeak-->4.88 GiB<!--/v--> with 72. All six of 72's builds are near 4.9 GiB, and one of
+  71's. About 1 GiB is the size of the output that the writes hold (the `server` and
+  `static` directories). A probe of the main process's anonymous resident memory, on a
+  32-CPU slice of another machine (not a record), finds the same two modes: 1.84 GiB in both
+  of 71's builds, and with 72 1.9 GiB in five builds out of seven and 2.3 and 3.0 GiB in the
+  other two (in the one of those two whose memory was sampled over time, it was taken late in
+  the build). Starting the page-data workers costs
+  more the more memory the main process has mapped (see the next section), so 72's longer
+  time after `run-turbopack` is most likely this memory: with 72 the write tasks, which the
+  task taking the effects reads, keep each written file's content, and before 72 that
+  content was in tasks of its own that nothing tracked.
+- 72 is not taken. The 1.2 to 1.3s it saves in `run-turbopack` is mostly spent again after
+  it on 24 CPUs (the whole build <!--v:dr.up72rs24.import.u1+full67-22+71.0.warm.wall-->14.0s<!--/v--> against <!--v:dr.up72rs24.import.u1+full67-22+71+72.0.warm.wall-->13.7s<!--/v-->, and <!--v:dr.up72s24.import.u1+full67-22+71.0.warm.wall-->13.9s<!--/v--> against <!--v:dr.up72s24.import.u1+full67-22+71+72.0.warm.wall-->14.4s<!--/v--> in the
+  3-rep sweep) and more than spent on 192, and it adds 1 GiB to a warm build. Restoring the
+  content tasks in parallel while keeping them separate from the write tasks is not tried.
+
+One new import against one string edit. `bench/turbopack-graph-drift-lab72-24.json` (72, the
+`label` edit, 24 CPUs, 3 reps): `run-turbopack` <!--v:dr.lab72s24.label.u1+full67-22+71+72.0.warm.turbopack-->2.4s<!--/v--> with nothing changed,
+<!--v:dr.lab72s24.label.u1+full67-22+71+72.1.warm.turbopack-->2.9s<!--/v--> after one edit and <!--v:dr.lab72s24.label.u1+full67-22+71+72.10.warm.turbopack-->4.1s<!--/v--> after 10, against <!--v:dr.up72rs24.import.u1+full67-22+71+72.1.warm.turbopack-->8.7s<!--/v--> and
+<!--v:dr.up72rs24.import.u1+full67-22+71+72.10.warm.turbopack-->11.5s<!--/v--> after 1 and 10 new imports. A string edit changes the module's code and the
+chunks that hold it; a new import also changes the module graph, and the whole-app analyses
+over it, every chunk group's content, the output asset lists, and each changed page's client
+reference manifest and trace file run again.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one

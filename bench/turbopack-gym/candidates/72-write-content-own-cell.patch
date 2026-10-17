@@ -1,0 +1,121 @@
+diff --git a/turbopack/crates/turbo-tasks-fs/src/disk.rs b/turbopack/crates/turbo-tasks-fs/src/disk.rs
+index ef4188db92..9343478e76 100644
+--- a/turbopack/crates/turbo-tasks-fs/src/disk.rs
++++ b/turbopack/crates/turbo-tasks-fs/src/disk.rs
+@@ -1194,8 +1194,17 @@ impl FileSystem for DiskFileSystem {
+         // content is available in the persistent cache (via PersistedFileContent) and does not
+         // require recomputing the content on cache restore — avoiding unnecessary downstream
+         // recomputation.
+-        let content = content.persist().to_resolved().await?;
+-        let content_hash = hash_xxh3_hash128(&*content.await?);
++        //
++        // The persisted content is a cell of this task rather than of a separate task: the task
++        // that takes the effects reads the effect cell of this task, so restoring the cache for
++        // it restores this task with its cells, in one batch with every other write. A separate
++        // task would be restored one at a time by `capture`'s untracked read.
++        let content = match &*content.await? {
++            FileContent::Content(file) => PersistedFileContent::Content(file.clone()),
++            FileContent::NotFound => PersistedFileContent::NotFound,
++        };
++        let content_hash = hash_xxh3_hash128(&content);
++        let content = content.resolved_cell();
+ 
+         #[turbo_tasks::value(eq = "manual", cell = "new")]
+         struct WriteEffect {
+@@ -1822,6 +1831,96 @@ mod tests {
+         Ok(())
+     }
+ 
++    static WRITE_FILES_RUNS: std::sync::atomic::AtomicUsize =
++        std::sync::atomic::AtomicUsize::new(0);
++
++    #[turbo_tasks::function(operation, root)]
++    async fn write_files_operation(root: RcStr, files: Vec<(RcStr, RcStr)>) -> anyhow::Result<()> {
++        WRITE_FILES_RUNS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++        let fs = DiskFileSystem::new(rcstr!("test"), Vc::cell(root));
++        let root_path = fs.root().await?;
++        for (name, contents) in files {
++            root_path
++                .join(&name)?
++                .write(FileContent::Content(File::from(contents)).cell())
++                .await?;
++        }
++        Ok(())
++    }
++
++    fn open_persistent_tt(db: &Path) -> Arc<turbo_tasks::TurboTasks<TurboTasksBackend>> {
++        turbo_tasks::TurboTasks::new(TurboTasksBackend::new(
++            BackendOptions {
++                storage_mode: Some(turbo_tasks_backend::StorageMode::ReadWriteOnShutdown),
++                ..Default::default()
++            },
++            turbo_tasks_backend::turbo_backing_storage(
++                db,
++                &turbo_tasks_backend::GitVersionInfo {
++                    describe: "test-unversioned",
++                    dirty: false,
++                },
++                turbo_tasks_backend::BackingStorageOptions {
++                    is_short_session: true,
++                    skip_compaction: true,
++                    ..Default::default()
++                },
++            )
++            .unwrap()
++            .0,
++        ))
++    }
++
++    /// A session restored from the persistent cache applies the writes of tasks it does not run
++    /// again with the content they persisted: here, to files deleted between the sessions.
++    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++    async fn test_write_after_restore_from_persistent_cache() {
++        let out = tempfile::tempdir().unwrap();
++        let db = tempfile::tempdir().unwrap();
++        let root: RcStr = out.path().to_str().unwrap().into();
++        let files: Vec<(RcStr, RcStr)> = (0..20)
++            .map(|i| {
++                (
++                    format!("dir/file{i}.txt").into(),
++                    format!("content {i}").into(),
++                )
++            })
++            .collect();
++
++        for session in 0..2 {
++            if session == 1 {
++                for (name, _) in &files[..10] {
++                    std::fs::remove_file(out.path().join(name.as_str())).unwrap();
++                }
++            }
++            let tt = open_persistent_tt(db.path());
++            let (session_root, session_files) = (root.clone(), files.clone());
++            tt.run_once(async move {
++                turbo_tasks::read_strongly_consistent_and_apply_effects(
++                    extract_effects_operation(write_files_operation(session_root, session_files)),
++                    |e| e,
++                )
++                .await
++            })
++            .await
++            .unwrap();
++            tt.stop_and_wait().await;
++            // the second session restores the writes from the cache instead of running them
++            assert_eq!(
++                WRITE_FILES_RUNS.load(std::sync::atomic::Ordering::SeqCst),
++                1,
++                "session {session}"
++            );
++            for (name, contents) in &files {
++                assert_eq!(
++                    std::fs::read_to_string(out.path().join(name.as_str())).unwrap(),
++                    contents.as_str(),
++                    "session {session}: {name}"
++                );
++            }
++        }
++    }
++
+     #[cfg(test)]
+     mod symlink_tests {
+         use std::{
