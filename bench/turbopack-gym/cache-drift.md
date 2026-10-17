@@ -887,9 +887,8 @@ reference manifest and trace file run again.
 ## Per-endpoint graph queries gated on a reachable-subgraph hash
 
 After a new import every whole-app graph layer is a new cell, and every per-endpoint query
-over it traverses again: next/dynamic imports, server actions and client references, about
-990 endpoints each. In a 24-CPU profile of a warm build with one new import these traversals
-took 9.6 CPU-s of the build's 104, at 15 to 23 busy cores, beside `chunk_group_info`.
+over it traverses again: next/dynamic imports, server actions and client references, once
+per endpoint each, beside `chunk_group_info`.
 
 - **73 `reachable-subgraph-gate`** (on 71): `ModuleGraphLayer::reachable_subgraph_hashes`
   maps each module of a layer to a 128-bit hash of what a traversal from it can see: the
@@ -930,6 +929,12 @@ Cold:
   of every gated query, and the endpoints that reach a changed feature module are most of
   them, so the traversals run again anyway. Not profiled: how many endpoints a new import
   reruns, and how long the hash pass takes.
+- A defect in the patch as measured: an edge into another strongly connected component is
+  hashed by that component's hash, not by the member it enters. An import moved from one
+  member of a component to another, with the same `RefData`, leaves the importer's hash
+  unchanged, while a traversal from the importer can see a different order or, with edges
+  filtered, different modules, so a gated query could keep a stale result. Hashing the
+  target node's own hash instead fixes it; the measured patch is kept as it ran.
 
 ## After `run-turbopack`: starting the page-data workers
 
