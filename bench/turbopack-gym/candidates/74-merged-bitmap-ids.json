@@ -1,0 +1,9 @@
+{
+  "description": "turbopack-core: compute_merged_modules' fixed point keeps one copy of each distinct bitmap and gives every module the id of its bitmap (BitmapInterner, with the union of two ids memoized), instead of a RoaringBitmap per module cloned from its importer. The traversal, its order and the union semantics are unchanged; the later grouping already compared bitmaps only for equality, through ids it computed by hashing every module's bitmap, which the interned ids now are. Test: interned ids are equal exactly when the bitmaps are, however each was built; the turbopack-tests snapshots (132, scope hoisting included) are unchanged",
+  "patch": "bench/turbopack-gym/candidates/74-merged-bitmap-ids.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band + 69-heap-pick-free-shard + 15+41+42+52+55+56+57+59+61+64+65+66+67 + 71-parallel-batch-restore",
+  "requires": [
+    "71-parallel-batch-restore"
+  ],
+  "climb": false
+}
