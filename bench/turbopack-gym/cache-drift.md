@@ -936,6 +936,47 @@ Cold:
   filtered, different modules, so a gated query could keep a stale result. Hashing the
   target node's own hash instead fixes it; the measured patch is kept as it ran.
 
+## Merged-module bitmaps interned
+
+`compute_merged_modules` (scope hoisting) runs again after every new import and in every cold
+build. Its first step is a fixed point over the whole graph that gives each module a bitmap of
+the merge groups that reach it, one `RoaringBitmap` per module cloned from its importer; most
+modules have their importer's bitmap exactly.
+
+- **74 `merged-bitmap-ids`** (on 71): the fixed point keeps one copy of each distinct bitmap and
+  gives every module the id of its bitmap, with the union of two ids memoized. The traversal,
+  its order and the union semantics are unchanged. The later grouping already compared bitmaps
+  only for equality, through ids it computed by hashing every module's bitmap; the interned ids
+  now are those ids. Test: interned ids are equal exactly when the bitmaps are, however each was
+  built; the turbopack-tests snapshots (scope hoisting included) are unchanged.
+
+`bench/turbopack-graph-drift-up74-{24,192}.json` (6 reps) and `-up74c-{24,192}.json` (cold, 3
+reps), the same output for both bindings at every point. `run-turbopack`, warm:
+
+| new imports | 24 CPUs, + 71 | + 74 | 192 CPUs, + 71 | + 74 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up74s24.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up74s24.import.u1+full67-22+71+74.0.warm.turbopack-->3.7s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71.0.warm.turbopack-->4.1s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71+74.0.warm.turbopack-->4.2s<!--/v--> |
+| 1 | <!--v:dr.up74s24.import.u1+full67-22+71.1.warm.turbopack-->9.6s<!--/v--> | <!--v:dr.up74s24.import.u1+full67-22+71+74.1.warm.turbopack-->9.5s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71.1.warm.turbopack-->10.8s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71+74.1.warm.turbopack-->10.4s<!--/v--> |
+| 10 | <!--v:dr.up74s24.import.u1+full67-22+71.10.warm.turbopack-->11.7s<!--/v--> | <!--v:dr.up74s24.import.u1+full67-22+71+74.10.warm.turbopack-->11.6s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71.10.warm.turbopack-->12.6s<!--/v--> | <!--v:dr.up74s192.import.u1+full67-22+71+74.10.warm.turbopack-->12.5s<!--/v--> |
+
+Cold:
+
+| new imports | 24 CPUs, + 71 | + 74 | 192 CPUs, + 71 | + 74 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up74cs24.import.u1+full67-22+71.0.cold.turbopack-->16.4s<!--/v--> | <!--v:dr.up74cs24.import.u1+full67-22+71+74.0.cold.turbopack-->16.4s<!--/v--> | <!--v:dr.up74cs192.import.u1+full67-22+71.0.cold.turbopack-->18.3s<!--/v--> | <!--v:dr.up74cs192.import.u1+full67-22+71+74.0.cold.turbopack-->18.6s<!--/v--> |
+| 1 | <!--v:dr.up74cs24.import.u1+full67-22+71.1.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up74cs24.import.u1+full67-22+71+74.1.cold.turbopack-->16.3s<!--/v--> | <!--v:dr.up74cs192.import.u1+full67-22+71.1.cold.turbopack-->19.1s<!--/v--> | <!--v:dr.up74cs192.import.u1+full67-22+71+74.1.cold.turbopack-->18.6s<!--/v--> |
+
+- On 24 CPUs with new imports 74 is shorter by less than the spread between builds: after one,
+  <!--v:dr.up74s24.import.u1+full67-22+71.1.warm.turbopack-->9.6s<!--/v--> against <!--v:dr.up74s24.import.u1+full67-22+71+74.1.warm.turbopack-->9.5s<!--/v-->, and before emit <!--v:dr.up74s24.import.u1+full67-22+71.1.warm.preEmit-->6.6s<!--/v--> against
+  <!--v:dr.up74s24.import.u1+full67-22+71+74.1.warm.preEmit-->6.3s<!--/v-->; after 10, <!--v:dr.up74s24.import.u1+full67-22+71.10.warm.turbopack-->11.7s<!--/v--> against <!--v:dr.up74s24.import.u1+full67-22+71+74.10.warm.turbopack-->11.6s<!--/v-->. The builds overlap at both points.
+- On 192 CPUs with new imports, and cold after one, the builds overlap too. Two points do not
+  overlap, both with 74 longer: cold with nothing changed on 192 CPUs (<!--v:dr.up74cs192.import.u1+full67-22+71.0.cold.turbopack-->18.3s<!--/v--> against
+  <!--v:dr.up74cs192.import.u1+full67-22+71+74.0.cold.turbopack-->18.6s<!--/v-->), and warm with nothing changed on 24 CPUs (<!--v:dr.up74s24.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> against <!--v:dr.up74s24.import.u1+full67-22+71+74.0.warm.turbopack-->3.7s<!--/v-->), where
+  the merged modules come from the cache and 74's code does not run.
+- 74 is not taken: whatever it saves is below what these sweeps can resolve. Not profiled: how
+  long the fixed point takes with 74, so whether the clones were the cost of that step is not
+  known.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one
