@@ -1,0 +1,118 @@
+{
+  "generator": "perf record -e cpu-clock -F 999 --call-graph=fp on the build's CPUs over one build; tokio worker samples whose call stack has a take_effects frame (all of them under next-api's take_effects of the entrypoints operation); cpuS = those samples / 999; firstS/lastS = the first and last such sample, in seconds after the build's first worker sample; threads = distinct worker threads among them; lockShare = the share of them with a lock or scheduler frame (lock_task_and_optional_reader, lock_exclusive_slow, lock_slow, unlock_exclusive_slow, futex, _raw_spin_unlock_irqrestore, __schedule, finish_task_switch, sched_yield) among their 12 innermost frames",
+  "build": "drift-monolith. warm: the unedited app's cold build output (cache included) restored, then one feature module edited to add a new import, built with the same binding; cold: no .next. Page-data workers matched to the CPUs; TURBO_ENGINE_IGNORE_DIRTY=1",
+  "bindingBuild": "next-napi-bindings from vercel/next.js v16.4.0 plus the named candidates' patches, cargo --release, LTO off, 16 codegen units, RUSTFLAGS -Cforce-frame-pointers=yes (otherwise the same build as the bindings.json entry of the name without -fp)",
+  "machine": {
+    "instanceType": "c8gd.48xlarge",
+    "arch": "arm64",
+    "cores": 192
+  },
+  "note": "profiles: where CPU went in one build each, not timing comparisons",
+  "profiles": [
+    {
+      "build": "warm",
+      "binding": "u1+full67-22+71-fp",
+      "cpus": "0-23",
+      "output": "53ff3715f0721c5e",
+      "workerCpuS": 99.5,
+      "takeEffects": {
+        "cpuS": 1.044,
+        "firstS": 6.88,
+        "lastS": 7.92,
+        "spanS": 1.04,
+        "threads": 1,
+        "lockShare": 0.314
+      }
+    },
+    {
+      "build": "warm",
+      "binding": "u1+full67-22+71-fp",
+      "cpus": "0-23",
+      "output": "53ff3715f0721c5e",
+      "workerCpuS": 100.26,
+      "takeEffects": {
+        "cpuS": 1.039,
+        "firstS": 7.94,
+        "lastS": 8.98,
+        "spanS": 1.04,
+        "threads": 1,
+        "lockShare": 0.321
+      }
+    },
+    {
+      "build": "warm",
+      "binding": "u1+full67-22+71+75-fp",
+      "cpus": "0-23",
+      "output": "53ff3715f0721c5e",
+      "workerCpuS": 108.02,
+      "takeEffects": {
+        "cpuS": 1.622,
+        "firstS": 8.41,
+        "lastS": 8.6,
+        "spanS": 0.19,
+        "threads": 24,
+        "lockShare": 0.51
+      }
+    },
+    {
+      "build": "warm",
+      "binding": "u1+full67-22+71+75-fp",
+      "cpus": "0-23",
+      "output": "53ff3715f0721c5e",
+      "workerCpuS": 104.21,
+      "takeEffects": {
+        "cpuS": 1.632,
+        "firstS": 7.2,
+        "lastS": 7.61,
+        "spanS": 0.41,
+        "threads": 24,
+        "lockShare": 0.502
+      }
+    },
+    {
+      "build": "cold",
+      "binding": "u1+full67-22+71-fp",
+      "cpus": "0-191",
+      "output": "30e7fdbe1ae0cf9f",
+      "workerCpuS": 992.78,
+      "takeEffects": {
+        "cpuS": 0.178,
+        "firstS": 17.05,
+        "lastS": 17.23,
+        "spanS": 0.18,
+        "threads": 1,
+        "lockShare": 0.354
+      }
+    },
+    {
+      "build": "cold",
+      "binding": "u1+full67-22+71+75-fp",
+      "cpus": "0-191",
+      "output": "30e7fdbe1ae0cf9f",
+      "workerCpuS": 1034.25,
+      "takeEffects": {
+        "cpuS": 1.337,
+        "firstS": 17.07,
+        "lastS": 17.84,
+        "spanS": 0.77,
+        "threads": 192,
+        "lockShare": 0.786
+      }
+    },
+    {
+      "build": "cold",
+      "binding": "u1+full67-22+71+75b-fp",
+      "cpus": "0-191",
+      "output": "30e7fdbe1ae0cf9f",
+      "workerCpuS": 1036.3,
+      "takeEffects": {
+        "cpuS": 1.393,
+        "firstS": 16.9,
+        "lastS": 17.13,
+        "spanS": 0.24,
+        "threads": 192,
+        "lockShare": 0.858
+      }
+    }
+  ]
+}

@@ -1153,14 +1153,15 @@ counts), `-2x-24.json` (a monolith with twice the routes), `-52s-192.json` and `
 (52 on the stack), `-4142-2x.json` and `-4142.json` (41 + 42 on the stack) and
 `-full-24.json` / `-full-192.json` (base against everything), `-64-{24,192}.json`,
 `-65-{24,192}.json` and `-6667-{24,192}.json` (candidates 64, 65, and 66 / 66 + 67, each on
-the stack before it), `-up-{24,192}.json`, `-up68-{24,192}.json`, `-up70-{24,192}.json`, `-up71-{24,192}.json`, `-up71c-24.json`, `-up72-{24,192}.json`, `-up72r-{24,192}.json`, `-up72c-24.json`, `-lab72-24.json`, `-up73-{24,8,192}.json`, `-up73c-{24,8,192}.json`, `-up74-{24,192}.json` and `-up74c-{24,192}.json` (upstream's u1, and candidates 68, 69, 70, 71, 72, 73 and 74 on it), each on a dedicated c8gd or c9gd.48xlarge named in the record. `bench/turbopack-gym/next-ab-62.json` (candidate 62) and
+the stack before it), `-up-{24,192}.json`, `-up68-{24,192}.json`, `-up70-{24,192}.json`, `-up71-{24,192}.json`, `-up71c-24.json`, `-up72-{24,192}.json`, `-up72r-{24,192}.json`, `-up72c-24.json`, `-lab72-24.json`, `-up73-{24,8,192}.json`, `-up73c-{24,8,192}.json`, `-up74-{24,192}.json`, `-up74c-{24,192}.json`, `-up75-{24,192}.json`, `-up75c-{24,192}.json`, `-up75b-{24,192}.json` and `-up75bc-{24,192}.json` (upstream's u1, and candidates 68, 69, 70, 71, 72, 73, 74, 75 and 75b on it), each on a dedicated c8gd or c9gd.48xlarge named in the record. `bench/turbopack-gym/next-ab-62.json` (candidate 62) and
 `next-ab-node-{192,24}.json` (Node with libuv's `posix_spawn`) are whole-build A/Bs from
 `next-ab.mjs`; `cache-drift-probes.json` adds the process-start and NUMA-balancing probes. `bench/turbopack-gym/cache-read-probes.json`
 holds the single warm builds, profiles and cold A/B that locate where a warm start waits,
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
 themselves); `cache-drift-probes.json` holds the operation-counter probes.
-`bench/turbopack-gym/profiles-warm1.json` (CPU profiles of one warm build each, by task function)
+`bench/turbopack-gym/profiles-warm1.json` (CPU profiles of one warm build each, by task function),
+`profiles-effects75.json` (`take_effects`' samples in profiles of warm and cold builds)
 and `task-stats-warm1.json` (task executions and invalidations per function, with the counters
 of `tools/task-exec-stats.patch`) and `worker-threads-probe.json` (`experimental.workerThreads`
 against forked page-data workers) come from dedicated c8gd.48xlarge instances.

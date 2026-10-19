@@ -977,6 +977,87 @@ Cold:
   long the fixed point takes with 74, so whether the clones were the cost of that step is not
   known.
 
+## A warm build's effects captured in parallel
+
+After the compile, `next-api` takes the entrypoints operation's effects (`take_effects`,
+`operation.rs`): the build's write effects are read and captured before any is applied, and
+a capture reads its file's content, which on a warm build is restored from the persistent cache
+(decompressed) with the task that wrote it. `take_effects` did this with `try_join` on one future,
+so all of it ran on one thread: in a profile of a warm build after one new import on 24 CPUs
+(`perf`, frame pointers, two builds each; `bench/turbopack-gym/profiles-effects75.json`) it is
+1.0 CPU-s on one thread for 71. The applies
+that follow are already spawned one per effect. In them, the time spent opening files with
+`O_CREAT` is mostly btrfs creating inodes for files that do not exist yet, the filesystem's
+cost, so opening existing files without `O_CREAT` would not shorten it; that idea was dropped.
+
+- **75 `parallel-effect-capture`** (on 71): `take_effects` reads and captures each effect on its
+  own spawned task. The spawned future runs within the calling task's execution, as a local task
+  does (`spawn_in_current_task`): it shares the task's state, so its reads are the task's own, and
+  the task does not finish until it has. Test: two captures that each hold their thread until
+  both have arrived both meet (red on the one-future `take_effects`).
+- **75b `effect-capture-workers`** (on 71): as 75, but on up to one spawned worker per core
+  (`available_parallelism`), each taking the next effect not yet taken from a shared counter; the
+  results are put back in the effects' order, so the first error is the same one. Same test.
+
+`bench/turbopack-graph-drift-up75-{24,192}.json` and `-up75b-{24,192}.json` (warm, 6 reps),
+`-up75c-{24,192}.json` and `-up75bc-{24,192}.json` (cold, 3 reps), the same output for both
+bindings at every point. `run-turbopack`, 75:
+
+| new imports | warm 24 CPUs, + 71 | + 75 | warm 192 CPUs, + 71 | + 75 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75s24.import.u1+full67-22+71.0.warm.turbopack-->3.5s<!--/v--> | <!--v:dr.up75s24.import.u1+full67-22+71+75.0.warm.turbopack-->2.5s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71.0.warm.turbopack-->4.2s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71+75.0.warm.turbopack-->3.5s<!--/v--> |
+| 1 | <!--v:dr.up75s24.import.u1+full67-22+71.1.warm.turbopack-->9.1s<!--/v--> | <!--v:dr.up75s24.import.u1+full67-22+71+75.1.warm.turbopack-->9.0s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71.1.warm.turbopack-->10.5s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71+75.1.warm.turbopack-->10.3s<!--/v--> |
+| 10 | <!--v:dr.up75s24.import.u1+full67-22+71.10.warm.turbopack-->12.0s<!--/v--> | <!--v:dr.up75s24.import.u1+full67-22+71+75.10.warm.turbopack-->11.5s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71.10.warm.turbopack-->12.6s<!--/v--> | <!--v:dr.up75s192.import.u1+full67-22+71+75.10.warm.turbopack-->12.3s<!--/v--> |
+
+| new imports | cold 24 CPUs, + 71 | + 75 | cold 192 CPUs, + 71 | + 75 |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75cs24.import.u1+full67-22+71.0.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up75cs24.import.u1+full67-22+71+75.0.cold.turbopack-->16.5s<!--/v--> | <!--v:dr.up75cs192.import.u1+full67-22+71.0.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.up75cs192.import.u1+full67-22+71+75.0.cold.turbopack-->19.8s<!--/v--> |
+| 1 | <!--v:dr.up75cs24.import.u1+full67-22+71.1.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up75cs24.import.u1+full67-22+71+75.1.cold.turbopack-->16.7s<!--/v--> | <!--v:dr.up75cs192.import.u1+full67-22+71.1.cold.turbopack-->18.9s<!--/v--> | <!--v:dr.up75cs192.import.u1+full67-22+71+75.1.cold.turbopack-->19.2s<!--/v--> |
+
+75b:
+
+| new imports | warm 24 CPUs, + 71 | + 75b | warm 192 CPUs, + 71 | + 75b |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75bs24.import.u1+full67-22+71.0.warm.turbopack-->3.6s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.0.warm.turbopack-->2.3s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.0.warm.turbopack-->4.4s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.0.warm.turbopack-->3.0s<!--/v--> |
+| 1 | <!--v:dr.up75bs24.import.u1+full67-22+71.1.warm.turbopack-->10.2s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.1.warm.turbopack-->8.3s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.1.warm.turbopack-->10.9s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.1.warm.turbopack-->10.0s<!--/v--> |
+| 10 | <!--v:dr.up75bs24.import.u1+full67-22+71.10.warm.turbopack-->11.9s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.10.warm.turbopack-->11.2s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.10.warm.turbopack-->12.6s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.10.warm.turbopack-->12.0s<!--/v--> |
+
+| new imports | cold 24 CPUs, + 71 | + 75b | cold 192 CPUs, + 71 | + 75b |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75bcs24.import.u1+full67-22+71.0.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.0.cold.turbopack-->16.2s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71.0.cold.turbopack-->19.0s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.0.cold.turbopack-->18.7s<!--/v--> |
+| 1 | <!--v:dr.up75bcs24.import.u1+full67-22+71.1.cold.turbopack-->16.1s<!--/v--> | <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.1.cold.turbopack-->16.3s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71.1.cold.turbopack-->18.4s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->19.1s<!--/v--> |
+
+The `turbopack-emit` span, which holds the capture, 75b:
+
+| new imports | warm 24 CPUs, + 71 | + 75b | warm 192 CPUs, + 71 | + 75b |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75bs24.import.u1+full67-22+71.0.warm.emit-->1.3s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.0.warm.emit-->0.1s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.0.warm.emit-->1.6s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.0.warm.emit-->0.2s<!--/v--> |
+| 1 | <!--v:dr.up75bs24.import.u1+full67-22+71.1.warm.emit-->1.6s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.1.warm.emit-->0.6s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.1.warm.emit-->2.8s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.1.warm.emit-->1.5s<!--/v--> |
+| 10 | <!--v:dr.up75bs24.import.u1+full67-22+71.10.warm.emit-->1.7s<!--/v--> | <!--v:dr.up75bs24.import.u1+full67-22+71+75b.10.warm.emit-->1.0s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71.10.warm.emit-->2.2s<!--/v--> | <!--v:dr.up75bs192.import.u1+full67-22+71+75b.10.warm.emit-->1.9s<!--/v--> |
+
+| new imports | cold 24 CPUs, + 71 | + 75b | cold 192 CPUs, + 71 | + 75b |
+|---|---|---|---|---|
+| 0 | <!--v:dr.up75bcs24.import.u1+full67-22+71.0.cold.emit-->4.3s<!--/v--> | <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.0.cold.emit-->4.2s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71.0.cold.emit-->4.7s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.0.cold.emit-->4.7s<!--/v--> |
+| 1 | <!--v:dr.up75bcs24.import.u1+full67-22+71.1.cold.emit-->4.3s<!--/v--> | <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.1.cold.emit-->4.2s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71.1.cold.emit-->4.6s<!--/v--> | <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.1.cold.emit-->4.7s<!--/v--> |
+
+- Warm, 75b is shorter at every point. With nothing changed and after one new import the builds
+  do not overlap, on both CPU counts: after one, <!--v:dr.up75bs24.import.u1+full67-22+71.1.warm.turbopack-->10.2s<!--/v--> against <!--v:dr.up75bs24.import.u1+full67-22+71+75b.1.warm.turbopack-->8.3s<!--/v--> on 24 CPUs and
+  <!--v:dr.up75bs192.import.u1+full67-22+71.1.warm.turbopack-->10.9s<!--/v--> against <!--v:dr.up75bs192.import.u1+full67-22+71+75b.1.warm.turbopack-->10.0s<!--/v--> on 192. After 10 they overlap. The profile: the capture
+  that was 1.0 CPU-s on one thread spans 0.2 to 0.4s across all 24 threads (75, two builds).
+- 75 spawned a task per effect, and cold that cost time: the `turbopack-emit` span
+  <!--v:dr.up75cs24.import.u1+full67-22+71.0.cold.emit-->4.3s<!--/v--> against <!--v:dr.up75cs24.import.u1+full67-22+71+75.0.cold.emit-->4.6s<!--/v--> with nothing changed on 24 CPUs, and <!--v:dr.up75cs192.import.u1+full67-22+71.0.cold.emit-->4.5s<!--/v--> against <!--v:dr.up75cs192.import.u1+full67-22+71+75.0.cold.emit-->5.5s<!--/v--> on 192, not
+  overlapping. 75b's cold `turbopack-emit` is the same as 71's on both CPU counts, overlapping.
+  Its cold `run-turbopack` overlaps 71's with nothing changed; after one new import it is
+  longer, <!--v:dr.up75bcs24.import.u1+full67-22+71.1.cold.turbopack-->16.1s<!--/v--> against <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.1.cold.turbopack-->16.3s<!--/v--> on 24 CPUs and <!--v:dr.up75bcs192.import.u1+full67-22+71.1.cold.turbopack-->18.4s<!--/v--> against <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->19.1s<!--/v--> on 192, with
+  `turbopack-emit` the same; on 192 CPUs the difference is in the module graph and entrypoints
+  spans, before the capture runs.
+- Cold profile (192 CPUs, one build each, the same record): a cold capture reads content still in
+  memory, so it is short, and 71's is 0.18 CPU-s on one thread. 75b's is 1.4 CPU-s across 192
+  threads over 0.24s, 86% of its samples in locking or scheduling (against 35% of 71's): every
+  capture locks the reading task (`lock_task_and_optional_reader`) to record its read. Not tried:
+  fewer workers, or one recorded dependency for all the captures.
+- 75b is taken; 75 is not.
+
 ## After `run-turbopack`: starting the page-data workers
 
 After the compile, `next build` starts its page-data workers (`jest-worker`, one
