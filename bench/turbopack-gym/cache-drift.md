@@ -984,7 +984,8 @@ After the compile, `next-api` takes the entrypoints operation's effects (`take_e
 a capture reads its file's content, which on a warm build is restored from the persistent cache
 (decompressed) with the task that wrote it. `take_effects` did this with `try_join` on one future,
 so all of it ran on one thread: in a profile of a warm build after one new import on 24 CPUs
-(`perf`, frame pointers, two builds each) it is 1.0 CPU-s on one thread for 71. The applies
+(`perf`, frame pointers, two builds each; `bench/turbopack-gym/profiles-effects75.json`) it is
+1.0 CPU-s on one thread for 71. The applies
 that follow are already spawned one per effect. In them, the time spent opening files with
 `O_CREAT` is mostly btrfs creating inodes for files that do not exist yet, the filesystem's
 cost, so opening existing files without `O_CREAT` would not shorten it; that idea was dropped.
@@ -1042,7 +1043,7 @@ The `turbopack-emit` span, which holds the capture, 75b:
 - Warm, 75b is shorter at every point. With nothing changed and after one new import the builds
   do not overlap, on both CPU counts: after one, <!--v:dr.up75bs24.import.u1+full67-22+71.1.warm.turbopack-->10.2s<!--/v--> against <!--v:dr.up75bs24.import.u1+full67-22+71+75b.1.warm.turbopack-->8.3s<!--/v--> on 24 CPUs and
   <!--v:dr.up75bs192.import.u1+full67-22+71.1.warm.turbopack-->10.9s<!--/v--> against <!--v:dr.up75bs192.import.u1+full67-22+71+75b.1.warm.turbopack-->10.0s<!--/v--> on 192. After 10 they overlap. The profile: the capture
-  that was 1.0 CPU-s on one thread is 0.2 to 0.4s across all 24 threads (75, two builds).
+  that was 1.0 CPU-s on one thread spans 0.2 to 0.4s across all 24 threads (75, two builds).
 - 75 spawned a task per effect, and cold that cost time: the `turbopack-emit` span
   <!--v:dr.up75cs24.import.u1+full67-22+71.0.cold.emit-->4.3s<!--/v--> against <!--v:dr.up75cs24.import.u1+full67-22+71+75.0.cold.emit-->4.6s<!--/v--> with nothing changed on 24 CPUs, and <!--v:dr.up75cs192.import.u1+full67-22+71.0.cold.emit-->4.5s<!--/v--> against <!--v:dr.up75cs192.import.u1+full67-22+71+75.0.cold.emit-->5.5s<!--/v--> on 192, not
   overlapping. 75b's cold `turbopack-emit` is the same as 71's on both CPU counts, overlapping.
@@ -1050,10 +1051,10 @@ The `turbopack-emit` span, which holds the capture, 75b:
   longer, <!--v:dr.up75bcs24.import.u1+full67-22+71.1.cold.turbopack-->16.1s<!--/v--> against <!--v:dr.up75bcs24.import.u1+full67-22+71+75b.1.cold.turbopack-->16.3s<!--/v--> on 24 CPUs and <!--v:dr.up75bcs192.import.u1+full67-22+71.1.cold.turbopack-->18.4s<!--/v--> against <!--v:dr.up75bcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->19.1s<!--/v--> on 192, with
   `turbopack-emit` the same; on 192 CPUs the difference is in the module graph and entrypoints
   spans, before the capture runs.
-- Cold profile (192 CPUs, one build each): a cold capture reads content still in memory, so it
-  is short, and 71's is 0.18 CPU-s on one thread. 75b's is 1.4 CPU-s across 192 threads, about
-  0.2s of wall time: most of it waits on one lock, the reading task's
-  (`lock_task_and_optional_reader`), which every capture takes to record its read. Not tried:
+- Cold profile (192 CPUs, one build each, the same record): a cold capture reads content still in
+  memory, so it is short, and 71's is 0.18 CPU-s on one thread. 75b's is 1.4 CPU-s across 192
+  threads over 0.24s, 86% of its samples in locking or scheduling (against 35% of 71's): every
+  capture locks the reading task (`lock_task_and_optional_reader`) to record its read. Not tried:
   fewer workers, or one recorded dependency for all the captures.
 - 75b is taken; 75 is not.
 

@@ -1160,7 +1160,8 @@ holds the single warm builds, profiles and cold A/B that locate where a warm sta
 from four such dedicated instances (c8gd.48xlarge and m8gd.48xlarge, named A to D in the
 record; the same build's time differed between them, so its sets compare only within
 themselves); `cache-drift-probes.json` holds the operation-counter probes.
-`bench/turbopack-gym/profiles-warm1.json` (CPU profiles of one warm build each, by task function)
+`bench/turbopack-gym/profiles-warm1.json` (CPU profiles of one warm build each, by task function),
+`profiles-effects75.json` (`take_effects`' samples in profiles of warm and cold builds)
 and `task-stats-warm1.json` (task executions and invalidations per function, with the counters
 of `tools/task-exec-stats.patch`) and `worker-threads-probe.json` (`experimental.workerThreads`
 against forked page-data workers) come from dedicated c8gd.48xlarge instances.
