@@ -1,0 +1,226 @@
+diff --git a/turbopack/crates/turbo-tasks-backend/tests/effects.rs b/turbopack/crates/turbo-tasks-backend/tests/effects.rs
+index 05f741b3af..54e42a7287 100644
+--- a/turbopack/crates/turbo-tasks-backend/tests/effects.rs
++++ b/turbopack/crates/turbo-tasks-backend/tests/effects.rs
+@@ -2,9 +2,12 @@
+ #![feature(arbitrary_self_types_pointers)]
+ #![allow(clippy::needless_return)] // tokio macro-generated code doesn't respect this
+ 
+-use std::sync::{
+-    Arc,
+-    atomic::{AtomicU64, Ordering},
++use std::{
++    sync::{
++        Arc, Condvar,
++        atomic::{AtomicU64, Ordering},
++    },
++    time::Duration,
+ };
+ 
+ use anyhow::Result;
+@@ -37,6 +40,33 @@ struct SharedState {
+     /// and `run_apply` (in `apply`).
+     #[turbo_tasks(unsafe_ignore)]
+     state_storage: EffectStateStorage,
++    /// When set, every `capture` blocks its thread until this many captures have arrived (or a
++    /// timeout passes), the way a capture restoring a cell from disk occupies its thread.
++    #[turbo_tasks(unsafe_ignore)]
++    capture_rendezvous: Option<Rendezvous>,
++}
++
++struct Rendezvous {
++    expected: usize,
++    arrived: std::sync::Mutex<usize>,
++    all_arrived: Condvar,
++    /// Captures that saw all `expected` arrive before the timeout.
++    met: AtomicU64,
++}
++
++impl Rendezvous {
++    fn arrive(&self) {
++        let mut arrived = self.arrived.lock().unwrap();
++        *arrived += 1;
++        self.all_arrived.notify_all();
++        let (arrived, timeout) = self
++            .all_arrived
++            .wait_timeout_while(arrived, Duration::from_secs(5), |n| *n < self.expected)
++            .unwrap();
++        if !timeout.timed_out() && *arrived >= self.expected {
++            self.met.fetch_add(1, Ordering::Relaxed);
++        }
++    }
+ }
+ 
+ impl SharedState {
+@@ -46,6 +76,22 @@ impl SharedState {
+             total_applies: AtomicU64::new(0),
+             captures_with_content: AtomicU64::new(0),
+             state_storage: EffectStateStorage::default(),
++            capture_rendezvous: None,
++        })
++    }
++
++    fn with_capture_rendezvous(expected: usize) -> Arc<Self> {
++        Arc::new(Self {
++            applies_by_key: Mutex::new(Default::default()),
++            total_applies: AtomicU64::new(0),
++            captures_with_content: AtomicU64::new(0),
++            state_storage: EffectStateStorage::default(),
++            capture_rendezvous: Some(Rendezvous {
++                expected,
++                arrived: std::sync::Mutex::new(0),
++                all_arrived: Condvar::new(),
++                met: AtomicU64::new(0),
++            }),
+         })
+     }
+ 
+@@ -76,6 +122,9 @@ struct TestEffect {
+ #[turbo_tasks::value_impl]
+ impl Effect for TestEffect {
+     async fn capture(&self) -> Result<Box<dyn CapturedEffect>> {
++        if let Some(rendezvous) = &self.shared.capture_rendezvous {
++            rendezvous.arrive();
++        }
+         // Consult storage. If the per-key state already records `Applied { value_hash }`
+         // matching our hash, elide content materialization (`content = false`). Otherwise
+         // bump the captures-with-content counter (the test's stand-in for a `ReadRef` /
+@@ -730,3 +779,37 @@ async fn capture_skip_then_stomp_signals_retry() {
+     .await
+     .unwrap()
+ }
++
++/// The captures of one `take_effects` run in parallel, not one after another on the calling
++/// future: two captures that each hold their thread until both have arrived both meet. Captured
++/// one after another, the first times out alone.
++#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
++async fn captures_run_in_parallel() {
++    let tt = create_tt();
++    tt.run_once(async move {
++        let shared = SharedState::with_capture_rendezvous(2);
++        let (input, TestInput { spec, .. }) = TestInput::new_with_shared(shared.clone());
++
++        let effects = emit_and_take(
++            &spec,
++            input,
++            vec![(rcstr!("a"), 0xAAAA), (rcstr!("b"), 0xBBBB)],
++        )
++        .await?;
++        let met = shared
++            .capture_rendezvous
++            .as_ref()
++            .unwrap()
++            .met
++            .load(Ordering::Relaxed);
++        assert_eq!(met, 2, "both captures were running at once");
++
++        effects.apply_for_testing().await?;
++        assert_eq!(shared.applies_for(&rcstr!("a")), 1);
++        assert_eq!(shared.applies_for(&rcstr!("b")), 1);
++
++        anyhow::Ok(())
++    })
++    .await
++    .unwrap()
++}
+diff --git a/turbopack/crates/turbo-tasks/src/effect.rs b/turbopack/crates/turbo-tasks/src/effect.rs
+index 0193977cfe..2b6118ef02 100644
+--- a/turbopack/crates/turbo-tasks/src/effect.rs
++++ b/turbopack/crates/turbo-tasks/src/effect.rs
+@@ -23,6 +23,7 @@ use crate::{
+         unmark_top_level_task_may_leak_eventually_consistent_state, with_turbo_tasks,
+     },
+     spawn,
++    spawn::spawn_in_current_task,
+ };
+ 
+ const APPLY_EFFECTS_CONCURRENCY_LIMIT: usize = 1024;
+@@ -307,9 +308,14 @@ pub async fn take_effects(source: impl CollectiblesSource) -> Result<Effects> {
+     debug_assert_not_in_top_level_task("take_effects");
+     let effects = source.take_collectibles::<Box<dyn Effect>>();
+ 
++    // Each effect is read and captured on its own spawned task, within this task's execution so
++    // the reads stay this task's own: a capture can read cells that have to be restored from the
++    // persistent cache, which on this one future would run one after another.
+     let captured: Vec<Box<dyn CapturedEffect>> = effects
+         .into_iter()
+-        .map(async |effect_vc| effect_vc.into_trait_ref().await?.capture().await)
++        .map(|effect_vc| {
++            spawn_in_current_task(async move { effect_vc.into_trait_ref().await?.capture().await })
++        })
+         .try_join()
+         .await?;
+ 
+diff --git a/turbopack/crates/turbo-tasks/src/manager.rs b/turbopack/crates/turbo-tasks/src/manager.rs
+index b1c73d2d36..e7db9565ec 100644
+--- a/turbopack/crates/turbo-tasks/src/manager.rs
++++ b/turbopack/crates/turbo-tasks/src/manager.rs
+@@ -2229,6 +2229,29 @@ pub fn turbo_tasks_future_scope<T>(
+     TURBO_TASKS.scope(tt, f)
+ }
+ 
++/// Wraps `f` to run within the current task's execution, as a local task does: it shares the
++/// task's state, so the reads it makes are the task's own, and the task does not finish until the
++/// returned future has completed or been dropped, polled or not.
++pub(crate) fn in_current_task<T>(f: impl Future<Output = T>) -> impl Future<Output = T> {
++    struct InFlight(CurrentTaskStateHandle);
++    impl Drop for InFlight {
++        fn drop(&mut self) {
++            self.0.write().unwrap().local_tasks.decrement_in_flight();
++        }
++    }
++    let global_task_state = CURRENT_TASK_STATE.with(|ts| ts.clone());
++    global_task_state
++        .write()
++        .unwrap()
++        .local_tasks
++        .register_detached();
++    let in_flight = InFlight(global_task_state.clone());
++    CURRENT_TASK_STATE.scope(global_task_state, async move {
++        let _in_flight = in_flight;
++        f.await
++    })
++}
++
+ /// Spawns the given future within the context of the current task.
+ ///
+ /// Beware: this method is not safe to use in production code. It is only
+diff --git a/turbopack/crates/turbo-tasks/src/spawn.rs b/turbopack/crates/turbo-tasks/src/spawn.rs
+index 56aa1d1870..0ee6fb2f22 100644
+--- a/turbopack/crates/turbo-tasks/src/spawn.rs
++++ b/turbopack/crates/turbo-tasks/src/spawn.rs
+@@ -11,8 +11,10 @@ use tokio::runtime::Handle;
+ use tracing::{Instrument, Span, info_span};
+ 
+ use crate::{
+-    TurboTasksPanic, capture_future::CaptureFuture, manager::turbo_tasks_future_scope, turbo_tasks,
+-    turbo_tasks_scope,
++    TurboTasksPanic,
++    capture_future::CaptureFuture,
++    manager::{in_current_task, turbo_tasks_future_scope},
++    turbo_tasks, turbo_tasks_scope,
+ };
+ 
+ pub struct JoinHandle<T> {
+@@ -52,6 +54,21 @@ pub fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static
+     JoinHandle { join_handle }
+ }
+ 
++/// Like [`spawn`], but the future runs within the current task's execution, as a local task does:
++/// the reads it makes are tracked as the current task's own, and the task does not finish before
++/// the future has completed or been dropped.
++pub(crate) fn spawn_in_current_task<T: Send + 'static>(
++    future: impl Future<Output = T> + Send + 'static,
++) -> JoinHandle<T> {
++    let turbo_tasks = turbo_tasks();
++    let span = Span::current();
++    let join_handle = tokio::task::spawn(
++        turbo_tasks_future_scope(turbo_tasks, in_current_task(CaptureFuture::new(future)))
++            .instrument(span),
++    );
++    JoinHandle { join_handle }
++}
++
+ /// Spawns a blocking function in a separate task using the blocking pool and returns a JoinHandle
+ /// which can be used to await the result. The function has access to the current TurboTasks context
+ /// and runs in the same tracing span.
