@@ -1,0 +1,9 @@
+{
+  "description": "turbo-tasks: take_effects reads and captures the effects on up to one spawned worker per core (available_parallelism), each taking the next effect not yet taken from a shared counter and each within the calling task's execution (spawn_in_current_task, as in 75), and puts the results back in the effects' order; 75 spawned one task per effect. Test: as 75's, two captures that each hold their thread until both have arrived both meet",
+  "patch": "bench/turbopack-gym/candidates/75b-effect-capture-workers.patch",
+  "base": "vercel/next.js v16.4.0 + u1-upstream-scalability + 68-sharded-heap-band + 69-heap-pick-free-shard + 15+41+42+52+55+56+57+59+61+64+65+66+67 + 71-parallel-batch-restore",
+  "requires": [
+    "71-parallel-batch-restore"
+  ],
+  "climb": false
+}
