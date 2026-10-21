@@ -2,14 +2,14 @@
 // git, cmake, ninja and the compilers stubbed: build.mjs would otherwise record today's versions
 // over binaries an older toolchain built.
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PLANNER } from "./lib.mjs";
 
-test("build-hermes.sh rebuilds when the compiler changes, and only then", () => {
+test("build-hermes.sh rebuilds in a fresh tree when the compiler changes, and only then", () => {
   const dir = mkdtempSync(join(tmpdir(), "hermes-cache-"));
   try {
     const bin = join(dir, "bin");
@@ -44,7 +44,10 @@ test("build-hermes.sh rebuilds when the compiler changes, and only then", () => 
     }
     assert.equal(run("1"), 2, "the first build configures both trees");
     assert.equal(run("1"), 0, "the same inputs build nothing");
+    // A file left in a build tree marks it: a rebuild must start from a fresh tree.
+    writeFileSync(join(root, "v1", "CMakeCache.txt"), "the old compiler\n");
     assert.equal(run("2"), 2, "another compiler rebuilds both");
+    assert.ok(!existsSync(join(root, "v1", "CMakeCache.txt")), "the rebuild kept the old CMake cache");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

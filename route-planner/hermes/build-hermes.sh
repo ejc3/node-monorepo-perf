@@ -22,6 +22,8 @@ build() { # <name> <tag> <ninja targets...>
   local inputs
   inputs="$(printf '%s\n' "$tag" "$*"; cat "$0"; c++ --version; cc --version; cmake --version; ninja --version)"
   if [ "$(cat "$out/.built" 2>/dev/null)" != "$inputs" ]; then
+    # A fresh tree: CMake keeps the compiler an existing tree was configured with.
+    rm -rf "$out"
     cmake -S "$src" -B "$out" -G Ninja -DCMAKE_BUILD_TYPE=Release -DHERMES_ENABLE_DEBUGGER=OFF -DHERMES_ENABLE_INTL=OFF > "$ROOT/cmake-$name.log"
     ninja -C "$out" "$@" > "$ROOT/ninja-$name.log"
     printf '%s' "$inputs" > "$out/.built"
