@@ -1,0 +1,17 @@
+{
+  "profile_format": 1,
+  "name": "dmengine",
+  "entry": "engine-lib.ts",
+  "emission": "llvm",
+  "abi": {
+    "prefix": "dm_",
+    "init_symbol": "dm_init",
+    "sink_register_symbol": "dm_set_panic_sink",
+    "collect_symbol": "dm_collect",
+    "result_reset_symbol": null
+  },
+  "exports": [
+    { "export": "load", "symbol": "dm_load", "params": ["string", "string"], "returns": "f64" },
+    { "export": "call", "symbol": "dm_call", "params": ["f64", "string", "string"], "returns": "string" }
+  ]
+}

@@ -1,0 +1,35 @@
+[package]
+name = "route-planner-engine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.93"
+publish = false
+description = "The route planner's engine in Rust: native, and WebAssembly in Node (ROUTE-PLANNER.md)."
+
+[lib]
+# cdylib: the WebAssembly build; staticlib: the native library native/probe.c links; rlib: cargo test.
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Every transcendental goes through libm on every target, so native and WebAssembly agree.
+libm = "=0.2.16"
+# ECMAScript Number::toString spelling (JSON.stringify's numbers).
+ryu-js = "=1.0.3"
+serde = { version = "=1.0.228", features = ["derive"] }
+# float_roundtrip: numbers parse to the nearest double, as JSON.parse does (the default
+# parser can be an ulp off).
+serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+
+# The WebAssembly exports. wasm-bindgen-cli must be this exact version (build-wasm.sh).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.129"
+
+[features]
+# The libm crate's pow (fdlibm) in place of pow.rs: the bench's measure of the pow port
+# (scripts/route-planner/fixes.mjs). Off in every other build.
+fdlibm-pow = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

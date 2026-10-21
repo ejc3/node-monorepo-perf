@@ -1,0 +1,19 @@
+{
+  "name": "route-planner-bench",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A trip planner's engine in TypeScript, Rust, Scriptc and Hermes, timed on one workload",
+  "engines": { "node": ">=22.18.0 <23" },
+  "scripts": {
+    "test": "node --test --test-reporter=spec engine/test/*.test.ts",
+    "typecheck": "tsc --noEmit -p engine/tsconfig.json && tsc --noEmit -p engine/tsconfig.test.json && tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@react-native/babel-preset": "0.83.10",
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}
