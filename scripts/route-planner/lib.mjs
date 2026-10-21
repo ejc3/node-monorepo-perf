@@ -43,22 +43,33 @@ export function planRequest(trip) {
 
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
-// What every engine is built from, under route-planner/: a ROUTE_ROOT built from other sources
-// would time old programs against today's TypeScript in Node (whose parity a speed-only change
-// keeps), so bench.mjs and fixes.mjs refuse it.
-const SOURCES = ["engine", "engine-rs", "native", "hermes", "area.ts", "plan.ts", "package.json", "pnpm-lock.yaml"];
+// What every engine is built from: route-planner/'s sources, and the build driver (build.mjs and
+// the lib.mjs it uses, whose esbuild, Babel and compiler settings shape every program). A
+// ROUTE_ROOT built from other sources would time old programs against today's TypeScript in Node
+// (whose parity a speed-only change keeps), so bench.mjs and fixes.mjs refuse it.
+const SOURCES = [
+  ...["engine", "engine-rs", "native", "hermes", "area.ts", "plan.ts", "package.json", "pnpm-lock.yaml"].map((f) =>
+    join("route-planner", f),
+  ),
+  "scripts/route-planner/build.mjs",
+  "scripts/route-planner/lib.mjs",
+];
 
-/** One hash over the build's sources: every tracked or untracked, not ignored, file's path and bytes. */
-export function sourcesSha256(planner = PLANNER) {
-  const files = execFileSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", ...SOURCES], {
-    cwd: planner,
+/** The build's source files, under the repository: tracked or untracked, not ignored. */
+export function sourceFiles() {
+  return execFileSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", ...SOURCES], {
+    cwd: REPO,
     encoding: "utf8",
   })
     .split("\0")
-    .filter((f) => f && existsSync(join(planner, f)))
+    .filter((f) => f && existsSync(join(REPO, f)))
     .sort();
+}
+
+/** One hash over the build's sources: every file's path and bytes. */
+export function sourcesSha256() {
   const h = createHash("sha256");
-  for (const f of files) h.update(`${f}\0`).update(readFileSync(join(planner, f))).update("\0");
+  for (const f of sourceFiles()) h.update(`${f}\0`).update(readFileSync(join(REPO, f))).update("\0");
   return h.digest("hex");
 }
 

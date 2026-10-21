@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { REPO, SPEC, builtSha256, pack, planRequest, sourcesSha256 } from "./lib.mjs";
+import { REPO, SPEC, builtSha256, pack, planRequest, sourceFiles, sourcesSha256 } from "./lib.mjs";
 
 function rootWith(sources) {
   const root = mkdtempSync(join(tmpdir(), "route-root-"));
@@ -61,6 +61,18 @@ test("bench.mjs refuses a scratch pack changed after the build", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("the sources hash covers the build driver, the engines and the typed ports", () => {
+  const files = sourceFiles();
+  for (const f of [
+    "scripts/route-planner/build.mjs",
+    "scripts/route-planner/lib.mjs",
+    "route-planner/engine/src/router.ts",
+    "route-planner/engine-rs/src/router.rs",
+    "route-planner/hermes/build-hermes.sh",
+  ])
+    assert.ok(files.includes(f), `${f} is not in the build's sources`);
 });
 
 test("the sources hash is stable and covers the engine", () => {
