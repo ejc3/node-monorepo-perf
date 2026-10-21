@@ -1,0 +1,78 @@
+{
+  "generator": "scripts/route-planner/scriptc-check.mjs",
+  "scriptc": "0.4.0",
+  "before": {
+    "coverage": {
+      "statements": 1049,
+      "static": 1037,
+      "exitStatus": 0,
+      "output": [
+        "scriptc coverage native/engine-lib.ts",
+        "",
+        "  statements analyzed   1049",
+        "  compile statically    1037  (98%)",
+        "",
+        "  in unreached code   (never lowered — cannot fail a build)",
+        "      ×5  SC1090  indexing with non-number keys",
+        "          at engine/src/router.ts:196:10, engine/src/router.ts:196:34, engine/src/router.ts:225:14 (+2 more)",
+        "          hint: this form is valid TypeScript but does not compile yet — rewrite it with a supported equivalent of the construct the message names (https://scriptc.dev/limitations lists the boundary)",
+        "      ×2  SC2020  'Float64Array<…>.reduce' is part of the standard library types but has no scriptc lowering yet",
+        "          at engine/src/simulate.ts:122:14, engine/src/simulate.ts:150:16",
+        "          hint: the type checker sees the full standard library, but only the supported surface compiles (https://scriptc.dev/limitations)",
+        "      ×1  SC1090  assignment to non-variables",
+        "          at engine/src/simulate.ts:142:38",
+        "          hint: this form is valid TypeScript but does not compile yet — rewrite it with a supported equivalent of the construct the message names (https://scriptc.dev/limitations lists the boundary)",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected 'number', got '{ control: null | string; controlDirection: null | string; id: number; lat: number; lon: number }'",
+        "          at engine/src/pack.ts:58:16",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected 'number', got '{ fromWay: number; kind: string; toWay: number; viaNode: number }'",
+        "          at engine/src/pack.ts:63:23",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected '{ control: null | string; controlDirection: null | string; id: number; lat: number; lon: number }[]', got 'number[]'",
+        "          at engine/src/pack.ts:64:33",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2020  'Math.max' is part of the standard library types but has no scriptc lowering yet",
+        "          at engine/src/plan.ts:124:21",
+        "          hint: Math.max lowers with any number of plain arguments or ONE number[] spread — mixed spread/positional lists don't: spread a single array (Math.max(...xs))"
+      ]
+    },
+    "build": {
+      "exitStatus": 1,
+      "errors": 12,
+      "errorCodes": [
+        "SC1090",
+        "SC1090",
+        "SC1090",
+        "SC1090",
+        "SC1090",
+        "SC1090",
+        "SC2002",
+        "SC2002",
+        "SC2002",
+        "SC2020",
+        "SC2020",
+        "SC2020"
+      ]
+    }
+  },
+  "now": {
+    "coverage": {
+      "statements": 1058,
+      "static": 1058,
+      "exitStatus": 0,
+      "output": [
+        "scriptc coverage native/engine-lib.ts",
+        "",
+        "  statements analyzed   1058",
+        "  compile statically    1058  (100%)",
+        "",
+        "  fully static — all analyzed statements compile to native code."
+      ]
+    },
+    "build": {
+      "exitStatus": 0,
+      "errors": 0,
+      "errorCodes": []
+    }
+  }
+}

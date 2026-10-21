@@ -680,6 +680,39 @@ run and A/B logs go to `bench/raw/turbopack-gym/` (gitignored; `GYM_RESULTS` ove
   - Needs passwordless sudo (systemd-run, perf), Node 22, pnpm, python3, the next.js rust
     toolchain.
 
+### Route Planner
+One TypeScript workload instead of a workspace: a trip planner's engine (`route-planner/`) in
+twelve engines. Results and method: ROUTE-PLANNER.md. `ROUTE_ROOT` (required) is a scratch
+directory for the Hermes sources and builds, the cargo target and every engine's per-trip build.
+- `route-planner/`: the subject, kept as written (prettier skips it). `engine/src` the
+  TypeScript engine (plan path only, no dependencies) and `engine/test` its unit tests;
+  `engine-rs/` the Rust port (native, and WebAssembly through wasm-bindgen 0.2.129; Rust 1.93.0
+  pinned) with its contract and golden-trip parity tests (`engine-rs/test/`, against the
+  TypeScript engine; set `SCRIPTC_PROBE` to include Scriptc); `native/` the C interface
+  (`profile.json`, `probe.c`) and the Scriptc 0.4.0 build (`build.sh`); `hermes/` the Hermes
+  plan program, `build-hermes.sh` (0.14.1 and V1 from source at their tags) and the typed ports
+  for `shermes -typed` (`typed/port.js`, `tuned.js`, `ffi.py` writing the C-call variant);
+  `data/` the OpenStreetMap area pack (ODbL, `data/README.md`); `trips.json` the three trips;
+  `plan.ts` plans one; its own `pnpm-lock.yaml` (esbuild, Babel, TypeScript), installed with
+  `pnpm install --frozen-lockfile` inside `route-planner/`.
+- `scripts/route-planner/build.mjs` (`make route-planner-build`) builds every engine and writes
+  `ROUTE_ROOT/build.json` (versions, program hashes). `bench.mjs` (`make route-planner-bench`):
+  every engine on every trip, a fresh process per run, 3 rounds rotated, the plan call timed by
+  the engine; every answer checked against Node's (keys in order, strings, routes identical,
+  numbers within 1e-12 relative), a failure throws → `bench/route-planner-bench.json`
+  (`ROUTE_ONLY`/`ROUTE_TRIPS`/other `ROUTE_ROUNDS` → the gitignored `.partial.json`).
+  `fixes.mjs` (`make route-planner-fixes`): the A* estimate's versions as edits of a copy of the
+  engine (timed, counted, profiled; every version must give the same answer), Scriptc's coverage
+  of the engine before its rewrites and the WeakMap build, Rust with fdlibm's `pow` (cargo
+  feature `fdlibm-pow`), and the parity reports → `bench/route-planner-fixes.json`
+  (`ROUTE_FIXES_QUICK=1` → `.partial.json`); the variants' edits live in `variants.mjs`.
+  `scriptc-check.mjs`: Scriptc 0.4.0's coverage and `build --lib` on the engine before its
+  rewrites and as committed → `bench/route-planner-scriptc.json` (tool behavior, no timing).
+  bench.mjs and fixes.mjs refuse a load average over 1.5
+  (`ROUTE_ALLOW_BUSY=1`) and record `machine` (instance type, never a host name);
+  `ROUTE_SHARED_BOX=1` marks a shared box, and the figures refuse one.
+- `make route-planner-test`: the TypeScript tests and type check, cargo test, fmt and clippy.
+
 ### Developer Experience
 - `node scripts/dev-sim.mjs --devs <D> --apps <n> --libs <n>`: simulate D devs each
   owning a feature area (two apps + one lib): onboarding, typecheck-on-save,
@@ -977,7 +1010,7 @@ Shared helpers the bench scripts import rather than run directly:
   fields deep-equal, named `versions` equal strings, missing fields throw), `bareVer` (the one
   strip of a recorded version banner — "Version 7.0.2", "v22.23.3" — to the bare version for
   display), and `emitChart` (SVG + 300 DPI PNG in one step). Imported by every chart
-  generator: `figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
+  generator: `figures.mjs`, `route-planner-figures.mjs`, `comparison-chart.mjs`, `scale-chart.mjs`,
   `net-cache-chart.mjs`, `fleet-chart.mjs`, `chart.mjs`.
 - `scripts/chartstyle-selftest.mjs`: the kit's self-test (`node scripts/chartstyle-selftest.mjs`,
   run by `charts.yml` before rendering): text fits at the 9px floor or throws, row labels
@@ -1166,6 +1199,10 @@ and `task-stats-warm1.json` (task executions and invalidations per function, wit
 of `tools/task-exec-stats.patch`) and `worker-threads-probe.json` (`experimental.workerThreads`
 against forked page-data workers) come from dedicated c8gd.48xlarge instances.
 bench/turbopack-gym/cache-drift.md explains them.
+`bench/route-planner-bench.json` and `bench/route-planner-fixes.json` (ROUTE-PLANNER.md) come
+from one dedicated arm64 box, the instance type in each record's `machine`; the figures assert
+the two share it, its core count, Node, rustc, Scriptc and cc, and the area pack. `bench/route-planner-scriptc.json` records
+Scriptc's verdicts on the engine's source and no timing, so it carries no machine.
 Nothing measured on a shared box is published: other users' processes there move the
 numbers. `make gym-canonical` re-measures the canonical two; `report.mjs --check` verifies
 the Turbopack numbers in TURBOPACK-GRAPH.md, README.md, SUMMARY.md and
@@ -1195,6 +1232,13 @@ that `bench/wave-rollout-bench.json`'s install-speed text equals the
 `_install-speed-context.mjs` derivation from the two install records it reads), and in the same step
 rasterizes `bench/charts/tool-comparison.png` (300 DPI, via ImageMagick `convert`; the high-res render
 linked below the SVG) so a chart regeneration regenerates both; `make comparison-chart` regenerates both.
+`route-planner-figures.mjs` renders the seven route-planner figures (`make
+route-planner-figures`; SVG + `.png`, same contract, same `charts.yml` byte-gate):
+`fig-route-graph`, `fig-route-plan`, `fig-route-curve`, `fig-route-workload`, `fig-route-astar`,
+`fig-route-engines` and `fig-route-parity`, from the two route-planner records, each with its
+chart-data block in ROUTE-PLANNER.md; they assert a canonical, dedicated-box run, the same answer
+from every A* version and the bench's, and the shapes they draw (a monotone curve crossing the
+goal, at most one ulp per Math row).
 `scale-chart.mjs` renders `bench/charts/checker-scale.svg` (+ `.png`, same contract; `make scale-chart`),
 the million-module checker heat chart (whole-program check, red-vs-green, the save loop by mechanic,
 completion with counts, the flow wedge A/B) from `bench/tsgo-scale-bench.json` +
@@ -1417,7 +1461,10 @@ both dialects, `bench/relay-codegen-bench.json`, and "Flow on the Fleet Shape", 
 [STORIES.md](STORIES.md) (the independently-published model as user stories: app-dev, lib-dev, and platform personas, plus a `file:`-dependency class; each mechanic pointing at its measured or demonstrated source),
 [WORKSPACE-VS-SEMVER.md](WORKSPACE-VS-SEMVER.md) (semver-from-registry vs `workspace:` local linking: diamond deps, root-override
 collapse, the `workspace:^`→concrete publish rewrite, and per-app transitive divergence on CodeArtifact),
-[REVIEW.md](REVIEW.md) (the static-check / type-check / two-reviewer quality pipeline every change runs through).
+[REVIEW.md](REVIEW.md) (the static-check / type-check / two-reviewer quality pipeline every change runs through),
+[ROUTE-PLANNER.md](ROUTE-PLANNER.md) (one TypeScript workload, a trip planner, in Node, Rust native
+and WebAssembly, Scriptc, Hermes 0.14.1 and V1, and Static Hermes untyped and typed; the algorithm,
+each fix it needed, and parity; `bench/route-planner-bench.json` + `bench/route-planner-fixes.json`).
 
 ## Measurement Methodology
 

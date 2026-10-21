@@ -401,6 +401,14 @@ const external = new Set([
   "fig-linker-layouts.svg",
   "fig-next-pnp-node.svg",
   "fig-remote-cache.svg",
+  // route-planner-figures.mjs
+  "fig-route-graph.svg",
+  "fig-route-plan.svg",
+  "fig-route-curve.svg",
+  "fig-route-workload.svg",
+  "fig-route-astar.svg",
+  "fig-route-engines.svg",
+  "fig-route-parity.svg",
 ]);
 // Under CHART_STRICT=1 (CI), a doc-linked chart this script owns but did not regenerate
 // is a hard failure: keeping the old file would sail through the byte-gate while the

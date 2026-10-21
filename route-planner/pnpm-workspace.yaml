@@ -1,0 +1,4 @@
+# The planner bench installs on its own (`pnpm install --frozen-lockfile` here), not as a member
+# of the root workspace. No dependency's build script runs: esbuild works from its platform
+# package without its postinstall.
+ignoreScripts: true

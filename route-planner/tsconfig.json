@@ -1,0 +1,5 @@
+{
+  "extends": "./engine/tsconfig.base.json",
+  "compilerOptions": { "lib": ["ES2022"], "types": ["node"] },
+  "include": ["area.ts", "plan.ts", "native/engine-lib.ts", "hermes/plan-entry.ts", "engine-rs/test/*.ts"]
+}

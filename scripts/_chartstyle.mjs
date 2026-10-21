@@ -2,8 +2,8 @@
 // (diagram-style-spec.md, distilled from the cmux page). One palette, one
 // dark-mode <style> block, one box/text/arrow grammar, one heat ramp — so the
 // heat charts, the mechanism figures, the fleet infographic, and the scaling
-// charts read as one system. Imported by figures.mjs, comparison-chart.mjs,
-// scale-chart.mjs, net-cache-chart.mjs, fleet-chart.mjs, chart.mjs.
+// charts read as one system. Imported by figures.mjs, route-planner-figures.mjs,
+// comparison-chart.mjs, scale-chart.mjs, net-cache-chart.mjs, fleet-chart.mjs, chart.mjs.
 //
 // Deterministic by construction: no Date, no environment reads. Every export is a
 // pure constant or a pure function of its arguments, except the two writers:

@@ -1,0 +1,54 @@
+{
+  "area": "san-jose-menlo-park",
+  "pack": "data/san-jose-menlo-park.pack.json.br",
+  "request": {
+    "goal": {
+      "confidence": 0.95,
+      "earlyMinutes": 0
+    },
+    "runs": 300,
+    "windowMinutes": 60,
+    "stepMinutes": 5
+  },
+  "trips": [
+    {
+      "id": "long",
+      "name": "San José City Hall to Menlo Park station",
+      "from": {
+        "lat": 37.3377,
+        "lon": -121.8853
+      },
+      "to": {
+        "lat": 37.4545,
+        "lon": -122.1823
+      },
+      "arriveByMinute": 540
+    },
+    {
+      "id": "medium",
+      "name": "Sunnyvale station to Palo Alto station",
+      "from": {
+        "lat": 37.3784,
+        "lon": -122.0309
+      },
+      "to": {
+        "lat": 37.4434,
+        "lon": -122.1649
+      },
+      "arriveByMinute": 540
+    },
+    {
+      "id": "short",
+      "name": "Sunnyvale station to San Antonio station",
+      "from": {
+        "lat": 37.3784,
+        "lon": -122.0309
+      },
+      "to": {
+        "lat": 37.4073,
+        "lon": -122.1072
+      },
+      "arriveByMinute": 540
+    }
+  ]
+}

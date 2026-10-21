@@ -12,3 +12,7 @@ pnpm-workspace.yaml
 
 # Written by pnpm (vizdash's committed lockfile); reformatting it is churn.
 vizdash/pnpm-lock.yaml
+
+# The route planner is the benchmark's subject, kept as written (its own line width), and its
+# lockfile is pnpm's.
+route-planner/

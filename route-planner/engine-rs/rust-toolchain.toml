@@ -1,0 +1,7 @@
+# The one Rust the engine is built with (the bench records its rustc). The WebAssembly target is
+# part of the pin.
+[toolchain]
+channel = "1.93.0"
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"
+components = ["clippy", "rustfmt"]

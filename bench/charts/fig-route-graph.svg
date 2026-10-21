@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="668" height="350" viewBox="0 0 668 350" role="img" aria-label="The area's OpenStreetMap extract (43,773 ways, 229,873 nodes) becomes 49,083 vertices and 103,327 directed edges; junction vertices within 30 m are merged into one intersection, giving 44,732 complexes; the search's state is the edge arrived on, so each movement from one edge to the next has its own turn, control and restrictions." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" style="font-variant-numeric:tabular-nums">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+line[stroke="#8794a1"],path[stroke="#8794a1"],polyline[stroke="#8794a1"]{stroke:#6f7c88}
+path[fill="#8794a1"]{fill:#6f7c88}
+circle[stroke="#8794a1"]{stroke:#6f7c88}rect[stroke="#8794a1"]{stroke:#6f7c88}circle[fill="#8794a1"]{fill:#6f7c88}
+rect[fill="#f3f6fb"]{fill:#172435}rect[stroke="#c5d4ea"]{stroke:#34507a}rect[fill="#c5d4ea"]{fill:#34507a}
+rect[fill="#f1f9f4"]{fill:#13281f}rect[stroke="#b2d8c1"]{stroke:#2c6049}rect[fill="#b2d8c1"]{fill:#2c6049}
+rect[fill="#fcf4f0"]{fill:#2b1b15}rect[stroke="#e2c0b0"]{stroke:#6c4232}rect[fill="#e2c0b0"]{fill:#6c4232}
+rect[fill="#fbf7ea"]{fill:#2a2414}rect[stroke="#e6d8a8"]{stroke:#6e5a24}rect[fill="#e6d8a8"]{fill:#6e5a24}
+rect[fill="#eff1f4"]{fill:#1a2029}rect[stroke="#b8c0ca"]{stroke:#465260}rect[fill="#b8c0ca"]{fill:#465260}
+rect[fill="#e8f4f6"]{fill:#0f2529}rect[stroke="#a6d0d9"]{stroke:#2a6470}rect[fill="#a6d0d9"]{fill:#2a6470}
+rect[fill="#3f4b5b"]{fill:#c3cfdc}
+circle[fill="#ffffff"]{fill:#0d1117}
+text[fill="#146b3a"]{fill:#5cc48c}
+text[fill="#46505b"]{fill:#aab4be}
+text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
+}</style>
+<rect width="668" height="350" fill="#ffffff"/>
+<g transform="translate(4 0)">
+<text x="16" y="24" font-size="17" fill="#1c2330" font-weight="650">From OpenStreetMap to search states</text>
+<text x="16" y="42" font-size="12" fill="#6b7885">san-jose-menlo-park: the counts of the bench's area</text>
+<rect x="16" y="54" width="196" height="128" rx="6" fill="#f3f6fb" stroke="#c5d4ea" stroke-width="1"/>
+<text x="27" y="72" font-size="12" fill="#1c2330" font-weight="600">OpenStreetMap extract</text>
+<text x="27" y="87" font-size="11" fill="#1c2330">43,773 drivable ways (class,</text>
+<text x="27" y="101" font-size="11" fill="#1c2330">lanes, speed, one-way)</text>
+<text x="27" y="115" font-size="11" fill="#1c2330">229,873 nodes (signal, stop,</text>
+<text x="27" y="129" font-size="11" fill="#1c2330">give-way tags)</text>
+<text x="27" y="143" font-size="11" fill="#1c2330">3,144 turn restrictions</text>
+<rect x="232" y="54" width="196" height="128" rx="6" fill="#f3f6fb" stroke="#c5d4ea" stroke-width="1"/>
+<text x="243" y="72" font-size="12" fill="#1c2330" font-weight="600">Graph</text>
+<text x="243" y="87" font-size="11" fill="#1c2330">49,083 vertices: way ends and</text>
+<text x="243" y="101" font-size="11" fill="#1c2330">shared nodes</text>
+<text x="243" y="115" font-size="11" fill="#1c2330">103,327 directed edges: a</text>
+<text x="243" y="129" font-size="11" fill="#1c2330">way's run between vertices,</text>
+<text x="243" y="143" font-size="11" fill="#1c2330">once per open direction</text>
+<text x="243" y="157" font-size="11" fill="#1c2330">26,534 junctions: three or</text>
+<text x="243" y="171" font-size="11" fill="#1c2330">more directions</text>
+<rect x="448" y="54" width="196" height="128" rx="6" fill="#f1f9f4" stroke="#b2d8c1" stroke-width="1"/>
+<text x="459" y="72" font-size="12" fill="#1c2330" font-weight="600">Complexes</text>
+<text x="459" y="87" font-size="11" fill="#1c2330">44,732: junction vertices</text>
+<text x="459" y="101" font-size="11" fill="#1c2330">joined by an edge of 30 m or</text>
+<text x="459" y="115" font-size="11" fill="#1c2330">less are one intersection; any</text>
+<text x="459" y="129" font-size="11" fill="#1c2330">other vertex is one on its own</text>
+<text x="459" y="143" font-size="11" fill="#1c2330">its control is charged once, on</text>
+<text x="459" y="157" font-size="11" fill="#1c2330">entry</text>
+<line x1="214" y1="118" x2="223.5" y2="118" stroke="#8794a1" stroke-width="1.25"/><path d="M230 118L223.5 121L223.5 115z" fill="#8794a1"/>
+<line x1="430" y1="118" x2="439.5" y2="118" stroke="#8794a1" stroke-width="1.25"/><path d="M446 118L439.5 121L439.5 115z" fill="#8794a1"/>
+<rect x="16" y="204" width="306" height="100" rx="6" fill="#fbf7ea" stroke="#e6d8a8" stroke-width="1"/>
+<text x="27" y="222" font-size="12" fill="#1c2330" font-weight="600">Controls on each approach</text>
+<text x="27" y="237" font-size="11" fill="#1c2330">a tagged signal, stop or give-way governs the</text>
+<text x="27" y="251" font-size="11" fill="#1c2330">approaches within 60 m of it</text>
+<text x="27" y="265" font-size="11" fill="#1c2330">untagged: the lesser road stops, a ramp onto a</text>
+<text x="27" y="279" font-size="11" fill="#1c2330">surface street yields, entering a roundabout yields</text>
+<text x="27" y="293" font-size="11" fill="#1c2330">(marked as assumed)</text>
+<rect x="338" y="204" width="306" height="100" rx="6" fill="#f1f9f4" stroke="#b2d8c1" stroke-width="1"/>
+<text x="349" y="222" font-size="12" fill="#1c2330" font-weight="600">Search state: the edge arrived on</text>
+<text x="349" y="237" font-size="11" fill="#1c2330">a movement is in-edge to out-edge: its turn (by</text>
+<text x="349" y="251" font-size="11" fill="#1c2330">angle), its control and turn restrictions</text>
+<text x="349" y="265" font-size="11" fill="#1c2330">so a left across traffic and a right turn at one</text>
+<text x="349" y="279" font-size="11" fill="#1c2330">junction cost differently</text>
+<line x1="16" y1="324" x2="644" y2="324" stroke="#e4e8ec"/>
+<text x="16" y="338" font-size="10" fill="#6b7885">data: bench/route-planner-fixes.json · c8g.8xlarge · Node 22.23.3</text>
+</g>
+</svg>

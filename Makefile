@@ -12,7 +12,7 @@ APP ?= @demo/app-00100
 # `make lockfile-bench` can no longer write a record at non-canonical scale points
 SCALES ?= 200:100 1000:200 2000:300
 
-.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith vizdash gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest review-gate test-review-gate merge-pr clean
+.PHONY: help gen gen-versioned gen-fleet fleet-verify fleet-gate-bench typecheck-whole fleet-chart install graph build typecheck typecheck-warm focus prune bench sweep chart comparison-chart scale-chart net-cache-chart figures deploy-vercel diamond per-app registry-resolution install-bench build-bench lockfile-bench lib-rev-bench tsgo-scale-table-bench monolith vizdash gym-setup gym-scaling gym-climb gym-record gym-canonical gym-selftest route-planner-build route-planner-bench route-planner-fixes route-planner-figures route-planner-test review-gate test-review-gate merge-pr clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -136,6 +136,26 @@ gym-selftest: ## Lock and output-fingerprint self-tests for the gym (BUILDS=1 ad
 
 gym-record: ## Write bench/turbopack-graph-{ab,scaling}.json from one canonical run's raw logs (TAG=<canonical tag>)
 	node scripts/turbopack-gym/canonical.mjs --only record --tag $(TAG) $(if $(GYM_HOST),--host $(GYM_HOST),)
+
+# Route planner (ROUTE-PLANNER.md): one TypeScript workload in twelve engines. ROUTE_ROOT (required)
+# is a scratch directory for the Hermes sources and builds, the cargo target and every engine's build.
+route-planner-build: ## Build every route-planner engine (Rust, Scriptc, Hermes from source) into ROUTE_ROOT
+	node scripts/route-planner/build.mjs
+
+route-planner-bench: ## Every engine on every trip -> bench/route-planner-bench.json (after route-planner-build)
+	node scripts/route-planner/bench.mjs
+
+route-planner-fixes: ## What each planner fix bought -> bench/route-planner-fixes.json (after route-planner-build)
+	node scripts/route-planner/fixes.mjs
+
+route-planner-figures: ## Render the route-planner figures SVG + PNG and their tables in ROUTE-PLANNER.md
+	node scripts/route-planner-figures.mjs
+
+route-planner-test: ## The planner's unit tests (TypeScript and Rust) and type check
+	node --test route-planner/engine/test/*.test.ts
+	node --test scripts/route-planner/*.test.mjs
+	cd route-planner && node_modules/.bin/tsc --noEmit -p engine/tsconfig.json && node_modules/.bin/tsc --noEmit -p engine/tsconfig.test.json && node_modules/.bin/tsc --noEmit -p tsconfig.json
+	cd route-planner/engine-rs && cargo test --release --locked && cargo fmt --check && cargo clippy --release --locked --all-targets -- -D warnings
 
 # Merge gate (AGENTS.md "Reviewing Each Commit"). Each login here must have reviewed the PR
 # head; keep in sync with REQUIRE_HEAD_REVIEW_FROM in .github/workflows/review-gate.yml.
