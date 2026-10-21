@@ -62,11 +62,46 @@ export function sourcesSha256(planner = PLANNER) {
   return h.digest("hex");
 }
 
-/** Throws unless ROUTE_ROOT's build.json was built from today's pack and sources. */
-export function checkBuild(build) {
+// Everything built that bench.mjs and fixes.mjs run or load: the Rust probe and WebAssembly
+// glue (in engine-rs/pkg/, which every build overwrites), and under ROUTE_ROOT the Scriptc probe,
+// the Hermes binaries and every trip's programs. build.json records each file's hash.
+function builtFiles(root) {
+  const files = [];
+  const add = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const f of readdirSync(dir, { recursive: true, withFileTypes: true }))
+      if (f.isFile()) files.push(join(f.parentPath, f.name));
+  };
+  add(join(PLANNER, "engine-rs", "pkg"));
+  add(join(root, "trips"));
+  for (const f of [
+    join(root, "scriptc", "probe"),
+    join(root, "hermes", "classic", "bin", "hermes"),
+    join(root, "hermes", "v1", "bin", "hermes"),
+  ])
+    if (existsSync(f)) files.push(f);
+  return files.sort();
+}
+
+/** Each built file's hash, by its path under the repository or under ROUTE_ROOT. */
+export function builtSha256(root) {
+  const name = (f) => (f.startsWith(root + "/") ? `ROUTE_ROOT/${f.slice(root.length + 1)}` : f.slice(REPO.length + 1));
+  return Object.fromEntries(builtFiles(root).map((f) => [name(f), sha256(readFileSync(f))]));
+}
+
+/**
+ * Throws unless ROUTE_ROOT's build.json was built from today's pack and sources, and every
+ * built file is the one that build wrote: the same set of files, each with the same bytes.
+ */
+export function checkBuild(build, root) {
   if (pack().sha256 !== build.packSha256) throw new Error("ROUTE_ROOT was built from another area pack: run build.mjs again");
   if (sourcesSha256() !== build.sourcesSha256)
     throw new Error("ROUTE_ROOT was built from other route-planner sources: run build.mjs again");
+  const now = builtSha256(root);
+  const then = build.builtSha256 ?? {};
+  for (const f of new Set([...Object.keys(now), ...Object.keys(then)]))
+    if (now[f] !== then[f])
+      throw new Error(`${f} is not the file ROUTE_ROOT's build wrote (another build overwrote it?): run build.mjs again`);
 }
 
 /** A command's first line of output, or null when it is missing or fails. */

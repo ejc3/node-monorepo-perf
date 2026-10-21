@@ -78,7 +78,7 @@ const ENGINES = [
 if (only && !ENGINES.some((e) => e.id === "node")) ENGINES.unshift({ id: "node", label: "TypeScript in Node", family: "v8", cmd: node("ts") });
 const TRIPS = SPEC.trips.filter((t) => !onlyTrips || onlyTrips.includes(t.id));
 // The build's inputs must be today's: the record states the request, pack and programs it ran.
-checkBuild(build);
+checkBuild(build, ROOT);
 for (const t of TRIPS)
   if (readFileSync(T(t.id, "request.json"), "utf8") !== planRequest(t))
     throw new Error(`${t.id}: ROUTE_ROOT was built from another trips.json: run build.mjs again`);

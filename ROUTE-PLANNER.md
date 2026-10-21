@@ -455,8 +455,10 @@ Building needs Node 22, Rust 1.93.0 with the `wasm32-unknown-unknown` target, `w
 0.2.129, a C compiler, Python 3, and for Hermes git, cmake, ninja and ICU. Scriptc 0.4.0 is
 downloaded by `route-planner/native/build.sh`. A record refuses a box whose load average is over
 1.5 (`ROUTE_ALLOW_BUSY=1` overrides) and is published only from a dedicated box. `bench.mjs` and `fixes.mjs` refuse a
-`ROUTE_ROOT` built from another pack, `trips.json` or `route-planner/` sources (the hashes in
-its `build.json`): run `build.mjs` again after any change.
+`ROUTE_ROOT` built from another pack, `trips.json` or `route-planner/` sources, or one whose
+built files (the Rust probe and WebAssembly glue in `engine-rs/pkg/`, which every build
+overwrites, and everything under `ROUTE_ROOT` the bench runs) are not the ones its build wrote;
+`build.json` holds the hashes. Run `build.mjs` again after any change.
 
 ## Data and Licence
 

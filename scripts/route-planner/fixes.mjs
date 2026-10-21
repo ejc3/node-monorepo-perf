@@ -38,7 +38,7 @@ import { ASTAR, COUNTERS, PRE_SCRIPTC, WEAKMAP, variant as makeVariant } from ".
 
 const ROOT = root();
 const build = JSON.parse(readFileSync(join(ROOT, "build.json"), "utf8"));
-checkBuild(build);
+checkBuild(build, ROOT);
 const PACK = join(ROOT, "pack.json");
 const CHILD = join(REPO, "scripts", "route-planner", "fixes-child.mjs");
 const QUICK = process.env.ROUTE_FIXES_QUICK === "1";

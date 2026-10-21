@@ -19,7 +19,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync, copyFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { PLANNER, SPEC, pack, planRequest, root, sha256, sourcesSha256, version } from "./lib.mjs";
+import { PLANNER, SPEC, builtSha256, pack, planRequest, root, sha256, sourcesSha256, version } from "./lib.mjs";
 
 const ROOT = root();
 // The sources as the build starts: an edit while it runs makes bench.mjs refuse the build.
@@ -135,6 +135,8 @@ for (const trip of SPEC.trips) {
 const manifest = {
   packSha256,
   sourcesSha256: sources,
+  // Last, once everything is built: bench.mjs and fixes.mjs refuse any of them changed since.
+  builtSha256: builtSha256(ROOT),
   trips: SPEC.trips.map((t) => t.id),
   versions: {
     node: process.version,
