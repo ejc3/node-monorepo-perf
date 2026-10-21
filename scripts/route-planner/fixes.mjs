@@ -33,11 +33,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { PLANNER, REPO, SPEC, compare, machine, planRequest, preRunLoad, root } from "./lib.mjs";
+import { PLANNER, REPO, SPEC, checkBuild, compare, machine, planRequest, preRunLoad, root } from "./lib.mjs";
 import { ASTAR, COUNTERS, PRE_SCRIPTC, WEAKMAP, variant as makeVariant } from "./variants.mjs";
 
 const ROOT = root();
 const build = JSON.parse(readFileSync(join(ROOT, "build.json"), "utf8"));
+checkBuild(build);
 const PACK = join(ROOT, "pack.json");
 const CHILD = join(REPO, "scripts", "route-planner", "fixes-child.mjs");
 const QUICK = process.env.ROUTE_FIXES_QUICK === "1";

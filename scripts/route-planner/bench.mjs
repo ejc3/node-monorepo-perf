@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { LAST_BITS, REPO, SPEC, compare, machine, pack, planRequest, preRunLoad, root } from "./lib.mjs";
+import { LAST_BITS, REPO, SPEC, checkBuild, compare, machine, planRequest, preRunLoad, root } from "./lib.mjs";
 
 const ROOT = root();
 const build = JSON.parse(readFileSync(join(ROOT, "build.json"), "utf8"));
@@ -77,9 +77,8 @@ const ENGINES = [
 ].filter((e) => !only || only.includes(e.id));
 if (only && !ENGINES.some((e) => e.id === "node")) ENGINES.unshift({ id: "node", label: "TypeScript in Node", family: "v8", cmd: node("ts") });
 const TRIPS = SPEC.trips.filter((t) => !onlyTrips || onlyTrips.includes(t.id));
-// The build's inputs must be today's: the record states the request and pack it ran.
-if (pack().sha256 !== build.packSha256)
-  throw new Error("ROUTE_ROOT was built from another area pack: run build.mjs again");
+// The build's inputs must be today's: the record states the request, pack and programs it ran.
+checkBuild(build);
 for (const t of TRIPS)
   if (readFileSync(T(t.id, "request.json"), "utf8") !== planRequest(t))
     throw new Error(`${t.id}: ROUTE_ROOT was built from another trips.json: run build.mjs again`);

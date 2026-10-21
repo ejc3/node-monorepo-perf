@@ -153,6 +153,7 @@ route-planner-figures: ## Render the route-planner figures SVG + PNG and their t
 
 route-planner-test: ## The planner's unit tests (TypeScript and Rust) and type check
 	node --test route-planner/engine/test/*.test.ts
+	node --test scripts/route-planner/*.test.mjs
 	cd route-planner && node_modules/.bin/tsc --noEmit -p engine/tsconfig.json && node_modules/.bin/tsc --noEmit -p engine/tsconfig.test.json && node_modules/.bin/tsc --noEmit -p tsconfig.json
 	cd route-planner/engine-rs && cargo test --release --locked && cargo fmt --check && cargo clippy --release --locked --all-targets -- -D warnings
 

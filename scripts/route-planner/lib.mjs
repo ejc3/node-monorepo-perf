@@ -43,6 +43,32 @@ export function planRequest(trip) {
 
 export const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
+// What every engine is built from, under route-planner/: a ROUTE_ROOT built from other sources
+// would time old programs against today's TypeScript in Node (whose parity a speed-only change
+// keeps), so bench.mjs and fixes.mjs refuse it.
+const SOURCES = ["engine", "engine-rs", "native", "hermes", "area.ts", "plan.ts", "package.json", "pnpm-lock.yaml"];
+
+/** One hash over the build's sources: every tracked or untracked, not ignored, file's path and bytes. */
+export function sourcesSha256(planner = PLANNER) {
+  const files = execFileSync("git", ["ls-files", "-z", "-co", "--exclude-standard", "--", ...SOURCES], {
+    cwd: planner,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter((f) => f && existsSync(join(planner, f)))
+    .sort();
+  const h = createHash("sha256");
+  for (const f of files) h.update(`${f}\0`).update(readFileSync(join(planner, f))).update("\0");
+  return h.digest("hex");
+}
+
+/** Throws unless ROUTE_ROOT's build.json was built from today's pack and sources. */
+export function checkBuild(build) {
+  if (pack().sha256 !== build.packSha256) throw new Error("ROUTE_ROOT was built from another area pack: run build.mjs again");
+  if (sourcesSha256() !== build.sourcesSha256)
+    throw new Error("ROUTE_ROOT was built from other route-planner sources: run build.mjs again");
+}
+
 /** A command's first line of output, or null when it is missing or fails. */
 export function version(cmd, args = ["--version"], opts = {}) {
   try {

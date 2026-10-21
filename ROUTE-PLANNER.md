@@ -265,9 +265,9 @@ Scriptc says of the engine before and after its rewrites.
 [High-resolution PNG](bench/charts/fig-route-engines.png)
 
 **Figure 5.** Each engine runs each trip in a fresh process with a freshly loaded area, three
-rounds with Node first in each (the other engines in one order in the first two rounds and shifted
-by one in the third); the time is the plan call alone, as the engine
-measures it. The ahead-of-time compilers keep the TypeScript's semantics and differ in what
+rounds with Node first in each. In the record the other engines ran in one order in the first two
+rounds and shifted by one in the third; `bench.mjs` now shifts them by one every round. The time
+is the plan call alone, as the engine measures it. The ahead-of-time compilers keep the TypeScript's semantics and differ in what
 they can assume: Rust has fixed-layout structs, typed arrays and no garbage collector; Scriptc
 compiles from the TypeScript checker's types with a runtime for dynamic parts; Static Hermes
 untyped compiles every operation for any JavaScript value, and typed only where its
@@ -454,7 +454,9 @@ node route-planner/plan.ts long                                # plan one trip a
 Building needs Node 22, Rust 1.93.0 with the `wasm32-unknown-unknown` target, `wasm-bindgen-cli`
 0.2.129, a C compiler, Python 3, and for Hermes git, cmake, ninja and ICU. Scriptc 0.4.0 is
 downloaded by `route-planner/native/build.sh`. A record refuses a box whose load average is over
-1.5 (`ROUTE_ALLOW_BUSY=1` overrides) and is published only from a dedicated box.
+1.5 (`ROUTE_ALLOW_BUSY=1` overrides) and is published only from a dedicated box. `bench.mjs` and `fixes.mjs` refuse a
+`ROUTE_ROOT` built from another pack, `trips.json` or `route-planner/` sources (the hashes in
+its `build.json`): run `build.mjs` again after any change.
 
 ## Data and Licence
 
