@@ -1,0 +1,925 @@
+{
+  "generator": "scripts/route-planner/fixes.mjs",
+  "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 32,
+    "numaNodes": 1,
+    "memGiB": 62,
+    "instanceType": "c8g.8xlarge",
+    "node": "v22.23.3",
+    "sharedBox": false
+  },
+  "preRunLoadAvg1": 0.78,
+  "versions": {
+    "node": "v22.23.3",
+    "rustc": "rustc 1.93.0 (254b59607 2026-01-19)",
+    "wasmBindgen": "wasm-bindgen 0.2.129",
+    "scriptc": "0.4.0",
+    "cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "hermesClassic": {
+      "tag": "hermes-v0.14.1",
+      "commit": "5a1485fd688eafdf40637f4f2f44ec830f099b80"
+    },
+    "hermesV1": {
+      "tag": "hermes-v250829098.0.4",
+      "commit": "922779f8f0d18b3865492751c832614b1e34fbac"
+    },
+    "esbuild": "0.28.2",
+    "babelCore": "7.29.7",
+    "reactNativeBabelPreset": "0.83.10"
+  },
+  "packSha256": "080c3f1e3714348539b44f58382e2c12b46b8f34e63e63029334676ab7be4d7a",
+  "runs": 3,
+  "unreachable": {
+    "id": "unreachable",
+    "name": "a road stub that cannot reach Santa Clara station",
+    "from": {
+      "lat": 37.344784,
+      "lon": -121.934292
+    },
+    "to": {
+      "lat": 37.353,
+      "lon": -121.9366
+    },
+    "arriveByMinute": 540
+  },
+  "astar": {
+    "variants": [
+      "straight",
+      "bound",
+      "lazy",
+      "skip",
+      "now"
+    ],
+    "trips": [
+      {
+        "id": "long",
+        "name": "San José City Hall to Menlo Park station"
+      },
+      {
+        "id": "medium",
+        "name": "Sunnyvale station to Palo Alto station"
+      },
+      {
+        "id": "short",
+        "name": "Sunnyvale station to San Antonio station"
+      },
+      {
+        "id": "unreachable",
+        "name": "a road stub that cannot reach Santa Clara station"
+      }
+    ],
+    "results": {
+      "long": {
+        "straight": {
+          "samplesMs": [
+            8947.2,
+            8899.4,
+            8917.7
+          ],
+          "medianMs": 8917.7,
+          "answerSha256": "7e0db48d67da22688d435de8413432d5c6d95128783438d021ff401a7903d57b",
+          "routes": 5,
+          "counters": {
+            "searches": 13,
+            "settled": 1086589,
+            "buckets": 206603,
+            "boundSettled": 0,
+            "simulations": 127,
+            "mornings": 38100,
+            "crossings": 9255000,
+            "edgeDraws": 9293100
+          },
+          "movements": 128028,
+          "movementPairs": 123864
+        },
+        "bound": {
+          "samplesMs": [
+            7879.9,
+            8018.9,
+            7780.8
+          ],
+          "medianMs": 7879.9,
+          "answerSha256": "7e0db48d67da22688d435de8413432d5c6d95128783438d021ff401a7903d57b",
+          "routes": 5,
+          "counters": {
+            "searches": 13,
+            "settled": 539080,
+            "buckets": 178166,
+            "boundSettled": 535337,
+            "simulations": 127,
+            "mornings": 38100,
+            "crossings": 9255000,
+            "edgeDraws": 9293100
+          },
+          "movements": 116166,
+          "movementPairs": 115856
+        },
+        "lazy": {
+          "samplesMs": [
+            7704.6,
+            7663.6,
+            7953.3
+          ],
+          "medianMs": 7704.6,
+          "answerSha256": "7e0db48d67da22688d435de8413432d5c6d95128783438d021ff401a7903d57b",
+          "routes": 5,
+          "counters": {
+            "searches": 13,
+            "settled": 655651,
+            "buckets": 186756,
+            "boundSettled": 48667,
+            "simulations": 127,
+            "mornings": 38100,
+            "crossings": 9255000,
+            "edgeDraws": 9293100
+          },
+          "movements": 118438,
+          "movementPairs": 118132
+        },
+        "skip": {
+          "samplesMs": [
+            7349.5,
+            7094.3,
+            7412.2
+          ],
+          "medianMs": 7349.5,
+          "answerSha256": "7e0db48d67da22688d435de8413432d5c6d95128783438d021ff401a7903d57b",
+          "routes": 5,
+          "counters": {
+            "searches": 13,
+            "settled": 655651,
+            "buckets": 186756,
+            "boundSettled": 48667,
+            "simulations": 127,
+            "mornings": 38100,
+            "crossings": 9255000,
+            "edgeDraws": 9293100
+          },
+          "movements": 118438,
+          "movementPairs": 118132
+        },
+        "now": {
+          "samplesMs": [
+            7497,
+            7470.5,
+            7630
+          ],
+          "medianMs": 7497,
+          "answerSha256": "7e0db48d67da22688d435de8413432d5c6d95128783438d021ff401a7903d57b",
+          "routes": 5,
+          "counters": {
+            "searches": 13,
+            "settled": 655651,
+            "buckets": 186756,
+            "boundSettled": 48667,
+            "simulations": 127,
+            "mornings": 38100,
+            "crossings": 9255000,
+            "edgeDraws": 9293100
+          },
+          "movements": 118438,
+          "movementPairs": 118132
+        }
+      },
+      "medium": {
+        "straight": {
+          "samplesMs": [
+            3698.8,
+            3825.9,
+            3868.6
+          ],
+          "medianMs": 3825.9,
+          "answerSha256": "0b73b58e185fa2d0de41efae41d71c42ad97838c337f66099f5d39e281bb3b1d",
+          "routes": 5,
+          "counters": {
+            "searches": 10,
+            "settled": 376799,
+            "buckets": 82294,
+            "boundSettled": 0,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 4494000,
+            "edgeDraws": 4519200
+          },
+          "movements": 70855,
+          "movementPairs": 68600
+        },
+        "bound": {
+          "samplesMs": [
+            3288.3,
+            3258.6,
+            3271.8
+          ],
+          "medianMs": 3271.8,
+          "answerSha256": "0b73b58e185fa2d0de41efae41d71c42ad97838c337f66099f5d39e281bb3b1d",
+          "routes": 5,
+          "counters": {
+            "searches": 10,
+            "settled": 164761,
+            "buckets": 45569,
+            "boundSettled": 389336,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 4494000,
+            "edgeDraws": 4519200
+          },
+          "movements": 38218,
+          "movementPairs": 37367
+        },
+        "lazy": {
+          "samplesMs": [
+            2801.4,
+            3041,
+            2942.5
+          ],
+          "medianMs": 2942.5,
+          "answerSha256": "0b73b58e185fa2d0de41efae41d71c42ad97838c337f66099f5d39e281bb3b1d",
+          "routes": 5,
+          "counters": {
+            "searches": 10,
+            "settled": 182539,
+            "buckets": 50085,
+            "boundSettled": 48578,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 4494000,
+            "edgeDraws": 4519200
+          },
+          "movements": 41976,
+          "movementPairs": 41154
+        },
+        "skip": {
+          "samplesMs": [
+            2927,
+            2750.6,
+            3095.4
+          ],
+          "medianMs": 2927,
+          "answerSha256": "0b73b58e185fa2d0de41efae41d71c42ad97838c337f66099f5d39e281bb3b1d",
+          "routes": 5,
+          "counters": {
+            "searches": 10,
+            "settled": 182539,
+            "buckets": 50085,
+            "boundSettled": 48578,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 4494000,
+            "edgeDraws": 4519200
+          },
+          "movements": 41976,
+          "movementPairs": 41154
+        },
+        "now": {
+          "samplesMs": [
+            2727.5,
+            2773.4,
+            2714.5
+          ],
+          "medianMs": 2727.5,
+          "answerSha256": "0b73b58e185fa2d0de41efae41d71c42ad97838c337f66099f5d39e281bb3b1d",
+          "routes": 5,
+          "counters": {
+            "searches": 10,
+            "settled": 182539,
+            "buckets": 50085,
+            "boundSettled": 48578,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 4494000,
+            "edgeDraws": 4519200
+          },
+          "movements": 41976,
+          "movementPairs": 41154
+        }
+      },
+      "short": {
+        "straight": {
+          "samplesMs": [
+            1991,
+            2109.9,
+            2110
+          ],
+          "medianMs": 2109.9,
+          "answerSha256": "fb3909c3f64ff4439c83bbe409fedaf1eed9767dfc55d41ef0121d37b08858a1",
+          "routes": 5,
+          "counters": {
+            "searches": 11,
+            "settled": 194313,
+            "buckets": 38160,
+            "boundSettled": 0,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 3187800,
+            "edgeDraws": 3213000
+          },
+          "movements": 34374,
+          "movementPairs": 33439
+        },
+        "bound": {
+          "samplesMs": [
+            2136.8,
+            2227.6,
+            2209
+          ],
+          "medianMs": 2209,
+          "answerSha256": "fb3909c3f64ff4439c83bbe409fedaf1eed9767dfc55d41ef0121d37b08858a1",
+          "routes": 5,
+          "counters": {
+            "searches": 11,
+            "settled": 94590,
+            "buckets": 22180,
+            "boundSettled": 438003,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 3187800,
+            "edgeDraws": 3213000
+          },
+          "movements": 20325,
+          "movementPairs": 19987
+        },
+        "lazy": {
+          "samplesMs": [
+            1776.8,
+            1858.7,
+            1863.2
+          ],
+          "medianMs": 1858.7,
+          "answerSha256": "fb3909c3f64ff4439c83bbe409fedaf1eed9767dfc55d41ef0121d37b08858a1",
+          "routes": 5,
+          "counters": {
+            "searches": 11,
+            "settled": 102918,
+            "buckets": 24187,
+            "boundSettled": 33262,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 3187800,
+            "edgeDraws": 3213000
+          },
+          "movements": 22013,
+          "movementPairs": 21678
+        },
+        "skip": {
+          "samplesMs": [
+            1606.9,
+            1611.6,
+            1604.9
+          ],
+          "medianMs": 1606.9,
+          "answerSha256": "fb3909c3f64ff4439c83bbe409fedaf1eed9767dfc55d41ef0121d37b08858a1",
+          "routes": 5,
+          "counters": {
+            "searches": 11,
+            "settled": 102918,
+            "buckets": 24187,
+            "boundSettled": 33262,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 3187800,
+            "edgeDraws": 3213000
+          },
+          "movements": 22013,
+          "movementPairs": 21678
+        },
+        "now": {
+          "samplesMs": [
+            1606.2,
+            1605.8,
+            1596.8
+          ],
+          "medianMs": 1605.8,
+          "answerSha256": "fb3909c3f64ff4439c83bbe409fedaf1eed9767dfc55d41ef0121d37b08858a1",
+          "routes": 5,
+          "counters": {
+            "searches": 11,
+            "settled": 102918,
+            "buckets": 24187,
+            "boundSettled": 33262,
+            "simulations": 84,
+            "mornings": 25200,
+            "crossings": 3187800,
+            "edgeDraws": 3213000
+          },
+          "movements": 22013,
+          "movementPairs": 21678
+        }
+      },
+      "unreachable": {
+        "straight": {
+          "samplesMs": [
+            66.6,
+            66.9,
+            66.9
+          ],
+          "medianMs": 66.9,
+          "answerSha256": "60571192bf4510048f7f2e7e70b50353c5e4879f9f311c0ad38dbbf10b563ee0",
+          "routes": 0,
+          "counters": {
+            "searches": 3,
+            "settled": 3,
+            "buckets": 0,
+            "boundSettled": 0,
+            "simulations": 0,
+            "mornings": 0,
+            "crossings": 0,
+            "edgeDraws": 0
+          },
+          "movements": 0,
+          "movementPairs": 0
+        },
+        "bound": {
+          "samplesMs": [
+            133.6,
+            133,
+            134.3
+          ],
+          "medianMs": 133.6,
+          "answerSha256": "60571192bf4510048f7f2e7e70b50353c5e4879f9f311c0ad38dbbf10b563ee0",
+          "routes": 0,
+          "counters": {
+            "searches": 3,
+            "settled": 3,
+            "buckets": 0,
+            "boundSettled": 48667,
+            "simulations": 0,
+            "mornings": 0,
+            "crossings": 0,
+            "edgeDraws": 0
+          },
+          "movements": 0,
+          "movementPairs": 0
+        },
+        "lazy": {
+          "samplesMs": [
+            135.7,
+            134.8,
+            135.1
+          ],
+          "medianMs": 135.1,
+          "answerSha256": "60571192bf4510048f7f2e7e70b50353c5e4879f9f311c0ad38dbbf10b563ee0",
+          "routes": 0,
+          "counters": {
+            "searches": 3,
+            "settled": 3,
+            "buckets": 0,
+            "boundSettled": 48667,
+            "simulations": 0,
+            "mornings": 0,
+            "crossings": 0,
+            "edgeDraws": 0
+          },
+          "movements": 0,
+          "movementPairs": 0
+        },
+        "skip": {
+          "samplesMs": [
+            134.7,
+            135,
+            134.8
+          ],
+          "medianMs": 134.8,
+          "answerSha256": "60571192bf4510048f7f2e7e70b50353c5e4879f9f311c0ad38dbbf10b563ee0",
+          "routes": 0,
+          "counters": {
+            "searches": 3,
+            "settled": 3,
+            "buckets": 0,
+            "boundSettled": 48667,
+            "simulations": 0,
+            "mornings": 0,
+            "crossings": 0,
+            "edgeDraws": 0
+          },
+          "movements": 0,
+          "movementPairs": 0
+        },
+        "now": {
+          "samplesMs": [
+            106.9,
+            107.8,
+            106
+          ],
+          "medianMs": 106.9,
+          "answerSha256": "60571192bf4510048f7f2e7e70b50353c5e4879f9f311c0ad38dbbf10b563ee0",
+          "routes": 0,
+          "counters": {
+            "searches": 3,
+            "settled": 3,
+            "buckets": 0,
+            "boundSettled": 26413,
+            "simulations": 0,
+            "mornings": 0,
+            "crossings": 0,
+            "edgeDraws": 0
+          },
+          "movements": 0,
+          "movementPairs": 0
+        }
+      }
+    },
+    "map": {
+      "ways": 43773,
+      "nodes": 229873,
+      "vertices": 49083,
+      "junctions": 26534,
+      "edges": 103327,
+      "complexes": 44732,
+      "restrictions": 3144
+    },
+    "profiles": {
+      "straight": {
+        "samples": 7015,
+        "shares": {
+          "other": 0.0197,
+          "A* search": 0.244,
+          "A* estimate": 0.0006,
+          "movement statistics": 0.3582,
+          "simulation": 0.3775
+        }
+      },
+      "bound": {
+        "samples": 6314,
+        "shares": {
+          "other": 0.0188,
+          "A* search": 0.1357,
+          "A* estimate": 0.0879,
+          "movement statistics": 0.324,
+          "simulation": 0.4335
+        }
+      },
+      "lazy": {
+        "samples": 6155,
+        "shares": {
+          "other": 0.0201,
+          "A* search": 0.1545,
+          "A* estimate": 0.0109,
+          "movement statistics": 0.3675,
+          "simulation": 0.447
+        }
+      },
+      "skip": {
+        "samples": 5879,
+        "shares": {
+          "other": 0.0218,
+          "A* search": 0.1577,
+          "A* estimate": 0.0114,
+          "movement statistics": 0.3774,
+          "simulation": 0.4317
+        }
+      },
+      "now": {
+        "samples": 5961,
+        "shares": {
+          "other": 0.0193,
+          "A* search": 0.1686,
+          "A* estimate": 0.0114,
+          "movement statistics": 0.3728,
+          "simulation": 0.4279
+        }
+      }
+    }
+  },
+  "scriptc": {
+    "before": {
+      "statements": 1049,
+      "static": 1037,
+      "exitStatus": 0,
+      "output": [
+        "scriptc coverage native/engine-lib.ts",
+        "",
+        "  statements analyzed   1049",
+        "  compile statically    1037  (98%)",
+        "",
+        "  in unreached code   (never lowered — cannot fail a build)",
+        "      ×5  SC1090  indexing with non-number keys",
+        "          at engine/src/router.ts:196:10, engine/src/router.ts:196:34, engine/src/router.ts:225:14 (+2 more)",
+        "          hint: this form is valid TypeScript but does not compile yet — rewrite it with a supported equivalent of the construct the message names (https://scriptc.dev/limitations lists the boundary)",
+        "      ×2  SC2020  'Float64Array<…>.reduce' is part of the standard library types but has no scriptc lowering yet",
+        "          at engine/src/simulate.ts:122:14, engine/src/simulate.ts:150:16",
+        "          hint: the type checker sees the full standard library, but only the supported surface compiles (https://scriptc.dev/limitations)",
+        "      ×1  SC1090  assignment to non-variables",
+        "          at engine/src/simulate.ts:142:38",
+        "          hint: this form is valid TypeScript but does not compile yet — rewrite it with a supported equivalent of the construct the message names (https://scriptc.dev/limitations lists the boundary)",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected 'number', got '{ control: null | string; controlDirection: null | string; id: number; lat: number; lon: number }'",
+        "          at engine/src/pack.ts:58:16",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected 'number', got '{ fromWay: number; kind: string; toWay: number; viaNode: number }'",
+        "          at engine/src/pack.ts:63:23",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2002  record shapes must match exactly or width-coerce: expected '{ control: null | string; controlDirection: null | string; id: number; lat: number; lon: number }[]', got 'number[]'",
+        "          at engine/src/pack.ts:64:33",
+        "          hint: width subtyping compiles as a copy (each expected field copied off the source; extra fields drop) — this pair is outside the copy's rules; build a literal with exactly the expected fields instead",
+        "      ×1  SC2020  'Math.max' is part of the standard library types but has no scriptc lowering yet",
+        "          at engine/src/plan.ts:124:21",
+        "          hint: Math.max lowers with any number of plain arguments or ONE number[] spread — mixed spread/positional lists don't: spread a single array (Math.max(...xs))"
+      ]
+    },
+    "now": {
+      "statements": 1058,
+      "static": 1058,
+      "exitStatus": 0,
+      "output": [
+        "scriptc coverage native/engine-lib.ts",
+        "",
+        "  statements analyzed   1058",
+        "  compile statically    1058  (100%)",
+        "",
+        "  fully static — all analyzed statements compile to native code."
+      ]
+    },
+    "weakmap": {
+      "native": {
+        "timedOut": true,
+        "ceilingMs": 600000
+      },
+      "nativeNow": {
+        "timedOut": false,
+        "ms": 1087,
+        "parity": {
+          "numbers": 5250,
+          "differ": 97,
+          "maxRel": 3.01038535051231e-16
+        }
+      },
+      "node": {
+        "samplesMs": [
+          1919.4,
+          2040.3,
+          1933.7
+        ],
+        "medianMs": 1933.7
+      },
+      "nodeNow": {
+        "samplesMs": [
+          1736.7,
+          1768.9,
+          1743
+        ],
+        "medianMs": 1743
+      }
+    }
+  },
+  "rustPow": {
+    "trip": "long",
+    "powRs": {
+      "samplesMs": [
+        2396,
+        2417,
+        2429
+      ],
+      "medianMs": 2417,
+      "parity": {
+        "numbers": 9362,
+        "differ": 53,
+        "maxRel": 2.512714999052815e-16
+      }
+    },
+    "fdlibm": {
+      "samplesMs": [
+        2734,
+        2770,
+        2772
+      ],
+      "medianMs": 2770,
+      "parity": {
+        "numbers": 9362,
+        "differ": 54,
+        "maxRel": 2.512714999052815e-16
+      }
+    }
+  },
+  "parity": {
+    "contracts": {
+      "math": {
+        "log: 1 - next(), as normal() and exponential() draw it": {
+          "n": 1000000,
+          "differ": 17175,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 17175
+          },
+          "domain": "1 - next(), as normal() and exponential() draw it"
+        },
+        "log: [1e-3, 1e3], log-uniform": {
+          "n": 1000000,
+          "differ": 6871,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 6871
+          },
+          "domain": "[1e-3, 1e3], log-uniform"
+        },
+        "cos: 2π·next(), as normal() draws it": {
+          "n": 1000000,
+          "differ": 13736,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 13736
+          },
+          "domain": "2π·next(), as normal() draws it"
+        },
+        "cos: latitudes 0–60° in radians (geo.ts)": {
+          "n": 1000000,
+          "differ": 18010,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 18010
+          },
+          "domain": "latitudes 0–60° in radians (geo.ts)"
+        },
+        "sin: half a coordinate difference, |Δ| < 0.5° (geo.ts)": {
+          "n": 1000000,
+          "differ": 0,
+          "maxUlps": 0,
+          "byUlps": {},
+          "domain": "half a coordinate difference, |Δ| < 0.5° (geo.ts)"
+        },
+        "sin: [-π, π]": {
+          "n": 1000000,
+          "differ": 15916,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 15916
+          },
+          "domain": "[-π, π]"
+        },
+        "tan: latitudes 0–60° in radians (tileKey)": {
+          "n": 1000000,
+          "differ": 11748,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 11748
+          },
+          "domain": "latitudes 0–60° in radians (tileKey)"
+        },
+        "asin: √h of a distance under 50 km, [0, 0.004]": {
+          "n": 1000000,
+          "differ": 1,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 1
+          },
+          "domain": "√h of a distance under 50 km, [0, 0.004]"
+        },
+        "asin: [0, 1]": {
+          "n": 1000000,
+          "differ": 13321,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 13321
+          },
+          "domain": "[0, 1]"
+        },
+        "atan2: y, x in [-1, 1] (bearing)": {
+          "n": 1000000,
+          "differ": 905,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 905
+          },
+          "domain": "y, x in [-1, 1] (bearing)"
+        },
+        "exp: [-20, 5] (gap acceptance)": {
+          "n": 1000000,
+          "differ": 469,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 469
+          },
+          "domain": "[-20, 5] (gap acceptance)"
+        },
+        "expm1: [-20, 0] (gap acceptance)": {
+          "n": 1000000,
+          "differ": 103,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 103
+          },
+          "domain": "[-20, 0] (gap acceptance)"
+        },
+        "pow: x in (0, 3], y in [0, 4] (traffic.ts's ** terms)": {
+          "n": 1000000,
+          "differ": 94470,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 94470
+          },
+          "domain": "x in (0, 3], y in [0, 4] (traffic.ts's ** terms)"
+        },
+        "pow: x ** 2 (geo.ts)": {
+          "n": 1000000,
+          "differ": 0,
+          "maxUlps": 0,
+          "byUlps": {},
+          "domain": "x ** 2 (geo.ts)"
+        },
+        "sqrt: [0, 1e4]": {
+          "n": 1000000,
+          "differ": 0,
+          "maxUlps": 0,
+          "byUlps": {},
+          "domain": "[0, 1e4]"
+        }
+      },
+      "draws": {
+        "mixed (seed 7)": {
+          "n": 200000,
+          "differ": 1303,
+          "maxUlps": 2,
+          "byUlps": {
+            "1": 1134,
+            "2": 169
+          }
+        },
+        "mixed (seed 20261021)": {
+          "n": 200000,
+          "differ": 1336,
+          "maxUlps": 3,
+          "byUlps": {
+            "1": 1174,
+            "2": 161,
+            "3": 1
+          }
+        },
+        "mixed (seed 2745209355)": {
+          "n": 200000,
+          "differ": 1386,
+          "maxUlps": 3,
+          "byUlps": {
+            "1": 1231,
+            "2": 154,
+            "3": 1
+          }
+        },
+        "normal": {
+          "n": 1000000,
+          "differ": 19959,
+          "maxUlps": 3,
+          "byUlps": {
+            "1": 18311,
+            "2": 1642,
+            "3": 6
+          }
+        },
+        "exponential": {
+          "n": 1000000,
+          "differ": 17325,
+          "maxUlps": 1,
+          "byUlps": {
+            "1": 17325
+          }
+        },
+        "geometric": {
+          "n": 1000000,
+          "differ": 0,
+          "maxUlps": 0,
+          "byUlps": {}
+        }
+      },
+      "packs": {
+        "san-jose-menlo-park": {
+          "packBytes": 13430418,
+          "ways": 43773,
+          "wayNodes": 287049,
+          "names": 10956,
+          "nodes": 229873,
+          "controlledNodes": 15541,
+          "restrictions": 3144,
+          "controlPoints": null,
+          "stretches": 0,
+          "decodedBytes": 12740357,
+          "sha256": "ca9982629be0ded751b74742bbe682ebeafbe7593a54460c26f8a1cd0b351faf"
+        }
+      }
+    },
+    "goldenTrips": {
+      "trips": 23,
+      "engines": {
+        "rust-wasm": {
+          "calls": 25,
+          "numbers": 139602,
+          "differ": 531,
+          "maxRel": 4.2630016993941466e-16,
+          "ms": 26561.53208499997
+        },
+        "rust-native": {
+          "calls": 25,
+          "numbers": 139602,
+          "differ": 531,
+          "maxRel": 4.2630016993941466e-16,
+          "ms": 17863
+        },
+        "scriptc": {
+          "calls": 25,
+          "numbers": 139602,
+          "differ": 2315,
+          "maxRel": 8.09030619520657e-16,
+          "ms": 31670
+        }
+      }
+    }
+  }
+}

@@ -504,6 +504,7 @@ test("charts.yml triggers on every module the chart scripts import", () => {
     "net-cache-chart.mjs",
     "fleet-chart.mjs",
     "figures.mjs",
+    "route-planner-figures.mjs",
   ];
   // every local module reachable from the chart scripts, through imports of imports
   const local = new Set();

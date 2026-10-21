@@ -10,6 +10,8 @@ next-env.d.ts
 pnpm-lock.yaml
 # ...except the vizdash app's: its dependencies are fixed, installed --frozen-lockfile
 !/vizdash/pnpm-lock.yaml
+# ...and the route-planner bench's (esbuild, Babel, TypeScript), installed the same way
+!/route-planner/pnpm-lock.yaml
 # Generated workspace members — regenerate with `pnpm gen`.
 /apps/
 /packages/
@@ -70,3 +72,8 @@ scripts/turbopack-gym/hosts.local.json
 /monolith/
 # make vizdash output (scripts/vizdash-gen.mjs)
 /vizdash-app/
+# route-planner bench: the Rust build and its outputs, and non-canonical runs
+/route-planner/engine-rs/target/
+/route-planner/engine-rs/pkg/
+/bench/route-planner-bench.partial.json
+/bench/route-planner-fixes.partial.json

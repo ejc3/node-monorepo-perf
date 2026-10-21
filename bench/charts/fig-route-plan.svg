@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="668" height="490" viewBox="0 0 668 490" role="img" aria-label="One plan call: snap the ends to the road network; search once with junctions priced flat and then for alternatives at two risk levels, each search after the first making the edges already used dearer; price each candidate route at 13 departures over 300 seeded mornings; find the latest departure that arrives on time 95% of the time and check it as a whole minute; rank the routes by it." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" style="font-variant-numeric:tabular-nums">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+line[stroke="#8794a1"],path[stroke="#8794a1"],polyline[stroke="#8794a1"]{stroke:#6f7c88}
+path[fill="#8794a1"]{fill:#6f7c88}
+circle[stroke="#8794a1"]{stroke:#6f7c88}rect[stroke="#8794a1"]{stroke:#6f7c88}circle[fill="#8794a1"]{fill:#6f7c88}
+rect[fill="#f3f6fb"]{fill:#172435}rect[stroke="#c5d4ea"]{stroke:#34507a}rect[fill="#c5d4ea"]{fill:#34507a}
+rect[fill="#f1f9f4"]{fill:#13281f}rect[stroke="#b2d8c1"]{stroke:#2c6049}rect[fill="#b2d8c1"]{fill:#2c6049}
+rect[fill="#fcf4f0"]{fill:#2b1b15}rect[stroke="#e2c0b0"]{stroke:#6c4232}rect[fill="#e2c0b0"]{fill:#6c4232}
+rect[fill="#fbf7ea"]{fill:#2a2414}rect[stroke="#e6d8a8"]{stroke:#6e5a24}rect[fill="#e6d8a8"]{fill:#6e5a24}
+rect[fill="#eff1f4"]{fill:#1a2029}rect[stroke="#b8c0ca"]{stroke:#465260}rect[fill="#b8c0ca"]{fill:#465260}
+rect[fill="#e8f4f6"]{fill:#0f2529}rect[stroke="#a6d0d9"]{stroke:#2a6470}rect[fill="#a6d0d9"]{fill:#2a6470}
+rect[fill="#3f4b5b"]{fill:#c3cfdc}
+circle[fill="#ffffff"]{fill:#0d1117}
+text[fill="#146b3a"]{fill:#5cc48c}
+text[fill="#46505b"]{fill:#aab4be}
+text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
+}</style>
+<rect width="668" height="490" fill="#ffffff"/>
+<g transform="translate(4 0)">
+<text x="16" y="24" font-size="17" fill="#1c2330" font-weight="650">One plan call</text>
+<text x="16" y="42" font-size="12" fill="#6b7885">the long trip: 13 searches, 127 simulations of 300 mornings, 5 routes back</text>
+<rect x="16" y="54" width="628" height="44" rx="6" fill="#f3f6fb" stroke="#c5d4ea" stroke-width="1"/>
+<text x="27" y="72" font-size="12" fill="#1c2330" font-weight="600">Snap the ends</text>
+<text x="27" y="87" font-size="11" fill="#1c2330">each end to the nearer end of the nearest road a car can start on (no freeway, trunk road or ramp)</text>
+<line x1="330" y1="100" x2="330" y2="107.5" stroke="#8794a1" stroke-width="1.25"/><path d="M330 114L327 107.5L333 107.5z" fill="#8794a1"/>
+<rect x="16" y="116" width="628" height="114" rx="6" fill="#f3f6fb" stroke="#c5d4ea" stroke-width="1"/>
+<text x="27" y="134" font-size="12" fill="#1c2330" font-weight="600">Search: the beaten route and the alternatives</text>
+<text x="27" y="149" font-size="11" fill="#1c2330">one search with junctions priced flat (signal 15 s, all-way stop 8 s, stop 6 s, yield 2 s): the route a typical</text>
+<text x="27" y="163" font-size="11" fill="#1c2330">router gives</text>
+<text x="27" y="177" font-size="11" fill="#1c2330">then, at risk 0 and at risk 1.5, up to 4 alternatives each: search, make every edge used 1.35 times dearer,</text>
+<text x="27" y="191" font-size="11" fill="#1c2330">search again (at most 12 tries); keep a route sharing under 75% of its length with each kept</text>
+<text x="27" y="205" font-size="11" fill="#1c2330">routes priced at 8:35, 25 minutes before the arrival; a candidate sharing 90% with one already taken both</text>
+<text x="27" y="219" font-size="11" fill="#1c2330">ways is dropped</text>
+<line x1="330" y1="232" x2="330" y2="239.5" stroke="#8794a1" stroke-width="1.25"/><path d="M330 246L327 239.5L333 239.5z" fill="#8794a1"/>
+<rect x="16" y="248" width="628" height="58" rx="6" fill="#f1f9f4" stroke="#b2d8c1" stroke-width="1"/>
+<text x="27" y="266" font-size="12" fill="#1c2330" font-weight="600">Price each route: 13 departures × 300 mornings</text>
+<text x="27" y="281" font-size="11" fill="#1c2330">every 5 minutes over the 60 before the arrival, the same 300 seeded mornings: the share on time at each</text>
+<text x="27" y="295" font-size="11" fill="#1c2330">a later departure is never likelier to arrive on time: a rise between two departures is held at the lower value</text>
+<line x1="330" y1="308" x2="330" y2="315.5" stroke="#8794a1" stroke-width="1.25"/><path d="M330 322L327 315.5L333 315.5z" fill="#8794a1"/>
+<rect x="16" y="324" width="628" height="58" rx="6" fill="#f1f9f4" stroke="#b2d8c1" stroke-width="1"/>
+<text x="27" y="342" font-size="12" fill="#1c2330" font-weight="600">Leave-by</text>
+<text x="27" y="357" font-size="11" fill="#1c2330">the latest departure whose on-time share reaches 95%, interpolated between two departures</text>
+<text x="27" y="371" font-size="11" fill="#1c2330">then simulated as a whole minute on its own, stepping back a minute until it meets the goal</text>
+<line x1="330" y1="384" x2="330" y2="391.5" stroke="#8794a1" stroke-width="1.25"/><path d="M330 398L327 391.5L333 391.5z" fill="#8794a1"/>
+<rect x="16" y="400" width="628" height="44" rx="6" fill="#f3f6fb" stroke="#c5d4ea" stroke-width="1"/>
+<text x="27" y="418" font-size="12" fill="#1c2330" font-weight="600">Rank and keep 5</text>
+<text x="27" y="433" font-size="11" fill="#1c2330">latest safe departure first; the beaten route is always among them</text>
+<line x1="16" y1="464" x2="644" y2="464" stroke="#e4e8ec"/>
+<text x="16" y="478" font-size="10" fill="#6b7885">data: bench/route-planner-bench.json · bench/route-planner-fixes.json · c8g.8xlarge · Node 22.23.3</text>
+</g>
+</svg>

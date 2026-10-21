@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="668" height="389" viewBox="0 0 668 389" role="img" aria-label="Where the engines differ from V8: libm's exp, log, cos, pow and the rest differ from V8's in the last bit on up to 9.4% of inputs, never by more than one ulp; on the long trip each engine's answer differs from Node's in some numbers' last bits, at most 4.3e-16 relative, with the same routes and leave-by times." font-family="system-ui,-apple-system,Segoe UI,Helvetica,Arial,sans-serif" style="font-variant-numeric:tabular-nums">
+<style>@media (prefers-color-scheme: dark){
+rect[fill="#ffffff"]{fill:#0d1117}
+text[fill="#1c2330"]{fill:#e2e7ec}
+text[fill="#6b7885"]{fill:#9aa6b1}
+text[fill="#1a73e8"]{fill:#6ba3f5}
+line[stroke="#e4e8ec"]{stroke:#2b333c}
+rect[stroke="#e4e8ec"]{stroke:#39424c}
+rect[fill="#e4e8ec"]{fill:#2b333c}
+line[stroke="#6b7885"],path[stroke="#6b7885"],polyline[stroke="#6b7885"]{stroke:#8b98a4}
+path[fill="#6b7885"]{fill:#8b98a4}
+line[stroke="#8794a1"],path[stroke="#8794a1"],polyline[stroke="#8794a1"]{stroke:#6f7c88}
+path[fill="#8794a1"]{fill:#6f7c88}
+circle[stroke="#8794a1"]{stroke:#6f7c88}rect[stroke="#8794a1"]{stroke:#6f7c88}circle[fill="#8794a1"]{fill:#6f7c88}
+rect[fill="#f3f6fb"]{fill:#172435}rect[stroke="#c5d4ea"]{stroke:#34507a}rect[fill="#c5d4ea"]{fill:#34507a}
+rect[fill="#f1f9f4"]{fill:#13281f}rect[stroke="#b2d8c1"]{stroke:#2c6049}rect[fill="#b2d8c1"]{fill:#2c6049}
+rect[fill="#fcf4f0"]{fill:#2b1b15}rect[stroke="#e2c0b0"]{stroke:#6c4232}rect[fill="#e2c0b0"]{fill:#6c4232}
+rect[fill="#fbf7ea"]{fill:#2a2414}rect[stroke="#e6d8a8"]{stroke:#6e5a24}rect[fill="#e6d8a8"]{fill:#6e5a24}
+rect[fill="#eff1f4"]{fill:#1a2029}rect[stroke="#b8c0ca"]{stroke:#465260}rect[fill="#b8c0ca"]{fill:#465260}
+rect[fill="#e8f4f6"]{fill:#0f2529}rect[stroke="#a6d0d9"]{stroke:#2a6470}rect[fill="#a6d0d9"]{fill:#2a6470}
+rect[fill="#3f4b5b"]{fill:#c3cfdc}
+circle[fill="#ffffff"]{fill:#0d1117}
+text[fill="#146b3a"]{fill:#5cc48c}
+text[fill="#46505b"]{fill:#aab4be}
+text[fill="#8f2a23"]{fill:#f0847b}
+polyline[stroke="#3a4656"]{stroke:#a7b6c8}circle[fill="#3a4656"],rect[fill="#3a4656"]{fill:#a7b6c8}
+text[fill="#3a4656"]{fill:#a7b6c8}
+}</style>
+<rect width="668" height="389" fill="#ffffff"/>
+<g transform="translate(4 0)">
+<text x="16" y="24" font-size="17" fill="#1c2330" font-weight="650">Where the engines differ from V8: the last bit</text>
+<text x="16" y="42" font-size="12" fill="#6b7885">libm (Rust's, and Hermes' and Scriptc's C library) against V8's own Math</text>
+<text x="16" y="62" font-size="10" fill="#6b7885">Math through libm against V8, 1,000,000 inputs each:</text>
+<text x="16" y="74" font-size="10" fill="#6b7885">the share one ulp apart</text>
+<text x="16" y="102" font-size="10" fill="#1c2330">log of 1 - next()</text>
+<rect x="176" y="93" width="18.2" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="102" font-size="10" fill="#6b7885">1.72%</text>
+<text x="16" y="119" font-size="10" fill="#1c2330">log, 1e-3 to 1e3</text>
+<rect x="176" y="110" width="7.3" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="119" font-size="10" fill="#6b7885">0.69%</text>
+<text x="16" y="136" font-size="10" fill="#1c2330">cos of 2 pi next()</text>
+<rect x="176" y="127" width="14.5" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="136" font-size="10" fill="#6b7885">1.37%</text>
+<text x="16" y="153" font-size="10" fill="#1c2330">cos of latitudes</text>
+<rect x="176" y="144" width="19.1" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="153" font-size="10" fill="#6b7885">1.80%</text>
+<text x="16" y="170" font-size="10" fill="#1c2330">sin of half a coordinate step</text>
+<text x="284" y="170" font-size="10" fill="#6b7885">0.00%</text>
+<text x="16" y="187" font-size="10" fill="#1c2330">sin, -pi to pi</text>
+<rect x="176" y="178" width="16.8" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="187" font-size="10" fill="#6b7885">1.59%</text>
+<text x="16" y="204" font-size="10" fill="#1c2330">tan of latitudes</text>
+<rect x="176" y="195" width="12.4" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="204" font-size="10" fill="#6b7885">1.17%</text>
+<text x="16" y="221" font-size="10" fill="#1c2330">asin, distances under 50 km</text>
+<rect x="176" y="212" width="1.0" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="221" font-size="10" fill="#6b7885">0.000%</text>
+<text x="16" y="238" font-size="10" fill="#1c2330">asin, 0 to 1</text>
+<rect x="176" y="229" width="14.1" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="238" font-size="10" fill="#6b7885">1.33%</text>
+<text x="16" y="255" font-size="10" fill="#1c2330">atan2, bearings</text>
+<rect x="176" y="246" width="1.0" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="255" font-size="10" fill="#6b7885">0.090%</text>
+<text x="16" y="272" font-size="10" fill="#1c2330">exp, -20 to 5</text>
+<rect x="176" y="263" width="1.0" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="272" font-size="10" fill="#6b7885">0.047%</text>
+<text x="16" y="289" font-size="10" fill="#1c2330">expm1, -20 to 0</text>
+<rect x="176" y="280" width="1.0" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="289" font-size="10" fill="#6b7885">0.010%</text>
+<text x="16" y="306" font-size="10" fill="#1c2330">pow, traffic's x ** y</text>
+<rect x="176" y="297" width="100.0" height="9" rx="1.5" fill="#3a4656"/>
+<text x="284" y="306" font-size="10" fill="#6b7885">9.45%</text>
+<text x="16" y="323" font-size="10" fill="#1c2330">pow, x ** 2</text>
+<text x="284" y="323" font-size="10" fill="#6b7885">0.00%</text>
+<text x="16" y="340" font-size="10" fill="#1c2330">sqrt, 0 to 1e4</text>
+<text x="284" y="340" font-size="10" fill="#6b7885">0.00%</text>
+<text x="352" y="62" font-size="10" fill="#6b7885">The long trip's answer: the numbers</text>
+<text x="352" y="74" font-size="10" fill="#6b7885">differing from Node's in the last bits</text>
+<text x="352" y="102" font-size="10" fill="#1c2330">Rust, native</text>
+<text x="644" y="102" font-size="10" fill="#6b7885" text-anchor="end">53 of 9,362</text>
+<text x="352" y="119" font-size="10" fill="#1c2330">Rust, WebAssembly in Node</text>
+<text x="644" y="119" font-size="10" fill="#6b7885" text-anchor="end">53 of 9,362</text>
+<text x="352" y="136" font-size="10" fill="#1c2330">Scriptc, native</text>
+<text x="644" y="136" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="153" font-size="10" fill="#1c2330">Hermes 0.14.1</text>
+<text x="644" y="153" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="170" font-size="10" fill="#1c2330">Hermes V1</text>
+<text x="644" y="170" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="187" font-size="10" fill="#1c2330">Hermes V1, 1 GB starting heap</text>
+<text x="644" y="187" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="204" font-size="10" fill="#1c2330">Hermes V1, React Native's Babel preset</text>
+<text x="644" y="204" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="221" font-size="10" fill="#1c2330">Static Hermes, untyped</text>
+<text x="644" y="221" font-size="10" fill="#6b7885" text-anchor="end">117 of 9,362</text>
+<text x="352" y="238" font-size="10" fill="#1c2330">Static Hermes, typed port</text>
+<text x="644" y="238" font-size="10" fill="#6b7885" text-anchor="end">243 of 9,362</text>
+<text x="352" y="255" font-size="10" fill="#1c2330">Static Hermes, typed port, tuned</text>
+<text x="644" y="255" font-size="10" fill="#6b7885" text-anchor="end">512 of 9,362</text>
+<text x="352" y="272" font-size="10" fill="#1c2330">Static Hermes, typed port, tuned, C calls</text>
+<text x="644" y="272" font-size="10" fill="#6b7885" text-anchor="end">512 of 9,362</text>
+<text x="352" y="291" font-size="10" fill="#6b7885">Largest relative difference: 4.3e-16. Routes, strings and</text>
+<text x="352" y="304" font-size="10" fill="#6b7885">leave-by times identical in every engine.</text>
+<line x1="16" y1="363" x2="644" y2="363" stroke="#e4e8ec"/>
+<text x="16" y="377" font-size="10" fill="#6b7885">data: bench/route-planner-fixes.json · bench/route-planner-bench.json · c8g.8xlarge · Node 22.23.3</text>
+</g>
+</svg>
