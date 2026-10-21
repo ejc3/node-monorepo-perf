@@ -11,6 +11,7 @@ import { REPO, SPEC, builtSha256, pack, planRequest, sourcesSha256 } from "./lib
 
 function rootWith(sources) {
   const root = mkdtempSync(join(tmpdir(), "route-root-"));
+  writeFileSync(join(root, "pack.json"), pack().text);
   for (const t of SPEC.trips) {
     mkdirSync(join(root, "trips", t.id), { recursive: true });
     writeFileSync(join(root, "trips", t.id, "request.json"), planRequest(t));
@@ -45,6 +46,18 @@ test("bench.mjs refuses a built file that another build overwrote", () => {
     const r = bench(root);
     assert.notEqual(r.status, 0);
     assert.match(r.stderr, /plan\.js is not the file ROUTE_ROOT's build wrote/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("bench.mjs refuses a scratch pack changed after the build", () => {
+  const root = rootWith(sourcesSha256());
+  try {
+    writeFileSync(join(root, "pack.json"), pack().text.replace(/}\s*$/, ', "edited": true}'));
+    const r = bench(root);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /pack\.json is not the file ROUTE_ROOT's build wrote/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

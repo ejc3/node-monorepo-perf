@@ -457,8 +457,10 @@ downloaded by `route-planner/native/build.sh`. A record refuses a box whose load
 1.5 (`ROUTE_ALLOW_BUSY=1` overrides) and is published only from a dedicated box. `bench.mjs` and `fixes.mjs` refuse a
 `ROUTE_ROOT` built from another pack, `trips.json` or `route-planner/` sources, or one whose
 built files (the Rust probe and WebAssembly glue in `engine-rs/pkg/`, which every build
-overwrites, and everything under `ROUTE_ROOT` the bench runs) are not the ones its build wrote;
-`build.json` holds the hashes. Run `build.mjs` again after any change.
+overwrites, and everything under `ROUTE_ROOT` the bench runs or loads) are not the ones its build wrote;
+`build.json` holds the hashes. Run `build.mjs` again after any change. A cached Hermes build is
+reused only while its inputs (tag, targets, `build-hermes.sh`, and the compiler, cmake and ninja
+versions) are the same.
 
 ## Data and Licence
 

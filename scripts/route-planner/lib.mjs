@@ -63,8 +63,8 @@ export function sourcesSha256(planner = PLANNER) {
 }
 
 // Everything built that bench.mjs and fixes.mjs run or load: the Rust probe and WebAssembly
-// glue (in engine-rs/pkg/, which every build overwrites), and under ROUTE_ROOT the Scriptc probe,
-// the Hermes binaries and every trip's programs. build.json records each file's hash.
+// glue (in engine-rs/pkg/, which every build overwrites), and under ROUTE_ROOT the pack Node,
+// Rust and Scriptc load, the Scriptc probe, the Hermes binaries and every trip's programs. build.json records each file's hash.
 function builtFiles(root) {
   const files = [];
   const add = (dir) => {
@@ -75,6 +75,7 @@ function builtFiles(root) {
   add(join(PLANNER, "engine-rs", "pkg"));
   add(join(root, "trips"));
   for (const f of [
+    join(root, "pack.json"),
     join(root, "scriptc", "probe"),
     join(root, "hermes", "classic", "bin", "hermes"),
     join(root, "hermes", "v1", "bin", "hermes"),
