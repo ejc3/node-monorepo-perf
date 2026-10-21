@@ -126,6 +126,8 @@ export function compare(ref, got, place, key, acc) {
     if (!(rel <= LAST_BITS)) throw new Error(`${place}: ${ref} against ${got} (relative ${rel})`);
     return;
   }
+  if (Array.isArray(ref) !== Array.isArray(got))
+    throw new Error(`${place}: an array against an object`);
   if (Array.isArray(ref) && Array.isArray(got)) {
     if (ref.length !== got.length) throw new Error(`${place}: ${ref.length} items against ${got.length}`);
     ref.forEach((x, i) => compare(x, got[i], `${place}[${i}]`, key, acc));

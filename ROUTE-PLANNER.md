@@ -54,7 +54,7 @@ pair of edges and has its own turn, control and turn restrictions.
 | vertices | 49,083 |
 | directed edges | 103,327 |
 | junctions (3+ directions) | 26,534 |
-| complexes (intersections) | 44,732 |
+| complexes (an intersection, or a lone vertex) | 44,732 |
 
 Fields: `bench/route-planner-fixes.json`: `astar.map.{ways,nodes,restrictions,vertices,edges,junctions,complexes}`.
 
@@ -91,18 +91,21 @@ Fields: `bench/route-planner-fixes.json`: `astar.map.{ways,nodes,restrictions,ve
 - **Signal.** The cycle is 70 to 130 s by the busiest road's class; the major road's through
   movement gets 55% green, a side street 30%, a left turn a protected 12–14% phase. Arriving at a
   random point in the cycle (30% of the time, a major-road through driver is carried into the
-  green by coordinated signals), it waits out the red and the queue that arrived in it, 2 s per car per lane. Near and over
-  saturation it misses whole cycles: a demand over capacity is an overflow.
+  green by coordinated signals), it waits out the red and the queue that arrived in it, 2 s per
+  car per lane. Near and over saturation the queue does not clear in one green: each missed cycle
+  adds another red, and a demand over capacity is an overflow.
 - **Stop and yield.** Gap acceptance (HCM): the movement's capacity against the conflicting
   flow, with critical headways of 6.2 to 7.1 s (longer across a four-lane road, shorter at a
   yield); the cars queued ahead (geometric, with a growing
   overflow queue over capacity) each clear in an exponential time; then the wait for a gap of the
-  critical headway in a Poisson stream; plus 5 s to stop and start.
+  critical headway in a Poisson stream; plus 5 s to stop and start (1.5 s at a yield where the
+  wait came to under a second).
 - **All-way stop.** About 4 s per vehicle, taking turns with the other approaches.
 - **Unprotected left from the major road.** A gap of 4.1 s in the oncoming flow.
-- **Free and internal movements.** A turn costs 2.5 s (right), 3.5 s (left) or 12 s (U-turn).
+- **Free and internal movements.** A turn costs 2.5 s (right), 3.5 s (left) or 12 s (U-turn), and
+  a free turn 0.5 s more.
 
-No movement is priced above 15 minutes.
+A stop, yield or all-way stop delay is capped at 15 minutes; a signal stops adding missed cycles once the wait passes four cycles.
 
 ### Movement statistics
 
@@ -118,10 +121,10 @@ cached for the life of the loaded area.
 `shortestPath` is A* over edges. An edge's cost is its running time at the minute the car reaches
 it, times the alternatives' penalty, plus the movement's mean delay, plus `risk` × the delay's
 standard deviation; `destination`-only roads cost 120 s more unless the trip starts or ends on
-one. The estimate is a lower bound on the remaining cost: the free-flow seconds still to go,
-from one backward Dijkstra search from the destination over free-flow times (no traffic, no
-waits, no turn rules). No route costs less, so the first route to reach the destination is the
-cheapest. The backward search grows lazily: it stops once it has passed the origin by twice the
+one. The estimate is the free-flow seconds still to go, from one backward Dijkstra search from
+the destination over free-flow times (no traffic, no waits, no turn rules): no route's cost is
+less, so the estimate never overstates what remains, and on every trip measured it returns the
+same routes as the straight-line estimate it replaced (Figure 6). The backward search grows lazily: it stops once it has passed the origin by twice the
 origin's free-flow time and at least a minute; a vertex it has not reached gets the distance
 searched so far. It is cached per destination (four kept) and resumed for a search from
 farther away, and capped at four times the straight-line distance at 40 m/s plus ten minutes, for
@@ -165,9 +168,10 @@ Fields: `bench/route-planner-fixes.json`: `astar.results.long.now.counters.{sear
 [High-resolution PNG](bench/charts/fig-route-curve.png)
 
 **Figure 3.** Each route is simulated at 13 departures, every 5 minutes over the hour before the
-arrival, each over the same 300 seeded mornings, so the curve's steps are the traffic and not the
-dice. Leaving later never makes arriving by a fixed time likelier (traffic is first in, first
-out), so a rise between two departures is sampling noise and is held at the lower value. The
+arrival, each over 300 mornings from the same seed, so most of a step between departures is the
+traffic and not the dice (the draws drift apart where queues and gaps draw more numbers on a busier
+minute). The engine treats leaving later as never making arriving by a fixed time likelier, so a
+rise between two departures is taken as sampling noise and held at the lower value. The
 leave-by is where the curve crosses the goal, interpolated between two departures; that minute is
 then simulated on its own and, if it falls short, stepped back a whole minute at a time to one
 that meets the goal. The 20 dots are that simulation's 2.5th, 7.5th, … 97.5th percentiles of
@@ -219,7 +223,7 @@ the engine with counters added, whose answer is the same as the timed engine's.
 | --- | --- | ---: |
 | The map | vertices | 49,083 |
 | The map | directed edges | 103,327 |
-| The map | intersections | 44,732 |
+| The map | complexes | 44,732 |
 | The searches | searches | 13 |
 | The searches | edges settled | 655,651 |
 | The searches | movements priced | 118,132 |
@@ -235,7 +239,7 @@ Fields: `bench/route-planner-fixes.json`: `astar.map.{vertices,edges,complexes}`
 </details>
 <!-- /chart-data:fig-route-workload -->
 
-On the long trip the 13 searches settle 655,651 edges in all, 6.3 times the map's 103,327, and price 118,132 movements in 186,756 buckets: 8,964,288 delays drawn for statistics. The 127 simulations draw 9,293,100 running times and 9,255,000 junction delays. In Node's CPU profile the simulations take 43% of the plan, the movement statistics 37% and the rest of the searches 17% (Figure 6).
+On the long trip the 13 searches settle 655,651 edges in all, 6.3 times the map's 103,327, and price 118,132 movements in 186,756 buckets: 8,964,288 delays drawn for statistics. The 127 simulations draw 9,293,100 running times and 9,255,000 junction delays. Of the plan's JavaScript samples in Node's CPU profile (garbage collection not counted), the simulations take 43%, the movement statistics 37% and the rest of the searches 17% (Figure 6).
 
 ## The Engines
 
@@ -261,7 +265,8 @@ Scriptc says of the engine before and after its rewrites.
 [High-resolution PNG](bench/charts/fig-route-engines.png)
 
 **Figure 5.** Each engine runs each trip in a fresh process with a freshly loaded area, three
-rounds with the engine order rotated each round; the time is the plan call alone, as the engine
+rounds with Node first in each (the other engines in one order in the first two rounds and shifted
+by one in the third); the time is the plan call alone, as the engine
 measures it. The ahead-of-time compilers keep the TypeScript's semantics and differ in what
 they can assume: Rust has fixed-layout structs, typed arrays and no garbage collector; Scriptc
 compiles from the TypeScript checker's types with a runtime for dynamic parts; Static Hermes
@@ -296,13 +301,13 @@ Fields: `bench/route-planner-bench.json`: `results.<trip>.<engine>.medianMs`, `e
 - **Scriptc** compiles the engine (with the rewrites below) to 4.16 s, 1.6 times as fast as Node's JIT on the same source.
 - **Hermes' interpreters** take 27.0 s (V1 with a 1 GB starting heap) to 41.4 s (V1 on the Babel output) on the long trip, 11.9 to 18.2 times Rust native's time.
 - **Static Hermes** compiled untyped is 37.8 s, no faster than V1 interpreting the same bundle (36.6 s). The typed port takes 19.5 s, the tuned port 15.1 s, and the tuned port with C calls 7.25 s, 1.1 times Node's time.
-- The ranking is the same on the short and medium trips; the ratios shrink on shorter trips for the compiled engines (Node takes 2.7 times Rust native's time on the short trip).
+- On the shorter trips the order among the Hermes engines changes: on the medium trip Hermes 0.14.1 (15.9 s) is faster than V1 with its default heap (22.9 s), and slower than V1 on the Babel output (12.6 s). Node takes 2.7 times Rust native's time on the short trip, 2.9 on the long.
 
 ## What Each Fix Bought
 
 ### The A* estimate
 
-![The long trip in the TypeScript engine under five versions of its A* estimate: time by where the CPU profile's samples fall, and edges settled](bench/charts/fig-route-astar.svg)
+![The long trip in the TypeScript engine under five versions of its A* estimate: the plan's time, the share of its profile samples under each part, and the edges settled](bench/charts/fig-route-astar.svg)
 
 [High-resolution PNG](bench/charts/fig-route-astar.png)
 
@@ -377,12 +382,13 @@ The port's contract is the TypeScript's results, bit for bit where the arithmeti
 [High-resolution PNG](bench/charts/fig-route-parity.png)
 
 **Figure 7.** V8 computes `Math.exp`, `log`, `cos`, `pow` and the rest with its own
-implementations; Rust's `libm` crate and the C library Scriptc's and Hermes' code call compute
-them differently and disagree with V8 in the last bit on some inputs, never by more than one ulp.
-The Rust port otherwise rounds as V8 does (no fused multiply-add, the same order of operations),
-so for it those last bits are the only source of difference; the other compilers make their own
-choices, and the typed ports, rewritten by hand, differ in more numbers. Every difference stays
-within a few parts in 10^16.
+implementations; Rust's `libm` crate (with `pow.rs`) computes them differently and disagrees with
+V8 in the last bit on some inputs, never by more than one ulp (the left panel; the C library
+Scriptc's and Hermes' code calls is measured only through their answers). The Rust port
+otherwise rounds as V8 does (no fused multiply-add, the same order of operations), so for it
+those last bits are the only source of difference; the other compilers make their own choices,
+and the typed ports, rewritten by hand, differ in more numbers. Every difference stays within a
+few parts in 10^16.
 
 <!-- chart-data:fig-route-parity -->
 <details>
@@ -425,7 +431,7 @@ Fields: `bench/route-planner-fixes.json`: `parity.contracts.math.<row>.{n,differ
 </details>
 <!-- /chart-data:fig-route-parity -->
 
-- **V8 against libm** (`engine-rs/test/parity.test.ts`, 10^6 inputs per row): `pow` on the traffic model's terms differs in 9.45% of inputs; `log`, `cos` and `tan`, and `sin` and `asin` over their full ranges, in 0.7–1.8%; `exp`, `expm1` and `atan2` in 0.01–0.09%; `sin` and `asin` on the small arguments of the engine's distances in none and one input; `sqrt` and `x ** 2` never (both are correctly rounded everywhere). No result is more than one ulp apart. The seeded generator's `next()` and `uniform()` are bit-identical; `normal()`, which goes through `log` and `cos`, differs in 19,959 of 1,000,000 draws by up to 3 ulps.
+- **V8 against Rust's `libm` and `pow.rs`** (`engine-rs/test/parity.test.ts`, 10^6 inputs per row): `pow` with x in (0, 3] and y in [0, 4] differs in 9.45% of inputs; `log`, `cos` and `tan`, and `sin` and `asin` over their full ranges, in 0.7–1.8%; `exp`, `expm1` and `atan2` in 0.01–0.09%; `sin` and `asin` on the small arguments of the engine's distances in none and one input; `sqrt` and `x ** 2` never (both are correctly rounded everywhere). No result is more than one ulp apart. The seeded generator's `next()` and `uniform()` are bit-identical; `normal()`, which goes through `log` and `cos`, differs in 19,959 of 1,000,000 draws by up to 3 ulps.
 - **Through a plan** the differences stay in the last bits: on the 23 golden trips Rust differs from TypeScript in 531 of 139,602 numbers and Scriptc in 2,315, at most 8.1e-16 relative, with every route and leave-by identical. Rust's native and WebAssembly answers are byte-identical, since both use the same `libm`.
 - The measurements are on arm64; x86-64 was not measured.
 

@@ -80,7 +80,8 @@ function child(dir, trip, nodeArgs = [], answerFile) {
 }
 
 // Where a CPU profile's plan time goes: each sample under planTrip, by the nearest of these
-// frames above it (the profiler keeps inlined frames).
+// frames above it (the profiler keeps inlined frames). Garbage collection samples sit outside
+// planTrip's stack and are not counted: the shares are of the plan's JavaScript samples.
 const CATEGORY = {
   delay: "movement statistics",
   freeFlowTo: "A* estimate",
@@ -192,7 +193,9 @@ const probeRun = (bin, trip, timeoutS) => {
   const calls = join(REQ, `${trip.id}.tsv`);
   writeFileSync(calls, `plan\t${planRequest(trip)}\n`);
   const r = spawnSync(bin, [PACK, calls], { encoding: "utf8", maxBuffer: 2 ** 28, timeout: timeoutS * 1000 });
-  if (r.error?.code === "ETIMEDOUT" || r.signal === "SIGTERM") return { timedOut: true, ceilingMs: timeoutS * 1000 };
+  // only the timeout's own kill counts as one: any other signal or error is a failure
+  if (r.error?.code === "ETIMEDOUT") return { timedOut: true, ceilingMs: timeoutS * 1000 };
+  if (r.error) throw r.error;
   if (r.status !== 0) throw new Error(`${bin}: exited ${r.status}: ${(r.stderr || "").slice(-800)}`);
   return { timedOut: false, ms: Number(/plan (\d+) ms/.exec(r.stderr)[1]), answer: r.stdout.trim() };
 };

@@ -191,9 +191,9 @@ function figRouteGraph() {
     },
     {
       tint: "green",
-      label: "Intersections",
+      label: "Complexes",
       body: [
-        `${int(complexes)} complexes: junctions joined by an edge of 30 m or less are one intersection`,
+        `${int(complexes)}: junction vertices joined by an edge of 30 m or less are one intersection; any other vertex is one on its own`,
         "its control is charged once, on entry",
       ],
     },
@@ -233,14 +233,14 @@ function figRouteGraph() {
       ["vertices", int(vertices)],
       ["directed edges", int(edges)],
       ["junctions (3+ directions)", int(junctions)],
-      ["complexes (intersections)", int(complexes)],
+      ["complexes (an intersection, or a lone vertex)", int(complexes)],
     ],
     fields:
       "`bench/route-planner-fixes.json`: `astar.map.{ways,nodes,restrictions,vertices,edges,junctions,complexes}`.",
   });
   return svgDoc(
     y + 12,
-    `The area's OpenStreetMap extract (${int(ways)} ways, ${int(nodes)} nodes) becomes ${int(vertices)} vertices and ${int(edges)} directed edges; junction vertices within 30 m form ${int(complexes)} intersections; the search's state is the edge arrived on, so each movement from one edge to the next has its own turn, control and restrictions.`,
+    `The area's OpenStreetMap extract (${int(ways)} ways, ${int(nodes)} nodes) becomes ${int(vertices)} vertices and ${int(edges)} directed edges; junction vertices within 30 m are merged into one intersection, giving ${int(complexes)} complexes; the search's state is the edge arrived on, so each movement from one edge to the next has its own turn, control and restrictions.`,
     T,
   );
 }
@@ -291,7 +291,7 @@ function figRoutePlan() {
       "green",
       `Price each route: ${departures} departures × ${int(RUNS)} mornings`,
       [
-        `every ${num(REQ, "stepMinutes")} minutes over the ${num(REQ, "windowMinutes")} before the arrival, the same ${int(RUNS)} seeded mornings: the share on time at each`,
+        `every ${num(REQ, "stepMinutes")} minutes over the ${num(REQ, "windowMinutes")} before the arrival, ${int(RUNS)} mornings from the same seed: the share on time at each`,
         "a later departure is never likelier to arrive on time: a rise between two departures is held at the lower value",
       ],
     ],
@@ -337,7 +337,7 @@ function figRoutePlan() {
   });
   return svgDoc(
     y + 12,
-    `One plan call: snap the ends to the road network; search once with junctions priced flat and then for alternatives at two risk levels, each search after the first making the edges already used dearer; price each candidate route at ${departures} departures over ${int(RUNS)} seeded mornings; find the latest departure that arrives on time ${num(REQ, "goal.confidence") * 100}% of the time and check it as a whole minute; rank the routes by it.`,
+    `One plan call: snap the ends to the road network; search once with junctions priced flat and then for alternatives at two risk levels, each search after the first making the edges already used dearer; price each candidate route at ${departures} departures over ${int(RUNS)} mornings from one seed; find the latest departure that arrives on time ${num(REQ, "goal.confidence") * 100}% of the time and check it as a whole minute; rank the routes by it.`,
     T,
   );
 }
@@ -532,7 +532,7 @@ function figRouteWorkload() {
       [
         [count(m, "vertices"), "vertices"],
         [count(m, "edges"), "directed edges"],
-        [count(m, "complexes"), "intersections"],
+        [count(m, "complexes"), "complexes"],
       ],
     ],
     [
@@ -649,7 +649,7 @@ function figRouteAstar() {
     cx0 = 208,
     cw = 78,
     tx = 600;
-  const maxCat = Math.max(...rows.flatMap((r) => CATS.map((c) => (r.shares[c] ?? 0) * r.ms)));
+  const maxCat = Math.max(...rows.flatMap((r) => CATS.map((c) => r.shares[c] ?? 0)));
   const bar = (v) => Math.max(1, (v / maxCat) * (cw - 12));
   const hy = 58;
   CATS.forEach((c, i) => {
@@ -664,12 +664,12 @@ function figRouteAstar() {
     T.push(txt(lx, y + 4, r.label, { size: FIG.label, weight: "600" }));
     T.push(txt(lx, y + 18, r.sub, { size: FIG.note, fill: MUTED }));
     CATS.forEach((c, j) => {
-      const v = (r.shares[c] ?? 0) * r.ms;
+      const v = r.shares[c] ?? 0;
       const x = cx0 + j * cw;
       T.push(
         `<rect x="${x}" y="${y - 8}" width="${bar(v).toFixed(1)}" height="10" rx="1.5" fill="${j === 0 ? SCOPE.mark : REPO.mark}"/>`,
       );
-      T.push(txt(x, y + 16, secs(v), { size: FIG.note, fill: MUTED }));
+      T.push(txt(x, y + 16, `${(v * 100).toFixed(0)}%`, { size: FIG.note, fill: MUTED }));
     });
     T.push(txt(tx + 44, y + 4, secs(r.ms), { size: FIG.value, weight: "650", anchor: "end" }));
     T.push(
@@ -685,7 +685,7 @@ function figRouteAstar() {
     txt(
       16,
       ny,
-      `Bars: the plan's time by where a CPU profile's samples fall (the nearest of these frames), one shared scale.`,
+      `Bars: the share of the plan's JavaScript profile samples under each frame (the nearest); GC not counted.`,
       { size: FIG.note, fill: MUTED },
     ),
   );
@@ -871,7 +871,7 @@ const MATH_LABELS = {
   "atan2: y, x in [-1, 1] (bearing)": "atan2, bearings",
   "exp: [-20, 5] (gap acceptance)": "exp, -20 to 5",
   "expm1: [-20, 0] (gap acceptance)": "expm1, -20 to 0",
-  "pow: x in (0, 3], y in [0, 4] (traffic.ts's ** terms)": "pow, traffic's x ** y",
+  "pow: x in (0, 3], y in [0, 4] (traffic.ts's ** terms)": "pow, x to 3, y to 4",
   "pow: x ** 2 (geo.ts)": "pow, x ** 2",
   "sqrt: [0, 1e4]": "sqrt, 0 to 1e4",
 };
@@ -908,7 +908,7 @@ function figRouteParity() {
       16,
       24,
       "Where the engines differ from V8: the last bit",
-      "libm (Rust's, and Hermes' and Scriptc's C library) against V8's own Math",
+      "Rust's libm crate (and pow.rs) against V8's own Math, and each engine's answer",
     ).parts,
   );
   // left: share of 10^6 inputs per function and domain whose result differs by one ulp
@@ -918,7 +918,7 @@ function figRouteParity() {
   const maxShare = Math.max(...rows.map((r) => r.differ / r.n));
   let y = 82;
   T.push(
-    txt(lx, y - 20, `Math through libm against V8, ${int(rows[0].n)} inputs each:`, {
+    txt(lx, y - 20, `Rust's Math against V8, ${int(rows[0].n)} inputs each:`, {
       size: FIG.note,
       fill: MUTED,
     }),
@@ -987,7 +987,7 @@ function figRouteParity() {
   });
   return svgDoc(
     y2 + 12,
-    `Where the engines differ from V8: libm's exp, log, cos, pow and the rest differ from V8's in the last bit on up to ${(maxShare * 100).toFixed(1)}% of inputs, never by more than one ulp; on the long trip each engine's answer differs from Node's in some numbers' last bits, at most ${worst.toExponential(1)} relative, with the same routes and leave-by times.`,
+    `Where the engines differ from V8: Rust's libm and pow differ from V8's Math in the last bit on up to ${(maxShare * 100).toFixed(1)}% of inputs, never by more than one ulp; on the long trip each engine's answer differs from Node's in some numbers' last bits, at most ${worst.toExponential(1)} relative, with the same routes and leave-by times.`,
     T,
   );
 }

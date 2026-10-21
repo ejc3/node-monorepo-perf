@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { LAST_BITS, REPO, SPEC, compare, machine, preRunLoad, root } from "./lib.mjs";
+import { LAST_BITS, REPO, SPEC, compare, machine, pack, planRequest, preRunLoad, root } from "./lib.mjs";
 
 const ROOT = root();
 const build = JSON.parse(readFileSync(join(ROOT, "build.json"), "utf8"));
@@ -77,6 +77,12 @@ const ENGINES = [
 ].filter((e) => !only || only.includes(e.id));
 if (only && !ENGINES.some((e) => e.id === "node")) ENGINES.unshift({ id: "node", label: "TypeScript in Node", family: "v8", cmd: node("ts") });
 const TRIPS = SPEC.trips.filter((t) => !onlyTrips || onlyTrips.includes(t.id));
+// The build's inputs must be today's: the record states the request and pack it ran.
+if (pack().sha256 !== build.packSha256)
+  throw new Error("ROUTE_ROOT was built from another area pack: run build.mjs again");
+for (const t of TRIPS)
+  if (readFileSync(T(t.id, "request.json"), "utf8") !== planRequest(t))
+    throw new Error(`${t.id}: ROUTE_ROOT was built from another trips.json: run build.mjs again`);
 
 /** One run: the answer's text and the plan call's milliseconds as the engine timed it. */
 function runOnce(engine, trip) {
@@ -108,10 +114,12 @@ const startMachine = machine();
 const results = {};
 const reference = {};
 for (let round = 0; round < ROUNDS; round++) {
-  const order = ENGINES.map((_, i) => ENGINES[(i + round) % ENGINES.length]);
+  // Node first (the reference), the others rotated by one each round
+  const others = ENGINES.filter((e) => e.id !== "node");
+  const order = others.map((_, i) => others[(i + round) % others.length]);
   for (const trip of TRIPS) {
     // Node first in every round's trip: the reference the others are checked against.
-    for (const engine of [ENGINES.find((e) => e.id === "node"), ...order.filter((e) => e.id !== "node")]) {
+    for (const engine of [ENGINES.find((e) => e.id === "node"), ...order]) {
       const { text, ms } = runOnce(engine, trip);
       const cell = ((results[trip.id] ??= {})[engine.id] ??= {
         samplesMs: [],

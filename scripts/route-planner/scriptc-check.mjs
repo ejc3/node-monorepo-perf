@@ -31,6 +31,7 @@ function check(name, edits) {
     return { status: r.status, text: ((r.stdout || "") + (r.stderr || "")).split(`${dir}/`).join("") };
   };
   const cov = run(["coverage", "engine-lib.ts", "--tier", "static-only", "--fail-on", "blockers"]);
+  if (cov.status !== 0 && cov.status !== 1) throw new Error(`${name}: scriptc coverage exited ${cov.status}`);
   const build = run(["build", "--lib", "--profile", "profile.json", "-o", join(dir, "check.a")]);
   const num = (re, text) => {
     const v = Number(re.exec(text)?.[1] ?? NaN);
