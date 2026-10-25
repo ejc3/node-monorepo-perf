@@ -578,5 +578,76 @@
     ],
     "diffSha256": "c10a74575d1c165b",
     "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "up-no52": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch",
+      "71-parallel-batch-restore.patch",
+      "75b-effect-capture-workers.patch"
+    ],
+    "diffSha256": "5fdf8056bb82ac01",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "up-100280": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch",
+      "71-parallel-batch-restore.patch",
+      "75b-effect-capture-workers.patch",
+      "../upstream/100280-stripe-and-poll.patch"
+    ],
+    "diffSha256": "b3cb1484fde7cca7",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
+  },
+  "up-100281": {
+    "patches": [
+      "u1-upstream-scalability.patch",
+      "68-sharded-heap-band.patch",
+      "69-heap-pick-free-shard.patch",
+      "15-graph-algos-combined.patch",
+      "41-chunk-groups-interned.patch",
+      "42-merged-local-exposure.patch",
+      "55-sst-mmap-normal-advice.patch",
+      "56-batch-unemit-collectibles.patch",
+      "57-merge-new-follower-data.patch",
+      "59-emit-without-endpoint-ops.patch",
+      "61-shared-manifest-entry-parts.patch",
+      "64-shared-async-flags.patch",
+      "65-chunk-lists-on-64.patch",
+      "66-chunk-group-content-eq.patch",
+      "67-binding-usage-stable.patch",
+      "71-parallel-batch-restore.patch",
+      "75b-effect-capture-workers.patch",
+      "../upstream/100281-asymmetric-barrier.patch"
+    ],
+    "diffSha256": "fe8ae0113fa1414f",
+    "head": "e273d5b2e869d0be06c0e86f788e1594f9dd40cf"
   }
 }

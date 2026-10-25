@@ -1,0 +1,2405 @@
+{
+  "generator": "scripts/turbopack-gym/drift.mjs (bench.mjs builds: next build --experimental-build-mode=compile, cpuset-pinned systemd scope, one at a time)",
+  "bindingBuild": "next-napi-bindings from vercel/next.js v16.4.0 (gym/base) plus each binding's patches; cargo --release, CARGO_PROFILE_RELEASE_LTO=false, CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16",
+  "tag": "upmb-192",
+  "pageWorkers": "match",
+  "note": "dedicated box",
+  "method": {
+    "warm": "the pristine tree's cold build output directory (with <distDir>/cache) restored, then a build of the edited tree into it, cache on",
+    "cold": "a fresh output directory, cache on (the cache starts empty and is written)",
+    "off": "a fresh output directory, Turbopack's persistent cache off (experimental.turbopackFileSystemCacheForBuild false)",
+    "env": "TURBO_ENGINE_IGNORE_DIRTY=1 for every build: patched bindings are built from a modified tree, and Turbopack otherwise keeps a dirty build's cache in a directory it deletes on the next build",
+    "edits": {
+      "label": "N feature modules each get \"-drift\" appended to their first table label (output changes, module graph shape does not)",
+      "import": "label, plus a new import of a util the module did not import, used by a new export (one new module graph edge per edited module)",
+      "order": "pick k is feature k mod F, module slot (floor(k/F)*7 + k mod F) mod M (F = 420, M = 29)"
+    },
+    "order": "per rep, points ascending; within a point every binding x mode, rotated one place per point",
+    "cacheSize": "du -sb of <distDir>/cache before and after the build",
+    "split": "startup = run-turbopack's start offset; preEmit = emit start - run-turbopack start; afterCompile = wall - run-turbopack end; lowCoreS = whole seconds inside run-turbopack using under 1.5 cores (the scope's cpu.stat), leadLowCoreS = those from its start before the first busier second. A warm build emits no module-graph or write-entrypoints span for its recomputation, so its graph/entrypoints fields are null"
+  },
+  "app": {
+    "name": "drift-monolith",
+    "appHash": "bd0053c52610518f",
+    "generator": "node-monorepo-perf scripts/monolith-gen.mjs",
+    "files": 16071,
+    "tsFiles": 16068,
+    "routes": 2071,
+    "pages": 1709,
+    "handlers": 362,
+    "layouts": 192,
+    "features": 420,
+    "featureModules": 29,
+    "ui": 700,
+    "utils": 500,
+    "options": {
+      "routes": 2070,
+      "handlerPct": 19,
+      "dynamicPct": 30,
+      "groups": 12,
+      "sections": 16,
+      "crossPct": 25
+    },
+    "seed": 98043,
+    "next": "16.4.0",
+    "react": "19.2.7"
+  },
+  "machine": {
+    "arch": "arm64",
+    "cpuModel": "Neoverse-V2",
+    "cores": 192,
+    "numaNodes": 2,
+    "memGiB": 1485,
+    "instanceType": "i8g.48xlarge",
+    "node": "v22.23.3",
+    "sharedBox": false,
+    "buildNode": "v22.23.3"
+  },
+  "boots": 1,
+  "cpus": "0-191",
+  "reps": 6,
+  "bindings": {
+    "up-no52": {
+      "diffSha256": "5fdf8056bb82ac01",
+      "patches": [
+        {
+          "patch": "bench/turbopack-gym/candidates/u1-upstream-scalability.patch",
+          "sha256": "fac9963cde565127"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/68-sharded-heap-band.patch",
+          "sha256": "779cd3a978905962"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/69-heap-pick-free-shard.patch",
+          "sha256": "e834146da73fbcc0"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+          "sha256": "33e69240c6803ec9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/41-chunk-groups-interned.patch",
+          "sha256": "e32cd07a9e5028f3"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/42-merged-local-exposure.patch",
+          "sha256": "11965f420c6d8e2c"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/55-sst-mmap-normal-advice.patch",
+          "sha256": "18a77ebeed78e759"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/56-batch-unemit-collectibles.patch",
+          "sha256": "b95392e75f941642"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/57-merge-new-follower-data.patch",
+          "sha256": "4f0b9770db5535c6"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/59-emit-without-endpoint-ops.patch",
+          "sha256": "9b2054adb9b0926f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch",
+          "sha256": "42b3059ac2b81826"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/64-shared-async-flags.patch",
+          "sha256": "e4f380b016e67802"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/65-chunk-lists-on-64.patch",
+          "sha256": "b355a6378a22e3c5"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/66-chunk-group-content-eq.patch",
+          "sha256": "768f39bba55bb88f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/67-binding-usage-stable.patch",
+          "sha256": "0cf2faddd691197b"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/71-parallel-batch-restore.patch",
+          "sha256": "e4a7e74a1ef658f9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/75b-effect-capture-workers.patch",
+          "sha256": "6333c40d05dded1d"
+        }
+      ]
+    },
+    "u1+full67-22+71+75b": {
+      "diffSha256": "c10a74575d1c165b",
+      "patches": [
+        {
+          "patch": "bench/turbopack-gym/candidates/u1-upstream-scalability.patch",
+          "sha256": "fac9963cde565127"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/68-sharded-heap-band.patch",
+          "sha256": "779cd3a978905962"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/69-heap-pick-free-shard.patch",
+          "sha256": "e834146da73fbcc0"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+          "sha256": "33e69240c6803ec9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/41-chunk-groups-interned.patch",
+          "sha256": "e32cd07a9e5028f3"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/42-merged-local-exposure.patch",
+          "sha256": "11965f420c6d8e2c"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/52-striped-op-count.patch",
+          "sha256": "d405c81dd8debce5"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/55-sst-mmap-normal-advice.patch",
+          "sha256": "18a77ebeed78e759"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/56-batch-unemit-collectibles.patch",
+          "sha256": "b95392e75f941642"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/57-merge-new-follower-data.patch",
+          "sha256": "4f0b9770db5535c6"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/59-emit-without-endpoint-ops.patch",
+          "sha256": "9b2054adb9b0926f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch",
+          "sha256": "42b3059ac2b81826"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/64-shared-async-flags.patch",
+          "sha256": "e4f380b016e67802"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/65-chunk-lists-on-64.patch",
+          "sha256": "b355a6378a22e3c5"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/66-chunk-group-content-eq.patch",
+          "sha256": "768f39bba55bb88f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/67-binding-usage-stable.patch",
+          "sha256": "0cf2faddd691197b"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/71-parallel-batch-restore.patch",
+          "sha256": "e4a7e74a1ef658f9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/75b-effect-capture-workers.patch",
+          "sha256": "6333c40d05dded1d"
+        }
+      ]
+    },
+    "up-100280": {
+      "diffSha256": "b3cb1484fde7cca7",
+      "patches": [
+        {
+          "patch": "bench/turbopack-gym/candidates/u1-upstream-scalability.patch",
+          "sha256": "fac9963cde565127"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/68-sharded-heap-band.patch",
+          "sha256": "779cd3a978905962"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/69-heap-pick-free-shard.patch",
+          "sha256": "e834146da73fbcc0"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+          "sha256": "33e69240c6803ec9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/41-chunk-groups-interned.patch",
+          "sha256": "e32cd07a9e5028f3"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/42-merged-local-exposure.patch",
+          "sha256": "11965f420c6d8e2c"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/55-sst-mmap-normal-advice.patch",
+          "sha256": "18a77ebeed78e759"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/56-batch-unemit-collectibles.patch",
+          "sha256": "b95392e75f941642"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/57-merge-new-follower-data.patch",
+          "sha256": "4f0b9770db5535c6"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/59-emit-without-endpoint-ops.patch",
+          "sha256": "9b2054adb9b0926f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch",
+          "sha256": "42b3059ac2b81826"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/64-shared-async-flags.patch",
+          "sha256": "e4f380b016e67802"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/65-chunk-lists-on-64.patch",
+          "sha256": "b355a6378a22e3c5"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/66-chunk-group-content-eq.patch",
+          "sha256": "768f39bba55bb88f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/67-binding-usage-stable.patch",
+          "sha256": "0cf2faddd691197b"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/71-parallel-batch-restore.patch",
+          "sha256": "e4a7e74a1ef658f9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/75b-effect-capture-workers.patch",
+          "sha256": "6333c40d05dded1d"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/../upstream/100280-stripe-and-poll.patch",
+          "sha256": "bce8d89ec97b6493"
+        }
+      ]
+    },
+    "up-100281": {
+      "diffSha256": "fe8ae0113fa1414f",
+      "patches": [
+        {
+          "patch": "bench/turbopack-gym/candidates/u1-upstream-scalability.patch",
+          "sha256": "fac9963cde565127"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/68-sharded-heap-band.patch",
+          "sha256": "779cd3a978905962"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/69-heap-pick-free-shard.patch",
+          "sha256": "e834146da73fbcc0"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/15-graph-algos-combined.patch",
+          "sha256": "33e69240c6803ec9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/41-chunk-groups-interned.patch",
+          "sha256": "e32cd07a9e5028f3"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/42-merged-local-exposure.patch",
+          "sha256": "11965f420c6d8e2c"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/55-sst-mmap-normal-advice.patch",
+          "sha256": "18a77ebeed78e759"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/56-batch-unemit-collectibles.patch",
+          "sha256": "b95392e75f941642"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/57-merge-new-follower-data.patch",
+          "sha256": "4f0b9770db5535c6"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/59-emit-without-endpoint-ops.patch",
+          "sha256": "9b2054adb9b0926f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/61-shared-manifest-entry-parts.patch",
+          "sha256": "42b3059ac2b81826"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/64-shared-async-flags.patch",
+          "sha256": "e4f380b016e67802"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/65-chunk-lists-on-64.patch",
+          "sha256": "b355a6378a22e3c5"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/66-chunk-group-content-eq.patch",
+          "sha256": "768f39bba55bb88f"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/67-binding-usage-stable.patch",
+          "sha256": "0cf2faddd691197b"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/71-parallel-batch-restore.patch",
+          "sha256": "e4a7e74a1ef658f9"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/75b-effect-capture-workers.patch",
+          "sha256": "6333c40d05dded1d"
+        },
+        {
+          "patch": "bench/turbopack-gym/candidates/../upstream/100281-asymmetric-barrier.patch",
+          "sha256": "3afd8ac54a3c192e"
+        }
+      ]
+    }
+  },
+  "series": [
+    {
+      "edit": "import",
+      "sweep": "drift-mvnnefs1-ea54",
+      "seeds": {
+        "up-no52": {
+          "cacheGiB": 0.75,
+          "wall": 49.94,
+          "cores": 35.44,
+          "memPeakGiB": 9.27,
+          "graph": {
+            "s": 5.845,
+            "at": 1.232,
+            "cores": 74.67,
+            "sysShare": 0.132
+          },
+          "entrypoints": {
+            "s": 15.705,
+            "at": 0.637,
+            "cores": 60.71,
+            "sysShare": 0.187
+          },
+          "emit": {
+            "s": 6.231,
+            "at": 16.429,
+            "cores": 96.37,
+            "sysShare": 0.06
+          },
+          "turbopack": {
+            "s": 23.955,
+            "at": 0.608,
+            "cores": 65.22,
+            "sysShare": 0.14
+          },
+          "persistence": {
+            "s": 4.094,
+            "at": 24.569,
+            "cores": 43.36,
+            "sysShare": 0.872
+          },
+          "compaction": null,
+          "output": "c2910d158727711d"
+        },
+        "u1+full67-22+71+75b": {
+          "cacheGiB": 0.751,
+          "wall": 45.338,
+          "cores": 25.08,
+          "memPeakGiB": 9.7,
+          "graph": {
+            "s": 4.608,
+            "at": 1.184,
+            "cores": 70.8,
+            "sysShare": 0.132
+          },
+          "entrypoints": {
+            "s": 12.182,
+            "at": 0.588,
+            "cores": 43.07,
+            "sysShare": 0.163
+          },
+          "emit": {
+            "s": 4.543,
+            "at": 12.868,
+            "cores": 77.23,
+            "sysShare": 0.35
+          },
+          "turbopack": {
+            "s": 18.769,
+            "at": 0.555,
+            "cores": 47.03,
+            "sysShare": 0.242
+          },
+          "persistence": {
+            "s": 5.108,
+            "at": 19.332,
+            "cores": 43.95,
+            "sysShare": 0.888
+          },
+          "compaction": null,
+          "output": "c2910d158727711d"
+        },
+        "up-100280": {
+          "cacheGiB": 0.754,
+          "wall": 46.941,
+          "cores": 22.26,
+          "memPeakGiB": 9.58,
+          "graph": {
+            "s": 4.289,
+            "at": 1.159,
+            "cores": 65.8,
+            "sysShare": 0.117
+          },
+          "entrypoints": {
+            "s": 11.458,
+            "at": 0.561,
+            "cores": 41.2,
+            "sysShare": 0.145
+          },
+          "emit": {
+            "s": 4.637,
+            "at": 12.124,
+            "cores": 71.26,
+            "sysShare": 0.226
+          },
+          "turbopack": {
+            "s": 18.125,
+            "at": 0.531,
+            "cores": 44.71,
+            "sysShare": 0.183
+          },
+          "persistence": {
+            "s": 4.047,
+            "at": 18.661,
+            "cores": 49.86,
+            "sysShare": 0.879
+          },
+          "compaction": null,
+          "output": "c2910d158727711d"
+        },
+        "up-100281": {
+          "cacheGiB": 0.755,
+          "wall": 47.019,
+          "cores": 22.93,
+          "memPeakGiB": 9.77,
+          "graph": {
+            "s": 4.526,
+            "at": 1.259,
+            "cores": 68.49,
+            "sysShare": 0.108
+          },
+          "entrypoints": {
+            "s": 11.885,
+            "at": 0.602,
+            "cores": 42.16,
+            "sysShare": 0.144
+          },
+          "emit": {
+            "s": 4.631,
+            "at": 12.571,
+            "cores": 69.3,
+            "sysShare": 0.279
+          },
+          "turbopack": {
+            "s": 18.624,
+            "at": 0.567,
+            "cores": 44.54,
+            "sysShare": 0.201
+          },
+          "persistence": {
+            "s": 4.129,
+            "at": 19.201,
+            "cores": 52.43,
+            "sysShare": 0.891
+          },
+          "compaction": null,
+          "output": "c2910d158727711d"
+        }
+      },
+      "crossover": {
+        "up-no52": {},
+        "u1+full67-22+71+75b": {},
+        "up-100280": {},
+        "up-100281": {}
+      },
+      "points": [
+        {
+          "n": 0,
+          "up-no52": {
+            "warm": {
+              "median": {
+                "wall": 18.745,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 0.234,
+                "turbopack": 2.773,
+                "persistence": 0.484,
+                "compaction": 4.872,
+                "graphCores": null,
+                "startup": 1.703,
+                "preEmit": 0.648,
+                "afterCompile": 14.188,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.75,
+                "cacheAfterGiB": 0.745
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656701,
+                  "wall": 17.744,
+                  "cores": 3.24,
+                  "memPeakGiB": 4.41,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.234,
+                    "at": 2.231,
+                    "cores": 13.17,
+                    "sysShare": 0.411
+                  },
+                  "turbopack": {
+                    "s": 2.769,
+                    "at": 1.599,
+                    "cores": 8.01,
+                    "sysShare": 0.712
+                  },
+                  "persistence": {
+                    "s": 0.393,
+                    "at": 4.368,
+                    "cores": 6.61,
+                    "sysShare": 0.874
+                  },
+                  "compaction": {
+                    "s": 5.36,
+                    "at": 4.787,
+                    "cores": 4.1,
+                    "sysShare": 0.529
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656701,
+                  "wall": 16.257,
+                  "cores": 3.39,
+                  "memPeakGiB": 4.28,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.233,
+                    "at": 2.558,
+                    "cores": 12.48,
+                    "sysShare": 0.404
+                  },
+                  "turbopack": {
+                    "s": 2.745,
+                    "at": 1.952,
+                    "cores": 7.72,
+                    "sysShare": 0.691
+                  },
+                  "persistence": {
+                    "s": 0.352,
+                    "at": 4.698,
+                    "cores": 5.69,
+                    "sysShare": 0.868
+                  },
+                  "compaction": {
+                    "s": 4.763,
+                    "at": 5.06,
+                    "cores": 4.82,
+                    "sysShare": 0.501
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656703,
+                  "wall": 20.963,
+                  "cores": 2.8,
+                  "memPeakGiB": 4.46,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.232,
+                    "at": 2.192,
+                    "cores": 13.27,
+                    "sysShare": 0.409
+                  },
+                  "turbopack": {
+                    "s": 2.817,
+                    "at": 1.529,
+                    "cores": 7.22,
+                    "sysShare": 0.686
+                  },
+                  "persistence": {
+                    "s": 1.173,
+                    "at": 4.347,
+                    "cores": 3.97,
+                    "sysShare": 0.882
+                  },
+                  "compaction": {
+                    "s": 5.159,
+                    "at": 5.57,
+                    "cores": 3.39,
+                    "sysShare": 0.498
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656703,
+                  "wall": 19.746,
+                  "cores": 2.93,
+                  "memPeakGiB": 4.49,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.23,
+                    "at": 2.666,
+                    "cores": 12.55,
+                    "sysShare": 0.388
+                  },
+                  "turbopack": {
+                    "s": 2.748,
+                    "at": 1.999,
+                    "cores": 7.65,
+                    "sysShare": 0.691
+                  },
+                  "persistence": {
+                    "s": 0.381,
+                    "at": 4.748,
+                    "cores": 5.46,
+                    "sysShare": 0.797
+                  },
+                  "compaction": {
+                    "s": 4.63,
+                    "at": 5.139,
+                    "cores": 3.88,
+                    "sysShare": 0.506
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656702,
+                  "wall": 26.569,
+                  "cores": 2.66,
+                  "memPeakGiB": 4.91,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.235,
+                    "at": 2.275,
+                    "cores": 11.68,
+                    "sysShare": 0.397
+                  },
+                  "turbopack": {
+                    "s": 2.777,
+                    "at": 1.651,
+                    "cores": 8.55,
+                    "sysShare": 0.731
+                  },
+                  "persistence": {
+                    "s": 1.355,
+                    "at": 4.428,
+                    "cores": 5.5,
+                    "sysShare": 0.935
+                  },
+                  "compaction": {
+                    "s": 4.981,
+                    "at": 5.8,
+                    "cores": 3.28,
+                    "sysShare": 0.526
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 799656706,
+                  "wall": 16.543,
+                  "cores": 3.74,
+                  "memPeakGiB": 4.25,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.244,
+                    "at": 2.42,
+                    "cores": 13.57,
+                    "sysShare": 0.431
+                  },
+                  "turbopack": {
+                    "s": 2.824,
+                    "at": 1.754,
+                    "cores": 8.7,
+                    "sysShare": 0.74
+                  },
+                  "persistence": {
+                    "s": 0.575,
+                    "at": 4.579,
+                    "cores": 8.42,
+                    "sysShare": 0.926
+                  },
+                  "compaction": {
+                    "s": 4.73,
+                    "at": 5.179,
+                    "cores": 4.82,
+                    "sysShare": 0.506
+                  },
+                  "output": "c2910d158727711d"
+                }
+              ]
+            }
+          },
+          "u1+full67-22+71+75b": {
+            "warm": {
+              "median": {
+                "wall": 23.602,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 0.235,
+                "turbopack": 2.841,
+                "persistence": 0.568,
+                "compaction": 4.964,
+                "graphCores": null,
+                "startup": 1.735,
+                "preEmit": 0.665,
+                "afterCompile": 19.073,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.751,
+                "cacheAfterGiB": 0.746
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934343,
+                  "wall": 16.44,
+                  "cores": 3.37,
+                  "memPeakGiB": 4.24,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.229,
+                    "at": 2.747,
+                    "cores": 12.16,
+                    "sysShare": 0.412
+                  },
+                  "turbopack": {
+                    "s": 2.808,
+                    "at": 2.076,
+                    "cores": 7.05,
+                    "sysShare": 0.677
+                  },
+                  "persistence": {
+                    "s": 0.36,
+                    "at": 4.885,
+                    "cores": 5.68,
+                    "sysShare": 0.876
+                  },
+                  "compaction": {
+                    "s": 4.599,
+                    "at": 5.271,
+                    "cores": 5.13,
+                    "sysShare": 0.525
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934349,
+                  "wall": 28.959,
+                  "cores": 2.41,
+                  "memPeakGiB": 5.17,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.238,
+                    "at": 2.46,
+                    "cores": 11.73,
+                    "sysShare": 0.387
+                  },
+                  "turbopack": {
+                    "s": 2.972,
+                    "at": 1.806,
+                    "cores": 7.65,
+                    "sysShare": 0.712
+                  },
+                  "persistence": {
+                    "s": 0.623,
+                    "at": 4.778,
+                    "cores": 7.38,
+                    "sysShare": 0.918
+                  },
+                  "compaction": {
+                    "s": 5.108,
+                    "at": 5.418,
+                    "cores": 3.07,
+                    "sysShare": 0.515
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934346,
+                  "wall": 23.252,
+                  "cores": 2.84,
+                  "memPeakGiB": 4.52,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.23,
+                    "at": 2.491,
+                    "cores": 13.46,
+                    "sysShare": 0.376
+                  },
+                  "turbopack": {
+                    "s": 2.872,
+                    "at": 1.792,
+                    "cores": 7.83,
+                    "sysShare": 0.711
+                  },
+                  "persistence": {
+                    "s": 0.78,
+                    "at": 4.664,
+                    "cores": 6.95,
+                    "sysShare": 0.92
+                  },
+                  "compaction": {
+                    "s": 5.287,
+                    "at": 5.469,
+                    "cores": 3.45,
+                    "sysShare": 0.543
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934349,
+                  "wall": 17.544,
+                  "cores": 3.41,
+                  "memPeakGiB": 4.38,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.239,
+                    "at": 2.263,
+                    "cores": 12.28,
+                    "sysShare": 0.442
+                  },
+                  "turbopack": {
+                    "s": 2.745,
+                    "at": 1.617,
+                    "cores": 7.83,
+                    "sysShare": 0.712
+                  },
+                  "persistence": {
+                    "s": 0.535,
+                    "at": 4.362,
+                    "cores": 11.68,
+                    "sysShare": 0.931
+                  },
+                  "compaction": {
+                    "s": 5.19,
+                    "at": 4.921,
+                    "cores": 4.17,
+                    "sysShare": 0.524
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934351,
+                  "wall": 23.953,
+                  "cores": 2.77,
+                  "memPeakGiB": 4.71,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.233,
+                    "at": 2.244,
+                    "cores": 12.29,
+                    "sysShare": 0.4
+                  },
+                  "turbopack": {
+                    "s": 2.809,
+                    "at": 1.585,
+                    "cores": 8.3,
+                    "sysShare": 0.722
+                  },
+                  "persistence": {
+                    "s": 0.6,
+                    "at": 4.394,
+                    "cores": 9.45,
+                    "sysShare": 0.941
+                  },
+                  "compaction": {
+                    "s": 4.733,
+                    "at": 5.024,
+                    "cores": 3.3,
+                    "sysShare": 0.489
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 800934347,
+                  "wall": 26.856,
+                  "cores": 2.55,
+                  "memPeakGiB": 5.05,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.242,
+                    "at": 2.397,
+                    "cores": 13.44,
+                    "sysShare": 0.435
+                  },
+                  "turbopack": {
+                    "s": 2.887,
+                    "at": 1.678,
+                    "cores": 8.15,
+                    "sysShare": 0.734
+                  },
+                  "persistence": {
+                    "s": 0.435,
+                    "at": 4.565,
+                    "cores": 9.94,
+                    "sysShare": 0.908
+                  },
+                  "compaction": {
+                    "s": 4.82,
+                    "at": 5.01,
+                    "cores": 3.26,
+                    "sysShare": 0.508
+                  },
+                  "output": "c2910d158727711d"
+                }
+              ]
+            }
+          },
+          "up-100280": {
+            "warm": {
+              "median": {
+                "wall": 19.896,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 0.233,
+                "turbopack": 2.873,
+                "persistence": 0.896,
+                "compaction": 5.051,
+                "graphCores": null,
+                "startup": 1.643,
+                "preEmit": 0.689,
+                "afterCompile": 15.287,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.754,
+                "cacheAfterGiB": 0.748
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564074,
+                  "wall": 27.855,
+                  "cores": 2.41,
+                  "memPeakGiB": 5.05,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.244,
+                    "at": 2.407,
+                    "cores": 13.75,
+                    "sysShare": 0.426
+                  },
+                  "turbopack": {
+                    "s": 2.963,
+                    "at": 1.712,
+                    "cores": 7.75,
+                    "sysShare": 0.718
+                  },
+                  "persistence": {
+                    "s": 0.545,
+                    "at": 4.676,
+                    "cores": 4.61,
+                    "sysShare": 0.878
+                  },
+                  "compaction": {
+                    "s": 4.966,
+                    "at": 5.238,
+                    "cores": 3.38,
+                    "sysShare": 0.544
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564073,
+                  "wall": 20.247,
+                  "cores": 3,
+                  "memPeakGiB": 4.5,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.237,
+                    "at": 2.507,
+                    "cores": 14.06,
+                    "sysShare": 0.408
+                  },
+                  "turbopack": {
+                    "s": 2.871,
+                    "at": 1.812,
+                    "cores": 7.58,
+                    "sysShare": 0.702
+                  },
+                  "persistence": {
+                    "s": 1.202,
+                    "at": 4.683,
+                    "cores": 4.27,
+                    "sysShare": 0.924
+                  },
+                  "compaction": {
+                    "s": 5.755,
+                    "at": 5.941,
+                    "cores": 3.27,
+                    "sysShare": 0.503
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564074,
+                  "wall": 17.26,
+                  "cores": 3.2,
+                  "memPeakGiB": 4.56,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.23,
+                    "at": 2.272,
+                    "cores": 12.05,
+                    "sysShare": 0.392
+                  },
+                  "turbopack": {
+                    "s": 2.798,
+                    "at": 1.6,
+                    "cores": 8.19,
+                    "sysShare": 0.717
+                  },
+                  "persistence": {
+                    "s": 0.529,
+                    "at": 4.398,
+                    "cores": 4.17,
+                    "sysShare": 0.857
+                  },
+                  "compaction": {
+                    "s": 5.004,
+                    "at": 4.973,
+                    "cores": 4.05,
+                    "sysShare": 0.492
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564071,
+                  "wall": 19.546,
+                  "cores": 2.97,
+                  "memPeakGiB": 4.62,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.228,
+                    "at": 2.341,
+                    "cores": 13.36,
+                    "sysShare": 0.422
+                  },
+                  "turbopack": {
+                    "s": 2.877,
+                    "at": 1.659,
+                    "cores": 7.55,
+                    "sysShare": 0.708
+                  },
+                  "persistence": {
+                    "s": 1.141,
+                    "at": 4.536,
+                    "cores": 2.8,
+                    "sysShare": 0.824
+                  },
+                  "compaction": {
+                    "s": 5.443,
+                    "at": 5.719,
+                    "cores": 3.45,
+                    "sysShare": 0.493
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564074,
+                  "wall": 26.255,
+                  "cores": 2.64,
+                  "memPeakGiB": 4.99,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.228,
+                    "at": 2.232,
+                    "cores": 13.26,
+                    "sysShare": 0.413
+                  },
+                  "turbopack": {
+                    "s": 2.752,
+                    "at": 1.596,
+                    "cores": 7.99,
+                    "sysShare": 0.71
+                  },
+                  "persistence": {
+                    "s": 0.651,
+                    "at": 4.349,
+                    "cores": 11.79,
+                    "sysShare": 0.938
+                  },
+                  "compaction": {
+                    "s": 5.048,
+                    "at": 5.024,
+                    "cores": 3.11,
+                    "sysShare": 0.497
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 803564072,
+                  "wall": 18.045,
+                  "cores": 3.31,
+                  "memPeakGiB": 4.55,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.239,
+                    "at": 2.339,
+                    "cores": 13.18,
+                    "sysShare": 0.426
+                  },
+                  "turbopack": {
+                    "s": 2.875,
+                    "at": 1.627,
+                    "cores": 8.24,
+                    "sysShare": 0.722
+                  },
+                  "persistence": {
+                    "s": 1.181,
+                    "at": 4.502,
+                    "cores": 3.66,
+                    "sysShare": 0.909
+                  },
+                  "compaction": {
+                    "s": 5.055,
+                    "at": 5.72,
+                    "cores": 4.28,
+                    "sysShare": 0.518
+                  },
+                  "output": "c2910d158727711d"
+                }
+              ]
+            }
+          },
+          "up-100281": {
+            "warm": {
+              "median": {
+                "wall": 17.244,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 0.234,
+                "turbopack": 2.85,
+                "persistence": 0.516,
+                "compaction": 4.806,
+                "graphCores": null,
+                "startup": 1.805,
+                "preEmit": 0.689,
+                "afterCompile": 12.527,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.755,
+                "cacheAfterGiB": 0.749
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677301,
+                  "wall": 16.643,
+                  "cores": 3.63,
+                  "memPeakGiB": 4.27,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.235,
+                    "at": 2.484,
+                    "cores": 12.64,
+                    "sysShare": 0.386
+                  },
+                  "turbopack": {
+                    "s": 2.86,
+                    "at": 1.771,
+                    "cores": 7.78,
+                    "sysShare": 0.714
+                  },
+                  "persistence": {
+                    "s": 0.585,
+                    "at": 4.631,
+                    "cores": 9.54,
+                    "sysShare": 0.925
+                  },
+                  "compaction": {
+                    "s": 4.806,
+                    "at": 5.237,
+                    "cores": 4.84,
+                    "sysShare": 0.512
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677304,
+                  "wall": 17.444,
+                  "cores": 3.31,
+                  "memPeakGiB": 4.35,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.231,
+                    "at": 2.46,
+                    "cores": 12.34,
+                    "sysShare": 0.408
+                  },
+                  "turbopack": {
+                    "s": 2.828,
+                    "at": 1.787,
+                    "cores": 7.81,
+                    "sysShare": 0.703
+                  },
+                  "persistence": {
+                    "s": 0.56,
+                    "at": 4.616,
+                    "cores": 5.43,
+                    "sysShare": 0.921
+                  },
+                  "compaction": {
+                    "s": 5.227,
+                    "at": 5.204,
+                    "cores": 4.22,
+                    "sysShare": 0.514
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677300,
+                  "wall": 17.044,
+                  "cores": 3.56,
+                  "memPeakGiB": 4.27,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.236,
+                    "at": 2.65,
+                    "cores": 12.46,
+                    "sysShare": 0.417
+                  },
+                  "turbopack": {
+                    "s": 2.88,
+                    "at": 1.946,
+                    "cores": 7.8,
+                    "sysShare": 0.718
+                  },
+                  "persistence": {
+                    "s": 0.461,
+                    "at": 4.827,
+                    "cores": 11.54,
+                    "sysShare": 0.91
+                  },
+                  "compaction": {
+                    "s": 4.772,
+                    "at": 5.314,
+                    "cores": 4.71,
+                    "sysShare": 0.522
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677304,
+                  "wall": 18.145,
+                  "cores": 3.02,
+                  "memPeakGiB": 4.35,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.234,
+                    "at": 2.285,
+                    "cores": 13.27,
+                    "sysShare": 0.406
+                  },
+                  "turbopack": {
+                    "s": 2.753,
+                    "at": 1.635,
+                    "cores": 7.32,
+                    "sysShare": 0.692
+                  },
+                  "persistence": {
+                    "s": 0.471,
+                    "at": 4.389,
+                    "cores": 4.3,
+                    "sysShare": 0.865
+                  },
+                  "compaction": {
+                    "s": 5.221,
+                    "at": 4.877,
+                    "cores": 3.76,
+                    "sysShare": 0.51
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677303,
+                  "wall": 27.456,
+                  "cores": 2.37,
+                  "memPeakGiB": 5.02,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.236,
+                    "at": 2.51,
+                    "cores": 13.67,
+                    "sysShare": 0.402
+                  },
+                  "turbopack": {
+                    "s": 2.84,
+                    "at": 1.824,
+                    "cores": 7.6,
+                    "sysShare": 0.702
+                  },
+                  "persistence": {
+                    "s": 0.59,
+                    "at": 4.664,
+                    "cores": 3.97,
+                    "sysShare": 0.818
+                  },
+                  "compaction": {
+                    "s": 4.742,
+                    "at": 5.271,
+                    "cores": 3.44,
+                    "sysShare": 0.521
+                  },
+                  "output": "c2910d158727711d"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 804677299,
+                  "wall": 16.96,
+                  "cores": 3.23,
+                  "memPeakGiB": 4.34,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.234,
+                    "at": 2.548,
+                    "cores": 12.98,
+                    "sysShare": 0.41
+                  },
+                  "turbopack": {
+                    "s": 2.879,
+                    "at": 1.856,
+                    "cores": 7.58,
+                    "sysShare": 0.704
+                  },
+                  "persistence": {
+                    "s": 0.377,
+                    "at": 4.735,
+                    "cores": 6.26,
+                    "sysShare": 0.903
+                  },
+                  "compaction": {
+                    "s": 4.806,
+                    "at": 5.123,
+                    "cores": 4.32,
+                    "sysShare": 0.486
+                  },
+                  "output": "c2910d158727711d"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "n": 1,
+          "up-no52": {
+            "warm": {
+              "median": {
+                "wall": 38.887,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 3.842,
+                "turbopack": 13.006,
+                "persistence": 2.072,
+                "compaction": 5.951,
+                "graphCores": null,
+                "startup": 1.704,
+                "preEmit": 7.405,
+                "afterCompile": 24.029,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.75,
+                "cacheAfterGiB": 0.75
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 827679304,
+                  "wall": 41.557,
+                  "cores": 25.54,
+                  "memPeakGiB": 7.97,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.82,
+                    "at": 9.725,
+                    "cores": 108.01,
+                    "sysShare": 0.132
+                  },
+                  "turbopack": {
+                    "s": 13.81,
+                    "at": 1.666,
+                    "cores": 66.25,
+                    "sysShare": 0.188
+                  },
+                  "persistence": {
+                    "s": 2.077,
+                    "at": 15.488,
+                    "cores": 48.99,
+                    "sysShare": 0.962
+                  },
+                  "compaction": {
+                    "s": 6.344,
+                    "at": 17.577,
+                    "cores": 2.7,
+                    "sysShare": 0.543
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 817291057,
+                  "wall": 39.273,
+                  "cores": 25.32,
+                  "memPeakGiB": 7.06,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.965,
+                    "at": 9.155,
+                    "cores": 106.97,
+                    "sysShare": 0.138
+                  },
+                  "turbopack": {
+                    "s": 13.422,
+                    "at": 1.604,
+                    "cores": 66.07,
+                    "sysShare": 0.144
+                  },
+                  "persistence": {
+                    "s": 2.332,
+                    "at": 15.028,
+                    "cores": 28.44,
+                    "sysShare": 0.967
+                  },
+                  "compaction": {
+                    "s": 5.78,
+                    "at": 17.371,
+                    "cores": 2.87,
+                    "sysShare": 0.552
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 794473045,
+                  "wall": 38.501,
+                  "cores": 19.28,
+                  "memPeakGiB": 7.39,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.864,
+                    "at": 8.912,
+                    "cores": 92.21,
+                    "sysShare": 0.109
+                  },
+                  "turbopack": {
+                    "s": 13.047,
+                    "at": 1.643,
+                    "cores": 49.21,
+                    "sysShare": 0.173
+                  },
+                  "persistence": {
+                    "s": 1.586,
+                    "at": 14.691,
+                    "cores": 36.52,
+                    "sysShare": 0.94
+                  },
+                  "compaction": {
+                    "s": 5.886,
+                    "at": 16.297,
+                    "cores": 2.96,
+                    "sysShare": 0.567
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 816592893,
+                  "wall": 39.84,
+                  "cores": 25.67,
+                  "memPeakGiB": 7.06,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.48,
+                    "at": 9.284,
+                    "cores": 124.73,
+                    "sysShare": 0.052
+                  },
+                  "turbopack": {
+                    "s": 12.965,
+                    "at": 1.743,
+                    "cores": 68.24,
+                    "sysShare": 0.095
+                  },
+                  "persistence": {
+                    "s": 2.042,
+                    "at": 14.713,
+                    "cores": 46.46,
+                    "sysShare": 0.961
+                  },
+                  "compaction": {
+                    "s": 6.016,
+                    "at": 16.766,
+                    "cores": 2.85,
+                    "sysShare": 0.544
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 794355536,
+                  "wall": 36.708,
+                  "cores": 21.41,
+                  "memPeakGiB": 6.82,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.882,
+                    "at": 8.485,
+                    "cores": 93.55,
+                    "sysShare": 0.179
+                  },
+                  "turbopack": {
+                    "s": 12.549,
+                    "at": 1.774,
+                    "cores": 52.67,
+                    "sysShare": 0.204
+                  },
+                  "persistence": {
+                    "s": 2.162,
+                    "at": 14.328,
+                    "cores": 38.4,
+                    "sysShare": 0.979
+                  },
+                  "compaction": {
+                    "s": 6.101,
+                    "at": 16.512,
+                    "cores": 3.09,
+                    "sysShare": 0.572
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 805265815,
+                  "cacheAfter": 794353196,
+                  "wall": 33.219,
+                  "cores": 24.85,
+                  "memPeakGiB": 6.66,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 3.734,
+                    "at": 8.278,
+                    "cores": 116.53,
+                    "sysShare": 0.077
+                  },
+                  "turbopack": {
+                    "s": 12.201,
+                    "at": 1.774,
+                    "cores": 59.89,
+                    "sysShare": 0.117
+                  },
+                  "persistence": {
+                    "s": 2.067,
+                    "at": 13.976,
+                    "cores": 27.7,
+                    "sysShare": 0.958
+                  },
+                  "compaction": {
+                    "s": 5.795,
+                    "at": 16.066,
+                    "cores": 3.17,
+                    "sysShare": 0.538
+                  },
+                  "output": "b07634fc3623a237"
+                }
+              ]
+            }
+          },
+          "u1+full67-22+71+75b": {
+            "warm": {
+              "median": {
+                "wall": 33.236,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 1.228,
+                "turbopack": 9.811,
+                "persistence": 2.494,
+                "compaction": 6.088,
+                "graphCores": null,
+                "startup": 1.744,
+                "preEmit": 6.606,
+                "afterCompile": 21.817,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.751,
+                "cacheAfterGiB": 0.763
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 795210488,
+                  "wall": 31.074,
+                  "cores": 9.26,
+                  "memPeakGiB": 6.72,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.476,
+                    "at": 8.337,
+                    "cores": 2.96,
+                    "sysShare": 0.246
+                  },
+                  "turbopack": {
+                    "s": 9.949,
+                    "at": 1.807,
+                    "cores": 20.14,
+                    "sysShare": 0.294
+                  },
+                  "persistence": {
+                    "s": 2.027,
+                    "at": 11.758,
+                    "cores": 24.75,
+                    "sysShare": 0.906
+                  },
+                  "compaction": {
+                    "s": 5.171,
+                    "at": 13.799,
+                    "cores": 3.4,
+                    "sysShare": 0.499
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 825902971,
+                  "wall": 31.286,
+                  "cores": 11.81,
+                  "memPeakGiB": 7.27,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.887,
+                    "at": 8.458,
+                    "cores": 9.63,
+                    "sysShare": 0.28
+                  },
+                  "turbopack": {
+                    "s": 9.564,
+                    "at": 1.704,
+                    "cores": 23.84,
+                    "sysShare": 0.245
+                  },
+                  "persistence": {
+                    "s": 2.854,
+                    "at": 11.273,
+                    "cores": 36.46,
+                    "sysShare": 0.946
+                  },
+                  "compaction": {
+                    "s": 6.055,
+                    "at": 14.147,
+                    "cores": 3.08,
+                    "sysShare": 0.51
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 794804429,
+                  "wall": 29.672,
+                  "cores": 10.15,
+                  "memPeakGiB": 6.77,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.81,
+                    "at": 8.773,
+                    "cores": 4.49,
+                    "sysShare": 0.319
+                  },
+                  "turbopack": {
+                    "s": 9.674,
+                    "at": 1.783,
+                    "cores": 19.48,
+                    "sysShare": 0.278
+                  },
+                  "persistence": {
+                    "s": 2.905,
+                    "at": 11.459,
+                    "cores": 26.4,
+                    "sysShare": 0.945
+                  },
+                  "compaction": {
+                    "s": 6.168,
+                    "at": 14.428,
+                    "cores": 3.26,
+                    "sysShare": 0.501
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 828095176,
+                  "wall": 36.381,
+                  "cores": 10.95,
+                  "memPeakGiB": 7.8,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.568,
+                    "at": 8.328,
+                    "cores": 8.4,
+                    "sysShare": 0.268
+                  },
+                  "turbopack": {
+                    "s": 10.061,
+                    "at": 1.806,
+                    "cores": 25.84,
+                    "sysShare": 0.28
+                  },
+                  "persistence": {
+                    "s": 2.149,
+                    "at": 11.872,
+                    "cores": 44.18,
+                    "sysShare": 0.943
+                  },
+                  "compaction": {
+                    "s": 6.55,
+                    "at": 14.042,
+                    "cores": 2.67,
+                    "sysShare": 0.538
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 812470333,
+                  "wall": 35.789,
+                  "cores": 9.54,
+                  "memPeakGiB": 6.84,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.979,
+                    "at": 8.309,
+                    "cores": 11.42,
+                    "sysShare": 0.327
+                  },
+                  "turbopack": {
+                    "s": 9.635,
+                    "at": 1.626,
+                    "cores": 21.95,
+                    "sysShare": 0.243
+                  },
+                  "persistence": {
+                    "s": 2.604,
+                    "at": 11.267,
+                    "cores": 33.89,
+                    "sysShare": 0.941
+                  },
+                  "compaction": {
+                    "s": 5.911,
+                    "at": 13.891,
+                    "cores": 2.85,
+                    "sysShare": 0.544
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 806714754,
+                  "cacheAfter": 828054058,
+                  "wall": 35.186,
+                  "cores": 10.42,
+                  "memPeakGiB": 7.23,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.585,
+                    "at": 8.019,
+                    "cores": 7.65,
+                    "sysShare": 0.298
+                  },
+                  "turbopack": {
+                    "s": 10.002,
+                    "at": 1.568,
+                    "cores": 22.9,
+                    "sysShare": 0.236
+                  },
+                  "persistence": {
+                    "s": 2.385,
+                    "at": 11.574,
+                    "cores": 40.14,
+                    "sysShare": 0.942
+                  },
+                  "compaction": {
+                    "s": 6.12,
+                    "at": 13.973,
+                    "cores": 3,
+                    "sysShare": 0.544
+                  },
+                  "output": "b07634fc3623a237"
+                }
+              ]
+            }
+          },
+          "up-100280": {
+            "warm": {
+              "median": {
+                "wall": 35.031,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 1.473,
+                "turbopack": 9.415,
+                "persistence": 2.297,
+                "compaction": 6.12,
+                "graphCores": null,
+                "startup": 1.643,
+                "preEmit": 6.204,
+                "afterCompile": 23.937,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.754,
+                "cacheAfterGiB": 0.758
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 831155665,
+                  "wall": 34.98,
+                  "cores": 10.6,
+                  "memPeakGiB": 7.12,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.445,
+                    "at": 9.471,
+                    "cores": 6.53,
+                    "sysShare": 0.297
+                  },
+                  "turbopack": {
+                    "s": 11.214,
+                    "at": 1.683,
+                    "cores": 21.24,
+                    "sysShare": 0.254
+                  },
+                  "persistence": {
+                    "s": 2.315,
+                    "at": 12.903,
+                    "cores": 40,
+                    "sysShare": 0.945
+                  },
+                  "compaction": {
+                    "s": 6.506,
+                    "at": 15.234,
+                    "cores": 2.93,
+                    "sysShare": 0.533
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 831434091,
+                  "wall": 29.674,
+                  "cores": 12.91,
+                  "memPeakGiB": 7.09,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.611,
+                    "at": 7.957,
+                    "cores": 31.27,
+                    "sysShare": 0.299
+                  },
+                  "turbopack": {
+                    "s": 9.934,
+                    "at": 1.563,
+                    "cores": 27.44,
+                    "sysShare": 0.268
+                  },
+                  "persistence": {
+                    "s": 2.073,
+                    "at": 11.501,
+                    "cores": 35.93,
+                    "sysShare": 0.931
+                  },
+                  "compaction": {
+                    "s": 6.031,
+                    "at": 13.595,
+                    "cores": 3.37,
+                    "sysShare": 0.526
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 797344874,
+                  "wall": 34.382,
+                  "cores": 8.46,
+                  "memPeakGiB": 6.85,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.913,
+                    "at": 7.614,
+                    "cores": 13.67,
+                    "sysShare": 0.262
+                  },
+                  "turbopack": {
+                    "s": 8.806,
+                    "at": 1.647,
+                    "cores": 18.75,
+                    "sysShare": 0.278
+                  },
+                  "persistence": {
+                    "s": 2.227,
+                    "at": 10.457,
+                    "cores": 37.78,
+                    "sysShare": 0.946
+                  },
+                  "compaction": {
+                    "s": 6.208,
+                    "at": 12.696,
+                    "cores": 2.79,
+                    "sysShare": 0.537
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 830974866,
+                  "wall": 39.182,
+                  "cores": 9.62,
+                  "memPeakGiB": 7.66,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.871,
+                    "at": 7.914,
+                    "cores": 11.43,
+                    "sysShare": 0.292
+                  },
+                  "turbopack": {
+                    "s": 9.153,
+                    "at": 1.638,
+                    "cores": 24.82,
+                    "sysShare": 0.256
+                  },
+                  "persistence": {
+                    "s": 2.367,
+                    "at": 10.798,
+                    "cores": 43.97,
+                    "sysShare": 0.953
+                  },
+                  "compaction": {
+                    "s": 5.676,
+                    "at": 13.175,
+                    "cores": 2.97,
+                    "sysShare": 0.534
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 797545630,
+                  "wall": 35.182,
+                  "cores": 8.74,
+                  "memPeakGiB": 6.88,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.5,
+                    "at": 7.457,
+                    "cores": 10.43,
+                    "sysShare": 0.252
+                  },
+                  "turbopack": {
+                    "s": 9.276,
+                    "at": 1.656,
+                    "cores": 19.45,
+                    "sysShare": 0.29
+                  },
+                  "persistence": {
+                    "s": 2.399,
+                    "at": 10.938,
+                    "cores": 35.52,
+                    "sysShare": 0.946
+                  },
+                  "compaction": {
+                    "s": 6.425,
+                    "at": 13.359,
+                    "cores": 2.8,
+                    "sysShare": 0.543
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 809191913,
+                  "cacheAfter": 797651568,
+                  "wall": 35.081,
+                  "cores": 8.91,
+                  "memPeakGiB": 7.07,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.511,
+                    "at": 7.715,
+                    "cores": 6.77,
+                    "sysShare": 0.231
+                  },
+                  "turbopack": {
+                    "s": 9.553,
+                    "at": 1.583,
+                    "cores": 19.47,
+                    "sysShare": 0.29
+                  },
+                  "persistence": {
+                    "s": 2.28,
+                    "at": 11.14,
+                    "cores": 37.5,
+                    "sysShare": 0.951
+                  },
+                  "compaction": {
+                    "s": 6.016,
+                    "at": 13.444,
+                    "cores": 2.77,
+                    "sysShare": 0.528
+                  },
+                  "output": "b07634fc3623a237"
+                }
+              ]
+            }
+          },
+          "up-100281": {
+            "warm": {
+              "median": {
+                "wall": 34.529,
+                "graph": null,
+                "entrypoints": null,
+                "emit": 1.362,
+                "turbopack": 9.762,
+                "persistence": 2.043,
+                "compaction": 5.737,
+                "graphCores": null,
+                "startup": 1.663,
+                "preEmit": 6.264,
+                "afterCompile": 23.404,
+                "lowCoreS": 0,
+                "leadLowCoreS": 0,
+                "cacheBeforeGiB": 0.755,
+                "cacheAfterGiB": 0.745
+              },
+              "runs": [
+                {
+                  "rep": 0,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 799543698,
+                  "wall": 37.783,
+                  "cores": 8.82,
+                  "memPeakGiB": 6.82,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.056,
+                    "at": 9.451,
+                    "cores": 12.34,
+                    "sysShare": 0.326
+                  },
+                  "turbopack": {
+                    "s": 10.813,
+                    "at": 1.631,
+                    "cores": 19.09,
+                    "sysShare": 0.296
+                  },
+                  "persistence": {
+                    "s": 2.085,
+                    "at": 12.448,
+                    "cores": 40.85,
+                    "sysShare": 0.949
+                  },
+                  "compaction": {
+                    "s": 5.837,
+                    "at": 14.546,
+                    "cores": 2.72,
+                    "sysShare": 0.524
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 1,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 799520903,
+                  "wall": 36.48,
+                  "cores": 9.25,
+                  "memPeakGiB": 7.51,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.668,
+                    "at": 8.348,
+                    "cores": 18.62,
+                    "sysShare": 0.342
+                  },
+                  "turbopack": {
+                    "s": 10.214,
+                    "at": 1.775,
+                    "cores": 20.8,
+                    "sysShare": 0.319
+                  },
+                  "persistence": {
+                    "s": 1.894,
+                    "at": 11.993,
+                    "cores": 42.68,
+                    "sysShare": 0.944
+                  },
+                  "compaction": {
+                    "s": 5.612,
+                    "at": 13.911,
+                    "cores": 3.03,
+                    "sysShare": 0.557
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 2,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 812045625,
+                  "wall": 37.297,
+                  "cores": 9.25,
+                  "memPeakGiB": 6.94,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.685,
+                    "at": 8.696,
+                    "cores": 9.52,
+                    "sysShare": 0.305
+                  },
+                  "turbopack": {
+                    "s": 10.743,
+                    "at": 1.587,
+                    "cores": 20.53,
+                    "sysShare": 0.278
+                  },
+                  "persistence": {
+                    "s": 2.184,
+                    "at": 12.333,
+                    "cores": 37.67,
+                    "sysShare": 0.947
+                  },
+                  "compaction": {
+                    "s": 5.449,
+                    "at": 14.528,
+                    "cores": 3.04,
+                    "sysShare": 0.517
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 3,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 799422358,
+                  "wall": 29.872,
+                  "cores": 9.16,
+                  "memPeakGiB": 6.67,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.713,
+                    "at": 7.37,
+                    "cores": 23.66,
+                    "sysShare": 0.202
+                  },
+                  "turbopack": {
+                    "s": 9.31,
+                    "at": 1.681,
+                    "cores": 19.27,
+                    "sysShare": 0.301
+                  },
+                  "persistence": {
+                    "s": 1.709,
+                    "at": 10.995,
+                    "cores": 33.45,
+                    "sysShare": 0.931
+                  },
+                  "compaction": {
+                    "s": 5.851,
+                    "at": 12.715,
+                    "cores": 3.2,
+                    "sysShare": 0.518
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 4,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 798959322,
+                  "wall": 32.579,
+                  "cores": 9.17,
+                  "memPeakGiB": 6.91,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 0.946,
+                    "at": 7.375,
+                    "cores": 13.33,
+                    "sysShare": 0.259
+                  },
+                  "turbopack": {
+                    "s": 8.617,
+                    "at": 1.644,
+                    "cores": 20.04,
+                    "sysShare": 0.314
+                  },
+                  "persistence": {
+                    "s": 2.249,
+                    "at": 10.276,
+                    "cores": 37.8,
+                    "sysShare": 0.952
+                  },
+                  "compaction": {
+                    "s": 6.016,
+                    "at": 12.548,
+                    "cores": 2.82,
+                    "sysShare": 0.511
+                  },
+                  "output": "b07634fc3623a237"
+                },
+                {
+                  "rep": 5,
+                  "cacheBefore": 810237220,
+                  "cacheAfter": 799220198,
+                  "wall": 27.871,
+                  "cores": 10.57,
+                  "memPeakGiB": 6.9,
+                  "graph": null,
+                  "entrypoints": null,
+                  "emit": {
+                    "s": 1.033,
+                    "at": 7.691,
+                    "cores": 12.85,
+                    "sysShare": 0.261
+                  },
+                  "turbopack": {
+                    "s": 8.991,
+                    "at": 1.736,
+                    "cores": 18.82,
+                    "sysShare": 0.321
+                  },
+                  "persistence": {
+                    "s": 2.001,
+                    "at": 10.741,
+                    "cores": 44.66,
+                    "sysShare": 0.946
+                  },
+                  "compaction": {
+                    "s": 5.637,
+                    "at": 12.764,
+                    "cores": 3.6,
+                    "sysShare": 0.515
+                  },
+                  "output": "b07634fc3623a237"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
