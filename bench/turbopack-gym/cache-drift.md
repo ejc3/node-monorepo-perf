@@ -1218,8 +1218,15 @@ the same file there and on canary before #100280. All 192 CPUs of a dedicated i8
 | vercel/next.js#100281 | <!--v:dr.upmbs192.import.up-100281.1.warm.turbopack-->9.8s<!--/v--> | <!--v:dr.upmbcs192.import.up-100281.0.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.upmbcs192.import.up-100281.1.cold.turbopack-->19.0s<!--/v--> |
 
 Same output in every build. Without stripes the build is about 3s slower warm and 5 to 6s slower
-cold. #100280 and #100281 are within the spread of 52 and of each other; #100281's system-time
-share of `run-turbopack` was slightly higher on warm builds, with no difference in time.
+cold. Warm and cold with nothing changed, #100280 and #100281 are within the spread of 52 and of
+each other. Cold after one new import they are not: all three of #100280's builds were slower
+than all three of 52's, by <!--v:dr.upmbcs192.import.up-100280.1.cold.turbopack-->19.1s<!--/v-->
+against <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->18.4s<!--/v--> in the
+median, while #100281's spread across both (18.3 to 19.1s). With nothing changed the order was
+the other way round (#100280 <!--v:dr.upmbcs192.import.up-100280.0.cold.turbopack-->18.7s<!--/v-->,
+52 <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.0.cold.turbopack-->19.1s<!--/v-->), so three
+builds a side cannot say whether the polled drain costs anything. #100281's system-time share of `run-turbopack` was slightly higher on warm
+builds, with no difference in time.
 
 ## Profiles: 192 CPUs and a larger app
 
