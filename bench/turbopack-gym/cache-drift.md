@@ -1198,6 +1198,36 @@ cold `run-turbopack` <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.cold.turbopac
 <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1.warm.turbopack-->17.9s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1.warm.turbopack-->16.0s<!--/v--> at 1, <!--v:dr.c52s24.import.15+22+55+56+57+59+61.10.warm.turbopack-->20.5s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.10.warm.turbopack-->17.8s<!--/v--> at 10 and <!--v:dr.c52s24.import.15+22+55+56+57+59+61.1000.warm.turbopack-->23.3s<!--/v--> → <!--v:dr.c52s24.import.15+22+52+55+56+57+59+61.1000.warm.turbopack-->20.7s<!--/v--> at 1,000;
 the same with nothing changed. Same output.
 
+## 52 upstream: vercel/next.js#100280 and #100281
+
+vercel/next.js#100280 (merged) carries 52's per-thread stripes, cherry-picked, plus a polled
+drain in place of notifying from operation ends. Draft #100281, stacked on it, replaces the
+stripes with per-thread counters and an asymmetric barrier (`membarrier` on Linux). Each is
+applied in place of 52 on the 75b stack (`upstream/100280-stripe-and-poll.patch`, the merged
+commit; `upstream/100281-asymmetric-barrier.patch`, #100281's branch from its canary base, which
+carries an earlier revision of #100280). Both apply to v16.4.0 as is: `snapshot_coordinator.rs` is
+the same file there and on canary before #100280. All 192 CPUs of a dedicated i8g.48xlarge
+(`bench/turbopack-graph-drift-upmb-192.json`, warm, 6 reps; `-upmbc-192.json`, cold, 3 reps;
+`import` edits), median `run-turbopack`:
+
+| binding | warm, 1 new import | cold, 0 | cold, 1 |
+|---|---|---|---|
+| without 52 | <!--v:dr.upmbs192.import.up-no52.1.warm.turbopack-->13.0s<!--/v--> | <!--v:dr.upmbcs192.import.up-no52.0.cold.turbopack-->23.9s<!--/v--> | <!--v:dr.upmbcs192.import.up-no52.1.cold.turbopack-->24.5s<!--/v--> |
+| 52 (ours, ejc3/next.js#8) | <!--v:dr.upmbs192.import.u1+full67-22+71+75b.1.warm.turbopack-->9.8s<!--/v--> | <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.0.cold.turbopack-->19.1s<!--/v--> | <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->18.4s<!--/v--> |
+| vercel/next.js#100280 | <!--v:dr.upmbs192.import.up-100280.1.warm.turbopack-->9.4s<!--/v--> | <!--v:dr.upmbcs192.import.up-100280.0.cold.turbopack-->18.7s<!--/v--> | <!--v:dr.upmbcs192.import.up-100280.1.cold.turbopack-->19.1s<!--/v--> |
+| vercel/next.js#100281 | <!--v:dr.upmbs192.import.up-100281.1.warm.turbopack-->9.8s<!--/v--> | <!--v:dr.upmbcs192.import.up-100281.0.cold.turbopack-->18.8s<!--/v--> | <!--v:dr.upmbcs192.import.up-100281.1.cold.turbopack-->19.0s<!--/v--> |
+
+Same output in every build. Without stripes the build is about 3s slower warm and 5 to 6s slower
+cold. Warm and cold with nothing changed, #100280 and #100281 are within the spread of 52 and of
+each other. Cold after one new import they are not: all three of #100280's builds were slower
+than all three of 52's, by <!--v:dr.upmbcs192.import.up-100280.1.cold.turbopack-->19.1s<!--/v-->
+against <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.1.cold.turbopack-->18.4s<!--/v--> in the
+median, while #100281's spread across both (18.3 to 19.1s). With nothing changed the order was
+the other way round (#100280 <!--v:dr.upmbcs192.import.up-100280.0.cold.turbopack-->18.7s<!--/v-->,
+52 <!--v:dr.upmbcs192.import.u1+full67-22+71+75b.0.cold.turbopack-->19.1s<!--/v-->), so three
+builds a side cannot say whether the polled drain costs anything. #100281's system-time share of `run-turbopack` was slightly higher on warm
+builds, with no difference in time.
+
 ## Profiles: 192 CPUs and a larger app
 
 Whole-build profiles of 15 + 22 + 55 + 56 + 57 + 59 + 61 built with frame pointers (`perf`
